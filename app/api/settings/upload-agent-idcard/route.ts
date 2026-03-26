@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     // Delete old file if exists
     const existing = await prisma.settings.findUnique({
-      where: { id: 1 },
+      where: { userId: session.id },
       select: { agentIdCardPath: true },
     });
     if (existing?.agentIdCardPath) {
@@ -40,9 +40,9 @@ export async function POST(req: NextRequest) {
     const filePath = `/uploads/settings/${filename}`;
 
     await prisma.settings.upsert({
-      where: { id: 1 },
+      where: { userId: session.id },
       update: { agentIdCardPath: filePath },
-      create: { id: 1, agentIdCardPath: filePath },
+      create: { userId: session.id, agentIdCardPath: filePath },
     });
 
     revalidatePath("/settings");
@@ -63,7 +63,7 @@ export async function DELETE() {
     }
 
     const existing = await prisma.settings.findUnique({
-      where: { id: 1 },
+      where: { userId: session.id },
       select: { agentIdCardPath: true },
     });
     if (existing?.agentIdCardPath) {
@@ -72,9 +72,9 @@ export async function DELETE() {
     }
 
     await prisma.settings.upsert({
-      where: { id: 1 },
+      where: { userId: session.id },
       update: { agentIdCardPath: null },
-      create: { id: 1 },
+      create: { userId: session.id },
     });
 
     revalidatePath("/settings");
