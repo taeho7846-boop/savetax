@@ -20,7 +20,7 @@ function getLaborTypes(formData: FormData) {
 }
 
 export async function createClient(formData: FormData) {
-  await requireAuth();
+  const session = await requireAuth();
 
   const client = await prisma.client.create({
     data: {
@@ -43,7 +43,7 @@ export async function createClient(formData: FormData) {
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
-        : null,
+        : session.id,
     },
   });
 
@@ -143,7 +143,7 @@ export async function getCreateClientData() {
 }
 
 export async function createClientInModal(formData: FormData) {
-  await requireAuth();
+  const session = await requireAuth();
 
   const client = await prisma.client.create({
     data: {
@@ -166,7 +166,7 @@ export async function createClientInModal(formData: FormData) {
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
-        : null,
+        : session.id,
     },
   });
 

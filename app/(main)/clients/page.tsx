@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { ClientsTable } from "./ClientsTable";
 import { ClientCreateButton } from "./ClientCreateModal";
 
@@ -13,11 +15,18 @@ export default async function ClientsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const params = await searchParams;
   const q = params.q || "";
+  const isAdmin = session.role === "owner" || session.role === "admin";
+
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      // 실무자/조회전용은 자기 거래처만
+      ...(!isAdmin ? { assignedUserId: session.id } : {}),
       OR: [
         { taxTypes: null },
         { NOT: { taxTypes: { contains: "신고대리" } } },
