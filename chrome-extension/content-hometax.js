@@ -185,24 +185,17 @@
 
   // === 로그인 처리 ===
   async function doLogin(id, pw) {
-    const loginBtn = await waitForId("mf_wfHeader_group1503");
-    loginBtn.click();
-
-    await sleep(1000);
-    const idLoginTab = await waitForId("mf_txppWframe_anchor15");
-    idLoginTab.click();
-
-    await sleep(500);
+    (await waitForId("mf_wfHeader_group1503")).click();
+    (await waitForId("mf_txppWframe_anchor15")).click();
+    await sleep(300);
     setInput(await waitForId("mf_txppWframe_iptUserId"), id);
     setInput(await waitForId("mf_txppWframe_iptUserPw"), pw);
-
-    await sleep(300);
+    await sleep(200);
     (await waitForId("mf_txppWframe_anchor25")).click();
 
     // 권한 팝업
-    await sleep(1000);
     try {
-      const allowBtn = await waitForXPath("//*[normalize-space(text())='허용']", 3000);
+      const allowBtn = await waitForXPath("//*[normalize-space(text())='허용']", 2000);
       if (allowBtn) allowBtn.click();
     } catch (e) {}
   }
@@ -211,7 +204,7 @@
   async function doCert(certName, certPw) {
     if (!certPw) return;
     try {
-      await sleep(3000);
+      await sleep(1000);
       const iframes = document.querySelectorAll("iframe");
       let doc = null;
       for (const iframe of iframes) {
@@ -220,7 +213,7 @@
             doc = iframe.contentDocument;
             break;
           }
-        } catch (e) { console.log("SaveTax: iframe 접근 실패 (cross-origin)", e); }
+        } catch (e) {}
       }
 
       if (doc) {
@@ -231,37 +224,34 @@
           const firstCert = doc.evaluate("//span[@title and string-length(@title) > 0]", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
           if (firstCert) firstCert.click();
         }
-        await sleep(500);
+        await sleep(300);
 
         const pwField = doc.getElementById("input_cert_pw");
         if (pwField) { pwField.focus(); pwField.value = certPw; pwField.dispatchEvent(new Event("input", { bubbles: true })); }
-        await sleep(300);
+        await sleep(200);
 
         const confirmBtn = doc.getElementById("btn_confirm_iframe");
         if (confirmBtn) confirmBtn.click();
-        await sleep(2000);
+        await sleep(1000);
       } else {
-        console.log("SaveTax: 인증서 iframe 못 찾음 - 수동으로 인증서 처리 필요");
-        // 인증서를 수동으로 처리할 시간 대기
-        await sleep(15000);
+        await sleep(5000);
       }
     } catch (e) {
-      console.error("SaveTax 인증서 처리 실패:", e);
-      await sleep(10000);
+      await sleep(3000);
     }
 
-    // 인증 후 팝업 처리 - "취소" 클릭 (페이지 이동 없이 현재 페이지 유지)
-    await sleep(2000);
+    // 인증 후 팝업 처리 - "취소" 클릭
+    await sleep(1000);
     try {
-      const cancelBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and @value='취소']", 5000);
+      const cancelBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and @value='취소']", 3000);
       if (cancelBtn) cancelBtn.click();
     } catch (e) {
       try {
-        const closeBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_close')]", 3000);
+        const closeBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_close')]", 2000);
         if (closeBtn) closeBtn.click();
       } catch (e2) {}
     }
-    await sleep(1000);
+    await sleep(500);
   }
 
   // === 주민등록번호 입력 ===
@@ -310,19 +300,13 @@
       // 1. 세무대리인 로그인 + 인증서
       await doLogin(creds.id, creds.pw);
       await doCert(creds.certName, creds.certPw);
-      await sleep(1000);
 
-      // 2. 메뉴 이동 + 폼 입력 (페이지 이동 없이 연속 실행)
+      // 2. 메뉴 이동 (요소가 나타나면 즉시 클릭)
       (await waitForId("mf_wfHeader_wq_uuid_619")).click();
-      await sleep(1000);
-
       (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
-      await sleep(1000);
-
       (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
-      await sleep(2000);
 
-      // 3. 폼 입력
+      // 3. 폼 입력 (요소가 나타나면 즉시 입력)
       const clientType = creds.clientType;
       const bizNumber = (creds.bizNumber || "").replace(/[-\s]/g, "");
       const residentNumber = (creds.residentNumber || "").replace(/[-\s]/g, "");
@@ -336,7 +320,6 @@
       } else {
         try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_1']")).click(); } catch (e) {}
       }
-      await sleep(500);
 
       setInput(await waitForId("mf_txppWframe_bsno1"), biz1);
       setInput(await waitForId("mf_txppWframe_bsno2"), biz2);
