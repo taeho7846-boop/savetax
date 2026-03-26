@@ -139,9 +139,14 @@
 
       // 현행 홈택스 이용하기
       try {
-        const oldBtn = await waitForXPath("//span[contains(@id,'mf_wfHeader') and contains(.,'현행 홈택스')]", 5000);
+        const oldBtn = await waitForXPath("//*[contains(@id,'mf_wfHeader') and contains(.,'현행 홈택스')]", 5000);
         if (oldBtn) oldBtn.click();
-      } catch (e) {}
+      } catch (e) {
+        try {
+          const oldBtn2 = document.getElementById("mf_wfHeader_group878");
+          if (oldBtn2) oldBtn2.click();
+        } catch (e2) {}
+      }
     } catch (e) {
       console.error("SaveTax 인증서 처리 실패:", e);
     }
