@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     await writeFile(path.join(uploadDir, filename), Buffer.from(bytes));
 
-    const filePath = `/uploads/settings/${filename}`;
+    const filePath = `/api/uploads/settings/${filename}`;
 
     await prisma.settings.upsert({
       where: { userId: session.id },
