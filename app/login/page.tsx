@@ -1,10 +1,11 @@
 import { login } from "@/app/actions/auth";
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  const { error } = await searchParams;
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-md p-8 w-full max-w-sm">
@@ -14,6 +15,12 @@ export default function LoginPage({
           </h1>
           <p className="text-gray-500 text-sm mt-1">내부 직원 전용 시스템</p>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
 
         <form action={login} className="space-y-4">
           <div>
