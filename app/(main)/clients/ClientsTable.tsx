@@ -67,22 +67,39 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
     setLoginErrors((prev) => { const n = { ...prev }; delete n[clientId]; return n; });
 
     try {
-      const res = await fetch("/api/automation/hometax-login", {
+      // 1. 서버에서 자격증명 가져오기
+      const res = await fetch("/api/automation/hometax-credentials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        setLoginStatuses((prev) => ({ ...prev, [clientId]: "success" }));
-        setVncOpen(true);
-        setTimeout(() => {
-          setLoginStatuses((prev) => ({ ...prev, [clientId]: "idle" }));
-        }, 5000);
-      } else {
+      if (!res.ok) {
         setLoginStatuses((prev) => ({ ...prev, [clientId]: "error" }));
         setLoginErrors((prev) => ({ ...prev, [clientId]: data.error ?? "오류 발생" }));
+        return;
       }
+
+      // 2. Chrome 확장 프로그램으로 자격증명 전달
+      const extensionId = localStorage.getItem("savetax_extension_id");
+      if (extensionId && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage(extensionId, {
+          type: "HOMETAX_LOGIN",
+          hometaxId: data.hometaxId,
+          hometaxPw: data.hometaxPw,
+          residentNumber: data.residentNumber,
+        });
+        setLoginStatuses((prev) => ({ ...prev, [clientId]: "success" }));
+      } else {
+        // 확장 프로그램 미설치 시: 새 탭으로 홈택스 열기 + 자격증명 표시
+        window.open("https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3", "_blank");
+        await navigator.clipboard.writeText(data.hometaxId);
+        alert(`홈택스 ID가 클립보드에 복사되었습니다.\n\nID: ${data.hometaxId}\nPW: ${data.hometaxPw}\n\nChrome 확장 프로그램을 설치하면 자동 로그인됩니다.`);
+        setLoginStatuses((prev) => ({ ...prev, [clientId]: "success" }));
+      }
+      setTimeout(() => {
+        setLoginStatuses((prev) => ({ ...prev, [clientId]: "idle" }));
+      }, 3000);
     } catch {
       setLoginStatuses((prev) => ({ ...prev, [clientId]: "error" }));
       setLoginErrors((prev) => ({ ...prev, [clientId]: "네트워크 오류" }));
@@ -312,25 +329,6 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
         </table>
       </div>
 
-      {vncOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <h3 className="font-semibold text-gray-800">홈택스 원격 화면</h3>
-              <button
-                onClick={() => setVncOpen(false)}
-                className="text-gray-500 hover:text-gray-800 text-xl px-2"
-              >
-                ✕
-              </button>
-            </div>
-            <iframe
-              src={`${window.location.protocol}//${window.location.hostname}:6080/vnc.html?autoconnect=true&password=savetax123!`}
-              className="flex-1 w-full border-0 rounded-b-xl"
-            />
-          </div>
-        </div>
-      )}
     </>
   );
 }

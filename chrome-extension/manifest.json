@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "SaveTax 홈택스 자동 로그인",
+  "version": "1.0",
+  "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://hometax.go.kr/*"],
+      "js": ["content-hometax.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": ["http://158.247.222.58/*", "http://localhost:*/*", "https://*.vercel.app/*"]
+  },
+  "icons": {}
+}
