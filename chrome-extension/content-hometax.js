@@ -32,18 +32,6 @@
     });
   }
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-  function pClick(id) {
-    const s = document.createElement("script");
-    s.textContent = `document.getElementById("${id}")?.click();`;
-    document.documentElement.appendChild(s);
-    s.remove();
-  }
-  function pExec(code) {
-    const s = document.createElement("script");
-    s.textContent = code;
-    document.documentElement.appendChild(s);
-    s.remove();
-  }
   function setInput(el, value) {
     el.focus(); el.value = value;
     el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -53,16 +41,13 @@
   try {
     // 메뉴 이동: 세무대리·납세관리
     await sleep(2000);
-    await waitForId("mf_wfHeader_wq_uuid_619");
-    pClick("mf_wfHeader_wq_uuid_619");
+    (await waitForId("mf_wfHeader_wq_uuid_619")).click();
     await sleep(1000);
 
-    await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']");
-    pExec(`document.evaluate("//span[@escape='false' and @label='수임 납세자 관리']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.click()`);
+    (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
     await sleep(1000);
 
-    await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]");
-    pExec(`document.evaluate("//span[contains(text(),'기장대리 수임납세자 등록')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.click()`);
+    (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
     await sleep(2000);
 
     // 폼 입력
@@ -75,9 +60,9 @@
     const phone1 = phone.slice(0, 3), phone2 = phone.slice(3, 7), phone3 = phone.slice(7, 11);
 
     if (clientType === "individual") {
-      try { pExec(`document.evaluate("//label[@for='mf_txppWframe_taPrxClntClCd_input_0']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.click()`); } catch (e) {}
+      try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_0']")).click(); } catch (e) {}
     } else {
-      try { pExec(`document.evaluate("//label[@for='mf_txppWframe_taPrxClntClCd_input_1']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.click()`); } catch (e) {}
+      try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_1']")).click(); } catch (e) {}
     }
     await sleep(500);
 
@@ -99,7 +84,7 @@
     setInput(await waitForId("mf_txppWframe_afaDt_input"), dateStr);
 
     if (clientType === "individual") {
-      try { pExec(`document.evaluate("//label[@for='mf_txppWframe_infrOfrRngCd_input_0']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.click()`); } catch (e) {}
+      try { (await waitForXPath("//label[@for='mf_txppWframe_infrOfrRngCd_input_0']")).click(); } catch (e) {}
     }
 
     console.log("SaveTax: 기장등록 입력 완료");
@@ -200,26 +185,25 @@
 
   // === 로그인 처리 ===
   async function doLogin(id, pw) {
-    await waitForId("mf_wfHeader_group1503");
-    pageClick("mf_wfHeader_group1503");
+    const loginBtn = await waitForId("mf_wfHeader_group1503");
+    loginBtn.click();
 
     await sleep(1000);
-    await waitForId("mf_txppWframe_anchor15");
-    pageClick("mf_txppWframe_anchor15");
+    const idLoginTab = await waitForId("mf_txppWframe_anchor15");
+    idLoginTab.click();
 
     await sleep(500);
     setInput(await waitForId("mf_txppWframe_iptUserId"), id);
     setInput(await waitForId("mf_txppWframe_iptUserPw"), pw);
 
     await sleep(300);
-    await waitForId("mf_txppWframe_anchor25");
-    pageClick("mf_txppWframe_anchor25");
+    (await waitForId("mf_txppWframe_anchor25")).click();
 
     // 권한 팝업
     await sleep(1000);
     try {
       const allowBtn = await waitForXPath("//*[normalize-space(text())='허용']", 3000);
-      if (allowBtn) pageExec(`document.evaluate("//*[normalize-space(text())='허용']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.click()`);
+      if (allowBtn) allowBtn.click();
     } catch (e) {}
   }
 
