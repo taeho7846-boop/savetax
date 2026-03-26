@@ -1,9 +1,11 @@
 import { PrismaClient } from "@/app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 function createPrismaClient() {
   const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || "";
-  const adapter = new PrismaPg(url);
+  const pool = new pg.Pool({ connectionString: url });
+  const adapter = new PrismaPg(pool as any);
   return new PrismaClient({ adapter });
 }
 
