@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ClientsTable } from "./ClientsTable";
 import { ClientCreateButton } from "./ClientCreateModal";
+import { BulkUploadButton } from "./BulkUploadModal";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "근로소득": { border: "border-red-400",   text: "text-red-600",   bg: "bg-red-50"   },
@@ -59,6 +60,7 @@ export default async function ClientsPage({
             ))}
           </div>
 
+          <BulkUploadButton />
           <ClientCreateButton />
         </div>
       </div>
