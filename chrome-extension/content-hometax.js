@@ -39,10 +39,16 @@
   }
 
   try {
-    // 메뉴는 직접 클릭 → 폼이 나타나면 자동 입력
-    // mf_txppWframe_bsno1 이 나타날 때까지 대기 (최대 120초)
-    await waitForId("mf_txppWframe_bsno1", 120000);
-    await sleep(500);
+    // 메뉴 이동: 세무대리·납세관리
+    await sleep(2000);
+    (await waitForId("mf_wfHeader_wq_uuid_619")).click();
+    await sleep(1000);
+
+    (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
+    await sleep(1000);
+
+    (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
+    await sleep(2000);
 
     // 폼 입력
     const clientType = creds.clientType;
@@ -244,16 +250,15 @@
       await sleep(10000);
     }
 
-    // 인증 후 팝업 처리 - "닫기" 또는 "취소" 클릭 후 index4로 이동
+    // 인증 후 팝업 처리 - "취소" 클릭 (페이지 이동 없이 현재 페이지 유지)
     await sleep(2000);
     try {
-      const closeBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_close') and @value='닫기']", 5000);
-      if (closeBtn) closeBtn.click();
+      const cancelBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and @value='취소']", 5000);
+      if (cancelBtn) cancelBtn.click();
     } catch (e) {
-      // 닫기 버튼 못 찾으면 확인 버튼 시도
       try {
-        const confirmBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_confirm') and @value='확인']", 3000);
-        if (confirmBtn) confirmBtn.click();
+        const closeBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_close')]", 3000);
+        if (closeBtn) closeBtn.click();
       } catch (e2) {}
     }
     await sleep(1000);
@@ -302,14 +307,59 @@
     try {
       if (await checkLogout()) return;
 
-      // 1. 먼저 데이터 저장 (페이지 이동/새로고침에 대비)
-      sessionStorage.setItem("savetax_register_data", JSON.stringify(creds));
-
-      // 2. 세무대리인 로그인 + 인증서
+      // 1. 세무대리인 로그인 + 인증서
       await doLogin(creds.id, creds.pw);
       await doCert(creds.certName, creds.certPw);
-      // 인증서 처리 후 "현행 홈택스 이용하기"는 직접 클릭
-      // → index4 페이지로 이동 → sessionStorage에서 데이터 읽어서 기장등록 자동 진행
+      await sleep(1000);
+
+      // 2. 메뉴 이동 + 폼 입력 (페이지 이동 없이 연속 실행)
+      (await waitForId("mf_wfHeader_wq_uuid_619")).click();
+      await sleep(1000);
+
+      (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
+      await sleep(1000);
+
+      (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
+      await sleep(2000);
+
+      // 3. 폼 입력
+      const clientType = creds.clientType;
+      const bizNumber = (creds.bizNumber || "").replace(/[-\s]/g, "");
+      const residentNumber = (creds.residentNumber || "").replace(/[-\s]/g, "");
+      const phone = (creds.phone || "").replace(/[-\s]/g, "");
+
+      const biz1 = bizNumber.slice(0, 3), biz2 = bizNumber.slice(3, 5), biz3 = bizNumber.slice(5, 10);
+      const phone1 = phone.slice(0, 3), phone2 = phone.slice(3, 7), phone3 = phone.slice(7, 11);
+
+      if (clientType === "individual") {
+        try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_0']")).click(); } catch (e) {}
+      } else {
+        try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_1']")).click(); } catch (e) {}
+      }
+      await sleep(500);
+
+      setInput(await waitForId("mf_txppWframe_bsno1"), biz1);
+      setInput(await waitForId("mf_txppWframe_bsno2"), biz2);
+      setInput(await waitForId("mf_txppWframe_bsno3"), biz3);
+      setInput(await waitForId("mf_txppWframe_resno"), residentNumber);
+      setInput(await waitForId("mf_txppWframe_telno1"), phone1);
+      setInput(await waitForId("mf_txppWframe_telno2"), phone2);
+      setInput(await waitForId("mf_txppWframe_telno3"), phone3);
+
+      const mpSelect = document.getElementById("mf_txppWframe_mp1");
+      if (mpSelect) { mpSelect.value = phone1; mpSelect.dispatchEvent(new Event("change", { bubbles: true })); }
+      setInput(await waitForId("mf_txppWframe_mp2"), phone2);
+      setInput(await waitForId("mf_txppWframe_mp3"), phone3);
+
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      setInput(await waitForId("mf_txppWframe_afaDt_input"), dateStr);
+
+      if (clientType === "individual") {
+        try { (await waitForXPath("//label[@for='mf_txppWframe_infrOfrRngCd_input_0']")).click(); } catch (e) {}
+      }
+
+      console.log("SaveTax: 기장등록 입력 완료 - 확인 후 등록 버튼을 눌러주세요");
 
     } catch (e) {
       console.error("SaveTax 기장등록 실패:", e);
