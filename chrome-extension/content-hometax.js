@@ -302,10 +302,9 @@
       // 2. 메뉴 이동 (1.5초 대기 후 시작)
       await sleep(1500);
       (await waitForId("mf_wfHeader_wq_uuid_619")).click();
-      await sleep(200);
       (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
-      await sleep(200);
       (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
+      await sleep(500);
 
       // 3. 폼 입력 (요소가 나타나면 즉시 입력)
       const clientType = creds.clientType;
@@ -322,18 +321,18 @@
         try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_1']")).click(); } catch (e) {}
       }
 
-      setInput(await waitForId("mf_txppWframe_bsno1"), biz1); await sleep(100);
-      setInput(await waitForId("mf_txppWframe_bsno2"), biz2); await sleep(100);
-      setInput(await waitForId("mf_txppWframe_bsno3"), biz3); await sleep(100);
-      setInput(await waitForId("mf_txppWframe_resno"), residentNumber); await sleep(100);
-      setInput(await waitForId("mf_txppWframe_telno1"), phone1); await sleep(100);
-      setInput(await waitForId("mf_txppWframe_telno2"), phone2); await sleep(100);
-      setInput(await waitForId("mf_txppWframe_telno3"), phone3); await sleep(100);
+      setInput(await waitForId("mf_txppWframe_bsno1"), biz1);
+      setInput(await waitForId("mf_txppWframe_bsno2"), biz2);
+      setInput(await waitForId("mf_txppWframe_bsno3"), biz3);
+      setInput(await waitForId("mf_txppWframe_resno"), residentNumber);
+      setInput(await waitForId("mf_txppWframe_telno1"), phone1);
+      setInput(await waitForId("mf_txppWframe_telno2"), phone2);
+      setInput(await waitForId("mf_txppWframe_telno3"), phone3);
 
       const mpSelect = document.getElementById("mf_txppWframe_mp1");
-      if (mpSelect) { mpSelect.value = phone1; mpSelect.dispatchEvent(new Event("change", { bubbles: true })); } await sleep(100);
-      setInput(await waitForId("mf_txppWframe_mp2"), phone2); await sleep(100);
-      setInput(await waitForId("mf_txppWframe_mp3"), phone3); await sleep(100);
+      if (mpSelect) { mpSelect.value = phone1; mpSelect.dispatchEvent(new Event("change", { bubbles: true })); }
+      setInput(await waitForId("mf_txppWframe_mp2"), phone2);
+      setInput(await waitForId("mf_txppWframe_mp3"), phone3);
 
       const today = new Date();
       const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
