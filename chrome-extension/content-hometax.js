@@ -262,9 +262,6 @@
       await sleep(1000);
     }
 
-    // 현행 홈택스 이용하기 → URL로 직접 이동
-    await sleep(2000);
-    window.location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index4";
   }
 
   // === 주민등록번호 입력 ===
@@ -293,7 +290,11 @@
 
       const rn = (creds.rn || "").replace(/[-\s]/g, "");
       if (rn) await doJumin(rn);
-      if (creds.certPw) await doCert(creds.certName, creds.certPw);
+      if (creds.certPw) {
+        await doCert(creds.certName, creds.certPw);
+        await sleep(2000);
+        window.location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index4";
+      }
     } catch (e) {
       console.error("SaveTax 자동 로그인 실패:", e);
     }
@@ -309,10 +310,10 @@
       // 1. 세무대리인 로그인
       await doLogin(creds.id, creds.pw);
       await doCert(creds.certName, creds.certPw);
-      await sleep(2000);
 
       // 2. 거래처 데이터를 sessionStorage에 저장 후 현행 홈택스 페이지로 이동
       sessionStorage.setItem("savetax_register_data", JSON.stringify(creds));
+      await sleep(2000);
       window.location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index4";
 
     } catch (e) {
