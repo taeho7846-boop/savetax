@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// 사용자 (직원)
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  name      String
+  role      String   @default("staff") // owner | admin | staff | readonly
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clients   Client[]
+  tasks     Task[]
+  memos     Memo[]
+}
+
+// 고객사
+model Client {
+  id             Int      @id @default(autoincrement())
+  name           String
+  bizNumber      String?  // 사업자등록번호
+  ceoName        String?  // 대표자명
+  phone          String?
+  email          String?
+  address        String?
+  bizType        String?  // 업종
+  clientType     String   @default("individual") // corporate | individual
+  contractStatus String   @default("active")     // active | inactive (deprecated)
+  taxationType   String?                         // 과세 | 면세
+  taxTypes       String?  // 신고유형 (콤마 구분)
+  laborTypes     String?  // 인건비 (콤마 구분)
+  residentNumber String?  // 주민등록번호
+  hometaxId      String?  // 홈택스 ID
+  hometaxPw      String?  // 홈택스 PW
+  monthlyFee     Int?     // 월 기장료
+  firstWithdrawalMonth String? // 최초 출금월 (YYYY-MM)
+  bankName       String?  // 출금 은행
+  bankAccount    String?  // 출금 계좌번호
+  notes          String?  // 특이사항
+  assignedUserId Int?
+  assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tasks      Task[]
+  memos      Memo[]
+  feeRecords FeeRecord[]
+  commission CommissionProcess?
+}
+
+// 기장료 수납 기록
+model FeeRecord {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  client    Client   @relation(fields: [clientId], references: [id])
+  yearMonth String   // "YYYY-MM"
+  status    String   @default("unpaid") // "paid" | "unpaid"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, yearMonth])
+}
+
+// 업무 / 일정
+model Task {
+  id          Int       @id @default(autoincrement())
+  clientId    Int
+  client      Client    @relation(fields: [clientId], references: [id])
+  assignedUserId Int?
+  assignedUser   User?  @relation(fields: [assignedUserId], references: [id])
+  title       String
+  taskType    String?   // 부가세 | 원천세 | 종합소득세 | 법인세 | 4대보험 | 결산 | 기타
+  status      String    @default("scheduled") // scheduled | in_progress | done | hold | delayed
+  priority    String    @default("normal")    // high | normal | low
+  dueDate     DateTime?
+  completedAt DateTime?
+  notes       String?
+  isDeleted   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  memos Memo[]
+}
+
+// 설정 (싱글톤 - id=1 고정)
+model Settings {
+  id           Int     @id @default(1)
+  agentHometaxId   String? // 세무대리인 홈택스 ID
+  agentHometaxPw   String? // 세무대리인 홈택스 PW
+  certName         String? // 공인인증서 이름
+  certPassword     String? // 공인인증서 비밀번호
+  commissionFormPath String? // 홈택스수임신청서 엑셀 템플릿 경로
+  agentIdCardPath    String? // 세무대리인 신분증 파일 경로
+}
+
+// 신규수임 프로세스
+model CommissionProcess {
+  id        Int      @id @default(autoincrement())
+  clientId  Int      @unique
+  client    Client   @relation(fields: [clientId], references: [id])
+
+  // 서류 수집
+  hasIdCard             Boolean   @default(false)  // 대표자 신분증
+  hasHometaxCredentials Boolean   @default(false)  // 홈택스 ID/PW
+
+  // 홈택스 수임
+  hometaxCommissionDone Boolean   @default(false)
+  hometaxCommissionAt   DateTime?
+
+  // 위하고 생성
+  wihagoType  String?             // "new" | "transfer"
+  wihagoDone  Boolean   @default(false)
+  wihagoAt    DateTime?
+
+  // 4대보험 EDI
+  hasEmployees          Boolean   @default(false)
+  nationalPensionDone   Boolean   @default(false)
+  nationalPensionAt     DateTime?
+  healthInsuranceDone   Boolean   @default(false)
+  healthInsuranceAt     DateTime?
+
+  idCardPath  String?   // 대표자 신분증 파일 경로
+
+  notes       String?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  happyCalls HappyCall[]
+}
+
+// 해피콜 이력
+model HappyCall {
+  id           Int               @id @default(autoincrement())
+  commissionId Int
+  commission   CommissionProcess @relation(fields: [commissionId], references: [id])
+  attemptNo    Int
+  result       String            // "connected" | "no_answer" | "callback"
+  notes        String?
+  calledAt     DateTime          @default(now())
+}
+
+// 메모
+model Memo {
+  id        Int      @id @default(autoincrement())
+  clientId  Int?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  taskId    Int?
+  task      Task?    @relation(fields: [taskId], references: [id])
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  memoType  String   @default("general") // general | handover | caution
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
