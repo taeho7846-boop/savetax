@@ -140,14 +140,17 @@
       // 현행 홈택스 이용하기
       await sleep(1000);
       try {
-        const oldBtn = document.getElementById("mf_wfHeader_group878")
-          || document.getElementById("mf_wfHeader_textbox81212967");
-        if (oldBtn) { oldBtn.click(); }
-        else {
-          const allSpans = document.querySelectorAll("span[id*='mf_wfHeader']");
-          for (const sp of allSpans) {
-            if (sp.textContent.includes("현행") && sp.textContent.includes("홈택스")) {
-              sp.closest("a")?.click() || sp.click();
+        let clicked = false;
+        const btn878 = document.getElementById("mf_wfHeader_group878");
+        if (btn878) {
+          btn878.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+          clicked = true;
+        }
+        if (!clicked) {
+          const allLinks = document.querySelectorAll("a[id*='mf_wfHeader']");
+          for (const a of allLinks) {
+            if (a.textContent.includes("현행") && a.textContent.includes("홈택스")) {
+              a.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
               break;
             }
           }
