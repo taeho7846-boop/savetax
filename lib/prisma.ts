@@ -1,11 +1,9 @@
 import { PrismaClient } from "@/app/generated/prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { neon } from "@neondatabase/serverless";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 function createPrismaClient() {
   const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || "";
-  const sql = neon(url);
-  const adapter = new PrismaNeon(sql);
+  const adapter = new PrismaPg(url);
   return new PrismaClient({ adapter });
 }
 
