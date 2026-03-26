@@ -188,25 +188,26 @@
 
   // === 로그인 처리 ===
   async function doLogin(id, pw) {
-    const loginBtn = await waitForId("mf_wfHeader_group1503");
-    loginBtn.click();
+    await waitForId("mf_wfHeader_group1503");
+    pageClick("mf_wfHeader_group1503");
 
     await sleep(1000);
-    const idLoginTab = await waitForId("mf_txppWframe_anchor15");
-    idLoginTab.click();
+    await waitForId("mf_txppWframe_anchor15");
+    pageClick("mf_txppWframe_anchor15");
 
     await sleep(500);
     setInput(await waitForId("mf_txppWframe_iptUserId"), id);
     setInput(await waitForId("mf_txppWframe_iptUserPw"), pw);
 
     await sleep(300);
-    (await waitForId("mf_txppWframe_anchor25")).click();
+    await waitForId("mf_txppWframe_anchor25");
+    pageClick("mf_txppWframe_anchor25");
 
     // 권한 팝업
     await sleep(1000);
     try {
       const allowBtn = await waitForXPath("//*[normalize-space(text())='허용']", 3000);
-      if (allowBtn) allowBtn.click();
+      if (allowBtn) pageExec(`document.evaluate("//*[normalize-space(text())='허용']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.click()`);
     } catch (e) {}
   }
 
