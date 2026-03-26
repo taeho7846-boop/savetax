@@ -240,18 +240,16 @@
       await sleep(3000);
     }
 
-    // 인증 후 팝업 처리 - "취소" 클릭
-    await sleep(1000);
+    // 인증 후 팝업 처리 - "취소" 클릭 (요소 나타나면 즉시)
     try {
-      const cancelBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and @value='취소']", 3000);
+      const cancelBtn = await waitForXPath("//input[contains(@id,'btn_cancel') and @value='취소']", 5000);
       if (cancelBtn) cancelBtn.click();
     } catch (e) {
       try {
-        const closeBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_close')]", 2000);
+        const closeBtn = await waitForXPath("//input[contains(@id,'btn_close')]", 2000);
         if (closeBtn) closeBtn.click();
       } catch (e2) {}
     }
-    await sleep(500);
   }
 
   // === 주민등록번호 입력 ===
