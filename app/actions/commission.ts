@@ -12,10 +12,10 @@ const ediPendingCondition = {
 };
 
 export async function getCommissions() {
-  await requireAuth();
+  const session = await requireAuth();
   return prisma.commissionProcess.findMany({
     where: {
-      client: { isDeleted: false },
+      client: { isDeleted: false, assignedUserId: session.id },
       OR: [
         { completedAt: null },
         ediPendingCondition,
@@ -30,10 +30,10 @@ export async function getCommissions() {
 }
 
 export async function getCompletedCommissions() {
-  await requireAuth();
+  const session = await requireAuth();
   return prisma.commissionProcess.findMany({
     where: {
-      client: { isDeleted: false },
+      client: { isDeleted: false, assignedUserId: session.id },
       completedAt: { not: null },
       // 근로소득 없는 경우 → 항상 완료 테이블
       // 근로소득 있는 경우 → 국민연금+건강보험 둘 다 완료돼야 완료 테이블
@@ -52,7 +52,7 @@ export async function getCompletedCommissions() {
 }
 
 export async function getClientsNotInCommission() {
-  await requireAuth();
+  const session = await requireAuth();
   const inCommission = await prisma.commissionProcess.findMany({
     select: { clientId: true },
   });
@@ -60,6 +60,7 @@ export async function getClientsNotInCommission() {
   return prisma.client.findMany({
     where: {
       isDeleted: false,
+      assignedUserId: session.id,
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: { id: true, name: true, ceoName: true },

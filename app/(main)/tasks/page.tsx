@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { STATUS_LABELS, STATUS_COLORS, TASK_TYPE_LABELS } from "@/lib/constants";
 import Link from "next/link";
 import TaskStatusSelect from "./TaskStatusSelect";
@@ -9,6 +11,9 @@ export default async function TasksPage({
 }: {
   searchParams: Promise<{ status?: string; type?: string; q?: string }>;
 }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const params = await searchParams;
   const status = params.status || "";
   const type = params.type || "";
@@ -17,6 +22,7 @@ export default async function TasksPage({
   const tasks = await prisma.task.findMany({
     where: {
       isDeleted: false,
+      client: { assignedUserId: session.id },
       ...(status && { status }),
       ...(type && { taskType: type }),
       ...(q && {

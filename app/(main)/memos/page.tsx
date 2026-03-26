@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { MemoCreateButton } from "./MemoCreateModal";
 
 export default async function MemosPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const memos = await prisma.memo.findMany({
+    where: { authorId: session.id },
     include: {
       author: true,
       client: true,

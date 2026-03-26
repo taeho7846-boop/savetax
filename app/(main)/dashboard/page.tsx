@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 import Link from "next/link";
 import { CmsPendingCard } from "./CmsPendingCard";
 
 export default async function DashboardPage() {
   const session = await getSession();
+  if (!session) redirect("/login");
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -18,8 +20,11 @@ export default async function DashboardPage() {
   const prevYM = toYM(new Date(today.getFullYear(), today.getMonth() - 1, 1));
   const nextYM = toYM(new Date(today.getFullYear(), today.getMonth() + 1, 1));
 
+  const myClient = { assignedUserId: session.id };
+
   const cmsWhere = (ym: string) => ({
     isDeleted: false,
+    ...myClient,
     firstWithdrawalMonth: ym,
     OR: [
       { bankName: null },
@@ -36,28 +41,30 @@ export default async function DashboardPage() {
       prisma.client.count({
         where: {
           isDeleted: false,
+          ...myClient,
           OR: [
             { taxTypes: null },
             { NOT: { taxTypes: { contains: "신고대리" } } },
           ],
         },
       }),
-      prisma.task.count({ where: { isDeleted: false, status: { not: "done" } } }),
+      prisma.task.count({ where: { isDeleted: false, status: { not: "done" }, client: myClient } }),
       prisma.task.findMany({
         where: {
           isDeleted: false,
           status: { notIn: ["done", "hold"] },
           dueDate: { lte: threeDaysLater, gte: today },
+          client: myClient,
         },
         include: { client: true, assignedUser: true },
         orderBy: { dueDate: "asc" },
         take: 10,
       }),
       prisma.task.count({
-        where: { isDeleted: false, status: "delayed" },
+        where: { isDeleted: false, status: "delayed", client: myClient },
       }),
       prisma.task.findMany({
-        where: { isDeleted: false },
+        where: { isDeleted: false, client: myClient },
         include: { client: true, assignedUser: true },
         orderBy: { updatedAt: "desc" },
         take: 5,

@@ -27,9 +27,9 @@ export async function createMemo(formData: FormData) {
 }
 
 export async function getCreateMemoData() {
-  await requireAuth();
+  const session = await requireAuth();
   const clients = await prisma.client.findMany({
-    where: { isDeleted: false },
+    where: { isDeleted: false, assignedUserId: session.id },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

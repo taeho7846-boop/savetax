@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClientCreateButton } from "@/app/(main)/clients/ClientCreateModal";
 
@@ -7,12 +9,16 @@ export default async function TaxAgencyPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const params = await searchParams;
   const q = params.q ?? "";
 
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      assignedUserId: session.id,
       taxTypes: { contains: "신고대리" },
       ...(q && {
         OR: [

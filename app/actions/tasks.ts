@@ -54,10 +54,10 @@ export async function deleteTask(id: number) {
 }
 
 export async function getCreateTaskData() {
-  await requireAuth();
+  const session = await requireAuth();
   const [clients, users] = await Promise.all([
     prisma.client.findMany({
-      where: { isDeleted: false, contractStatus: "active" },
+      where: { isDeleted: false, contractStatus: "active", assignedUserId: session.id },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

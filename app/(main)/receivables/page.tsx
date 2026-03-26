@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ReceivablesTable } from "./ReceivablesTable";
 
@@ -27,6 +29,9 @@ export default async function ReceivablesPage({
 }: {
   searchParams: Promise<{ year?: string; q?: string }>;
 }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const params = await searchParams;
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -40,6 +45,7 @@ export default async function ReceivablesPage({
   const rawClients = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      assignedUserId: session.id,
       monthlyFee: { not: null },
       firstWithdrawalMonth: { not: null },
       OR: [
