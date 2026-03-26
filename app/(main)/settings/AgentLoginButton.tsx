@@ -18,25 +18,23 @@ export function AgentLoginButton({ agentHometaxId, agentHometaxPw, certName, cer
   const missing = !agentHometaxId || !agentHometaxPw;
 
   async function handleLogin() {
+    if (!agentHometaxId || !agentHometaxPw) return;
     setStatus("loading");
     setErrorMsg("");
     try {
-      const res = await fetch("/api/automation/hometax-agent-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentHometaxId, agentHometaxPw, certName, certPassword }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStatus("success");
-        setTimeout(() => setStatus("idle"), 6000);
-      } else {
-        setStatus("error");
-        setErrorMsg(data.error ?? "오류 발생");
-      }
+      const creds = btoa(JSON.stringify({
+        id: agentHometaxId,
+        pw: agentHometaxPw,
+      }));
+      window.open(
+        `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+        "_blank"
+      );
+      setStatus("success");
+      setTimeout(() => setStatus("idle"), 3000);
     } catch {
       setStatus("error");
-      setErrorMsg("네트워크 오류");
+      setErrorMsg("오류 발생");
     }
   }
 
