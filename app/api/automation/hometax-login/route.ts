@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const scriptPath = path.join(process.cwd(), "scripts", "hometax_login.py");
 
   return new Promise<NextResponse>((resolve) => {
-    const proc = spawn("python", [
+    const proc = spawn("python3", [
       scriptPath,
       client.hometaxId!,
       client.hometaxPw!,

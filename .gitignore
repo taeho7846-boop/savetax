@@ -41,3 +41,12 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# database
+*.db
+
+# prisma migrations (Vercel에서 새로 생성)
+/prisma/migrations/
+
+# uploads (신분증, 개인정보 파일)
+/public/uploads/

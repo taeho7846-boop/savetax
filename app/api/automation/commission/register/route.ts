@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   const scriptPath = path.join(process.cwd(), "scripts", "commission_register.py");
 
   return new Promise<NextResponse>((resolve) => {
-    const proc = spawn("python", [
+    const proc = spawn("python3", [
       scriptPath,
       settings.agentHometaxId!,
       settings.agentHometaxPw!,
