@@ -138,8 +138,21 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* 설정 */}
-      <div className="px-3 pb-2 mt-1">
+      {/* 관리자 메뉴 */}
+      <div className="px-3 pb-2 mt-1 space-y-1">
+        {(user.role === "owner" || user.role === "admin") && (
+          <Link
+            href="/staff"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              pathname.startsWith("/staff")
+                ? "bg-[#243d61] text-white font-medium"
+                : "text-gray-400 hover:text-white hover:bg-[#243d61]"
+            }`}
+          >
+            <span>👥</span>
+            <span>직원 관리</span>
+          </Link>
+        )}
         <Link
           href="/settings"
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
