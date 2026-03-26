@@ -310,11 +310,11 @@
       // 1. 먼저 데이터 저장 (페이지 이동/새로고침에 대비)
       sessionStorage.setItem("savetax_register_data", JSON.stringify(creds));
 
-      // 2. 세무대리인 로그인 (ID/PW 자동 입력)
+      // 2. 세무대리인 로그인 + 인증서
       await doLogin(creds.id, creds.pw);
-      // 인증서는 사용자가 직접 처리
-      // 로그인 완료 후 "현행 홈택스 이용하기" 클릭하면
-      // index4 페이지로 이동 → sessionStorage에서 데이터 읽어서 기장등록 자동 진행
+      await doCert(creds.certName, creds.certPw);
+      // 인증서 처리 후 "현행 홈택스 이용하기"는 직접 클릭
+      // → index4 페이지로 이동 → sessionStorage에서 데이터 읽어서 기장등록 자동 진행
 
     } catch (e) {
       console.error("SaveTax 기장등록 실패:", e);
