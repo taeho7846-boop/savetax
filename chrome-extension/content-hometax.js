@@ -138,15 +138,21 @@
       }
 
       // 현행 홈택스 이용하기
+      await sleep(1000);
       try {
-        const oldBtn = await waitForXPath("//*[contains(@id,'mf_wfHeader') and contains(.,'현행 홈택스')]", 5000);
-        if (oldBtn) oldBtn.click();
-      } catch (e) {
-        try {
-          const oldBtn2 = document.getElementById("mf_wfHeader_group878");
-          if (oldBtn2) oldBtn2.click();
-        } catch (e2) {}
-      }
+        const oldBtn = document.getElementById("mf_wfHeader_group878")
+          || document.getElementById("mf_wfHeader_textbox81212967");
+        if (oldBtn) { oldBtn.click(); }
+        else {
+          const allSpans = document.querySelectorAll("span[id*='mf_wfHeader']");
+          for (const sp of allSpans) {
+            if (sp.textContent.includes("현행") && sp.textContent.includes("홈택스")) {
+              sp.closest("a")?.click() || sp.click();
+              break;
+            }
+          }
+        }
+      } catch (e) {}
     } catch (e) {
       console.error("SaveTax 인증서 처리 실패:", e);
     }
