@@ -26,13 +26,16 @@ def main():
     jumin1 = rn[:6] if len(rn) >= 6 else ""
     jumin2 = rn[6]  if len(rn) >= 7 else ""
 
+    import os
+    os.environ["DISPLAY"] = ":1"
+
     options = Options()
-    options.add_argument("--headless=new")
+    options.add_argument("--start-maximized")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("detach", True)
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 20)
