@@ -28,11 +28,13 @@ def main():
 
     import os
     os.environ["DISPLAY"] = ":1"
+    os.environ["XAUTHORITY"] = "/root/.Xauthority"
 
     options = Options()
     options.add_argument("--start-maximized")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("detach", True)
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
