@@ -266,9 +266,6 @@
       } catch (e2) {}
     }
     await sleep(1000);
-
-    // 현행 홈택스 페이지로 직접 이동
-    window.location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index4";
   }
 
   // === 주민등록번호 입력 ===
