@@ -38,30 +38,25 @@ export default function Sidebar({
   const hasCredentials = !!(settings?.agentHometaxId && settings?.agentHometaxPw);
 
   async function handleAgentLogin() {
+    if (!settings?.agentHometaxId || !settings?.agentHometaxPw) return;
     setLoginStatus("loading");
     setLoginError("");
     try {
-      const res = await fetch("/api/automation/hometax-agent-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentHometaxId: settings?.agentHometaxId,
-          agentHometaxPw: settings?.agentHometaxPw,
-          certName: settings?.certName,
-          certPassword: settings?.certPassword,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setLoginStatus("success");
-        setTimeout(() => setLoginStatus("idle"), 6000);
-      } else {
-        setLoginStatus("error");
-        setLoginError(data.error ?? "오류 발생");
-      }
+      const creds = btoa(JSON.stringify({
+        id: settings.agentHometaxId,
+        pw: settings.agentHometaxPw,
+        certName: settings.certName || "",
+        certPw: settings.certPassword || "",
+      }));
+      window.open(
+        `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+        "_blank"
+      );
+      setLoginStatus("success");
+      setTimeout(() => setLoginStatus("idle"), 3000);
     } catch {
       setLoginStatus("error");
-      setLoginError("네트워크 오류");
+      setLoginError("오류 발생");
     }
   }
 
