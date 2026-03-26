@@ -20,13 +20,10 @@ export default async function ClientsPage({
 
   const params = await searchParams;
   const q = params.q || "";
-  const isAdmin = session.role === "owner" || session.role === "admin";
-
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      // 실무자/조회전용은 자기 거래처만
-      ...(!isAdmin ? { assignedUserId: session.id } : {}),
+      assignedUserId: session.id,
       OR: [
         { taxTypes: null },
         { NOT: { taxTypes: { contains: "신고대리" } } },
