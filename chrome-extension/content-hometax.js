@@ -299,7 +299,8 @@
       await doLogin(creds.id, creds.pw);
       await doCert(creds.certName, creds.certPw);
 
-      // 2. 메뉴 이동 (요소가 나타나면 즉시 클릭)
+      // 2. 메뉴 이동 (1초 대기 후 시작)
+      await sleep(1000);
       (await waitForId("mf_wfHeader_wq_uuid_619")).click();
       (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
       (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
