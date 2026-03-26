@@ -9,7 +9,7 @@
       "matches": ["https://hometax.go.kr/*"],
       "js": ["content-hometax.js"],
       "run_at": "document_idle",
-      "world": "MAIN"
+      "all_frames": true
     }
   ]
 }

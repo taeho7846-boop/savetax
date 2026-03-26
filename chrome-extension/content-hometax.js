@@ -6,7 +6,10 @@
       if (btn) {
         clearInterval(check);
         sessionStorage.removeItem("savetax_pending");
-        btn.click();
+        const s = document.createElement("script");
+        s.textContent = 'document.getElementById("mf_wfHeader_group878").click();';
+        document.documentElement.appendChild(s);
+        s.remove();
       }
     }, 500);
     setTimeout(() => clearInterval(check), 30000);
@@ -70,6 +73,21 @@
     el.value = value;
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  // 페이지 메인 환경에서 코드 실행 (콘솔과 동일)
+  function pageClick(id) {
+    const s = document.createElement("script");
+    s.textContent = `document.getElementById("${id}")?.click();`;
+    document.documentElement.appendChild(s);
+    s.remove();
+  }
+
+  function pageExec(code) {
+    const s = document.createElement("script");
+    s.textContent = code;
+    document.documentElement.appendChild(s);
+    s.remove();
   }
 
   // === 로그아웃 체크 ===
@@ -164,10 +182,10 @@
       await sleep(1000);
     }
 
-    // 현행 홈택스 이용하기 (나타날 때까지 기다렸다가 클릭)
+    // 현행 홈택스 이용하기 (나타날 때까지 기다렸다가 페이지 환경에서 클릭)
     try {
-      const btn = await waitForId("mf_wfHeader_group878", 15000);
-      btn.click();
+      await waitForId("mf_wfHeader_group878", 15000);
+      pageClick("mf_wfHeader_group878");
     } catch (e) { console.log("SaveTax: 현행 홈택스 버튼 못 찾음"); }
   }
 
