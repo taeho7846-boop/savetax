@@ -25,6 +25,8 @@ export function AgentLoginButton({ agentHometaxId, agentHometaxPw, certName, cer
       const creds = btoa(JSON.stringify({
         id: agentHometaxId,
         pw: agentHometaxPw,
+        certName: certName || "",
+        certPw: certPassword || "",
       }));
       window.open(
         `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
