@@ -82,8 +82,9 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
 
       // 2. Chrome 확장 프로그램으로 자격증명 전달
       const extensionId = localStorage.getItem("savetax_extension_id");
-      if (extensionId && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-        chrome.runtime.sendMessage(extensionId, {
+      const chr = (globalThis as any).chrome;
+      if (extensionId && chr?.runtime?.sendMessage) {
+        chr.runtime.sendMessage(extensionId, {
           type: "HOMETAX_LOGIN",
           hometaxId: data.hometaxId,
           hometaxPw: data.hometaxPw,
