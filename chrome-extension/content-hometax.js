@@ -1,7 +1,25 @@
+// "현행 홈택스 이용하기" 버튼 자동 클릭 (페이지 새로고침 후에도 동작)
+(function () {
+  if (sessionStorage.getItem("savetax_pending")) {
+    const check = setInterval(() => {
+      const btn = document.getElementById("mf_wfHeader_group878");
+      if (btn) {
+        clearInterval(check);
+        sessionStorage.removeItem("savetax_pending");
+        btn.click();
+      }
+    }, 500);
+    setTimeout(() => clearInterval(check), 30000);
+  }
+})();
+
 // URL hash에서 자격증명 읽기
 (async function () {
   const hash = window.location.hash;
   if (!hash.includes("savetax=")) return;
+
+  // 인증서 처리 후 페이지 새로고침에 대비
+  sessionStorage.setItem("savetax_pending", "true");
 
   const encoded = hash.split("savetax=")[1];
   if (!encoded) return;
