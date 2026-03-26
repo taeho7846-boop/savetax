@@ -1,32 +1,35 @@
-// 홈택스 페이지에서 자동 로그인 수행
+// URL hash에서 자격증명 읽기
 (async function () {
-  const data = await chrome.storage.local.get(["hometaxId", "hometaxPw", "residentNumber"]);
-  if (!data.hometaxId || !data.hometaxPw) return;
+  const hash = window.location.hash;
+  if (!hash.includes("savetax=")) return;
 
-  // 사용 후 즉시 삭제
-  await chrome.storage.local.remove(["hometaxId", "hometaxPw", "residentNumber"]);
+  const encoded = hash.split("savetax=")[1];
+  if (!encoded) return;
 
-  const hometaxId = data.hometaxId;
-  const hometaxPw = data.hometaxPw;
-  const rn = (data.residentNumber || "").replace(/[-\s]/g, "");
+  // hash 제거 (보안)
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+
+  let creds;
+  try {
+    creds = JSON.parse(atob(encoded));
+  } catch { return; }
+
+  const hometaxId = creds.id;
+  const hometaxPw = creds.pw;
+  const rn = (creds.rn || "").replace(/[-\s]/g, "");
   const jumin1 = rn.slice(0, 6);
   const jumin2 = rn.slice(6, 7);
 
-  function waitForElement(selector, timeout = 20000) {
-    return new Promise((resolve, reject) => {
-      const el = document.querySelector(selector);
-      if (el) return resolve(el);
-      const observer = new MutationObserver(() => {
-        const el = document.querySelector(selector);
-        if (el) { observer.disconnect(); resolve(el); }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-      setTimeout(() => { observer.disconnect(); reject(new Error("Timeout: " + selector)); }, timeout);
-    });
-  }
-
   function waitForId(id, timeout = 20000) {
-    return waitForElement("#" + id, timeout);
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        const el = document.getElementById(id);
+        if (el) return resolve(el);
+        setTimeout(check, 300);
+      };
+      check();
+      setTimeout(() => reject(new Error("Timeout: #" + id)), timeout);
+    });
   }
 
   try {

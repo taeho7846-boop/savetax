@@ -80,24 +80,17 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
         return;
       }
 
-      // 2. Chrome 확장 프로그램으로 자격증명 전달
-      const extensionId = localStorage.getItem("savetax_extension_id");
-      const chr = (globalThis as any).chrome;
-      if (extensionId && chr?.runtime?.sendMessage) {
-        chr.runtime.sendMessage(extensionId, {
-          type: "HOMETAX_LOGIN",
-          hometaxId: data.hometaxId,
-          hometaxPw: data.hometaxPw,
-          residentNumber: data.residentNumber,
-        });
-        setLoginStatuses((prev) => ({ ...prev, [clientId]: "success" }));
-      } else {
-        // 확장 프로그램 미설치 시: 새 탭으로 홈택스 열기 + 자격증명 표시
-        window.open("https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3", "_blank");
-        await navigator.clipboard.writeText(data.hometaxId);
-        alert(`홈택스 ID가 클립보드에 복사되었습니다.\n\nID: ${data.hometaxId}\nPW: ${data.hometaxPw}\n\nChrome 확장 프로그램을 설치하면 자동 로그인됩니다.`);
-        setLoginStatuses((prev) => ({ ...prev, [clientId]: "success" }));
-      }
+      // 2. 홈택스를 새 탭으로 열기 (자격증명을 URL hash에 포함)
+      const creds = btoa(JSON.stringify({
+        id: data.hometaxId,
+        pw: data.hometaxPw,
+        rn: data.residentNumber,
+      }));
+      window.open(
+        `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+        "_blank"
+      );
+      setLoginStatuses((prev) => ({ ...prev, [clientId]: "success" }));
       setTimeout(() => {
         setLoginStatuses((prev) => ({ ...prev, [clientId]: "idle" }));
       }, 3000);
