@@ -137,17 +137,11 @@
         await sleep(1000);
       }
 
-      // 현행 홈택스 이용하기 (버튼이 나타날 때까지 반복 시도)
-      for (let retry = 0; retry < 10; retry++) {
-        await sleep(1000);
-        try {
-          const btn = document.getElementById("mf_wfHeader_group878");
-          if (btn && btn.offsetParent !== null) {
-            btn.click();
-            break;
-          }
-        } catch (e) {}
-      }
+      // 현행 홈택스 이용하기 (나타날 때까지 기다렸다가 클릭)
+      try {
+        const btn = await waitForId("mf_wfHeader_group878", 15000);
+        btn.click();
+      } catch (e) {}
     } catch (e) {
       console.error("SaveTax 인증서 처리 실패:", e);
     }
