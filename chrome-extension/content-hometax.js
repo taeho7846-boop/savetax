@@ -11,8 +11,12 @@
 
   let creds;
   try {
-    creds = JSON.parse(atob(encoded));
-  } catch { return; }
+    creds = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+  } catch {
+    try {
+      creds = JSON.parse(atob(encoded));
+    } catch { return; }
+  }
 
   const hometaxId = creds.id;
   const hometaxPw = creds.pw;

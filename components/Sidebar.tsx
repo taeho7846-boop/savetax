@@ -42,12 +42,13 @@ export default function Sidebar({
     setLoginStatus("loading");
     setLoginError("");
     try {
-      const creds = btoa(JSON.stringify({
+      const json = JSON.stringify({
         id: settings.agentHometaxId,
         pw: settings.agentHometaxPw,
         certName: settings.certName || "",
         certPw: settings.certPassword || "",
-      }));
+      });
+      const creds = btoa(unescape(encodeURIComponent(json)));
       window.open(
         `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
         "_blank"
