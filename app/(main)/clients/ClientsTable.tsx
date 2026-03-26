@@ -58,6 +58,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [loginStatuses, setLoginStatuses] = useState<Record<number, LoginStatus>>({});
   const [loginErrors, setLoginErrors] = useState<Record<number, string>>({});
+  const [vncOpen, setVncOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
   async function handleHometaxLogin(e: React.MouseEvent, clientId: number) {
@@ -74,6 +75,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
       const data = await res.json();
       if (res.ok && data.success) {
         setLoginStatuses((prev) => ({ ...prev, [clientId]: "success" }));
+        setVncOpen(true);
         setTimeout(() => {
           setLoginStatuses((prev) => ({ ...prev, [clientId]: "idle" }));
         }, 5000);
@@ -309,6 +311,26 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
           </tbody>
         </table>
       </div>
+
+      {vncOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <h3 className="font-semibold text-gray-800">홈택스 원격 화면</h3>
+              <button
+                onClick={() => setVncOpen(false)}
+                className="text-gray-500 hover:text-gray-800 text-xl px-2"
+              >
+                ✕
+              </button>
+            </div>
+            <iframe
+              src={`${window.location.protocol}//${window.location.hostname}:6080/vnc.html?autoconnect=true&password=savetax123!`}
+              className="flex-1 w-full border-0 rounded-b-xl"
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
