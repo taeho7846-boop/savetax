@@ -1,25 +1,22 @@
-import { PrismaClient } from "../app/generated/prisma/client.ts";
+import "dotenv/config";
+import pg from "pg";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 async function main() {
-  const existing = await prisma.user.findUnique({ where: { username: "admin" } });
-  if (existing) {
+  const existing = await pool.query("SELECT * FROM \"User\" WHERE username = $1", ["admin"]);
+  if (existing.rows.length > 0) {
     console.log("이미 초기 계정이 존재합니다.");
     console.log("아이디: admin / 비밀번호: admin1234");
     return;
   }
 
   const hashed = await bcrypt.hash("admin1234", 10);
-  await prisma.user.create({
-    data: {
-      username: "admin",
-      password: hashed,
-      name: "관리자",
-      role: "owner",
-    },
-  });
+  await pool.query(
+    `INSERT INTO "User" (username, password, name, role, "isActive", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+    ["admin", hashed, "관리자", "owner", true]
+  );
 
   console.log("초기 계정 생성 완료!");
   console.log("아이디: admin");
@@ -28,4 +25,4 @@ async function main() {
 
 main()
   .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .finally(() => pool.end());
