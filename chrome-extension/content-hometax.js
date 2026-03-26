@@ -253,15 +253,22 @@
       await sleep(10000);
     }
 
-    // 인증 후 팝업 처리 (인증서 성공/실패와 무관하게 실행)
-    for (const xp of [
-      "//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_confirm') and @value='확인']",
-      "//input[contains(@id,'mf_wfHeader') and contains(@id,'btn_confirm') and @value='확인']",
-    ]) {
-      try { const btn = await waitForXPath(xp, 5000); if (btn) btn.click(); } catch (e) {}
-      await sleep(1000);
+    // 인증 후 팝업 처리 - "닫기" 또는 "취소" 클릭 후 index4로 이동
+    await sleep(2000);
+    try {
+      const closeBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_close') and @value='닫기']", 5000);
+      if (closeBtn) closeBtn.click();
+    } catch (e) {
+      // 닫기 버튼 못 찾으면 확인 버튼 시도
+      try {
+        const confirmBtn = await waitForXPath("//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_confirm') and @value='확인']", 3000);
+        if (confirmBtn) confirmBtn.click();
+      } catch (e2) {}
     }
+    await sleep(1000);
 
+    // 현행 홈택스 페이지로 직접 이동
+    window.location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index4";
   }
 
   // === 주민등록번호 입력 ===
