@@ -107,44 +107,50 @@
             doc = iframe.contentDocument;
             break;
           }
-        } catch (e) {}
+        } catch (e) { console.log("SaveTax: iframe 접근 실패 (cross-origin)", e); }
       }
-      if (!doc) return;
 
-      if (certName) {
-        const certSpan = doc.evaluate(`//span[contains(@title, '${certName}')]`, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-        if (certSpan) certSpan.click();
+      if (doc) {
+        if (certName) {
+          const certSpan = doc.evaluate(`//span[contains(@title, '${certName}')]`, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+          if (certSpan) certSpan.click();
+        } else {
+          const firstCert = doc.evaluate("//span[@title and string-length(@title) > 0]", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+          if (firstCert) firstCert.click();
+        }
+        await sleep(500);
+
+        const pwField = doc.getElementById("input_cert_pw");
+        if (pwField) { pwField.focus(); pwField.value = certPw; pwField.dispatchEvent(new Event("input", { bubbles: true })); }
+        await sleep(300);
+
+        const confirmBtn = doc.getElementById("btn_confirm_iframe");
+        if (confirmBtn) confirmBtn.click();
+        await sleep(2000);
       } else {
-        const firstCert = doc.evaluate("//span[@title and string-length(@title) > 0]", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-        if (firstCert) firstCert.click();
+        console.log("SaveTax: 인증서 iframe 못 찾음 - 수동으로 인증서 처리 필요");
+        // 인증서를 수동으로 처리할 시간 대기
+        await sleep(15000);
       }
-      await sleep(500);
-
-      const pwField = doc.getElementById("input_cert_pw");
-      if (pwField) { pwField.focus(); pwField.value = certPw; pwField.dispatchEvent(new Event("input", { bubbles: true })); }
-      await sleep(300);
-
-      const confirmBtn = doc.getElementById("btn_confirm_iframe");
-      if (confirmBtn) confirmBtn.click();
-      await sleep(2000);
-
-      // 인증 후 팝업 처리
-      for (const xp of [
-        "//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_confirm') and @value='확인']",
-        "//input[contains(@id,'mf_wfHeader') and contains(@id,'btn_confirm') and @value='확인']",
-      ]) {
-        try { const btn = await waitForXPath(xp, 5000); if (btn) btn.click(); } catch (e) {}
-        await sleep(1000);
-      }
-
-      // 현행 홈택스 이용하기 (나타날 때까지 기다렸다가 클릭)
-      try {
-        const btn = await waitForId("mf_wfHeader_group878", 15000);
-        btn.click();
-      } catch (e) {}
     } catch (e) {
       console.error("SaveTax 인증서 처리 실패:", e);
+      await sleep(10000);
     }
+
+    // 인증 후 팝업 처리 (인증서 성공/실패와 무관하게 실행)
+    for (const xp of [
+      "//input[contains(@id,'mf_txppWframe') and contains(@id,'btn_confirm') and @value='확인']",
+      "//input[contains(@id,'mf_wfHeader') and contains(@id,'btn_confirm') and @value='확인']",
+    ]) {
+      try { const btn = await waitForXPath(xp, 5000); if (btn) btn.click(); } catch (e) {}
+      await sleep(1000);
+    }
+
+    // 현행 홈택스 이용하기 (나타날 때까지 기다렸다가 클릭)
+    try {
+      const btn = await waitForId("mf_wfHeader_group878", 15000);
+      btn.click();
+    } catch (e) { console.log("SaveTax: 현행 홈택스 버튼 못 찾음"); }
   }
 
   // === 주민등록번호 입력 ===
