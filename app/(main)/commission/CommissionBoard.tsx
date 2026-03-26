@@ -276,12 +276,34 @@ export default function CommissionBoard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId }),
       });
-      let data: { error?: string; message?: string; pdfPath?: string } = {};
+      let data: any = {};
       try { data = await res.json(); } catch {}
-      if (res.ok) {
-        setAutoResult({ ok: true, msg: data.message ?? "완료", pdfPath: data.pdfPath });
-      } else {
+      if (!res.ok) {
         setAutoResult({ ok: false, msg: data.error ?? `오류 (${res.status})` });
+        return;
+      }
+
+      // register: Chrome 확장 프로그램 방식
+      if (action === "register" && data.agentId) {
+        const json = JSON.stringify({
+          mode: "register",
+          id: data.agentId,
+          pw: data.agentPw,
+          certName: data.certName,
+          certPw: data.certPw,
+          clientType: data.clientType,
+          bizNumber: data.bizNumber,
+          residentNumber: data.residentNumber,
+          phone: data.phone,
+        });
+        const creds = btoa(unescape(encodeURIComponent(json)));
+        window.open(
+          `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+          "_blank"
+        );
+        setAutoResult({ ok: true, msg: "홈택스에서 자동 입력 중... 확인 후 등록 버튼을 눌러주세요" });
+      } else {
+        setAutoResult({ ok: true, msg: data.message ?? "완료", pdfPath: data.pdfPath });
       }
     } catch (err) {
       setAutoResult({ ok: false, msg: String(err) });
