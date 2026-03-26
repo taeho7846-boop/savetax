@@ -6,9 +6,6 @@
   const encoded = hash.split("savetax=")[1];
   if (!encoded) return;
 
-  // hash 제거 (보안)
-  history.replaceState(null, "", window.location.pathname + window.location.search);
-
   let creds;
   try {
     creds = JSON.parse(decodeURIComponent(escape(atob(encoded))));
@@ -17,6 +14,9 @@
       creds = JSON.parse(atob(encoded));
     } catch { return; }
   }
+
+  // hash 제거 (보안)
+  history.replaceState(null, "", window.location.pathname + window.location.search);
 
   const hometaxId = creds.id;
   const hometaxPw = creds.pw;
@@ -57,6 +57,20 @@
   }
 
   try {
+    // 0. 이미 로그인된 상태인지 확인 → 로그아웃 먼저
+    await sleep(1500);
+    const logoutBtn = document.evaluate(
+      "//*[contains(text(),'로그아웃')]",
+      document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+    ).singleNodeValue;
+    if (logoutBtn) {
+      logoutBtn.click();
+      await sleep(2000);
+      // 로그아웃 후 페이지 다시 로드 (자격증명 유지)
+      window.location.href = window.location.pathname + window.location.search + "#savetax=" + encoded;
+      return;
+    }
+
     // 1. 로그인 버튼 클릭
     const loginBtn = await waitForId("mf_wfHeader_group1503");
     loginBtn.click();
