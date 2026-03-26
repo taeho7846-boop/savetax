@@ -5,12 +5,12 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function getSettings() {
-  await requireAuth();
-  return prisma.settings.findUnique({ where: { id: 1 } });
+  const session = await requireAuth();
+  return prisma.settings.findUnique({ where: { userId: session.id } });
 }
 
 export async function saveSettings(formData: FormData) {
-  await requireAuth();
+  const session = await requireAuth();
 
   const data = {
     agentHometaxId: (formData.get("agentHometaxId") as string) || null,
@@ -20,9 +20,9 @@ export async function saveSettings(formData: FormData) {
   };
 
   await prisma.settings.upsert({
-    where:  { id: 1 },
+    where:  { userId: session.id },
     update: data,
-    create: { id: 1, ...data },
+    create: { userId: session.id, ...data },
   });
 
   revalidatePath("/settings");

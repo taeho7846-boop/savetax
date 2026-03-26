@@ -21,6 +21,7 @@ model User {
   clients   Client[]
   tasks     Task[]
   memos     Memo[]
+  settings  Settings?
 }
 
 // 고객사
@@ -92,9 +93,11 @@ model Task {
   memos Memo[]
 }
 
-// 설정 (싱글톤 - id=1 고정)
+// 설정 (사용자별)
 model Settings {
-  id           Int     @id @default(1)
+  id           Int     @id @default(autoincrement())
+  userId       Int     @unique
+  user         User    @relation(fields: [userId], references: [id])
   agentHometaxId   String? // 세무대리인 홈택스 ID
   agentHometaxPw   String? // 세무대리인 홈택스 PW
   certName         String? // 공인인증서 이름
