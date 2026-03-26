@@ -39,16 +39,10 @@
   }
 
   try {
-    // 메뉴 이동: 세무대리·납세관리
-    await sleep(2000);
-    (await waitForId("mf_wfHeader_wq_uuid_619")).click();
-    await sleep(1000);
-
-    (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
-    await sleep(1000);
-
-    (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
-    await sleep(2000);
+    // 메뉴는 직접 클릭 → 폼이 나타나면 자동 입력
+    // mf_txppWframe_bsno1 이 나타날 때까지 대기 (최대 120초)
+    await waitForId("mf_txppWframe_bsno1", 120000);
+    await sleep(500);
 
     // 폼 입력
     const clientType = creds.clientType;
