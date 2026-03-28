@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     ? `${commission.id}_수임신청서.pdf`
     : `${client.name}_수임신청서.pdf`;
   const outputPdfPath = path.join(outputDir, outputName);
-  const webPath = `/uploads/idcards/${outputName}`;
+  const webPath = `/api/uploads/idcards/${outputName}`;
 
   const scriptPath = path.join(process.cwd(), "scripts", "generate_commission_form.py");
   const pythonCmd = process.platform === "win32" ? "python" : "python3";
