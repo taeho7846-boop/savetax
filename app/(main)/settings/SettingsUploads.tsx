@@ -7,6 +7,8 @@ interface Props {
   agentIdCardPath: string | null;
   cmsExcelPath: string | null;
   cmsBulkExcelPath: string | null;
+  pensionExcelPath: string | null;
+  healthExcelPath: string | null;
 }
 
 function UploadSection({
@@ -147,32 +149,33 @@ function UploadSection({
   );
 }
 
-export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath }: Props) {
+export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath }: Props) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6">
       <h2 className="text-sm font-semibold text-gray-700">파일</h2>
 
-      <UploadSection
-        label="홈택스수임신청서 엑셀 템플릿"
-        currentPath={commissionFormPath}
-        uploadUrl="/api/settings/upload-commission-form"
-        deleteUrl="/api/settings/upload-commission-form"
-        accept=".xlsx,.xls"
-        isImage={false}
-      />
-
-      <UploadSection
-        label="세무대리인 신분증"
-        currentPath={agentIdCardPath}
-        uploadUrl="/api/settings/upload-agent-idcard"
-        deleteUrl="/api/settings/upload-agent-idcard"
-        accept="image/*,.pdf"
-        isImage={true}
-      />
+      <div className="grid grid-cols-2 gap-6">
+        <UploadSection
+          label="홈택스수임신청서 엑셀 템플릿"
+          currentPath={commissionFormPath}
+          uploadUrl="/api/settings/upload-commission-form"
+          deleteUrl="/api/settings/upload-commission-form"
+          accept=".xlsx,.xls"
+          isImage={false}
+        />
+        <UploadSection
+          label="세무대리인 신분증"
+          currentPath={agentIdCardPath}
+          uploadUrl="/api/settings/upload-agent-idcard"
+          deleteUrl="/api/settings/upload-agent-idcard"
+          accept="image/*,.pdf"
+          isImage={true}
+        />
+      </div>
 
       <div className="border-t border-gray-100 pt-4">
         <h3 className="text-xs font-semibold text-gray-400 mb-4">CMS</h3>
-        <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-6">
           <UploadSection
             label="CMS 엑셀 파일"
             currentPath={cmsExcelPath}
@@ -186,6 +189,28 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
             currentPath={cmsBulkExcelPath}
             uploadUrl="/api/settings/upload-cms-bulk-excel"
             deleteUrl="/api/settings/upload-cms-bulk-excel"
+            accept=".xlsx,.xls"
+            isImage={false}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-xs font-semibold text-gray-400 mb-4">4대보험</h3>
+        <div className="grid grid-cols-2 gap-6">
+          <UploadSection
+            label="국민연금 엑셀"
+            currentPath={pensionExcelPath}
+            uploadUrl="/api/settings/upload-pension-excel"
+            deleteUrl="/api/settings/upload-pension-excel"
+            accept=".xlsx,.xls"
+            isImage={false}
+          />
+          <UploadSection
+            label="건강보험 엑셀"
+            currentPath={healthExcelPath}
+            uploadUrl="/api/settings/upload-health-excel"
+            deleteUrl="/api/settings/upload-health-excel"
             accept=".xlsx,.xls"
             isImage={false}
           />

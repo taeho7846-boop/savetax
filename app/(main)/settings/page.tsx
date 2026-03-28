@@ -5,7 +5,7 @@ export default async function SettingsPage() {
   const settings = await getSettings();
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-3xl">
       <h1 className="text-xl font-bold text-gray-800 mb-6">설정</h1>
 
       <form action={saveSettings} className="space-y-6">
@@ -79,6 +79,8 @@ export default async function SettingsPage() {
           agentIdCardPath={settings?.agentIdCardPath ?? null}
           cmsExcelPath={settings?.cmsExcelPath ?? null}
           cmsBulkExcelPath={settings?.cmsBulkExcelPath ?? null}
+          pensionExcelPath={settings?.pensionExcelPath ?? null}
+          healthExcelPath={settings?.healthExcelPath ?? null}
         />
       </div>
     </div>

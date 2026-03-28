@@ -107,6 +107,8 @@ model Settings {
   agentIdCardPath    String? // 세무대리인 신분증 파일 경로
   cmsExcelPath       String? // CMS 엑셀 파일 경로
   cmsBulkExcelPath   String? // CMS 일괄등록 엑셀 파일 경로
+  pensionExcelPath   String? // 국민연금 엑셀 파일 경로
+  healthExcelPath    String? // 건강보험 엑셀 파일 경로
 }
 
 // 신규수임 프로세스
