@@ -67,7 +67,7 @@ async function handleFileUpload(files, tabId) {
     for (let i = 0; i < downloadedPaths.length; i++) {
       const filePath = downloadedPaths[i];
 
-      // 파일 다이얼로그 열릴 때 자동 처리할 Promise
+      // 파일 다이얼로그 열릴 때 DOM.setFileInputFiles로 직접 주입
       const fileChooserPromise = new Promise((resolve) => {
         const timeout = setTimeout(() => {
           chrome.debugger.onEvent.removeListener(handler);
@@ -78,14 +78,15 @@ async function handleFileUpload(files, tabId) {
           if (source.tabId === tabId && method === "Page.fileChooserOpened") {
             clearTimeout(timeout);
             chrome.debugger.onEvent.removeListener(handler);
-            chrome.debugger.sendCommand({ tabId }, "Page.handleFileChooser", {
-              action: "accept",
+            // backendNodeId로 직접 파일 설정
+            chrome.debugger.sendCommand({ tabId }, "DOM.setFileInputFiles", {
+              backendNodeId: params.backendNodeId,
               files: [filePath],
             }).then(() => {
               console.log("파일 주입 완료:", filePath);
               resolve(true);
             }).catch((e) => {
-              console.error("파일 주입 실패:", e);
+              console.error("파일 주입 실패 (DOM.setFileInputFiles):", e);
               resolve(false);
             });
           }
