@@ -404,26 +404,67 @@
       }
 
       function getFilenameFromUrl(url) {
-        return url.split("/").pop() || "file";
+        return decodeURIComponent(url.split("/").pop() || "file");
       }
 
-      async function uploadToFileInput(blob, filename) {
-        const file = new File([blob], filename, { type: blob.type });
-        const dt = new DataTransfer();
-        dt.items.add(file);
+      // 파일선택 버튼 클릭 → 생성되는 input[type=file]을 감지하여 파일 주입
+      async function uploadFile(blob, filename) {
+        return new Promise((resolve) => {
+          const file = new File([blob], filename, { type: blob.type });
+          const dt = new DataTransfer();
+          dt.items.add(file);
 
-        // 숨겨진 file input 찾기
-        const fileInputs = document.querySelectorAll("input[type='file']");
-        for (const input of fileInputs) {
-          if (!input._savetaxUsed) {
-            input.files = dt.files;
-            input.dispatchEvent(new Event("change", { bubbles: true }));
-            input._savetaxUsed = true;
-            console.log("SaveTax: 파일 업로드 →", filename);
-            return true;
+          // MutationObserver로 새로 생성되는 file input 감지
+          const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+              for (const node of mutation.addedNodes) {
+                if (node.nodeType !== 1) continue;
+                const inputs = node.tagName === "INPUT" ? [node] : node.querySelectorAll ? [...node.querySelectorAll("input[type='file']")] : [];
+                for (const input of inputs) {
+                  if (input.type === "file") {
+                    observer.disconnect();
+                    // 약간 대기 후 파일 주입
+                    setTimeout(() => {
+                      input.files = dt.files;
+                      input.dispatchEvent(new Event("change", { bubbles: true }));
+                      console.log("SaveTax: 파일 업로드 →", filename);
+                      resolve(true);
+                    }, 200);
+                    return;
+                  }
+                }
+              }
+            }
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+
+          // 이미 존재하는 file input 확인
+          const existing = document.querySelectorAll("input[type='file']");
+          for (const input of existing) {
+            if (!input._savetaxUsed) {
+              observer.disconnect();
+              input.files = dt.files;
+              input.dispatchEvent(new Event("change", { bubbles: true }));
+              input._savetaxUsed = true;
+              console.log("SaveTax: 파일 업로드 (기존 input) →", filename);
+              resolve(true);
+              return;
+            }
           }
-        }
-        return false;
+
+          // 파일선택 버튼 클릭
+          const btn = document.getElementById("mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1");
+          if (btn) {
+            btn.click();
+            console.log("SaveTax: 파일선택 버튼 클릭");
+          }
+
+          // 5초 타임아웃
+          setTimeout(() => {
+            observer.disconnect();
+            resolve(false);
+          }, 5000);
+        });
       }
 
       const filesToUpload = [
@@ -439,18 +480,11 @@
         }
         const blob = await fetchFileAsBlob(url);
         if (blob) {
-          // 파일선택 버튼 클릭하여 input 활성화
-          try {
-            const addBtn = await waitForXPath("//a[contains(text(),'파일추가') or contains(text(),'파일선택')]", 3000);
-            if (addBtn) addBtn.click();
-            await sleep(500);
-          } catch (e) {}
-
-          const uploaded = await uploadToFileInput(blob, getFilenameFromUrl(url));
+          const uploaded = await uploadFile(blob, getFilenameFromUrl(url));
           if (!uploaded) {
-            console.log(`SaveTax: ${label} - file input을 찾을 수 없음`);
+            console.log(`SaveTax: ${label} - 업로드 실패 (file input 없음)`);
           }
-          await sleep(500);
+          await sleep(1000);
         } else {
           console.log(`SaveTax: ${label} - 파일 다운로드 실패`);
         }
