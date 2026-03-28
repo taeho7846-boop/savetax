@@ -379,13 +379,23 @@
       setInput(await waitForId("mf_txppWframe_pf_UTECAAAZ07_inputClntFnm"), creds.ceoName || "");
       await sleep(300);
 
-      // 확인 버튼 클릭
+      // 확인 버튼 클릭 (알럿 자동 닫기 - 페이지 메인 환경에 주입)
+      const suppressScript = document.createElement("script");
+      suppressScript.textContent = `window.__origAlert = window.alert; window.alert = function(){};`;
+      document.documentElement.appendChild(suppressScript);
+      suppressScript.remove();
+
       (await waitForId("mf_txppWframe_pf_UTECAAAZ07_btnClntFnmCnfr")).click();
       await sleep(1500);
 
-      // 알럿 처리
+      const restoreScript = document.createElement("script");
+      restoreScript.textContent = `if(window.__origAlert) { window.alert = window.__origAlert; delete window.__origAlert; }`;
+      document.documentElement.appendChild(restoreScript);
+      restoreScript.remove();
+
+      // 혹시 DOM 알럿이면 처리
       try {
-        const alertEl = await waitForXPath("//input[@value='확인' and contains(@id,'btn_confirm')]", 3000);
+        const alertEl = await waitForXPath("//input[@value='확인' and contains(@id,'btn_confirm')]", 2000);
         if (alertEl) alertEl.click();
       } catch (e) {}
       await sleep(500);
