@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "1.7",
+  "version": "1.8",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
-  "permissions": [],
+  "permissions": ["debugger", "downloads"],
   "host_permissions": ["http://158.247.222.58/*"],
   "background": {
     "service_worker": "background.js"

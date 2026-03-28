@@ -1,3 +1,20 @@
+// 서비스 워커에서 파일선택 버튼 클릭 요청 수신
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "click-file-buttons") {
+    (async () => {
+      const btnId = "mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1";
+      for (let i = 0; i < msg.count; i++) {
+        await new Promise(r => setTimeout(r, 1500));
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          btn.click();
+          console.log(`SaveTax: 파일선택 버튼 클릭 (${i + 1}/${msg.count})`);
+        }
+      }
+    })();
+  }
+});
+
 // 페이지 이동 후에도 자동화 이어서 진행
 (async function () {
   const pendingData = sessionStorage.getItem("savetax_register_data");
@@ -390,45 +407,32 @@
       } catch (e) {}
       await sleep(500);
 
-      // 4. 첨부파일 자동 다운로드 (다운로드 폴더에 저장 → 파일선택에서 바로 선택)
-      const filesToDownload = [
-        { label: "세무대리인 신분증", url: creds.agentIdCardUrl },
-        { label: "대표자 신분증", url: creds.clientIdCardUrl },
-        { label: "홈택스수임신청서", url: creds.pdfUrl },
-      ];
+      // 4. 첨부파일 자동 업로드 (Debugger Protocol로 파일 다이얼로그 가로채기)
+      const filesToUpload = [
+        { label: "세무대리인 신분증", url: creds.agentIdCardUrl, filename: "agent-idcard.jpg" },
+        { label: "대표자 신분증", url: creds.clientIdCardUrl, filename: "client-idcard.jpg" },
+        { label: "홈택스수임신청서", url: creds.pdfUrl, filename: "commission-form.pdf" },
+      ].filter(f => f.url);
 
-      let downloadCount = 0;
-      for (const { label, url } of filesToDownload) {
-        if (!url) continue;
+      if (filesToUpload.length > 0) {
+        console.log(`SaveTax: ${filesToUpload.length}개 파일 업로드 시작...`);
         try {
-          const resp = await chrome.runtime.sendMessage({ type: "fetch-file", url });
-          if (resp && resp.ok) {
-            const binary = atob(resp.data);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const blob = new Blob([bytes], { type: resp.type || "application/octet-stream" });
-            const filename = decodeURIComponent(url.split("/").pop() || "file");
-
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(a.href);
-            downloadCount++;
-            console.log(`SaveTax: ${label} 다운로드 완료 → ${filename}`);
-            await sleep(500);
+          const result = await chrome.runtime.sendMessage({
+            type: "upload-files",
+            files: filesToUpload,
+          });
+          if (result && result.ok) {
+            console.log(`SaveTax: ${result.count}개 파일 업로드 완료`);
+          } else {
+            console.log("SaveTax: 파일 업로드 실패 -", result?.error || "알 수 없는 오류");
           }
         } catch (e) {
-          console.error(`SaveTax: ${label} 다운로드 실패:`, e);
+          console.error("SaveTax: 파일 업로드 실패:", e);
         }
       }
 
       const modeLabel = mode === "commission" ? "기장수임" : "해지후수임";
-      if (downloadCount > 0) {
-        console.log(`SaveTax: ${modeLabel} 입력 완료 - 다운로드된 ${downloadCount}개 파일을 첨부 후 신청 버튼을 눌러주세요`);
-      } else {
-        console.log(`SaveTax: ${modeLabel} 입력 완료 - 확인 후 신청 버튼을 눌러주세요`);
-      }
+      console.log(`SaveTax: ${modeLabel} 입력 완료 - 확인 후 신청 버튼을 눌러주세요`);
 
     } catch (e) {
       console.error("SaveTax 기장수임 실패:", e);
