@@ -27,7 +27,7 @@ function getAllMonths(from: string, to: string): string[] {
 export default async function ReceivablesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; q?: string }>;
+  searchParams: Promise<{ year?: string; q?: string; tab?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -93,16 +93,50 @@ export default async function ReceivablesPage({
 
   const totalUnpaid = totalExpected - totalPaid;
 
+  const tab = params.tab ?? "receivables";
+
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-900">채권 관리</h1>
+      </div>
 
-        {/* 연도 네비게이션 */}
+      {/* 탭 */}
+      <div className="flex gap-1 mb-6 border-b border-gray-200">
+        <Link
+          href={`/receivables?year=${year}&tab=receivables`}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            tab === "receivables"
+              ? "border-[#1a2e4a] text-[#1a2e4a]"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          채권
+        </Link>
+        <Link
+          href={`/receivables?year=${year}&tab=cms`}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            tab === "cms"
+              ? "border-[#1a2e4a] text-[#1a2e4a]"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          CMS
+        </Link>
+      </div>
+
+      {tab === "cms" ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+          CMS 기능 준비 중
+        </div>
+      ) : (
+      <>
+      {/* 연도 네비게이션 */}
+      <div className="flex items-center justify-end mb-5">
         <div className="flex items-center gap-2">
           <Link
-            href={`/receivables?year=${year - 1}`}
+            href={`/receivables?year=${year - 1}&tab=receivables`}
             className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
           >
             ← {year - 1}년
@@ -111,7 +145,7 @@ export default async function ReceivablesPage({
             {year}년
           </span>
           <Link
-            href={`/receivables?year=${year + 1}`}
+            href={`/receivables?year=${year + 1}&tab=receivables`}
             className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
           >
             {year + 1}년 →
@@ -156,6 +190,8 @@ export default async function ReceivablesPage({
         <p className="text-center text-sm text-gray-400 mt-4">
           고객사 수정에서 <strong>월 기장료</strong>와 <strong>최초 출금월</strong>을 입력하면 여기에 표시됩니다.
         </p>
+      )}
+      </>
       )}
     </div>
   );
