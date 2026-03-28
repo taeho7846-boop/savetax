@@ -121,7 +121,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "CMS_일괄등록.xlsx";
+        a.download = "CMS_일괄등록.xls";
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {

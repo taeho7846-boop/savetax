@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
   return new NextResponse(outBuf, {
     headers: {
       "Content-Type": "application/vnd.ms-excel",
-      "Content-Disposition": `attachment; filename="CMS_bulk_register.xls"`,
+      "Content-Disposition": `attachment; filename*=UTF-8''CMS_%EC%9D%BC%EA%B4%84%EB%93%B1%EB%A1%9D.xls`,
     },
   });
 }
