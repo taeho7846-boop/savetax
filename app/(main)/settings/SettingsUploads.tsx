@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 interface Props {
   commissionFormPath: string | null;
   agentIdCardPath: string | null;
+  cmsExcelPath: string | null;
 }
 
 function UploadSection({
@@ -145,7 +146,7 @@ function UploadSection({
   );
 }
 
-export default function SettingsUploads({ commissionFormPath, agentIdCardPath }: Props) {
+export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath }: Props) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6">
       <h2 className="text-sm font-semibold text-gray-700">파일</h2>
@@ -166,6 +167,15 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath }:
         deleteUrl="/api/settings/upload-agent-idcard"
         accept="image/*,.pdf"
         isImage={true}
+      />
+
+      <UploadSection
+        label="CMS 엑셀 파일"
+        currentPath={cmsExcelPath}
+        uploadUrl="/api/settings/upload-cms-excel"
+        deleteUrl="/api/settings/upload-cms-excel"
+        accept=".xlsx,.xls"
+        isImage={false}
       />
     </div>
   );

@@ -77,6 +77,7 @@ export default async function SettingsPage() {
         <SettingsUploads
           commissionFormPath={settings?.commissionFormPath ?? null}
           agentIdCardPath={settings?.agentIdCardPath ?? null}
+          cmsExcelPath={settings?.cmsExcelPath ?? null}
         />
       </div>
     </div>
