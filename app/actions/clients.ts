@@ -188,3 +188,24 @@ export async function deleteClient(id: number) {
   revalidatePath("/dashboard");
   redirect("/clients");
 }
+
+export async function bulkDeleteClients(ids: number[]) {
+  const session = await requireAuth();
+  if (ids.length === 0) return { count: 0 };
+
+  const result = await prisma.client.updateMany({
+    where: {
+      id: { in: ids },
+      assignedUserId: session.id,
+      isDeleted: false,
+    },
+    data: { isDeleted: true },
+  });
+
+  revalidatePath("/clients");
+  revalidatePath("/commission");
+  revalidatePath("/tax-agency");
+  revalidatePath("/receivables");
+  revalidatePath("/dashboard");
+  return { count: result.count };
+}
