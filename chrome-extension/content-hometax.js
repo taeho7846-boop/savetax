@@ -452,11 +452,12 @@
             }
           }
 
-          // 파일선택 버튼 클릭 (MAIN world 경유)
-          window.dispatchEvent(new CustomEvent("savetax-click", {
-            detail: "mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1"
-          }));
-          console.log("SaveTax: 파일선택 버튼 클릭 요청");
+          // 파일선택 버튼 클릭 (MAIN world 경유 - DOM 속성 통신)
+          const beacon = document.getElementById("__savetax_beacon");
+          if (beacon) {
+            beacon.setAttribute("data-click", "mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1");
+            console.log("SaveTax: 파일선택 버튼 클릭 요청");
+          }
 
           // 5초 타임아웃
           setTimeout(() => {
