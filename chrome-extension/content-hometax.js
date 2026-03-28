@@ -280,8 +280,6 @@
       if (rn) await doJumin(rn);
       if (creds.certPw) {
         await doCert(creds.certName, creds.certPw);
-        await sleep(2000);
-        window.location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index4";
       }
     } catch (e) {
       console.error("SaveTax 자동 로그인 실패:", e);
@@ -346,6 +344,123 @@
 
     } catch (e) {
       console.error("SaveTax 기장등록 실패:", e);
+    }
+  }
+
+  // ============================================================
+  // MODE: commission / recommission (기장수임 / 해지후수임)
+  // ============================================================
+  if (mode === "commission" || mode === "recommission") {
+    try {
+      if (await checkLogout()) return;
+
+      // 1. 세무대리인 로그인 + 인증서
+      await doLogin(creds.id, creds.pw);
+      await doCert(creds.certName, creds.certPw);
+
+      // 2. 메뉴 이동
+      await sleep(1500);
+      (await waitForId("mf_wfHeader_wq_uuid_619")).click();
+      (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
+      if (mode === "commission") {
+        (await waitForXPath("//span[contains(text(),'세무대리정보 이용 신청서(기장수임용)')]")).click();
+      } else {
+        (await waitForXPath("//span[contains(text(),'해지 후 수임')]")).click();
+      }
+      await sleep(2000);
+
+      // 3. 폼 입력
+      const rn = (creds.residentNumber || "").replace(/[-\s]/g, "");
+      const jumin1 = rn.slice(0, 6);
+      const jumin2 = rn.slice(6);
+
+      setInput(await waitForId("mf_txppWframe_pf_UTECAAAZ07_inputCvaAplnBscClntResRgtNo1"), jumin1);
+      setInput(await waitForId("mf_txppWframe_pf_UTECAAAZ07_inputCvaAplnBscClntResRgtNo2"), jumin2);
+      setInput(await waitForId("mf_txppWframe_pf_UTECAAAZ07_inputClntFnm"), creds.ceoName || "");
+      await sleep(300);
+
+      // 확인 버튼 클릭
+      (await waitForId("mf_txppWframe_pf_UTECAAAZ07_btnClntFnmCnfr")).click();
+      await sleep(1500);
+
+      // 알럿 처리
+      try {
+        const alertEl = await waitForXPath("//input[@value='확인' and contains(@id,'btn_confirm')]", 3000);
+        if (alertEl) alertEl.click();
+      } catch (e) {}
+      await sleep(500);
+
+      // 4. 파일 업로드 (서버에서 파일 가져와서 자동 업로드)
+      async function fetchFileAsBlob(url) {
+        if (!url) return null;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          return await res.blob();
+        } catch (e) {
+          console.error("SaveTax 파일 다운로드 실패:", url, e);
+          return null;
+        }
+      }
+
+      function getFilenameFromUrl(url) {
+        return url.split("/").pop() || "file";
+      }
+
+      async function uploadToFileInput(blob, filename) {
+        const file = new File([blob], filename, { type: blob.type });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+
+        // 숨겨진 file input 찾기
+        const fileInputs = document.querySelectorAll("input[type='file']");
+        for (const input of fileInputs) {
+          if (!input._savetaxUsed) {
+            input.files = dt.files;
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            input._savetaxUsed = true;
+            console.log("SaveTax: 파일 업로드 →", filename);
+            return true;
+          }
+        }
+        return false;
+      }
+
+      const filesToUpload = [
+        { label: "세무대리인 신분증", url: creds.agentIdCardUrl },
+        { label: "대표자 신분증", url: creds.clientIdCardUrl },
+        { label: "홈택스수임신청서", url: creds.pdfUrl },
+      ];
+
+      for (const { label, url } of filesToUpload) {
+        if (!url) {
+          console.log(`SaveTax: ${label} - URL 없음, 건너뜀`);
+          continue;
+        }
+        const blob = await fetchFileAsBlob(url);
+        if (blob) {
+          // 파일선택 버튼 클릭하여 input 활성화
+          try {
+            const addBtn = await waitForXPath("//a[contains(text(),'파일추가') or contains(text(),'파일선택')]", 3000);
+            if (addBtn) addBtn.click();
+            await sleep(500);
+          } catch (e) {}
+
+          const uploaded = await uploadToFileInput(blob, getFilenameFromUrl(url));
+          if (!uploaded) {
+            console.log(`SaveTax: ${label} - file input을 찾을 수 없음`);
+          }
+          await sleep(500);
+        } else {
+          console.log(`SaveTax: ${label} - 파일 다운로드 실패`);
+        }
+      }
+
+      const modeLabel = mode === "commission" ? "기장수임" : "해지후수임";
+      console.log(`SaveTax: ${modeLabel} 입력 완료 - 확인 후 신청 버튼을 눌러주세요`);
+
+    } catch (e) {
+      console.error("SaveTax 기장수임 실패:", e);
     }
   }
 

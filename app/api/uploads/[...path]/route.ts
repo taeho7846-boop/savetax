@@ -25,7 +25,11 @@ export async function GET(
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
     return new NextResponse(data, {
-      headers: { "Content-Type": contentType },
+      headers: {
+        "Content-Type": contentType,
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+      },
     });
   } catch {
     return NextResponse.json({ error: "파일을 찾을 수 없습니다" }, { status: 404 });
