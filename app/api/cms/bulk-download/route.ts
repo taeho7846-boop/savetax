@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   // ExcelJS로 템플릿 열기
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(templateBuffer as unknown as Buffer);
+  await workbook.xlsx.load(new Uint8Array(templateBuffer).buffer);
   const ws = workbook.worksheets[0];
 
   // 데이터 입력 (A4부터 시작)
