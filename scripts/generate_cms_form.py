@@ -13,8 +13,26 @@ import subprocess
 from pathlib import Path
 
 
-def create_stamp_png(name, size_px=300):
-    from PIL import Image, ImageDraw, ImageFont
+def _get_font(font_size):
+    from PIL import ImageFont
+    font_paths = [
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/nanum/NanumGothicBold.ttf",
+        "C:/Windows/Fonts/malgunbd.ttf",
+        "C:/Windows/Fonts/malgun.ttf",
+    ]
+    for fp in font_paths:
+        try:
+            return ImageFont.truetype(fp, font_size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
+
+def create_personal_stamp(name, size_px=300):
+    """개인 도장: 원형 + 이름 세로 배치"""
+    from PIL import Image, ImageDraw
     import io
 
     img = Image.new("RGBA", (size_px, size_px), (255, 255, 255, 0))
@@ -31,23 +49,7 @@ def create_stamp_png(name, size_px=300):
     n = len(name)
     inner_h = size_px - margin * 5
     font_size = max(14, int(inner_h / (n + 0.3)))
-
-    font_paths = [
-        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-        "/usr/share/fonts/nanum/NanumGothicBold.ttf",
-        "C:/Windows/Fonts/malgunbd.ttf",
-        "C:/Windows/Fonts/malgun.ttf",
-    ]
-    font = None
-    for fp in font_paths:
-        try:
-            font = ImageFont.truetype(fp, font_size)
-            break
-        except Exception:
-            pass
-    if font is None:
-        font = ImageFont.load_default()
+    font = _get_font(font_size)
 
     char_sizes = []
     for char in name:
@@ -64,6 +66,91 @@ def create_stamp_png(name, size_px=300):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def create_corporate_stamp(name, size_px=300):
+    """법인 도장: 외곽에 회사명 원형 배치 + 중앙에 대표이사"""
+    from PIL import Image, ImageDraw
+    import io
+    import math
+
+    img = Image.new("RGBA", (size_px, size_px), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+
+    margin = size_px // 15
+    line_w = round(15 * size_px / 300)
+    center = size_px // 2
+    radius = center - margin
+
+    # 외곽 원
+    draw.ellipse(
+        [margin, margin, size_px - margin, size_px - margin],
+        outline=(180, 0, 0),
+        width=line_w,
+    )
+
+    # 중앙 "대표이사" 세로
+    center_text = "대표이사"
+    center_font_size = size_px // 6
+    center_font = _get_font(center_font_size)
+
+    char_sizes_c = []
+    for char in center_text:
+        bbox = draw.textbbox((0, 0), char, font=center_font)
+        char_sizes_c.append((bbox[2] - bbox[0], bbox[3] - bbox[1]))
+
+    total_h_c = sum(h for _, h in char_sizes_c)
+    y_c = (size_px - total_h_c) // 2
+    for char, (cw, ch) in zip(center_text, char_sizes_c):
+        x_c = (size_px - cw) // 2
+        draw.text((x_c, y_c), char, fill=(180, 0, 0), font=center_font)
+        y_c += ch
+
+    # 외곽 회사명 원형 배치
+    outer_font_size = size_px // 12
+    outer_font = _get_font(outer_font_size)
+    text_radius = radius - margin * 2
+
+    chars = list(name)
+    n = len(chars)
+    if n > 0:
+        # 위쪽(12시)부터 시계방향으로 배치
+        start_angle = -math.pi / 2
+        angle_step = (2 * math.pi) / max(n, 1)
+
+        for i, char in enumerate(chars):
+            angle = start_angle + angle_step * i
+            cx = center + text_radius * math.cos(angle)
+            cy = center + text_radius * math.sin(angle)
+
+            # 글자를 회전시켜 원형으로 배치
+            bbox = draw.textbbox((0, 0), char, font=outer_font)
+            cw = bbox[2] - bbox[0]
+            ch_h = bbox[3] - bbox[1]
+
+            # 각 글자를 개별 이미지로 만들고 회전
+            char_img = Image.new("RGBA", (cw + 10, ch_h + 10), (0, 0, 0, 0))
+            char_draw = ImageDraw.Draw(char_img)
+            char_draw.text((5, 5), char, fill=(180, 0, 0), font=outer_font)
+
+            # 회전 각도 (글자가 원의 바깥을 향하도록)
+            rot_deg = -math.degrees(angle) - 90
+            char_img = char_img.rotate(rot_deg, expand=True, resample=Image.BICUBIC)
+
+            # 중심 좌표에 붙여넣기
+            paste_x = int(cx - char_img.width / 2)
+            paste_y = int(cy - char_img.height / 2)
+            img.paste(char_img, (paste_x, paste_y), char_img)
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def create_stamp_png(name, size_px=300, is_corporate=False):
+    if is_corporate:
+        return create_corporate_stamp(name, size_px)
+    return create_personal_stamp(name, size_px)
 
 
 def main():
@@ -93,8 +180,9 @@ def main():
 
     # 1. 도장 생성
     try:
-        stamp_data = create_stamp_png(stamp_name, size_px=300)
-        print(f"도장 생성: {stamp_name}")
+        is_corp = client_type == "corporate"
+        stamp_data = create_stamp_png(stamp_name, size_px=300, is_corporate=is_corp)
+        print(f"도장 생성: {stamp_name} ({'법인' if is_corp else '개인'})")
     except Exception as e:
         print(f"ERROR: 도장 생성 실패: {e}", file=sys.stderr)
         sys.exit(1)
@@ -131,7 +219,7 @@ def main():
         stamp_img = XlImage(io.BytesIO(stamp_data))
         stamp_img.width = STAMP_CM / 2.54 * 96
         stamp_img.height = STAMP_CM / 2.54 * 96
-        marker = AnchorMarker(col=3, colOff=cm_to_EMU(0.5), row=27, rowOff=cm_to_EMU(0.0))
+        marker = AnchorMarker(col=3, colOff=cm_to_EMU(2.0), row=27, rowOff=cm_to_EMU(0.0))
         anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(stamp_emu, stamp_emu))
         stamp_img.anchor = anchor
         ws.add_image(stamp_img)
