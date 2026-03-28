@@ -13,15 +13,23 @@ import subprocess
 from pathlib import Path
 
 
-def _get_font(font_size):
+def _get_font(font_size, bold=True):
     from PIL import ImageFont
-    font_paths = [
-        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-        "/usr/share/fonts/nanum/NanumGothicBold.ttf",
-        "C:/Windows/Fonts/malgunbd.ttf",
-        "C:/Windows/Fonts/malgun.ttf",
-    ]
+    if bold:
+        font_paths = [
+            "/usr/share/fonts/truetype/nanum/NanumGothicExtraBold.ttf",
+            "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+            "/usr/share/fonts/nanum/NanumGothicExtraBold.ttf",
+            "/usr/share/fonts/nanum/NanumGothicBold.ttf",
+            "C:/Windows/Fonts/malgunbd.ttf",
+        ]
+    else:
+        font_paths = [
+            "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+            "/usr/share/fonts/nanum/NanumGothicBold.ttf",
+            "C:/Windows/Fonts/malgunbd.ttf",
+            "C:/Windows/Fonts/malgun.ttf",
+        ]
     for fp in font_paths:
         try:
             return ImageFont.truetype(fp, font_size)
@@ -84,14 +92,15 @@ def create_corporate_stamp(name, size_px=300):
     color = (180, 0, 0)
 
     # 외곽 원 (이중 원)
+    outer_lw = max(3, line_w // 2)
     draw.ellipse(
         [margin, margin, size_px - margin, size_px - margin],
-        outline=color, width=line_w,
+        outline=color, width=outer_lw,
     )
-    inner_margin = margin + line_w + 4
+    inner_margin = margin + outer_lw + 3
     draw.ellipse(
         [inner_margin, inner_margin, size_px - inner_margin, size_px - inner_margin],
-        outline=color, width=max(2, line_w // 3),
+        outline=color, width=max(2, outer_lw // 2),
     )
 
     # 중앙 가로선 (대표이사 영역 구분)
@@ -99,12 +108,12 @@ def create_corporate_stamp(name, size_px=300):
     top_line_y = center - center_box_h // 2
     bot_line_y = center + center_box_h // 2
     line_x_margin = inner_margin + 8
-    draw.line([(line_x_margin, top_line_y), (size_px - line_x_margin, top_line_y)], fill=color, width=max(2, line_w // 3))
-    draw.line([(line_x_margin, bot_line_y), (size_px - line_x_margin, bot_line_y)], fill=color, width=max(2, line_w // 3))
+    draw.line([(line_x_margin, top_line_y), (size_px - line_x_margin, top_line_y)], fill=color, width=max(2, outer_lw // 2))
+    draw.line([(line_x_margin, bot_line_y), (size_px - line_x_margin, bot_line_y)], fill=color, width=max(2, outer_lw // 2))
 
     # 중앙 "대표이사" 가로
     center_text = "대표이사"
-    center_font_size = center_box_h * 2 // 5
+    center_font_size = center_box_h * 3 // 5
     center_font = _get_font(center_font_size)
     bbox_ct = draw.textbbox((0, 0), center_text, font=center_font)
     ct_w = bbox_ct[2] - bbox_ct[0]
@@ -118,7 +127,7 @@ def create_corporate_stamp(name, size_px=300):
     chars = list(name)
     n = len(chars)
     if n > 0:
-        outer_font_size = max(12, int((size_px * 0.65) / (n + 0.5)))
+        outer_font_size = max(16, int((size_px * 0.8) / (n + 0.5)))
         outer_font = _get_font(outer_font_size)
         text_radius = radius - line_w - margin
 
@@ -220,12 +229,13 @@ def main():
         print("셀 입력 완료")
 
         # 도장 삽입 D28
-        STAMP_CM = 2.0
+        STAMP_CM = 2.0 if client_type == "individual" else 2.5
         stamp_emu = cm_to_EMU(STAMP_CM)
         stamp_img = XlImage(io.BytesIO(stamp_data))
         stamp_img.width = STAMP_CM / 2.54 * 96
         stamp_img.height = STAMP_CM / 2.54 * 96
-        marker = AnchorMarker(col=3, colOff=cm_to_EMU(2.0), row=27, rowOff=cm_to_EMU(0.0))
+        col_off = 2.0 if client_type == "individual" else 2.5
+        marker = AnchorMarker(col=3, colOff=cm_to_EMU(col_off), row=27, rowOff=cm_to_EMU(0.0))
         anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(stamp_emu, stamp_emu))
         stamp_img.anchor = anchor
         ws.add_image(stamp_img)
