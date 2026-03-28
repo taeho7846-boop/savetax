@@ -127,7 +127,7 @@ def create_corporate_stamp(name, size_px=300):
     chars = list(name)
     n = len(chars)
     if n > 0:
-        outer_font_size = max(16, int((size_px * 0.8) / (n + 0.5)))
+        outer_font_size = max(20, int((size_px * 1.1) / (n + 0.5)))
         outer_font = _get_font(outer_font_size)
         text_radius = radius - line_w - margin
 
