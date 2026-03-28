@@ -129,10 +129,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         return;
       }
 
-      // 2. CMS 등록 처리
-      await bulkCmsRegister([...checkedIds]);
       setCheckedIds(new Set());
-      router.refresh();
     });
   }
 
