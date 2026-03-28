@@ -1,20 +1,3 @@
-// 서비스 워커에서 파일선택 버튼 클릭 요청 수신
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === "click-file-buttons") {
-    (async () => {
-      const btnId = "mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1";
-      for (let i = 0; i < msg.count; i++) {
-        await new Promise(r => setTimeout(r, 1500));
-        const btn = document.getElementById(btnId);
-        if (btn) {
-          btn.click();
-          console.log(`SaveTax: 파일선택 버튼 클릭 (${i + 1}/${msg.count})`);
-        }
-      }
-    })();
-  }
-});
-
 // 페이지 이동 후에도 자동화 이어서 진행
 (async function () {
   const pendingData = sessionStorage.getItem("savetax_register_data");
