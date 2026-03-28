@@ -1,4 +1,4 @@
-// 서비스 워커: 파일 fetch + DOM.setFileInputFiles로 직접 파일 주입
+// 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "fetch-file") {
@@ -59,76 +59,79 @@ async function handleFileUpload(files, tabId) {
   try {
     await chrome.debugger.sendCommand({ tabId }, "DOM.enable");
     await chrome.debugger.sendCommand({ tabId }, "Runtime.enable");
+    await chrome.debugger.sendCommand({ tabId }, "Page.enable");
+
+    // 파일 다이얼로그 가로채기 활성화
+    await chrome.debugger.sendCommand({ tabId }, "Page.setInterceptFileChooserDialog", { enabled: true });
 
     for (let i = 0; i < downloadedPaths.length; i++) {
       const filePath = downloadedPaths[i];
 
-      // 파일선택 버튼 클릭 (input[type=file] 생성 유도)
-      await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
-        expression: `document.getElementById("mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1")?.click()`,
+      // 파일 다이얼로그 열릴 때 자동 처리할 Promise
+      const fileChooserPromise = new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          chrome.debugger.onEvent.removeListener(handler);
+          resolve(false);
+        }, 10000);
+
+        function handler(source, method, params) {
+          if (source.tabId === tabId && method === "Page.fileChooserOpened") {
+            clearTimeout(timeout);
+            chrome.debugger.onEvent.removeListener(handler);
+            chrome.debugger.sendCommand({ tabId }, "Page.handleFileChooser", {
+              action: "accept",
+              files: [filePath],
+            }).then(() => {
+              console.log("파일 주입 완료:", filePath);
+              resolve(true);
+            }).catch((e) => {
+              console.error("파일 주입 실패:", e);
+              resolve(false);
+            });
+          }
+        }
+        chrome.debugger.onEvent.addListener(handler);
       });
-      console.log(`파일선택 버튼 클릭 (${i + 1}/${downloadedPaths.length})`);
 
-      // input[type=file] 생성 대기
-      await new Promise(r => setTimeout(r, 1000));
-
-      // input[type=file] 찾기
-      const result = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
+      // "파일선택" 버튼 좌표 가져오기
+      const btnResult = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
         expression: `(() => {
-          const inputs = document.querySelectorAll("input[type='file']");
-          for (const input of inputs) {
-            if (!input._savetaxDone) {
-              input._savetaxDone = true;
-              return true;
-            }
-          }
-          // iframe 안에서도 찾기
-          const iframes = document.querySelectorAll("iframe");
-          for (const iframe of iframes) {
-            try {
-              const iInputs = iframe.contentDocument.querySelectorAll("input[type='file']");
-              for (const input of iInputs) {
-                if (!input._savetaxDone) {
-                  input._savetaxDone = true;
-                  return true;
-                }
-              }
-            } catch(e) {}
-          }
-          return false;
+          const btn = document.getElementById("mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1");
+          if (!btn) return null;
+          const rect = btn.getBoundingClientRect();
+          return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
         })()`,
         returnByValue: true,
       });
 
-      // DOM.querySelector로 file input의 nodeId 가져오기
-      const doc = await chrome.debugger.sendCommand({ tabId }, "DOM.getDocument", { depth: 0 });
-
-      // 모든 file input 찾기
-      const nodeResult = await chrome.debugger.sendCommand({ tabId }, "DOM.querySelectorAll", {
-        nodeId: doc.root.nodeId,
-        selector: "input[type='file']",
-      });
-
-      if (nodeResult.nodeIds && nodeResult.nodeIds.length > 0) {
-        // 마지막으로 생성된 file input 사용
-        const targetNodeId = nodeResult.nodeIds[nodeResult.nodeIds.length - 1];
-
-        try {
-          await chrome.debugger.sendCommand({ tabId }, "DOM.setFileInputFiles", {
-            nodeId: targetNodeId,
-            files: [filePath],
-          });
-          console.log(`파일 주입 완료 (${i + 1}):`, filePath);
-          uploadCount++;
-        } catch (e) {
-          console.error(`파일 주입 실패 (${i + 1}):`, e);
-        }
-      } else {
-        console.log("file input을 찾을 수 없음");
+      if (!btnResult.result.value) {
+        console.log("파일선택 버튼을 찾을 수 없음");
+        continue;
       }
 
-      await new Promise(r => setTimeout(r, 1000));
+      const { x, y } = btnResult.result.value;
+      console.log(`파일선택 버튼 클릭 (${i + 1}/${downloadedPaths.length}) 좌표: ${x}, ${y}`);
+
+      // 진짜 마우스 클릭 시뮬레이션 (user activation 발생!)
+      await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+        type: "mousePressed", x, y, button: "left", clickCount: 1,
+      });
+      await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+        type: "mouseReleased", x, y, button: "left", clickCount: 1,
+      });
+
+      // 파일 다이얼로그 자동 처리 대기
+      const success = await fileChooserPromise;
+      if (success) uploadCount++;
+
+      await new Promise(r => setTimeout(r, 1500));
     }
+
+    // 파일 다이얼로그 가로채기 해제
+    try {
+      await chrome.debugger.sendCommand({ tabId }, "Page.setInterceptFileChooserDialog", { enabled: false });
+    } catch (e) {}
+
   } catch (e) {
     console.error("파일 업로드 중 오류:", e);
   }
