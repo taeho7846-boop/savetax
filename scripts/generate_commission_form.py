@@ -137,9 +137,9 @@ def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, 
 
     # (col 0-indexed, col_offset_cm, row 0-indexed, row_offset_cm)
     stamp_positions = [
-        (3, 1.5, 27, 0.0),   # D30 기준 오른쪽 1.5cm, 위로 2행
-        (3, 1.5, 32, 0.0),   # D35 기준 오른쪽 1.5cm, 위로 2행
-        (1, 1.5, 41, 0.0),   # B44 기준 오른쪽 1.5cm, 위로 2행
+        (3, 1.5, 29, -0.5),   # D30 기준 오른쪽 1.5cm, 위로 0.5cm
+        (3, 1.5, 34, -0.5),   # D35 기준 오른쪽 1.5cm, 위로 0.5cm
+        (1, 1.5, 43, -0.5),   # B44 기준 오른쪽 1.5cm, 위로 0.5cm
     ]
 
     for col, col_off_cm, row, row_off_cm in stamp_positions:
