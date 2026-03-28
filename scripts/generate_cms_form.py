@@ -81,63 +81,69 @@ def create_corporate_stamp(name, size_px=300):
     line_w = round(15 * size_px / 300)
     center = size_px // 2
     radius = center - margin
+    color = (180, 0, 0)
 
-    # 외곽 원
+    # 외곽 원 (이중 원)
     draw.ellipse(
         [margin, margin, size_px - margin, size_px - margin],
-        outline=(180, 0, 0),
-        width=line_w,
+        outline=color, width=line_w,
+    )
+    inner_margin = margin + line_w + 4
+    draw.ellipse(
+        [inner_margin, inner_margin, size_px - inner_margin, size_px - inner_margin],
+        outline=color, width=max(2, line_w // 3),
     )
 
-    # 중앙 "대표이사" 세로
+    # 중앙 가로선 (대표이사 영역 구분)
+    center_box_h = size_px // 4
+    top_line_y = center - center_box_h // 2
+    bot_line_y = center + center_box_h // 2
+    line_x_margin = inner_margin + 8
+    draw.line([(line_x_margin, top_line_y), (size_px - line_x_margin, top_line_y)], fill=color, width=max(2, line_w // 3))
+    draw.line([(line_x_margin, bot_line_y), (size_px - line_x_margin, bot_line_y)], fill=color, width=max(2, line_w // 3))
+
+    # 중앙 "대표이사" 가로
     center_text = "대표이사"
-    center_font_size = size_px // 6
+    center_font_size = center_box_h * 2 // 5
     center_font = _get_font(center_font_size)
-
-    char_sizes_c = []
-    for char in center_text:
-        bbox = draw.textbbox((0, 0), char, font=center_font)
-        char_sizes_c.append((bbox[2] - bbox[0], bbox[3] - bbox[1]))
-
-    total_h_c = sum(h for _, h in char_sizes_c)
-    y_c = (size_px - total_h_c) // 2
-    for char, (cw, ch) in zip(center_text, char_sizes_c):
-        x_c = (size_px - cw) // 2
-        draw.text((x_c, y_c), char, fill=(180, 0, 0), font=center_font)
-        y_c += ch
+    bbox_ct = draw.textbbox((0, 0), center_text, font=center_font)
+    ct_w = bbox_ct[2] - bbox_ct[0]
+    ct_h = bbox_ct[3] - bbox_ct[1]
+    draw.text(
+        ((size_px - ct_w) // 2, center - ct_h // 2),
+        center_text, fill=color, font=center_font,
+    )
 
     # 외곽 회사명 원형 배치
-    outer_font_size = size_px // 12
-    outer_font = _get_font(outer_font_size)
-    text_radius = radius - margin * 2
-
     chars = list(name)
     n = len(chars)
     if n > 0:
-        # 위쪽(12시)부터 시계방향으로 배치
+        outer_font_size = max(12, int((size_px * 0.65) / (n + 0.5)))
+        outer_font = _get_font(outer_font_size)
+        text_radius = radius - line_w - margin
+
+        # 12시 방향부터 시계방향
         start_angle = -math.pi / 2
-        angle_step = (2 * math.pi) / max(n, 1)
+        angle_step = (2 * math.pi) / n
 
         for i, char in enumerate(chars):
             angle = start_angle + angle_step * i
             cx = center + text_radius * math.cos(angle)
             cy = center + text_radius * math.sin(angle)
 
-            # 글자를 회전시켜 원형으로 배치
             bbox = draw.textbbox((0, 0), char, font=outer_font)
             cw = bbox[2] - bbox[0]
             ch_h = bbox[3] - bbox[1]
 
-            # 각 글자를 개별 이미지로 만들고 회전
-            char_img = Image.new("RGBA", (cw + 10, ch_h + 10), (0, 0, 0, 0))
+            # 글자 개별 이미지 생성 + 회전
+            pad = 6
+            char_img = Image.new("RGBA", (cw + pad * 2, ch_h + pad * 2), (0, 0, 0, 0))
             char_draw = ImageDraw.Draw(char_img)
-            char_draw.text((5, 5), char, fill=(180, 0, 0), font=outer_font)
+            char_draw.text((pad, pad), char, fill=color, font=outer_font)
 
-            # 회전 각도 (글자가 원의 바깥을 향하도록)
             rot_deg = -math.degrees(angle) - 90
             char_img = char_img.rotate(rot_deg, expand=True, resample=Image.BICUBIC)
 
-            # 중심 좌표에 붙여넣기
             paste_x = int(cx - char_img.width / 2)
             paste_y = int(cy - char_img.height / 2)
             img.paste(char_img, (paste_x, paste_y), char_img)
