@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import path from "path";
-import { readFile } from "fs/promises";
 import ExcelJS from "exceljs";
 
 const BANK_CODE_MAP: Record<string, string> = {
@@ -92,16 +91,12 @@ export async function POST(req: NextRequest) {
   const templateRelPath = settings.cmsBulkExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
   const templatePath = path.join(process.cwd(), "public", templateRelPath);
 
-  let templateBuffer: Buffer;
+  const workbook = new ExcelJS.Workbook();
   try {
-    templateBuffer = await readFile(templatePath);
+    await workbook.xlsx.readFile(templatePath);
   } catch {
     return NextResponse.json({ error: "CMS 일괄등록 엑셀 템플릿 파일을 찾을 수 없습니다" }, { status: 404 });
   }
-
-  // ExcelJS로 템플릿 열기
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(new Uint8Array(templateBuffer).buffer);
   const ws = workbook.worksheets[0];
 
   // 데이터 입력 (A4부터 시작)
