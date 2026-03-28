@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import path from "path";
 import { readFile } from "fs/promises";
-import XLSX from "xlsx";
+import * as XLSX from "xlsx";
 
 const BANK_CODE_MAP: Record<string, string> = {
   "산업": "002", "산업은행": "002",
