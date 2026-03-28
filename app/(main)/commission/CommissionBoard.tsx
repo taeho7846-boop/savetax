@@ -311,8 +311,7 @@ export default function CommissionBoard({
           "_blank"
         );
         const actionLabel = action === "register" ? "기장등록" : action === "commission" ? "기장수임" : "해지후수임";
-        const fileMsg = action !== "register" ? " (첨부서류는 직접 업로드)" : "";
-        setAutoResult({ ok: true, msg: `홈택스에서 ${actionLabel} 자동 입력 중...${fileMsg}` });
+        setAutoResult({ ok: true, msg: `홈택스에서 ${actionLabel} 자동 처리 중... 확인 후 신청 버튼을 눌러주세요` });
       } else {
         setAutoResult({ ok: true, msg: data.message ?? "완료", pdfPath: data.pdfPath });
       }

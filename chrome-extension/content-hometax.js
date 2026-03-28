@@ -390,9 +390,64 @@
       } catch (e) {}
       await sleep(500);
 
-      // 4. 폼 입력 완료 안내 (파일 업로드는 Raon K Upload 사용으로 수동 처리)
+      // 4. 파일 업로드 (서비스 워커 → MAIN world 가로채기)
+      async function fetchFileBase64(url) {
+        if (!url) return null;
+        try {
+          const resp = await chrome.runtime.sendMessage({ type: "fetch-file", url });
+          if (!resp || !resp.ok) {
+            console.error("SaveTax 파일 다운로드 실패:", url, resp?.error);
+            return null;
+          }
+          return { data: resp.data, type: resp.type || "application/octet-stream" };
+        } catch (e) {
+          console.error("SaveTax 파일 다운로드 실패:", url, e);
+          return null;
+        }
+      }
+
+      function getFilenameFromUrl(url) {
+        return decodeURIComponent(url.split("/").pop() || "file");
+      }
+
+      const filesToUpload = [
+        { label: "세무대리인 신분증", url: creds.agentIdCardUrl },
+        { label: "대표자 신분증", url: creds.clientIdCardUrl },
+        { label: "홈택스수임신청서", url: creds.pdfUrl },
+      ];
+
+      for (const { label, url } of filesToUpload) {
+        if (!url) {
+          console.log(`SaveTax: ${label} - URL 없음, 건너뜀`);
+          continue;
+        }
+        const fileInfo = await fetchFileBase64(url);
+        if (!fileInfo) {
+          console.log(`SaveTax: ${label} - 파일 다운로드 실패`);
+          continue;
+        }
+
+        const filename = getFilenameFromUrl(url);
+
+        // MAIN world에 파일 데이터 전달 (beacon 경유)
+        const beacon = document.getElementById("__savetax_beacon");
+        if (beacon) {
+          beacon.setAttribute("data-pending-file", JSON.stringify({
+            name: filename,
+            data: fileInfo.data,
+            type: fileInfo.type,
+          }));
+          await sleep(200);
+
+          // 파일선택 버튼 클릭 → MAIN world에서 file input click 가로채기
+          beacon.setAttribute("data-click", "mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1");
+          console.log(`SaveTax: ${label} 업로드 시도 → ${filename}`);
+          await sleep(1500);
+        }
+      }
+
       const modeLabel = mode === "commission" ? "기장수임" : "해지후수임";
-      console.log(`SaveTax: ${modeLabel} 입력 완료 - 첨부서류 업로드 후 신청 버튼을 눌러주세요`);
+      console.log(`SaveTax: ${modeLabel} 입력 완료 - 확인 후 신청 버튼을 눌러주세요`);
 
     } catch (e) {
       console.error("SaveTax 기장수임 실패:", e);
