@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = (file.name.split(".").pop() ?? "xlsx").toLowerCase();
-    const filename = `commission-form.${ext}`;
+    const filename = `commission-form-${session.id}.${ext}`;
     const uploadDir = path.join(process.cwd(), "public", "uploads", "settings");
     await mkdir(uploadDir, { recursive: true });
 

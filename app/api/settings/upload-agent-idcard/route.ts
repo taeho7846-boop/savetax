@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
-    const filename = `agent-idcard.${ext}`;
+    const filename = `agent-idcard-${session.id}.${ext}`;
     const uploadDir = path.join(process.cwd(), "public", "uploads", "settings");
     await mkdir(uploadDir, { recursive: true });
 

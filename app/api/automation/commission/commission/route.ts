@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   // 파일 경로 (없으면 빈 문자열)
   const agentIdCardPath = settings.agentIdCardPath
-    ? path.join(process.cwd(), "public", settings.agentIdCardPath)
+    ? path.join(process.cwd(), "public", settings.agentIdCardPath.replace(/^\/api\/uploads\//, "/uploads/"))
     : "";
 
   const clientIdCardPath = commission?.idCardPath

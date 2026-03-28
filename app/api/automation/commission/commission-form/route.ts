@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `${client.name}: 대표자명이 없습니다` }, { status: 400 });
   }
 
-  const templatePath = path.join(process.cwd(), "public", settings.commissionFormPath);
+  const templatePath = path.join(process.cwd(), "public", settings.commissionFormPath.replace(/^\/api\/uploads\//, "/uploads/"));
   const outputDir    = path.join(process.cwd(), "public", "uploads", "idcards");
   const outputName   = commission
     ? `${commission.id}_수임신청서.pdf`
