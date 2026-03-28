@@ -2,23 +2,20 @@
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "fetch-file") {
     fetch(msg.url)
-      .then(res => {
+      .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.blob();
-      })
-      .then(blob => blob.arrayBuffer())
-      .then(buf => {
-        // ArrayBuffer를 base64로 변환
+        const blob = await res.blob();
+        const buf = await blob.arrayBuffer();
         const bytes = new Uint8Array(buf);
         let binary = "";
         for (let i = 0; i < bytes.length; i++) {
           binary += String.fromCharCode(bytes[i]);
         }
-        sendResponse({ ok: true, data: btoa(binary), type: blob?.type || "" });
+        sendResponse({ ok: true, data: btoa(binary), type: blob.type });
       })
       .catch(err => {
         sendResponse({ ok: false, error: err.message });
       });
-    return true; // 비동기 응답
+    return true;
   }
 });
