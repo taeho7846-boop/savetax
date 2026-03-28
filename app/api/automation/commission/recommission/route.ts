@@ -35,15 +35,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "대표자명이 없습니다" }, { status: 400 });
   }
 
-  const origin = req.nextUrl.origin;
-  const agentIdCardUrl = settings.agentIdCardPath
-    ? `${origin}${settings.agentIdCardPath}`
-    : "";
-  const clientIdCardUrl = commission?.idCardPath
-    ? `${origin}${commission.idCardPath}`
-    : "";
-  const pdfUrl = commission
-    ? `${origin}/api/uploads/idcards/${commission.id}_수임신청서.pdf`
+  const agentIdCardPath = settings.agentIdCardPath ?? "";
+  const clientIdCardPath = commission?.idCardPath ?? "";
+  const pdfPath = commission
+    ? `/api/uploads/idcards/${commission.id}_수임신청서.pdf`
     : "";
 
   return NextResponse.json({
@@ -53,8 +48,8 @@ export async function POST(req: NextRequest) {
     certPw: settings.certPassword ?? "",
     residentNumber: client.residentNumber,
     ceoName: client.ceoName,
-    agentIdCardUrl,
-    clientIdCardUrl,
-    pdfUrl,
+    agentIdCardPath,
+    clientIdCardPath,
+    pdfPath,
   });
 }

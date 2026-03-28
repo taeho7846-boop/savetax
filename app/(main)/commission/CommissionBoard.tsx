@@ -298,11 +298,12 @@ export default function CommissionBoard({
           payload.residentNumber = data.residentNumber;
           payload.phone = data.phone;
         } else {
+          const serverOrigin = window.location.origin;
           payload.residentNumber = data.residentNumber;
           payload.ceoName = data.ceoName;
-          payload.agentIdCardUrl = data.agentIdCardUrl ?? "";
-          payload.clientIdCardUrl = data.clientIdCardUrl ?? "";
-          payload.pdfUrl = data.pdfUrl ?? "";
+          payload.agentIdCardUrl = data.agentIdCardPath ? `${serverOrigin}${data.agentIdCardPath}` : "";
+          payload.clientIdCardUrl = data.clientIdCardPath ? `${serverOrigin}${data.clientIdCardPath}` : "";
+          payload.pdfUrl = data.pdfPath ? `${serverOrigin}${data.pdfPath}` : "";
         }
         const creds = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
         window.open(
