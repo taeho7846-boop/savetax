@@ -2,12 +2,16 @@
 홈택스수임신청서 엑셀 템플릿 → PDF 생성
 Usage: python generate_commission_form.py <template_path> <output_pdf_path>
        <ceo_name> <resident_number> <client_name> <biz_number> <phone>
+
+Linux(VPS): openpyxl + LibreOffice
+Windows: openpyxl + win32com (Excel COM)
 """
 
 import sys
 import os
 import tempfile
 import shutil
+import subprocess
 from pathlib import Path
 
 
@@ -19,7 +23,6 @@ def create_stamp_png(name: str, size_px: int = 300) -> bytes:
     img = Image.new("RGBA", (size_px, size_px), (255, 255, 255, 0))
     draw = ImageDraw.Draw(img)
 
-    # 외부 원 (테두리 15px 기준)
     margin = size_px // 15
     line_w = round(15 * size_px / 300)
     draw.ellipse(
@@ -28,17 +31,24 @@ def create_stamp_png(name: str, size_px: int = 300) -> bytes:
         width=line_w,
     )
 
-    # 이름 세로 배치 (Bold 폰트 우선)
     n = len(name)
     inner_h = size_px - margin * 5
     font_size = max(14, int(inner_h / (n + 0.3)))
 
-    font_paths = [
-        "C:/Windows/Fonts/malgunbd.ttf",  # Malgun Gothic Bold
+    font_paths_linux = [
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/nanum/NanumGothic.ttf",
+    ]
+    font_paths_win = [
+        "C:/Windows/Fonts/malgunbd.ttf",
         "C:/Windows/Fonts/malgun.ttf",
         "C:/Windows/Fonts/gulim.ttc",
         "C:/Windows/Fonts/batang.ttc",
     ]
+    font_paths = font_paths_linux + font_paths_win
+
     font = None
     for fp in font_paths:
         try:
@@ -66,6 +76,73 @@ def create_stamp_png(name: str, size_px: int = 300) -> bytes:
     return buf.getvalue()
 
 
+def convert_with_libreoffice(xlsx_path: str, output_pdf: str):
+    """LibreOffice로 xlsx → pdf 변환 (Linux)"""
+    output_dir = os.path.dirname(os.path.abspath(output_pdf))
+    os.makedirs(output_dir, exist_ok=True)
+
+    result = subprocess.run(
+        ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", output_dir, xlsx_path],
+        capture_output=True, text=True, timeout=60
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"LibreOffice 변환 실패: {result.stderr}")
+
+    # LibreOffice는 원본 파일명.pdf로 생성하므로 원하는 이름으로 이동
+    generated = os.path.join(output_dir, Path(xlsx_path).stem + ".pdf")
+    if generated != os.path.abspath(output_pdf):
+        shutil.move(generated, os.path.abspath(output_pdf))
+
+
+def convert_with_win32com(xlsx_path: str, output_pdf: str):
+    """win32com(Excel COM)으로 xlsx → pdf 변환 (Windows)"""
+    import win32com.client
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_pdf)), exist_ok=True)
+
+    excel = win32com.client.Dispatch("Excel.Application")
+    excel.Visible = False
+    excel.DisplayAlerts = False
+    try:
+        wb = excel.Workbooks.Open(os.path.abspath(xlsx_path))
+        wb.ExportAsFixedFormat(0, os.path.abspath(output_pdf))
+        wb.Close(False)
+    finally:
+        excel.Quit()
+
+
+def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, client_name, biz_number, phone, stamp_data):
+    """openpyxl로 엑셀 셀 채우기 + 도장 삽입"""
+    from openpyxl import load_workbook
+    from openpyxl.drawing.image import Image as XlImage
+    import io
+
+    wb = load_workbook(template_path)
+    ws = wb.active
+
+    # 셀 채우기
+    ws["B6"] = ceo_name
+    ws["C6"] = resident_number
+    ws["B8"] = client_name
+    ws["C8"] = biz_number
+    ws["D11"] = phone
+    print("셀 입력 완료")
+
+    # 도장 삽입
+    STAMP_CM = 2.0
+    stamp_positions = ["D30", "D35", "B44"]
+
+    for cell_ref in stamp_positions:
+        stamp_img = XlImage(io.BytesIO(stamp_data))
+        stamp_img.width = STAMP_CM / 2.54 * 96   # ~75px
+        stamp_img.height = STAMP_CM / 2.54 * 96
+        ws.add_image(stamp_img, cell_ref)
+        print(f"도장 삽입: {cell_ref}")
+
+    wb.save(tmp_xlsx)
+    print(f"엑셀 저장: {tmp_xlsx}")
+
+
 def main():
     import io as _io
     sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -87,9 +164,8 @@ def main():
         print(f"ERROR: 템플릿 파일 없음: {template_path}", file=sys.stderr)
         sys.exit(1)
 
-    # ── 1. 도장 이미지 생성 ───────────────────────────────────
+    # 1. 도장 이미지 생성
     try:
-        from PIL import Image  # noqa
         stamp_data = create_stamp_png(ceo_name, size_px=300)
         print(f"도장 생성: {ceo_name}")
     except ImportError:
@@ -99,97 +175,42 @@ def main():
         print(f"ERROR: 도장 생성 실패: {e}", file=sys.stderr)
         sys.exit(1)
 
-    stamp_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    stamp_tmp.write(stamp_data)
-    stamp_tmp.close()
-
-    # 템플릿을 임시 파일로 복사 (원본 보호)
+    # 2. 템플릿 복사 + openpyxl로 셀/도장 채우기
     ext = Path(template_path).suffix or ".xlsx"
     tmp_fd, tmp_xlsx = tempfile.mkstemp(suffix=ext)
     os.close(tmp_fd)
     shutil.copy2(template_path, tmp_xlsx)
 
     try:
-        import win32com.client
+        fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, client_name, biz_number, phone, stamp_data)
     except ImportError:
-        print("ERROR: pywin32를 설치해주세요 (pip install pywin32)", file=sys.stderr)
-        os.unlink(stamp_tmp.name)
+        print("ERROR: openpyxl을 설치해주세요 (pip install openpyxl)", file=sys.stderr)
         os.unlink(tmp_xlsx)
         sys.exit(1)
-
-    excel = None
-    try:
-        print("Excel 열기...")
-        excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = False
-        excel.DisplayAlerts = False
-
-        wb = excel.Workbooks.Open(os.path.abspath(tmp_xlsx))
-        ws = wb.Sheets(1)
-
-        # ── 2. 셀 채우기 ──────────────────────────────────────
-        ws.Cells(6, 2).Value  = ceo_name         # B6
-        ws.Cells(6, 3).Value  = resident_number  # C6
-        ws.Cells(8, 2).Value  = client_name      # B8
-        ws.Cells(8, 3).Value  = biz_number       # C8
-        ws.Cells(11, 4).Value = phone            # D11
-        print("셀 입력 완료")
-
-        # ── 3. 도장 삽입 (셀 오른쪽 끝 정렬) ─────────────────
-        # 2cm = 56.69pt (1pt = 1/72 inch, 1inch = 2.54cm)
-        STAMP_PT  = 2 / 2.54 * 72   # ≈ 56.69pt
-        stamp_abs = os.path.abspath(stamp_tmp.name)
-
-        # (cell_ref, left_offset_pt, top_offset_pt)
-        # 양수 = 오른쪽/아래, 음수 = 왼쪽/위
-        stamp_positions = [
-            ("D30", 0,   -15),   # 위로 올림
-            ("D35", 0,   -15),   # 위로 올림
-            ("B44", -45, -15),   # 왼쪽으로 이동
-        ]
-
-        for cell_ref, off_left, off_top in stamp_positions:
-            cell = ws.Range(cell_ref)
-            left = cell.Left + cell.Width - STAMP_PT + off_left
-            top  = cell.Top + off_top
-            ws.Shapes.AddPicture(
-                Filename=stamp_abs,
-                LinkToFile=False,
-                SaveWithDocument=True,
-                Left=float(left),
-                Top=float(top),
-                Width=STAMP_PT,
-                Height=STAMP_PT,
-            )
-            print(f"도장 삽입: {cell_ref} (left={left:.1f}pt, top={top:.1f}pt)")
-
-        # ── 4. PDF 변환 ───────────────────────────────────────
-        os.makedirs(os.path.dirname(os.path.abspath(output_pdf)), exist_ok=True)
-        print("PDF 변환 중...")
-        wb.ExportAsFixedFormat(0, os.path.abspath(output_pdf))
-        wb.Close(False)
-        print(f"SUCCESS: {output_pdf}")
-
     except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        try:
-            if excel:
-                excel.Quit()
-        except Exception:
-            pass
-        os.unlink(stamp_tmp.name)
+        print(f"ERROR: 엑셀 작성 실패: {e}", file=sys.stderr)
         os.unlink(tmp_xlsx)
         sys.exit(1)
 
+    # 3. PDF 변환
+    try:
+        is_windows = sys.platform == "win32"
+        if is_windows:
+            try:
+                convert_with_win32com(tmp_xlsx, output_pdf)
+                print("PDF 변환 완료 (Excel COM)")
+            except ImportError:
+                convert_with_libreoffice(tmp_xlsx, output_pdf)
+                print("PDF 변환 완료 (LibreOffice)")
+        else:
+            convert_with_libreoffice(tmp_xlsx, output_pdf)
+            print("PDF 변환 완료 (LibreOffice)")
+
+        print(f"SUCCESS: {output_pdf}")
+    except Exception as e:
+        print(f"ERROR: PDF 변환 실패: {e}", file=sys.stderr)
+        sys.exit(1)
     finally:
-        try:
-            excel.Quit()
-        except Exception:
-            pass
-        try:
-            os.unlink(stamp_tmp.name)
-        except Exception:
-            pass
         try:
             os.unlink(tmp_xlsx)
         except Exception:

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         phone: true,
       },
     }),
-    prisma.settings.findUnique({ where: { id: 1 } }),
+    prisma.settings.findUnique({ where: { userId: session.id } }),
     prisma.commissionProcess.findUnique({
       where: { clientId: Number(clientId) },
       select: { id: true },
@@ -52,10 +52,11 @@ export async function POST(req: NextRequest) {
   const webPath = `/uploads/idcards/${outputName}`;
 
   const scriptPath = path.join(process.cwd(), "scripts", "generate_commission_form.py");
+  const pythonCmd = process.platform === "win32" ? "python" : "python3";
 
   return new Promise<NextResponse>((resolve) => {
     const proc = spawn(
-      "python",
+      pythonCmd,
       [
         scriptPath,
         templatePath,
