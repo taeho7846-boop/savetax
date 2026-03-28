@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import path from "path";
-import ExcelJS from "exceljs";
+import { readFile } from "fs/promises";
+import XLSX from "xlsx";
 
 const BANK_CODE_MAP: Record<string, string> = {
   "산업": "002", "산업은행": "002",
@@ -34,7 +35,6 @@ function getBankCode(bankName: string | null): string {
   if (!bankName) return "";
   const trimmed = bankName.trim();
   if (BANK_CODE_MAP[trimmed]) return BANK_CODE_MAP[trimmed];
-  // 부분 매칭
   for (const [key, code] of Object.entries(BANK_CODE_MAP)) {
     if (trimmed.includes(key)) return code;
   }
@@ -52,7 +52,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "선택된 고객사가 없습니다" }, { status: 400 });
   }
 
-  // 설정에서 템플릿 경로 가져오기
   const settings = await prisma.settings.findUnique({
     where: { userId: session.id },
     select: { cmsBulkExcelPath: true },
@@ -62,7 +61,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "설정에서 CMS 일괄등록 엑셀 템플릿을 먼저 업로드해주세요" }, { status: 400 });
   }
 
-  // 고객사 데이터 가져오기
   const clients = await prisma.client.findMany({
     where: {
       id: { in: clientIds.map(Number) },
@@ -91,25 +89,24 @@ export async function POST(req: NextRequest) {
   const templateRelPath = settings.cmsBulkExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
   const templatePath = path.join(process.cwd(), "public", templateRelPath);
 
-  const workbook = new ExcelJS.Workbook();
+  let wb: XLSX.WorkBook;
   try {
-    await workbook.xlsx.readFile(templatePath);
+    const buf = await readFile(templatePath);
+    wb = XLSX.read(buf, { type: "buffer" });
   } catch {
     return NextResponse.json({ error: "CMS 일괄등록 엑셀 템플릿 파일을 찾을 수 없습니다" }, { status: 404 });
   }
-  const ws = workbook.worksheets[0];
 
-  // 데이터 입력 (A4부터 시작)
+  const ws = wb.Sheets[wb.SheetNames[0]];
+
+  // 데이터 입력 (A4부터 시작, 0-indexed row=3)
   clients.forEach((client, i) => {
-    const row = 4 + i;
+    const row = 4 + i; // 1-indexed for cell references
     const phone = (client.phone || "").replace(/[-\s]/g, "");
     const bankCode = getBankCode(client.bankName);
     const bankAccount = (client.bankAccount || "").replace(/[-\s]/g, "");
-
-    // K: 예금주명 - 개인이면 대표자명, 법인이면 거래처명
     const depositor = client.clientType === "corporate" ? client.name : (client.ceoName || "");
 
-    // L: 개인사업자는 주민번호 앞6자리, 법인은 사업자번호 10자리
     let idNumber = "";
     if (client.clientType === "corporate") {
       idNumber = (client.bizNumber || "").replace(/[-\s]/g, "").slice(0, 10);
@@ -117,29 +114,34 @@ export async function POST(req: NextRequest) {
       idNumber = (client.residentNumber || "").replace(/[-\s]/g, "").slice(0, 6);
     }
 
-    // P: 최초출금월 YYYYMM
     const firstMonth = (client.firstWithdrawalMonth || "").replace("-", "");
 
-    ws.getCell(`A${row}`).value = client.name;
-    ws.getCell(`E${row}`).value = phone;
-    ws.getCell(`I${row}`).value = bankCode;
-    ws.getCell(`J${row}`).value = bankAccount;
-    ws.getCell(`K${row}`).value = depositor;
-    ws.getCell(`L${row}`).value = idNumber;
-    ws.getCell(`M${row}`).value = client.monthlyFee ?? 0;
-    ws.getCell(`N${row}`).value = "05";
-    ws.getCell(`O${row}`).value = "99";
-    ws.getCell(`P${row}`).value = firstMonth;
-    ws.getCell(`AA${row}`).value = "N";
+    ws[`A${row}`] = { t: "s", v: client.name };
+    ws[`E${row}`] = { t: "s", v: phone };
+    ws[`I${row}`] = { t: "s", v: bankCode };
+    ws[`J${row}`] = { t: "s", v: bankAccount };
+    ws[`K${row}`] = { t: "s", v: depositor };
+    ws[`L${row}`] = { t: "s", v: idNumber };
+    ws[`M${row}`] = { t: "n", v: client.monthlyFee ?? 0 };
+    ws[`N${row}`] = { t: "s", v: "05" };
+    ws[`O${row}`] = { t: "s", v: "99" };
+    ws[`P${row}`] = { t: "s", v: firstMonth };
+    ws[`AA${row}`] = { t: "s", v: "N" };
   });
 
-  // Excel 파일 생성
-  const buffer = await workbook.xlsx.writeBuffer();
+  // 범위 업데이트
+  const lastRow = 4 + clients.length - 1;
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+  if (lastRow > range.e.r + 1) range.e.r = lastRow - 1;
+  if (26 > range.e.c) range.e.c = 26; // AA = column 26
+  ws["!ref"] = XLSX.utils.encode_range(range);
 
-  return new NextResponse(buffer, {
+  const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xls" });
+
+  return new NextResponse(outBuf, {
     headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="CMS_bulk_register.xlsx"`,
+      "Content-Type": "application/vnd.ms-excel",
+      "Content-Disposition": `attachment; filename="CMS_bulk_register.xls"`,
     },
   });
 }
