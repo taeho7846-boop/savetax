@@ -365,7 +365,7 @@
       if (mode === "commission") {
         (await waitForXPath("//span[contains(text(),'세무대리정보 이용 신청서(기장수임용)')]")).click();
       } else {
-        (await waitForXPath("//span[contains(text(),'해지 후 수임')]")).click();
+        (await waitForXPath("//span[contains(text(),'기장 기존해지와 신규수임')]")).click();
       }
       await sleep(2000);
 
