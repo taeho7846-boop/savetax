@@ -6,6 +6,7 @@ interface Props {
   commissionFormPath: string | null;
   agentIdCardPath: string | null;
   cmsExcelPath: string | null;
+  cmsBulkExcelPath: string | null;
 }
 
 function UploadSection({
@@ -146,7 +147,7 @@ function UploadSection({
   );
 }
 
-export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath }: Props) {
+export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath }: Props) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6">
       <h2 className="text-sm font-semibold text-gray-700">파일</h2>
@@ -169,14 +170,27 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
         isImage={true}
       />
 
-      <UploadSection
-        label="CMS 엑셀 파일"
-        currentPath={cmsExcelPath}
-        uploadUrl="/api/settings/upload-cms-excel"
-        deleteUrl="/api/settings/upload-cms-excel"
-        accept=".xlsx,.xls"
-        isImage={false}
-      />
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-xs font-semibold text-gray-400 mb-4">CMS</h3>
+        <div className="space-y-6">
+          <UploadSection
+            label="CMS 엑셀 파일"
+            currentPath={cmsExcelPath}
+            uploadUrl="/api/settings/upload-cms-excel"
+            deleteUrl="/api/settings/upload-cms-excel"
+            accept=".xlsx,.xls"
+            isImage={false}
+          />
+          <UploadSection
+            label="CMS 일괄등록 엑셀"
+            currentPath={cmsBulkExcelPath}
+            uploadUrl="/api/settings/upload-cms-bulk-excel"
+            deleteUrl="/api/settings/upload-cms-bulk-excel"
+            accept=".xlsx,.xls"
+            isImage={false}
+          />
+        </div>
+      </div>
     </div>
   );
 }
