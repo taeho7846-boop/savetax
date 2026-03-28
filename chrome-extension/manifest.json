@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "1.6",
+  "version": "1.7",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": [],
   "host_permissions": ["http://158.247.222.58/*"],
@@ -13,8 +13,7 @@
       "matches": ["https://hometax.go.kr/*"],
       "js": ["suppress-alert.js"],
       "run_at": "document_start",
-      "world": "MAIN",
-      "all_frames": true
+      "world": "MAIN"
     },
     {
       "matches": ["https://hometax.go.kr/*"],

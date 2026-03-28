@@ -390,64 +390,45 @@
       } catch (e) {}
       await sleep(500);
 
-      // 4. 파일 업로드 (서비스 워커 → MAIN world 가로채기)
-      async function fetchFileBase64(url) {
-        if (!url) return null;
-        try {
-          const resp = await chrome.runtime.sendMessage({ type: "fetch-file", url });
-          if (!resp || !resp.ok) {
-            console.error("SaveTax 파일 다운로드 실패:", url, resp?.error);
-            return null;
-          }
-          return { data: resp.data, type: resp.type || "application/octet-stream" };
-        } catch (e) {
-          console.error("SaveTax 파일 다운로드 실패:", url, e);
-          return null;
-        }
-      }
-
-      function getFilenameFromUrl(url) {
-        return decodeURIComponent(url.split("/").pop() || "file");
-      }
-
-      const filesToUpload = [
+      // 4. 첨부파일 자동 다운로드 (다운로드 폴더에 저장 → 파일선택에서 바로 선택)
+      const filesToDownload = [
         { label: "세무대리인 신분증", url: creds.agentIdCardUrl },
         { label: "대표자 신분증", url: creds.clientIdCardUrl },
         { label: "홈택스수임신청서", url: creds.pdfUrl },
       ];
 
-      for (const { label, url } of filesToUpload) {
-        if (!url) {
-          console.log(`SaveTax: ${label} - URL 없음, 건너뜀`);
-          continue;
-        }
-        const fileInfo = await fetchFileBase64(url);
-        if (!fileInfo) {
-          console.log(`SaveTax: ${label} - 파일 다운로드 실패`);
-          continue;
-        }
+      let downloadCount = 0;
+      for (const { label, url } of filesToDownload) {
+        if (!url) continue;
+        try {
+          const resp = await chrome.runtime.sendMessage({ type: "fetch-file", url });
+          if (resp && resp.ok) {
+            const binary = atob(resp.data);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: resp.type || "application/octet-stream" });
+            const filename = decodeURIComponent(url.split("/").pop() || "file");
 
-        const filename = getFilenameFromUrl(url);
-
-        // MAIN world에 파일 데이터 전달 (beacon 경유)
-        const beacon = document.getElementById("__savetax_beacon");
-        if (beacon) {
-          beacon.setAttribute("data-pending-file", JSON.stringify({
-            name: filename,
-            data: fileInfo.data,
-            type: fileInfo.type,
-          }));
-          await sleep(200);
-
-          // 파일선택 버튼 클릭 → MAIN world에서 file input click 가로채기
-          beacon.setAttribute("data-click", "mf_txppWframe_pf_UTECAAAZ03_pf_UTECMGAA06_UTECMGAA06_trigger1");
-          console.log(`SaveTax: ${label} 업로드 시도 → ${filename}`);
-          await sleep(1500);
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            downloadCount++;
+            console.log(`SaveTax: ${label} 다운로드 완료 → ${filename}`);
+            await sleep(500);
+          }
+        } catch (e) {
+          console.error(`SaveTax: ${label} 다운로드 실패:`, e);
         }
       }
 
       const modeLabel = mode === "commission" ? "기장수임" : "해지후수임";
-      console.log(`SaveTax: ${modeLabel} 입력 완료 - 확인 후 신청 버튼을 눌러주세요`);
+      if (downloadCount > 0) {
+        console.log(`SaveTax: ${modeLabel} 입력 완료 - 다운로드된 ${downloadCount}개 파일을 첨부 후 신청 버튼을 눌러주세요`);
+      } else {
+        console.log(`SaveTax: ${modeLabel} 입력 완료 - 확인 후 신청 버튼을 눌러주세요`);
+      }
 
     } catch (e) {
       console.error("SaveTax 기장수임 실패:", e);
