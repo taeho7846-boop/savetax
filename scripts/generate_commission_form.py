@@ -130,7 +130,7 @@ def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, 
 
     # 도장 삽입
     STAMP_CM = 2.0
-    stamp_positions = ["D30", "D35", "B44"]
+    stamp_positions = ["E30", "E35", "C44"]
 
     for cell_ref in stamp_positions:
         stamp_img = XlImage(io.BytesIO(stamp_data))
