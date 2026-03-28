@@ -114,6 +114,7 @@ def convert_with_win32com(xlsx_path: str, output_pdf: str):
 def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, client_name, biz_number, phone, stamp_data):
     """openpyxl로 엑셀 셀 채우기 + 도장 삽입"""
     from openpyxl import load_workbook
+    import openpyxl.drawing.spreadsheet_drawing
     from openpyxl.drawing.image import Image as XlImage
     import io
 
@@ -128,16 +129,33 @@ def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, 
     ws["D11"] = phone
     print("셀 입력 완료")
 
-    # 도장 삽입
+    # 도장 삽입 (EMU 단위: 1cm = 360000 EMU)
+    from openpyxl.utils.units import cm_to_EMU
+    from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
     STAMP_CM = 2.0
-    stamp_positions = ["E30", "E35", "C44"]
+    stamp_emu = cm_to_EMU(STAMP_CM)
 
-    for cell_ref in stamp_positions:
+    # (col 0-indexed, col_offset_cm, row 0-indexed, row_offset_cm)
+    stamp_positions = [
+        (3, 1.5, 29, 0.0),   # D30 기준 오른쪽 1.5cm
+        (3, 1.5, 34, 0.0),   # D35 기준 오른쪽 1.5cm
+        (1, 1.5, 43, 0.0),   # B44 기준 오른쪽 1.5cm
+    ]
+
+    for col, col_off_cm, row, row_off_cm in stamp_positions:
         stamp_img = XlImage(io.BytesIO(stamp_data))
-        stamp_img.width = STAMP_CM / 2.54 * 96   # ~75px
+        stamp_img.width = STAMP_CM / 2.54 * 96
         stamp_img.height = STAMP_CM / 2.54 * 96
-        ws.add_image(stamp_img, cell_ref)
-        print(f"도장 삽입: {cell_ref}")
+        marker = AnchorMarker(
+            col=col,
+            colOff=cm_to_EMU(col_off_cm),
+            row=row,
+            rowOff=cm_to_EMU(row_off_cm),
+        )
+        anchor = OneCellAnchor(_from=marker, ext=openpyxl.drawing.spreadsheet_drawing.Extent(stamp_emu, stamp_emu))
+        stamp_img.anchor = anchor
+        ws.add_image(stamp_img)
+        print(f"도장 삽입: col={col} row={row} offset=({col_off_cm}cm, {row_off_cm}cm)")
 
     wb.save(tmp_xlsx)
     print(f"엑셀 저장: {tmp_xlsx}")
