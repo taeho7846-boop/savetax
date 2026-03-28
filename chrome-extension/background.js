@@ -156,10 +156,24 @@ async function handleFileUpload(files, tabId) {
 function downloadFile(url, filename) {
   return new Promise(async (resolve) => {
     try {
+      // fetch로 파일 데이터 가져오기
       const res = await fetch(url);
-      if (!res.ok) { resolve(null); return; }
+      if (!res.ok) {
+        console.error("downloadFile fetch 실패:", url, res.status);
+        resolve(null);
+        return;
+      }
       const blob = await res.blob();
-      const dataUrl = await blobToDataUrl(blob);
+      const buf = await blob.arrayBuffer();
+
+      // ArrayBuffer → base64 data URL (서비스 워커에서 FileReader 대신)
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      }
+      const dataUrl = "data:" + (blob.type || "application/octet-stream") + ";base64," + btoa(binary);
 
       const downloadId = await chrome.downloads.download({
         url: dataUrl,
@@ -167,32 +181,29 @@ function downloadFile(url, filename) {
         conflictAction: "overwrite",
       });
 
+      console.log("다운로드 시작 ID:", downloadId);
+
       const checkComplete = () => {
         chrome.downloads.search({ id: downloadId }, (items) => {
           if (items && items.length > 0) {
             if (items[0].state === "complete") {
+              console.log("다운로드 완료 경로:", items[0].filename);
               resolve(items[0].filename);
             } else if (items[0].state === "interrupted") {
+              console.error("다운로드 중단:", items[0].error);
               resolve(null);
             } else {
-              setTimeout(checkComplete, 200);
+              setTimeout(checkComplete, 300);
             }
           } else {
             resolve(null);
           }
         });
       };
-      setTimeout(checkComplete, 300);
+      setTimeout(checkComplete, 500);
     } catch (e) {
+      console.error("downloadFile 오류:", e);
       resolve(null);
     }
-  });
-}
-
-function blobToDataUrl(blob) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.readAsDataURL(blob);
   });
 }
