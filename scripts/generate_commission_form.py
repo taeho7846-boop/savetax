@@ -114,8 +114,10 @@ def convert_with_win32com(xlsx_path: str, output_pdf: str):
 def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, client_name, biz_number, phone, stamp_data):
     """openpyxl로 엑셀 셀 채우기 + 도장 삽입"""
     from openpyxl import load_workbook
-    import openpyxl.drawing.spreadsheet_drawing
     from openpyxl.drawing.image import Image as XlImage
+    from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
+    from openpyxl.drawing.xdr import XDRPositiveSize2D
+    from openpyxl.utils.units import cm_to_EMU
     import io
 
     wb = load_workbook(template_path)
@@ -130,8 +132,6 @@ def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, 
     print("셀 입력 완료")
 
     # 도장 삽입 (EMU 단위: 1cm = 360000 EMU)
-    from openpyxl.utils.units import cm_to_EMU
-    from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
     STAMP_CM = 2.0
     stamp_emu = cm_to_EMU(STAMP_CM)
 
@@ -152,7 +152,7 @@ def fill_xlsx_with_openpyxl(template_path, tmp_xlsx, ceo_name, resident_number, 
             row=row,
             rowOff=cm_to_EMU(row_off_cm),
         )
-        anchor = OneCellAnchor(_from=marker, ext=openpyxl.drawing.spreadsheet_drawing.Extent(stamp_emu, stamp_emu))
+        anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(stamp_emu, stamp_emu))
         stamp_img.anchor = anchor
         ws.add_image(stamp_img)
         print(f"도장 삽입: col={col} row={row} offset=({col_off_cm}cm, {row_off_cm}cm)")
