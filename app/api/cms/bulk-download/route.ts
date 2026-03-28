@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import path from "path";
-import { readFile } from "fs/promises";
+import { readFile, mkdir, unlink } from "fs/promises";
+import { spawn } from "child_process";
 import * as XLSX from "xlsx";
+import archiver from "archiver";
+import { Readable } from "stream";
 
 const BANK_CODE_MAP: Record<string, string> = {
   "산업": "002", "산업은행": "002",
@@ -41,6 +44,24 @@ function getBankCode(bankName: string | null): string {
   return "";
 }
 
+function runPython(args: string[]): Promise<{ ok: boolean; output: string }> {
+  return new Promise((resolve) => {
+    const cmd = process.platform === "win32" ? "python" : "python3";
+    const proc = spawn(cmd, args, {
+      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" },
+    });
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d: Buffer) => { stdout += d.toString("utf8"); });
+    proc.stderr.on("data", (d: Buffer) => { stderr += d.toString("utf8"); });
+    const timer = setTimeout(() => { proc.kill(); resolve({ ok: false, output: "시간 초과" }); }, 120000);
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ ok: code === 0, output: code === 0 ? stdout : stderr || stdout });
+    });
+  });
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
@@ -54,11 +75,11 @@ export async function POST(req: NextRequest) {
 
   const settings = await prisma.settings.findUnique({
     where: { userId: session.id },
-    select: { cmsBulkExcelPath: true },
+    select: { cmsBulkExcelPath: true, cmsExcelPath: true },
   });
 
   if (!settings?.cmsBulkExcelPath) {
-    return NextResponse.json({ error: "설정에서 CMS 일괄등록 엑셀 템플릿을 먼저 업로드해주세요" }, { status: 400 });
+    return NextResponse.json({ error: "설정에서 CMS 일괄등록 엑셀을 먼저 업로드해주세요" }, { status: 400 });
   }
 
   const clients = await prisma.client.findMany({
@@ -85,63 +106,135 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "고객사를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // 템플릿 파일 읽기
-  const templateRelPath = settings.cmsBulkExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
-  const templatePath = path.join(process.cwd(), "public", templateRelPath);
+  // === 1. 일괄등록 엑셀 생성 ===
+  const bulkRelPath = settings.cmsBulkExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
+  const bulkTemplatePath = path.join(process.cwd(), "public", bulkRelPath);
 
-  let wb: XLSX.WorkBook;
+  let bulkBuf: Buffer;
   try {
-    const buf = await readFile(templatePath);
-    wb = XLSX.read(buf, { type: "buffer" });
+    const raw = await readFile(bulkTemplatePath);
+    const wb = XLSX.read(raw, { type: "buffer" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+
+    clients.forEach((client, i) => {
+      const row = 4 + i;
+      const phone = (client.phone || "").replace(/[-\s]/g, "");
+      const bankCode = getBankCode(client.bankName);
+      const bankAccount = (client.bankAccount || "").replace(/[-\s]/g, "");
+      const depositor = client.clientType === "corporate" ? client.name : (client.ceoName || "");
+      let idNumber = "";
+      if (client.clientType === "corporate") {
+        idNumber = (client.bizNumber || "").replace(/[-\s]/g, "").slice(0, 10);
+      } else {
+        idNumber = (client.residentNumber || "").replace(/[-\s]/g, "").slice(0, 6);
+      }
+      const firstMonth = (client.firstWithdrawalMonth || "").replace("-", "");
+
+      ws[`A${row}`] = { t: "s", v: client.name };
+      ws[`E${row}`] = { t: "s", v: phone };
+      ws[`I${row}`] = { t: "s", v: bankCode };
+      ws[`J${row}`] = { t: "s", v: bankAccount };
+      ws[`K${row}`] = { t: "s", v: depositor };
+      ws[`L${row}`] = { t: "s", v: idNumber };
+      ws[`M${row}`] = { t: "n", v: client.monthlyFee ?? 0 };
+      ws[`N${row}`] = { t: "s", v: "05" };
+      ws[`O${row}`] = { t: "s", v: "99" };
+      ws[`P${row}`] = { t: "s", v: firstMonth };
+      ws[`AA${row}`] = { t: "s", v: "N" };
+    });
+
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    const lastRow = 4 + clients.length - 1;
+    if (lastRow > range.e.r + 1) range.e.r = lastRow - 1;
+    if (26 > range.e.c) range.e.c = 26;
+    ws["!ref"] = XLSX.utils.encode_range(range);
+
+    bulkBuf = XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;
   } catch {
-    return NextResponse.json({ error: "CMS 일괄등록 엑셀 템플릿 파일을 찾을 수 없습니다" }, { status: 404 });
+    return NextResponse.json({ error: "일괄등록 엑셀 생성 실패" }, { status: 500 });
   }
 
-  const ws = wb.Sheets[wb.SheetNames[0]];
+  // === 2. 각 거래처별 CMS 신청서 PDF 생성 ===
+  const pdfFiles: { name: string; data: Buffer }[] = [];
 
-  // 데이터 입력 (A4부터 시작, 0-indexed row=3)
-  clients.forEach((client, i) => {
-    const row = 4 + i; // 1-indexed for cell references
-    const phone = (client.phone || "").replace(/[-\s]/g, "");
-    const bankCode = getBankCode(client.bankName);
-    const bankAccount = (client.bankAccount || "").replace(/[-\s]/g, "");
-    const depositor = client.clientType === "corporate" ? client.name : (client.ceoName || "");
+  if (settings.cmsExcelPath) {
+    const cmsRelPath = settings.cmsExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
+    const cmsTemplatePath = path.join(process.cwd(), "public", cmsRelPath);
+    const scriptPath = path.join(process.cwd(), "scripts", "generate_cms_form.py");
+    const tmpDir = path.join(process.cwd(), "tmp", "cms_pdfs");
+    await mkdir(tmpDir, { recursive: true });
 
-    let idNumber = "";
-    if (client.clientType === "corporate") {
-      idNumber = (client.bizNumber || "").replace(/[-\s]/g, "").slice(0, 10);
-    } else {
-      idNumber = (client.residentNumber || "").replace(/[-\s]/g, "").slice(0, 6);
+    for (const client of clients) {
+      const phone = (client.phone || "").replace(/[-\s]/g, "");
+      const bankAccount = (client.bankAccount || "").replace(/[-\s]/g, "");
+      const depositor = client.clientType === "corporate" ? client.name : (client.ceoName || "");
+      const resident6 = client.clientType === "individual"
+        ? (client.residentNumber || "").replace(/[-\s]/g, "").slice(0, 6)
+        : "";
+      const bizNumber = client.clientType === "corporate"
+        ? (client.bizNumber || "").replace(/[-\s]/g, "")
+        : "";
+      const firstMonth = (client.firstWithdrawalMonth || "").replace("-", "");
+      const stampName = client.clientType === "corporate" ? client.name : (client.ceoName || client.name);
+
+      const safeName = client.name.replace(/[/\\:*?"<>|]/g, "_");
+      const outputPdf = path.join(tmpDir, `${safeName}_CMS신청서.pdf`);
+
+      const result = await runPython([
+        scriptPath,
+        cmsTemplatePath,
+        outputPdf,
+        firstMonth,
+        depositor,
+        resident6,
+        client.bankName || "",
+        bizNumber,
+        bankAccount,
+        phone,
+        stampName,
+        client.clientType || "individual",
+      ]);
+
+      if (result.ok) {
+        try {
+          const pdfData = await readFile(outputPdf);
+          pdfFiles.push({ name: `${safeName}_CMS신청서.pdf`, data: pdfData });
+        } catch {}
+      }
+
+      // 임시 파일 삭제
+      try { await unlink(outputPdf); } catch {}
     }
+  }
 
-    const firstMonth = (client.firstWithdrawalMonth || "").replace("-", "");
+  // === 3. ZIP으로 묶기 ===
+  const archive = archiver("zip", { zlib: { level: 5 } });
+  const chunks: Buffer[] = [];
 
-    ws[`A${row}`] = { t: "s", v: client.name };
-    ws[`E${row}`] = { t: "s", v: phone };
-    ws[`I${row}`] = { t: "s", v: bankCode };
-    ws[`J${row}`] = { t: "s", v: bankAccount };
-    ws[`K${row}`] = { t: "s", v: depositor };
-    ws[`L${row}`] = { t: "s", v: idNumber };
-    ws[`M${row}`] = { t: "n", v: client.monthlyFee ?? 0 };
-    ws[`N${row}`] = { t: "s", v: "05" };
-    ws[`O${row}`] = { t: "s", v: "99" };
-    ws[`P${row}`] = { t: "s", v: firstMonth };
-    ws[`AA${row}`] = { t: "s", v: "N" };
+  archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+  const archiveFinished = new Promise<void>((resolve, reject) => {
+    archive.on("end", resolve);
+    archive.on("error", reject);
   });
 
-  // 범위 업데이트
-  const lastRow = 4 + clients.length - 1;
-  const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-  if (lastRow > range.e.r + 1) range.e.r = lastRow - 1;
-  if (26 > range.e.c) range.e.c = 26; // AA = column 26
-  ws["!ref"] = XLSX.utils.encode_range(range);
+  // 일괄등록 엑셀 추가
+  archive.append(bulkBuf, { name: "CMS_일괄등록.xls" });
 
-  const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xls" });
+  // PDF 파일들 추가
+  for (const pdf of pdfFiles) {
+    archive.append(pdf.data, { name: pdf.name });
+  }
 
-  return new NextResponse(outBuf, {
+  await archive.finalize();
+  await archiveFinished;
+
+  const zipBuffer = Buffer.concat(chunks);
+
+  return new NextResponse(zipBuffer, {
     headers: {
-      "Content-Type": "application/vnd.ms-excel",
-      "Content-Disposition": `attachment; filename*=UTF-8''CMS_%EC%9D%BC%EA%B4%84%EB%93%B1%EB%A1%9D.xls`,
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename*=UTF-8''CMS_%EC%9D%BC%EA%B4%84%EB%93%B1%EB%A1%9D.zip`,
     },
   });
 }
