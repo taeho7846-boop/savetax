@@ -47,6 +47,7 @@ model Client {
   bankName       String?  // 출금 은행
   bankAccount    String?  // 출금 계좌번호
   notes          String?  // 특이사항
+  cmsRegistered  Boolean  @default(false) // CMS 등록여부
   assignedUserId Int?
   assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
   isDeleted      Boolean  @default(false)

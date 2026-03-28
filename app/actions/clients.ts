@@ -209,3 +209,11 @@ export async function bulkDeleteClients(ids: number[]) {
   revalidatePath("/dashboard");
   return { count: result.count };
 }
+
+export async function toggleCmsRegistered(id: number) {
+  await requireAuth();
+  const client = await prisma.client.findUnique({ where: { id }, select: { cmsRegistered: true } });
+  if (!client) return;
+  await prisma.client.update({ where: { id }, data: { cmsRegistered: !client.cmsRegistered } });
+  revalidatePath("/receivables");
+}

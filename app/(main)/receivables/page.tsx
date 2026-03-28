@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ReceivablesTable } from "./ReceivablesTable";
+import { CmsTable } from "./CmsTable";
 
 /** 해당 연도 12개월 전부 반환 (미래 포함) */
 function getMonthsOfYear(year: number): string[] {
@@ -127,9 +128,7 @@ export default async function ReceivablesPage({
       </div>
 
       {tab === "cms" ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
-          CMS 기능 준비 중
-        </div>
+        <CmsTab sessionId={session.id} />
       ) : (
       <>
       {/* 연도 네비게이션 */}
@@ -195,4 +194,28 @@ export default async function ReceivablesPage({
       )}
     </div>
   );
+}
+
+async function CmsTab({ sessionId }: { sessionId: number }) {
+  const cmsClients = await prisma.client.findMany({
+    where: {
+      isDeleted: false,
+      assignedUserId: sessionId,
+      OR: [
+        { taxTypes: null },
+        { NOT: { taxTypes: { contains: "신고대리" } } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      ceoName: true,
+      monthlyFee: true,
+      firstWithdrawalMonth: true,
+      cmsRegistered: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return <CmsTable clients={cmsClients} />;
 }
