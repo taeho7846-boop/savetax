@@ -105,6 +105,31 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   async function handleBulkRegister() {
     if (checkedIds.size === 0) return;
     startTransition(async () => {
+      // 1. 엑셀 다운로드
+      try {
+        const res = await fetch("/api/cms/bulk-download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientIds: [...checkedIds] }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.error || "엑셀 생성 실패");
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "CMS_일괄등록.xlsx";
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert("엑셀 다운로드 실패");
+        return;
+      }
+
+      // 2. CMS 등록 처리
       await bulkCmsRegister([...checkedIds]);
       setCheckedIds(new Set());
       router.refresh();
