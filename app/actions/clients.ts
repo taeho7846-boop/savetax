@@ -217,3 +217,13 @@ export async function toggleCmsRegistered(id: number) {
   await prisma.client.update({ where: { id }, data: { cmsRegistered: !client.cmsRegistered } });
   revalidatePath("/receivables");
 }
+
+export async function bulkCmsRegister(ids: number[]) {
+  const session = await requireAuth();
+  if (ids.length === 0) return;
+  await prisma.client.updateMany({
+    where: { id: { in: ids }, assignedUserId: session.id },
+    data: { cmsRegistered: true },
+  });
+  revalidatePath("/receivables");
+}

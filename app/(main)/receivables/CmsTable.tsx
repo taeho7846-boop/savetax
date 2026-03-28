@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { toggleCmsRegistered } from "@/app/actions/clients";
+import { toggleCmsRegistered, bulkCmsRegister } from "@/app/actions/clients";
 
 type CmsClient = {
   id: number;
@@ -102,7 +102,30 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
     );
   }
 
+  async function handleBulkRegister() {
+    if (checkedIds.size === 0) return;
+    startTransition(async () => {
+      await bulkCmsRegister([...checkedIds]);
+      setCheckedIds(new Set());
+      router.refresh();
+    });
+  }
+
   return (
+    <>
+    <div className="flex items-center gap-3 mb-3">
+      <button
+        onClick={handleBulkRegister}
+        disabled={isPending || checkedIds.size === 0}
+        className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
+          checkedIds.size > 0
+            ? "bg-[#1a2e4a] text-white hover:bg-[#243d61]"
+            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+        } disabled:opacity-50`}
+      >
+        {isPending ? "처리 중..." : `일괄등록${checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}`}
+      </button>
+    </div>
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 border-b border-gray-100">
@@ -236,5 +259,6 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
