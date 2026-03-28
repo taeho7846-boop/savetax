@@ -390,13 +390,20 @@
       } catch (e) {}
       await sleep(500);
 
-      // 4. 파일 업로드 (서버에서 파일 가져와서 자동 업로드)
+      // 4. 파일 업로드 (서비스 워커 경유로 Mixed Content 우회)
       async function fetchFileAsBlob(url) {
         if (!url) return null;
         try {
-          const res = await fetch(url);
-          if (!res.ok) return null;
-          return await res.blob();
+          const resp = await chrome.runtime.sendMessage({ type: "fetch-file", url });
+          if (!resp || !resp.ok) {
+            console.error("SaveTax 파일 다운로드 실패:", url, resp?.error);
+            return null;
+          }
+          // base64 → Blob
+          const binary = atob(resp.data);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return new Blob([bytes], { type: resp.type || "application/octet-stream" });
         } catch (e) {
           console.error("SaveTax 파일 다운로드 실패:", url, e);
           return null;
