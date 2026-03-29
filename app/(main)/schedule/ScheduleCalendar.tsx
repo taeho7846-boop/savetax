@@ -145,7 +145,7 @@ export function ScheduleCalendar({
               </div>
             ))}
             {days.map((day, i) => {
-              if (day === null) return <div key={`e-${i}`} className="min-h-[80px]" />;
+              if (day === null) return <div key={`e-${i}`} className="min-h-[120px]" />;
               const dateStr = getDateStr(day);
               const daySchedules = getSchedulesForDay(day);
               const isToday = dateStr === todayStr;
@@ -154,7 +154,7 @@ export function ScheduleCalendar({
               return (
                 <div
                   key={day}
-                  className={`min-h-[80px] border border-gray-100 rounded p-1 cursor-pointer hover:bg-blue-50/50 transition-colors ${isToday ? "bg-blue-50 border-blue-300" : ""}`}
+                  className={`min-h-[120px] border border-gray-100 rounded p-1 cursor-pointer hover:bg-blue-50/50 transition-colors ${isToday ? "bg-blue-50 border-blue-300" : ""}`}
                   onClick={() => handleDayClick(day)}
                 >
                   <div className={`text-xs font-medium mb-0.5 ${isToday ? "text-blue-600 font-bold" : dayOfWeek === 0 ? "text-red-500" : dayOfWeek === 6 ? "text-blue-500" : "text-gray-700"}`}>
