@@ -28,7 +28,7 @@ export async function login(formData: FormData) {
   cookieStore.set("session_user_id", String(user.id), {
     httpOnly: true,
     path: "/",
-    maxAge: 60 * 60 * 8, // 8시간
+    maxAge: 60 * 60 * 24 * 30, // 30일
   });
 
   redirect("/dashboard");
