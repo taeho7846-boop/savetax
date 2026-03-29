@@ -61,6 +61,7 @@ model Client {
   memos      Memo[]
   feeRecords FeeRecord[]
   commission CommissionProcess?
+  withholdingRecords WithholdingRecord[]
 }
 
 // 기장료 수납 기록
@@ -160,6 +161,20 @@ model HappyCall {
   result       String            // "connected" | "no_answer" | "callback"
   notes        String?
   calledAt     DateTime          @default(now())
+}
+
+// 원천세 월별 체크
+model WithholdingRecord {
+  id        Int       @id @default(autoincrement())
+  clientId  Int
+  client    Client    @relation(fields: [clientId], references: [id])
+  yearMonth String    // "2026-03"
+  taskType  String    // 원천세신고, 간이지급명세서_근로, 간이지급명세서_사업, 근로내용확인신고서, 지급명세서_근로, 지급명세서_사업, 지급명세서_일용
+  done      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([clientId, yearMonth, taskType])
 }
 
 // 메모

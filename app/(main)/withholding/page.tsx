@@ -3,17 +3,22 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { WithholdingTable } from "./WithholdingTable";
 
-export default async function WithholdingPage() {
+export default async function WithholdingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ym?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/login");
+
+  const params = await searchParams;
+  const now = new Date();
+  const yearMonth = params.ym || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
       assignedUserId: session.id,
-      laborTypes: {
-        not: null,
-      },
       OR: [
         { laborTypes: { contains: "근로소득" } },
         { laborTypes: { contains: "사업소득" } },
@@ -25,18 +30,16 @@ export default async function WithholdingPage() {
       name: true,
       laborTypes: true,
       halfYearTax: true,
+      withholdingRecords: {
+        where: { yearMonth },
+      },
     },
     orderBy: { name: "asc" },
   });
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-900">원천세</h1>
-        <span className="text-sm text-gray-500">{clients.length}건</span>
-      </div>
-
-      <WithholdingTable clients={clients} />
+      <WithholdingTable clients={clients} yearMonth={yearMonth} />
     </div>
   );
 }
