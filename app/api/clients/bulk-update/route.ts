@@ -51,7 +51,8 @@ function normalizeClientType(val: string): string | null {
 // 과세유형 정규화
 function normalizeTaxationType(val: string): string | null {
   const v = val.trim();
-  if (v.startsWith("간이")) return "간이";
+  if (v.includes("세계") || v.includes("세금계산서")) return "간이(세금계산서발행)";
+  if (v === "간이") return "간이";
   if (v === "과세") return "과세";
   if (v === "면세") return "면세";
   if (v === "폐업") return "폐업";
