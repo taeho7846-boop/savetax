@@ -22,7 +22,7 @@ interface Props {
     firstWithdrawalMonth: string | null;
     bankName: string | null;
     bankAccount: string | null;
-    openDate: string | null;
+    openDate?: string | null;
     notes: string | null;
     assignedUserId: number | null;
   };
