@@ -89,8 +89,8 @@ model FeeRecord {
 // 업무 / 일정
 model Task {
   id          Int       @id @default(autoincrement())
-  clientId    Int
-  client      Client    @relation(fields: [clientId], references: [id])
+  clientId    Int?
+  client      Client?   @relation(fields: [clientId], references: [id])
   assignedUserId Int?
   assignedUser   User?  @relation(fields: [assignedUserId], references: [id])
   title       String

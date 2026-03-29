@@ -19,11 +19,9 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   const [isPending, startTransition] = useTransition();
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [checkedDocs, setCheckedDocs] = useState<Set<string>>(new Set());
 
-  // 홈택스만
   const hometaxDocs = DOC_TYPES.filter(d => d.source === "홈택스");
-
-  // 최신 데이터에서 선택된 클라이언트 찾기
   const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) ?? null : null;
 
   function handleYearChange(delta: number) {
@@ -31,10 +29,30 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     router.push(`/data-collect?year=${y}`);
   }
 
-  function handleToggle(clientId: number, docType: string) {
-    startTransition(async () => {
-      await toggleDataCollection(clientId, docType, taxYear);
+  function handleClientSelect(clientId: number) {
+    setSelectedClientId(clientId);
+    setCheckedDocs(new Set());
+  }
+
+  function toggleDoc(docKey: string) {
+    setCheckedDocs(prev => {
+      const next = new Set(prev);
+      if (next.has(docKey)) next.delete(docKey); else next.add(docKey);
+      return next;
     });
+  }
+
+  function toggleAll() {
+    if (checkedDocs.size === hometaxDocs.length) {
+      setCheckedDocs(new Set());
+    } else {
+      setCheckedDocs(new Set(hometaxDocs.map(d => d.key)));
+    }
+  }
+
+  function handleCollect() {
+    if (!selectedClient || checkedDocs.size === 0) return;
+    alert(`${selectedClient.name}: ${checkedDocs.size}개 자료 수집 요청\n\n(자동 수집 기능은 추후 연결 예정)`);
   }
 
   function getStatus(client: Client, docType: string): string {
@@ -54,20 +72,11 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     ? clients.filter(c => c.name.includes(search))
     : clients;
 
-  const totalDocs = hometaxDocs.length * clients.length;
-  const collectedDocs = clients.reduce(
-    (sum, c) => sum + c.dataCollections.filter(d => d.status === "collected").length,
-    0
-  );
-
   return (
     <>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-900">자료수집</h1>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">
-            수집: <span className="font-medium text-[#1a2e4a]">{collectedDocs}</span> / {totalDocs}
-          </div>
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
             <button onClick={() => handleYearChange(-1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">◀</button>
             <span className="text-sm font-medium text-gray-800 min-w-[80px] text-center">{taxYear}년 귀속</span>
@@ -91,14 +100,14 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
           <div className="flex-1 overflow-y-auto">
             {filteredClients.map(client => {
               const collected = client.dataCollections.filter(d => d.status === "collected").length;
-              const isSelected = selectedClient?.id === client.id;
+              const isSelected = selectedClientId === client.id;
               return (
                 <div
                   key={client.id}
                   className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer transition-colors border-b border-gray-50 ${
                     isSelected ? "bg-[#1a2e4a] text-white" : "hover:bg-gray-50"
                   }`}
-                  onClick={() => setSelectedClientId(client.id)}
+                  onClick={() => handleClientSelect(client.id)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm font-medium truncate ${isSelected ? "text-white" : "text-gray-900"}`}>
@@ -134,9 +143,17 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                   <h2 className="text-lg font-bold text-gray-900">{selectedClient.name}</h2>
                   <p className="text-xs text-gray-500 mt-0.5">{taxYear}년 귀속 자료수집</p>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {selectedClient.dataCollections.filter(d => d.status === "collected").length} / {hometaxDocs.length} 수집완료
-                </div>
+                <button
+                  onClick={handleCollect}
+                  disabled={checkedDocs.size === 0}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    checkedDocs.size > 0
+                      ? "bg-[#1a2e4a] text-white hover:bg-[#243d61]"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
+                >
+                  자료수집 ({checkedDocs.size}건)
+                </button>
               </div>
 
               <div className="inline-block px-2 py-0.5 rounded text-xs font-medium border mb-3 bg-blue-50 text-blue-600 border-blue-200">
@@ -147,7 +164,14 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="w-10 px-3 py-2"></th>
+                      <th className="w-10 px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={checkedDocs.size === hometaxDocs.length}
+                          onChange={toggleAll}
+                          className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                        />
+                      </th>
                       <th className="text-left px-3 py-2 text-gray-600 font-medium">요청서류</th>
                       <th className="text-left px-3 py-2 text-gray-600 font-medium">필수 선택사항</th>
                       <th className="text-center px-3 py-2 text-gray-600 font-medium w-20">상태</th>
@@ -157,19 +181,19 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                     {hometaxDocs.map(doc => {
                       const status = getStatus(selectedClient, doc.key);
                       const isCollected = status === "collected";
+                      const isChecked = checkedDocs.has(doc.key);
                       const defaults = getDefaultParams(doc.settingType, taxYear);
                       const saved = getParams(selectedClient, doc.key);
                       const params = { ...defaults, ...saved };
 
                       return (
-                        <tr key={doc.key} className={isCollected ? "bg-green-50/50" : "hover:bg-gray-50"}>
+                        <tr key={doc.key} className={`${isCollected ? "bg-green-50/50" : isChecked ? "bg-blue-50/30" : "hover:bg-gray-50"}`}>
                           <td className="px-3 py-3 text-center">
                             <input
                               type="checkbox"
-                              checked={isCollected}
-                              onChange={() => handleToggle(selectedClient.id, doc.key)}
-                              disabled={isPending}
-                              className="accent-[#1a2e4a] w-4 h-4"
+                              checked={isChecked}
+                              onChange={() => toggleDoc(doc.key)}
+                              className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
                             />
                           </td>
                           <td className={`px-3 py-3 ${isCollected ? "text-green-700" : "text-gray-800"}`}>
@@ -181,8 +205,6 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                           <td className="px-3 py-3 text-center">
                             {isCollected ? (
                               <span className="text-xs text-green-600 font-medium">완료</span>
-                            ) : status === "pending" ? (
-                              <span className="text-xs text-yellow-600">대기</span>
                             ) : (
                               <span className="text-xs text-gray-400">-</span>
                             )}
