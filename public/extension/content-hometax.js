@@ -571,7 +571,20 @@
         console.log("SaveTax: PDF 저장 실패, 수동 저장 필요");
       }
 
-      console.log("SaveTax: 사업자등록증명 수집 완료");
+      // 15. 리포트 창 닫기 (새 창이 열렸으면)
+      await sleep(1000);
+      try {
+        const windows = await chrome.runtime.sendMessage({ type: "close-report-tab" });
+      } catch (e) {}
+
+      // 16. 홈으로 돌아가기
+      await sleep(500);
+      try {
+        const homeBtn = document.getElementById("mf_wfHeader_hdGroup001");
+        if (homeBtn) homeBtn.click();
+      } catch (e) {}
+
+      console.log("SaveTax: 사업자등록증명 수집 완료 - 다음 자료 수집 준비");
 
     } catch (e) {
       console.error("SaveTax 사업자등록증명 수집 실패:", e);

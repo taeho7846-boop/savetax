@@ -28,39 +28,60 @@ setInterval(checkVersion, CHECK_INTERVAL);
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "print-pdf") {
-    // 현재 활성 탭의 페이지를 PDF로 저장
     (async () => {
       try {
-        const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const tabId = tabs[0]?.id || sender.tab?.id;
-        if (!tabId) { sendResponse({ ok: false, error: "탭 없음" }); return; }
-
-        // 새 창(마지막 탭)에서 PDF 캡처
+        // 리포트 탭 찾기 (sesw.hometax.go.kr 또는 마지막 탭)
         const allTabs = await chrome.tabs.query({});
-        const lastTab = allTabs[allTabs.length - 1];
-        if (!lastTab?.id) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+        let reportTab = allTabs.find(t => t.url && t.url.includes("clipreport.do"));
+        if (!reportTab) reportTab = allTabs[allTabs.length - 1];
+        if (!reportTab?.id) { sendResponse({ ok: false, error: "리포트 탭 없음" }); return; }
 
-        await chrome.debugger.attach({ tabId: lastTab.id }, "1.3");
-        const result = await chrome.debugger.sendCommand({ tabId: lastTab.id }, "Page.printToPDF", {
+        await chrome.debugger.attach({ tabId: reportTab.id }, "1.3");
+        const result = await chrome.debugger.sendCommand({ tabId: reportTab.id }, "Page.printToPDF", {
           printBackground: true,
           preferCSSPageSize: true,
           paperWidth: 8.27,
           paperHeight: 11.69,
         });
-        await chrome.debugger.detach({ tabId: lastTab.id });
+        await chrome.debugger.detach({ tabId: reportTab.id });
 
-        // PDF 데이터를 다운로드
-        const filename = `savetax_${msg.clientName || "거래처"}_${msg.docName || "문서"}.pdf`;
+        // 거래처명 폴더 안에 저장
+        const clientName = (msg.clientName || "거래처").replace(/[/\\:*?"<>|]/g, "_");
+        const docName = (msg.docName || "문서").replace(/[/\\:*?"<>|]/g, "_");
+        const filename = `${clientName}/${docName}.pdf`;
         const dataUrl = "data:application/pdf;base64," + result.data;
+
         await chrome.downloads.download({
           url: dataUrl,
           filename: filename,
           conflictAction: "uniquify",
         });
 
+        // 리포트 탭 ID 저장 (close-report-tab에서 사용)
+        globalThis._savetaxReportTabId = reportTab.id;
+
         sendResponse({ ok: true });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.type === "close-report-tab") {
+    (async () => {
+      try {
+        // 리포트 탭 닫기
+        const allTabs = await chrome.tabs.query({});
+        const reportTab = allTabs.find(t => t.url && t.url.includes("clipreport.do"));
+        if (reportTab?.id) {
+          await chrome.tabs.remove(reportTab.id);
+        } else if (globalThis._savetaxReportTabId) {
+          try { await chrome.tabs.remove(globalThis._savetaxReportTabId); } catch {}
+        }
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false });
       }
     })();
     return true;
