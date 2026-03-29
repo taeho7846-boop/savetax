@@ -13,9 +13,7 @@ export async function createTask(formData: FormData) {
   await prisma.task.create({
     data: {
       clientId: (formData.get("clientId") as string)?.trim() ? parseInt(formData.get("clientId") as string) : null,
-      assignedUserId: formData.get("assignedUserId")
-        ? parseInt(formData.get("assignedUserId") as string)
-        : null,
+      assignedUserId: (formData.get("assignedUserId") as string)?.trim() ? parseInt(formData.get("assignedUserId") as string) : null,
       title: formData.get("title") as string,
       taskType: (formData.get("taskType") as string) || null,
       status: (formData.get("status") as string) || "scheduled",
@@ -77,9 +75,7 @@ export async function createTaskInModal(formData: FormData) {
   await prisma.task.create({
     data: {
       clientId: (formData.get("clientId") as string)?.trim() ? parseInt(formData.get("clientId") as string) : null,
-      assignedUserId: formData.get("assignedUserId")
-        ? parseInt(formData.get("assignedUserId") as string)
-        : null,
+      assignedUserId: (formData.get("assignedUserId") as string)?.trim() ? parseInt(formData.get("assignedUserId") as string) : null,
       title: formData.get("title") as string,
       taskType: (formData.get("taskType") as string) || null,
       status: (formData.get("status") as string) || "scheduled",
