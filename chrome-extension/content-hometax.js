@@ -437,40 +437,45 @@
     try {
       if (await checkLogout()) return;
 
-      // 1. 로그인
+      // 1. 로그인 (기존 고객사 로그인과 동일)
       await doLogin(creds.id, creds.pw);
-      await doCert(creds.certName, creds.certPw);
+
+      // 주민등록번호 입력 (필요한 경우)
+      const rn = (creds.rn || "").replace(/[-\s]/g, "");
+      if (rn) await doJumin(rn);
+
+      // 인증서 (설정된 경우)
+      if (creds.certPw) {
+        await doCert(creds.certName, creds.certPw);
+      }
 
       await sleep(2000);
+      console.log("SaveTax: 사업자등록증명 수집 시작");
 
       // 2. 증명·등록·신청 메뉴
-      console.log("SaveTax: 사업자등록증명 수집 시작");
       (await waitForId("mf_wfHeader_wq_uuid_379")).click();
-      await sleep(500);
-
-      // 민원증명
+      await sleep(200);
       (await waitForXPath("//span[@escape='false' and @label='민원증명']")).click();
-      await sleep(500);
-
-      // 국세 민원 서류 찾기
+      await sleep(200);
       (await waitForXPath("//span[contains(text(),'국세 민원 서류 찾기')]")).click();
-      await sleep(2000);
+      await sleep(3000);
 
-      // 3. 사업자등록증명 → 신청하기 (6번째 항목)
-      const applyBtn = await waitForId("mf_txppWframe_gen_cvaInf_6_btn_apln", 10000);
-      applyBtn.click();
-      await sleep(2000);
+      // 3. 사업자등록증명 → 신청하기
+      console.log("SaveTax: 신청하기 클릭");
+      (await waitForId("mf_txppWframe_gen_cvaInf_6_btn_apln", 15000)).click();
+      await sleep(3000);
 
       // 4. 사업자등록번호 선택
-      const bizNumber = creds.bizNumber || "";
+      const bizNumber = (creds.bizNumber || "").replace(/[^0-9]/g, "");
       if (bizNumber) {
-        const bizSelect = document.getElementById("mf_txppWframe_pfm_UTECAAA0Z001_sbx_pfbPsenNtplBsno");
+        const bizSelect = await waitForId("mf_txppWframe_pfm_UTECAAA0Z001_sbx_pfbPsenNtplBsno", 10000);
         if (bizSelect) {
-          // 매칭되는 사업자번호 찾기
-          for (let i = 0; i < bizSelect.options.length; i++) {
-            if (bizSelect.options[i].text.replace(/[^0-9]/g, "").includes(bizNumber.replace(/[^0-9]/g, ""))) {
-              bizSelect.selectedIndex = i;
-              bizSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          const selEl = bizSelect;
+          for (let i = 0; i < selEl.options.length; i++) {
+            if (selEl.options[i].text.replace(/[^0-9]/g, "").includes(bizNumber)) {
+              selEl.selectedIndex = i;
+              selEl.dispatchEvent(new Event("change", { bubbles: true }));
+              console.log("SaveTax: 사업자번호 선택 → " + selEl.options[i].text);
               break;
             }
           }
@@ -479,62 +484,78 @@
       await sleep(500);
 
       // 5. 사용용도 → 기타
-      const useSelect = document.getElementById("mf_txppWframe_sbx_cvaDcumUseUsgCd");
-      if (useSelect) {
-        for (let i = 0; i < useSelect.options.length; i++) {
-          if (useSelect.options[i].text === "기타") { useSelect.selectedIndex = i; break; }
+      function selectOption(selectId, optionText) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].text.includes(optionText)) {
+            sel.selectedIndex = i;
+            sel.dispatchEvent(new Event("change", { bubbles: true }));
+            return;
+          }
         }
-        useSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
+
+      selectOption("mf_txppWframe_sbx_cvaDcumUseUsgCd", "기타");
       await sleep(300);
 
       // 6. 제출처 → 기타
-      const submitSelect = document.getElementById("mf_txppWframe_sbx_cvaDcumSbmsOrgnClCd");
-      if (submitSelect) {
-        for (let i = 0; i < submitSelect.options.length; i++) {
-          if (submitSelect.options[i].text === "기타") { submitSelect.selectedIndex = i; break; }
-        }
-        submitSelect.dispatchEvent(new Event("change", { bubbles: true }));
-      }
+      selectOption("mf_txppWframe_sbx_cvaDcumSbmsOrgnClCd", "기타");
       await sleep(300);
 
       // 7. 수령방법 → 인터넷발급(프린터출력)
-      const receiveSelect = document.getElementById("mf_txppWframe_pfm_UTECAAA0Z002_sbx_cvaAplnRecptMthd");
-      if (receiveSelect) {
-        for (let i = 0; i < receiveSelect.options.length; i++) {
-          if (receiveSelect.options[i].text.includes("프린터출력")) { receiveSelect.selectedIndex = i; break; }
-        }
-        receiveSelect.dispatchEvent(new Event("change", { bubbles: true }));
-      }
+      selectOption("mf_txppWframe_pfm_UTECAAA0Z002_sbx_cvaAplnRecptMthd", "프린터출력");
       await sleep(500);
 
       // 8. 작성완료
+      console.log("SaveTax: 작성완료 클릭");
       (await waitForId("mf_txppWframe_btn_wrtCmpl")).click();
-      await sleep(2000);
+      await sleep(3000);
 
       // 9. 신청하기
+      console.log("SaveTax: 신청하기 클릭");
       (await waitForId("mf_txppWframe_UTECAAA0A016_wframe_btn_sbms")).click();
-      await sleep(2000);
+      await sleep(3000);
 
-      // 10. 확인 버튼
-      try {
-        (await waitForId("mf_txppWframe_info812008528_wframe_btn_confirm", 5000)).click();
-        await sleep(2000);
-      } catch (e) {}
+      // 10. 확인 버튼 (여러 번 시도)
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          const confirmBtn = document.getElementById("mf_txppWframe_info812008528_wframe_btn_confirm");
+          if (confirmBtn && confirmBtn.offsetParent !== null) {
+            confirmBtn.click();
+            console.log("SaveTax: 확인 클릭");
+            break;
+          }
+        } catch (e) {}
+        await sleep(1000);
+      }
+      await sleep(3000);
 
       // 11. 민원처리결과 조회
+      console.log("SaveTax: 민원처리결과 조회 클릭");
       (await waitForId("mf_txppWframe_btn_cvaTrtRsltInqr")).click();
-      await sleep(3000);
+      await sleep(5000);
 
-      // 12. 출력 버튼
-      (await waitForId("mf_txppWframe_gen_cvaInf_0_btn_cvaDcumGranMthdNm")).click();
-      await sleep(1000);
+      // 12. 출력 버튼 (처리완료까지 대기)
+      for (let attempt = 0; attempt < 10; attempt++) {
+        try {
+          const printBtn = document.getElementById("mf_txppWframe_gen_cvaInf_0_btn_cvaDcumGranMthdNm");
+          if (printBtn && printBtn.offsetParent !== null) {
+            printBtn.click();
+            console.log("SaveTax: 출력 클릭");
+            break;
+          }
+        } catch (e) {}
+        await sleep(1000);
+      }
+      await sleep(2000);
 
       // 13. 예 (새창)
-      (await waitForId("mf_txppWframe_UTECAAP0A024_wframe_btn_yes")).click();
-      await sleep(3000);
+      console.log("SaveTax: 예(새창) 클릭");
+      (await waitForId("mf_txppWframe_UTECAAP0A024_wframe_btn_yes", 5000)).click();
+      await sleep(5000);
 
-      // 14. 새 창에서 PDF 다운로드 요청 (service worker에게)
+      // 14. 새 창에서 PDF 다운로드
       try {
         const result = await chrome.runtime.sendMessage({
           type: "print-pdf",
@@ -543,9 +564,11 @@
         });
         if (result && result.ok) {
           console.log("SaveTax: 사업자등록증명 PDF 저장 완료");
+        } else {
+          console.log("SaveTax: PDF 저장 실패 - " + (result?.error || ""));
         }
       } catch (e) {
-        console.log("SaveTax: PDF 저장은 수동으로 해주세요");
+        console.log("SaveTax: PDF 저장 실패, 수동 저장 필요");
       }
 
       console.log("SaveTax: 사업자등록증명 수집 완료");

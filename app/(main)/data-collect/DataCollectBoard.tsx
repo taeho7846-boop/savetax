@@ -116,6 +116,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
           mode: "collect_biz_cert",
           id: data.hometaxId,
           pw: data.hometaxPw,
+          rn: data.residentNumber || "",
           certName: "",
           certPw: "",
           bizNumber: data.bizNumber || "",
