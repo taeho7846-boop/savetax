@@ -6,6 +6,7 @@ import { ClientCreateButton } from "./ClientCreateModal";
 import { BulkUploadButton, BulkUpdateButton } from "./BulkUploadModal";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
+  "1인사업자": { border: "border-purple-400", text: "text-purple-600", bg: "bg-purple-50" },
   "근로소득": { border: "border-red-400",   text: "text-red-600",   bg: "bg-red-50"   },
   "사업소득": { border: "border-blue-400",  text: "text-blue-600",  bg: "bg-blue-50"  },
   "일용직":   { border: "border-green-500", text: "text-green-700", bg: "bg-green-50" },

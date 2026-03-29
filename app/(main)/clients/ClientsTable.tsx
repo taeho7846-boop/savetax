@@ -8,6 +8,7 @@ import { bulkDeleteClients } from "@/app/actions/clients";
 type LoginStatus = "idle" | "loading" | "success" | "error";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
+  "1인사업자": { border: "border-purple-400", text: "text-purple-600", bg: "bg-purple-50" },
   "근로소득": { border: "border-red-400",   text: "text-red-600",   bg: "bg-red-50"   },
   "사업소득": { border: "border-blue-400",  text: "text-blue-600",  bg: "bg-blue-50"  },
   "일용직":   { border: "border-green-500", text: "text-green-700", bg: "bg-green-50" },
@@ -42,7 +43,7 @@ type Client = {
 
 type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "hometaxId" | "hometaxPw";
 
-const LABOR_OPTIONS = ["근로소득", "사업소득", "일용직"];
+const LABOR_OPTIONS = ["1인사업자", "근로소득", "사업소득", "일용직"];
 const SORT_COLS: { key: SortCol; label: string }[] = [
   { key: "bizNumber",       label: "사업자번호"   },
   { key: "phone",           label: "연락처"       },
@@ -292,7 +293,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
             ) : (
               rows.map((client) => {
                 const laborList = client.laborTypes
-                  ? client.laborTypes.split(",").map((t) => t.trim()).filter((t) => t && t !== "1인사업자")
+                  ? client.laborTypes.split(",").map((t) => t.trim()).filter(Boolean)
                   : [];
 
                 return (
