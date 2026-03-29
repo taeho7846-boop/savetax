@@ -294,17 +294,59 @@ def main():
 
     # PDF 변환
     try:
-        output_dir = os.path.dirname(os.path.abspath(output_pdf))
-        os.makedirs(output_dir, exist_ok=True)
+        pdf_dir = os.path.join(tmp_dir, "pdf")
+        os.makedirs(pdf_dir, exist_ok=True)
         result = subprocess.run(
-            ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", output_dir, xlsx_output],
+            ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", pdf_dir, xlsx_output],
             capture_output=True, text=True, timeout=60
         )
         if result.returncode != 0:
             raise RuntimeError(f"LibreOffice 변환 실패: {result.stderr}")
-        generated = os.path.join(output_dir, Path(xlsx_output).stem + ".pdf")
-        if generated != os.path.abspath(output_pdf):
-            shutil.move(generated, os.path.abspath(output_pdf))
+        generated_pdf = os.path.join(pdf_dir, Path(xlsx_output).stem + ".pdf")
+        print("PDF 변환 완료")
+
+        # 1페이지만 유지 + 도장 오버레이
+        output_dir = os.path.dirname(os.path.abspath(output_pdf))
+        os.makedirs(output_dir, exist_ok=True)
+
+        from PyPDF2 import PdfReader, PdfWriter
+        reader = PdfReader(generated_pdf)
+        writer = PdfWriter()
+
+        page = reader.pages[0]
+
+        # 도장 오버레이
+        if stamp_data:
+            try:
+                from reportlab.pdfgen import canvas as rl_canvas
+                from reportlab.lib.utils import ImageReader
+                import io
+
+                stamp_tmp = os.path.join(tmp_dir, "stamp.png")
+                with open(stamp_tmp, "wb") as f:
+                    f.write(stamp_data)
+
+                # M14 위치에 도장 (좌표 조정 필요할 수 있음)
+                page_width = float(page.mediabox.width)
+                page_height = float(page.mediabox.height)
+
+                packet = io.BytesIO()
+                c = rl_canvas.Canvas(packet, pagesize=(page_width, page_height))
+                stamp_img = ImageReader(stamp_tmp)
+                c.drawImage(stamp_img, 370, 640, width=50, height=50, mask="auto")
+                c.save()
+                packet.seek(0)
+
+                stamp_reader = PdfReader(packet)
+                page.merge_page(stamp_reader.pages[0])
+                print("도장 오버레이 완료")
+            except Exception as e:
+                print(f"WARNING: 도장 오버레이 실패: {e}", file=sys.stderr)
+
+        writer.add_page(page)
+
+        with open(os.path.abspath(output_pdf), "wb") as f:
+            writer.write(f)
         print(f"SUCCESS: {output_pdf}")
     except Exception as e:
         print(f"ERROR: PDF 변환 실패: {e}", file=sys.stderr)
