@@ -42,7 +42,7 @@ type Client = {
   affiliation: string | null;
 };
 
-type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber";
+type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "affiliation";
 
 const LABOR_OPTIONS = ["1인사업자", "근로소득", "사업소득", "일용직"];
 const SORT_COLS: { key: SortCol; label: string }[] = [
@@ -277,7 +277,15 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                   </button>
                 </th>
               ))}
-              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">소속</th>
+              <th className="text-center px-4 py-3 text-gray-700 font-medium">
+                <button
+                  onClick={() => handleSort("affiliation")}
+                  className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
+                >
+                  소속
+                  <SortIcon col={"affiliation"} />
+                </button>
+              </th>
               <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
             </tr>
           </thead>

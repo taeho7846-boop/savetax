@@ -11,6 +11,8 @@ interface Staff {
   role: string;
   isActive: boolean;
   managerId: number | null;
+  bizName1: string | null;
+  bizName2: string | null;
   createdAt: Date;
 }
 
@@ -202,7 +204,14 @@ export default function StaffTable({
                 onClick={() => toggleAccountant(mgr.id)}
               >
                 <span className={`text-sm ${arrowColor}`}>{isOpen ? "▼" : "▶"}</span>
-                <span className="font-medium text-gray-900 flex-1">{mgr.name}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-gray-900">{mgr.name}</span>
+                  {(mgr.bizName1 || mgr.bizName2) && (
+                    <span className="ml-2 text-xs text-gray-400">
+                      {[mgr.bizName1, mgr.bizName2].filter(Boolean).join(" / ")}
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-gray-400">{mgr.username}</span>
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${roleColors[mgr.role] || "bg-gray-100 text-gray-600"}`}>
                   {roleLabels[mgr.role] || mgr.role}
@@ -296,6 +305,14 @@ function EditRow({
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">사업체명 1</label>
+          <input name="bizName1" defaultValue={staff.bizName1 ?? ""} placeholder="예) 세이브택스" className="border border-gray-300 rounded px-2 py-1 text-sm w-32 block" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">사업체명 2</label>
+          <input name="bizName2" defaultValue={staff.bizName2 ?? ""} placeholder="예) 세무회계태호" className="border border-gray-300 rounded px-2 py-1 text-sm w-32 block" />
         </div>
         <div>
           <label className="text-xs text-gray-500">상태</label>

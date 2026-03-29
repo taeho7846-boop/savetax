@@ -84,6 +84,7 @@ export function ClientEditModal({
               currentTaxTypes={data.client.taxTypes?.split(",").map((t) => t.trim()) ?? []}
               currentLaborTypes={data.client.laborTypes?.split(",").map((t) => t.trim()) ?? []}
               currentUserRole={data.currentUserRole}
+              affiliationOptions={data.affiliationOptions}
               onSuccess={handleSuccess}
             />
           )}

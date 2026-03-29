@@ -14,6 +14,8 @@ model User {
   password  String
   name      String
   role      String   @default("employee") // owner | admin | accountant | employee | readonly
+  bizName1  String?  // 사업체명 1
+  bizName2  String?  // 사업체명 2
   managerId Int?     // 소속 세무사 ID (employee만 해당)
   manager   User?    @relation("ManagerEmployees", fields: [managerId], references: [id])
   employees User[]   @relation("ManagerEmployees")

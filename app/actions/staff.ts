@@ -24,6 +24,8 @@ export async function getStaffList() {
       role: true,
       isActive: true,
       managerId: true,
+      bizName1: true,
+      bizName2: true,
       createdAt: true,
     },
   });
@@ -49,8 +51,11 @@ export async function createStaff(formData: FormData) {
   const managerId = formData.get("managerId") ? parseInt(formData.get("managerId") as string) : null;
 
   const hashed = await bcrypt.hash(password, 10);
+  const bizName1 = (formData.get("bizName1") as string) || null;
+  const bizName2 = (formData.get("bizName2") as string) || null;
+
   await prisma.user.create({
-    data: { username, name, password: hashed, role, managerId },
+    data: { username, name, password: hashed, role, managerId, bizName1, bizName2 },
   });
 
   revalidatePath("/staff");
@@ -65,7 +70,9 @@ export async function updateStaff(id: number, formData: FormData) {
   const newPassword = formData.get("newPassword") as string;
 
   const managerId = formData.get("managerId") ? parseInt(formData.get("managerId") as string) : null;
-  const data: Record<string, unknown> = { name, role, isActive, managerId };
+  const bizName1 = (formData.get("bizName1") as string) || null;
+  const bizName2 = (formData.get("bizName2") as string) || null;
+  const data: Record<string, unknown> = { name, role, isActive, managerId, bizName1, bizName2 };
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);
   }

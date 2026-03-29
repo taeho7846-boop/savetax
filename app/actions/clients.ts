@@ -130,12 +130,16 @@ export async function updateClientInModal(id: number, formData: FormData) {
 
 export async function getClientById(id: number) {
   const session = await requireAuth();
-  const [client, allUsers] = await Promise.all([
+  const [client, allUsers, currentUser] = await Promise.all([
     prisma.client.findUnique({ where: { id, isDeleted: false } }),
     prisma.user.findMany({
       where: { isActive: true },
       select: { id: true, name: true, role: true, managerId: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.id },
+      select: { bizName1: true, bizName2: true, managerId: true },
     }),
   ]);
 
@@ -149,7 +153,21 @@ export async function getClientById(id: number) {
     users = allUsers;
   }
 
-  return { client, users, currentUserRole: session.role };
+  // 소속 옵션: 본인(세무사/관리자/대표)의 사업체명 또는 소속 세무사의 사업체명
+  let affiliationOptions: string[] = ["세이브택스"];
+  if (session.role === "employee" && currentUser?.managerId) {
+    const mgr = await prisma.user.findUnique({
+      where: { id: currentUser.managerId },
+      select: { bizName1: true, bizName2: true },
+    });
+    if (mgr?.bizName1) affiliationOptions.push(mgr.bizName1);
+    if (mgr?.bizName2) affiliationOptions.push(mgr.bizName2);
+  } else {
+    if (currentUser?.bizName1) affiliationOptions.push(currentUser.bizName1);
+    if (currentUser?.bizName2) affiliationOptions.push(currentUser.bizName2);
+  }
+
+  return { client, users, currentUserRole: session.role, affiliationOptions };
 }
 
 export async function getCreateClientData() {

@@ -32,10 +32,11 @@ interface Props {
   currentTaxTypes: string[];
   currentLaborTypes: string[];
   currentUserRole?: string;
+  affiliationOptions?: string[];
   onSuccess?: () => void;
 }
 
-export function EditClientForm({ action, client, users, currentTaxTypes, currentLaborTypes, currentUserRole, onSuccess }: Props) {
+export function EditClientForm({ action, client, users, currentTaxTypes, currentLaborTypes, currentUserRole, affiliationOptions, onSuccess }: Props) {
   const submitRef = useRef<HTMLButtonElement>(null);
   const [, startTransition] = useTransition();
 
@@ -192,8 +193,9 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none"
           >
             <option value="">미선택</option>
-            <option value="세이브택스">세이브택스</option>
-            <option value="그 외">그 외</option>
+            {(affiliationOptions ?? ["세이브택스"]).map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
           </select>
         </div>
       </div>
