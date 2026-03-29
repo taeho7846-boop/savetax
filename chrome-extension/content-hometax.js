@@ -240,15 +240,21 @@
       await sleep(3000);
     }
 
-    // 인증 후 팝업 처리 - "취소" 클릭 (요소 나타나면 즉시)
-    try {
-      const cancelBtn = await waitForXPath("//input[contains(@id,'btn_cancel') and @value='취소']", 5000);
-      if (cancelBtn) cancelBtn.click();
-    } catch (e) {
-      try {
-        const closeBtn = await waitForXPath("//input[contains(@id,'btn_close')]", 2000);
-        if (closeBtn) closeBtn.click();
-      } catch (e2) {}
+    // 인증 후 팝업 처리 - "취소" 클릭 (여러 방법으로 시도)
+    for (let attempt = 0; attempt < 15; attempt++) {
+      await sleep(500);
+      // 방법1: btn_cancel
+      const cancel1 = document.querySelector("input[id*='btn_cancel'][value='취소']");
+      if (cancel1) { cancel1.click(); console.log("SaveTax: 취소 클릭 (btn_cancel)"); break; }
+      // 방법2: 취소 버튼 (button 태그)
+      const cancel2 = document.querySelector("button[id*='cancel']");
+      if (cancel2) { cancel2.click(); console.log("SaveTax: 취소 클릭 (button cancel)"); break; }
+      // 방법3: XPath로 취소 텍스트 찾기
+      const cancel3 = document.evaluate("//input[@value='취소']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+      if (cancel3) { cancel3.click(); console.log("SaveTax: 취소 클릭 (XPath)"); break; }
+      // 방법4: 팝업 내 취소 버튼
+      const cancel4 = document.evaluate("//div[contains(@class,'popup')]//input[@value='취소'] | //div[contains(@class,'alert')]//input[@value='취소']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+      if (cancel4) { cancel4.click(); console.log("SaveTax: 취소 클릭 (popup)"); break; }
     }
   }
 
