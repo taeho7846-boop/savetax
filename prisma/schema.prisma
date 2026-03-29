@@ -70,6 +70,7 @@ model Client {
   commission CommissionProcess?
   withholdingRecords WithholdingRecord[]
   incomeTaxRecords   IncomeTaxRecord[]
+  dataCollections    DataCollection[]
 }
 
 // 기장료 수납 기록
@@ -232,6 +233,21 @@ model IncomeTaxRecord {
   updatedAt DateTime @updatedAt
 
   @@unique([clientId, taxYear])
+}
+
+// 자료수집
+model DataCollection {
+  id         Int      @id @default(autoincrement())
+  clientId   Int
+  client     Client   @relation(fields: [clientId], references: [id])
+  docType    String   // 문서 종류
+  taxYear    String   // 귀속연도 "2025"
+  status     String   @default("pending") // pending | collected | error
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([clientId, docType, taxYear])
 }
 
 // 스케쥴

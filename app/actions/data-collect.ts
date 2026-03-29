@@ -1,0 +1,77 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+
+// 수집 가능한 문서 목록
+export const DOC_TYPES = [
+  { key: "종합소득세_신고도움", label: "종합소득세 신고도움 서비스", source: "홈택스" },
+  { key: "종합소득세_신고서", label: "종합소득세 신고서", source: "홈택스" },
+  { key: "부가가치세_신고서", label: "부가가치세 신고서", source: "홈택스" },
+  { key: "부가가치세_과세표준증명", label: "부가가치세 과세표준증명", source: "홈택스" },
+  { key: "간이지급명세서", label: "간이 지급명세서", source: "홈택스" },
+  { key: "사업소득_지급명세서", label: "사업소득 지급명세서", source: "홈택스" },
+  { key: "납부내역증명", label: "납부내역증명(납세사실증명)", source: "홈택스" },
+  { key: "법인소득세_신고서", label: "법인소득세 신고서", source: "홈택스" },
+  { key: "사업자등록증명원", label: "사업자등록증명원", source: "홈택스" },
+  { key: "양도소득세_신고서", label: "양도소득세 신고서", source: "홈택스" },
+  { key: "연말정산_간소화", label: "연말정산 간소화 자료", source: "홈택스" },
+  { key: "증여세_신고서", label: "증여세 신고서", source: "홈택스" },
+  { key: "건강보험_산출내역", label: "사업장 보험료산출내역조회", source: "건강보험공단" },
+  { key: "근로자고용정보", label: "근로자고용정보현황", source: "고용산재포탈" },
+  { key: "근로자보수총액", label: "근로자보수총액신고", source: "고용산재포탈" },
+  { key: "사업장요율", label: "사업장요율(고용,산재)", source: "고용산재포탈" },
+  { key: "가족관계증명서", label: "가족관계증명서", source: "대법원" },
+  { key: "대출이자비용", label: "대출 이자비용 납입증명서", source: "은행" },
+  { key: "이자소득_원천징수", label: "이자소득 원천징수영수증", source: "은행" },
+  { key: "법인등기부등본", label: "법인등기부등본", source: "인터넷등기소" },
+  { key: "주민등록등본", label: "주민등록등본", source: "정부24" },
+  { key: "지방세_과세증명", label: "지방세 세목별 과세증명", source: "정부24" },
+];
+
+export async function toggleDataCollection(
+  clientId: number,
+  docType: string,
+  taxYear: string
+) {
+  await requireAuth();
+
+  const existing = await prisma.dataCollection.findUnique({
+    where: { clientId_docType_taxYear: { clientId, docType, taxYear } },
+  });
+
+  if (existing) {
+    const nextStatus = existing.status === "collected" ? "pending" : "collected";
+    await prisma.dataCollection.update({
+      where: { id: existing.id },
+      data: { status: nextStatus },
+    });
+  } else {
+    await prisma.dataCollection.create({
+      data: { clientId, docType, taxYear, status: "collected" },
+    });
+  }
+
+  revalidatePath("/data-collect");
+}
+
+export async function bulkRequestCollection(
+  clientIds: number[],
+  docTypes: string[],
+  taxYear: string
+) {
+  await requireAuth();
+
+  for (const clientId of clientIds) {
+    for (const docType of docTypes) {
+      await prisma.dataCollection.upsert({
+        where: { clientId_docType_taxYear: { clientId, docType, taxYear } },
+        create: { clientId, docType, taxYear, status: "pending" },
+        update: {},
+      });
+    }
+  }
+
+  revalidatePath("/data-collect");
+}
