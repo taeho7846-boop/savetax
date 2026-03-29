@@ -41,7 +41,7 @@ type Client = {
   taxTypes: string | null;
 };
 
-type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "hometaxId" | "hometaxPw";
+type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber";
 
 const LABOR_OPTIONS = ["1인사업자", "근로소득", "사업소득", "일용직"];
 const SORT_COLS: { key: SortCol; label: string }[] = [
@@ -49,8 +49,6 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
   { key: "phone",           label: "연락처"       },
   { key: "ceoName",         label: "대표자"       },
   { key: "residentNumber",  label: "주민등록번호" },
-  { key: "hometaxId",       label: "홈택스 ID"    },
-  { key: "hometaxPw",       label: "홈택스 PW"    },
 ];
 
 export function ClientsTable({ clients }: { clients: Client[] }) {
@@ -286,7 +284,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
           <tbody className="divide-y divide-gray-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center py-12 text-gray-500">
+                <td colSpan={8} className="text-center py-12 text-gray-500">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -330,8 +328,6 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                     <td className="px-4 py-3 text-center text-gray-800">{client.phone || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.ceoName || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.residentNumber || <span className="text-gray-400">-</span>}</td>
-                    <td className="px-4 py-3 text-center text-gray-800">{client.hometaxId || <span className="text-gray-400">-</span>}</td>
-                    <td className="px-4 py-3 text-center text-gray-800">{client.hometaxPw || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const status = loginStatuses[client.id] ?? "idle";
