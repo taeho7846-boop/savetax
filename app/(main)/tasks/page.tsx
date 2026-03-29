@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { STATUS_LABELS, STATUS_COLORS, TASK_TYPE_LABELS } from "@/lib/constants";
 import Link from "next/link";
+import { TaskDeleteButton } from "./TaskDeleteButton";
 import TaskStatusSelect from "./TaskStatusSelect";
 import { TaskCreateButton } from "./TaskCreateModal";
 
@@ -97,12 +98,13 @@ export default async function TasksPage({
               <th className="text-left px-4 py-3 text-gray-600 font-medium">담당자</th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">마감일</th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">상태</th>
+              <th className="text-center px-4 py-3 text-gray-600 font-medium w-16">관리</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {tasks.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-gray-400">
+                <td colSpan={7} className="text-center py-12 text-gray-400">
                   등록된 업무가 없습니다
                 </td>
               </tr>
@@ -121,12 +123,16 @@ export default async function TasksPage({
                     }`}
                   >
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/clients/${task.clientId}`}
-                        className="text-[#1a2e4a] hover:underline font-medium"
-                      >
-                        {task.client?.name ?? "고객사 없음"}
-                      </Link>
+                      {task.clientId ? (
+                        <Link
+                          href={`/clients/${task.clientId}`}
+                          className="text-[#1a2e4a] hover:underline font-medium"
+                        >
+                          {task.client?.name ?? "고객사 없음"}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-500">고객사 없음</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-800">{task.title}</td>
                     <td className="px-4 py-3 text-gray-500">
@@ -152,6 +158,9 @@ export default async function TasksPage({
                     </td>
                     <td className="px-4 py-3">
                       <TaskStatusSelect taskId={task.id} currentStatus={task.status} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <TaskDeleteButton taskId={task.id} />
                     </td>
                   </tr>
                 );

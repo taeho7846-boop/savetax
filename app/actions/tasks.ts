@@ -12,7 +12,7 @@ export async function createTask(formData: FormData) {
 
   await prisma.task.create({
     data: {
-      clientId: formData.get("clientId") ? parseInt(formData.get("clientId") as string) : null,
+      clientId: (formData.get("clientId") as string)?.trim() ? parseInt(formData.get("clientId") as string) : null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -50,7 +50,6 @@ export async function deleteTask(id: number) {
   await prisma.task.update({ where: { id }, data: { isDeleted: true } });
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
-  redirect("/tasks");
 }
 
 export async function getCreateTaskData() {
@@ -77,7 +76,7 @@ export async function createTaskInModal(formData: FormData) {
 
   await prisma.task.create({
     data: {
-      clientId: formData.get("clientId") ? parseInt(formData.get("clientId") as string) : null,
+      clientId: (formData.get("clientId") as string)?.trim() ? parseInt(formData.get("clientId") as string) : null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
