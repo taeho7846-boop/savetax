@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
     client.ceoName || "",
     client.residentNumber || "",
     stampName,
+    client.clientType || "individual",
   ]);
 
   if (!result.ok) {

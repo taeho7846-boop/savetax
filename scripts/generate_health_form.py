@@ -233,7 +233,7 @@ def main():
     sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-    if len(sys.argv) < 9:
+    if len(sys.argv) < 10:
         print("ERROR: 인수 부족", file=sys.stderr)
         sys.exit(1)
 
@@ -245,10 +245,14 @@ def main():
     ceo_name      = sys.argv[6]
     resident_num  = sys.argv[7]   # 주민번호 전체
     stamp_name    = sys.argv[8]
+    client_type   = sys.argv[9]   # individual or corporate
 
     if not os.path.isfile(template_path):
         print(f"ERROR: 템플릿 파일 없음: {template_path}", file=sys.stderr)
         sys.exit(1)
+
+    # L14: 개인→대표자명, 법인→법인명
+    l14_value = ceo_name if client_type == "individual" else client_name
 
     cell_data = {
         "D6": format_biz_d6(biz_number),
@@ -257,6 +261,7 @@ def main():
         "D8": ceo_name,
         "L8": format_birthday_with_gender(resident_num),
         "D9": format_biz_d9(biz_number),
+        "L14": l14_value,
     }
 
     # 도장 생성
