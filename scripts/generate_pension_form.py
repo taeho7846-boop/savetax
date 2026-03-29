@@ -195,10 +195,23 @@ def main():
     from openpyxl.utils.units import cm_to_EMU
     import io
 
-    ext = Path(template_path).suffix or ".xlsx"
-    tmp_fd, tmp_xlsx = tempfile.mkstemp(suffix=".xlsx")
-    os.close(tmp_fd)
-    shutil.copy2(template_path, tmp_xlsx)
+    ext = Path(template_path).suffix.lower() or ".xlsx"
+    tmp_dir = tempfile.mkdtemp()
+
+    # .xls인 경우 LibreOffice로 .xlsx 변환 (기존 이미지 보존)
+    if ext == ".xls":
+        result = subprocess.run(
+            ["libreoffice", "--headless", "--convert-to", "xlsx", "--outdir", tmp_dir, template_path],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            print(f"ERROR: xls→xlsx 변환 실패: {result.stderr}", file=sys.stderr)
+            sys.exit(1)
+        tmp_xlsx = os.path.join(tmp_dir, Path(template_path).stem + ".xlsx")
+        print("xls → xlsx 변환 완료")
+    else:
+        tmp_xlsx = os.path.join(tmp_dir, "template.xlsx")
+        shutil.copy2(template_path, tmp_xlsx)
 
     try:
         wb = load_workbook(tmp_xlsx)
@@ -251,7 +264,7 @@ def main():
         sys.exit(1)
     finally:
         try:
-            os.unlink(tmp_xlsx)
+            shutil.rmtree(tmp_dir)
         except Exception:
             pass
 
