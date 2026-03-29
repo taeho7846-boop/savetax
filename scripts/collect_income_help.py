@@ -169,15 +169,35 @@ def main():
                 select.select_by_visible_text(str(year))
                 time.sleep(0.5)
 
-                # 조회 버튼 클릭
-                query_btn = driver.find_element(By.ID, "mf_txppWframe_trigger21")
-                query_btn.click()
+                # 조회 버튼 클릭 (JS로)
+                driver.execute_script('document.getElementById("mf_txppWframe_trigger21")?.click()')
                 time.sleep(3)
 
-                # 미리보기 버튼 클릭 (새 창 열림)
-                preview_btn = driver.find_element(By.ID, "mf_txppWframe_trigger1")
-                preview_btn.click()
+                # alert 처리
+                try:
+                    alert = driver.switch_to.alert
+                    alert_text = alert.text
+                    print(f"  {year}년: alert → {alert_text}")
+                    alert.accept()
+                    time.sleep(1)
+                    # 데이터 없음 alert면 다음 년도로
+                    continue
+                except:
+                    pass
+
+                # 미리보기 버튼 클릭 (JS로)
+                driver.execute_script('document.getElementById("mf_txppWframe_trigger1")?.click()')
                 time.sleep(3)
+
+                # alert 처리 (미리보기 후)
+                try:
+                    alert = driver.switch_to.alert
+                    alert_text = alert.text
+                    print(f"  {year}년: 미리보기 alert → {alert_text}")
+                    alert.accept()
+                    time.sleep(1)
+                except:
+                    pass
 
                 # 새 창으로 전환
                 windows = driver.window_handles
@@ -212,7 +232,7 @@ def main():
                     print(f"  {year}년: 미리보기 창이 열리지 않음")
 
             except Exception as e:
-                print(f"  {year}년: 오류 - {e}", file=sys.stderr)
+                print(f"  {year}년: 오류 - {str(e)[:200]}", file=sys.stderr)
                 # 원래 창으로 복귀 시도
                 try:
                     windows = driver.window_handles
