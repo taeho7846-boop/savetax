@@ -41,6 +41,7 @@ export async function createClient(formData: FormData) {
       bankName: (formData.get("bankName") as string) || null,
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
+      halfYearTax: formData.get("halfYearTax") === "true",
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
@@ -78,6 +79,7 @@ export async function updateClient(id: number, formData: FormData) {
       bankName: (formData.get("bankName") as string) || null,
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
+      halfYearTax: formData.get("halfYearTax") === "true",
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
@@ -112,6 +114,7 @@ export async function updateClientInModal(id: number, formData: FormData) {
       bankName: (formData.get("bankName") as string) || null,
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
+      halfYearTax: formData.get("halfYearTax") === "true",
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
@@ -167,6 +170,7 @@ export async function createClientInModal(formData: FormData) {
       bankName: (formData.get("bankName") as string) || null,
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
+      halfYearTax: formData.get("halfYearTax") === "true",
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)

@@ -37,6 +37,7 @@ const HEADER_MAP: Record<string, string> = {
   출금계좌: "bankAccount",
   개업년월일: "openDate",
   개업일: "openDate",
+  원천세신고유형: "halfYearTax",
   특이사항: "notes",
   비고: "notes",
   메모: "notes",
@@ -179,6 +180,9 @@ export async function POST(req: NextRequest) {
         } else if (field === "taxationType") {
           const converted = normalizeTaxationType(val);
           if (converted && converted !== existingVal) updateData[field] = converted;
+        } else if (field === "halfYearTax") {
+          const isHalf = val.includes("6개월납");
+          if (isHalf !== existingVal) updateData[field] = isHalf;
         } else if (field === "openDate") {
           const converted = normalizeDate(val);
           if (converted && converted !== existingVal) updateData[field] = converted;

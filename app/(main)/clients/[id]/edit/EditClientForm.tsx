@@ -23,6 +23,7 @@ interface Props {
     bankName: string | null;
     bankAccount: string | null;
     openDate?: string | null;
+    halfYearTax?: boolean;
     notes: string | null;
     assignedUserId: number | null;
   };
@@ -141,14 +142,26 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           <label className="block text-sm font-medium text-gray-800 mb-2">인건비</label>
           <CheckboxGroup name="laborType" options={["1인사업자", "근로소득", "사업소득", "일용직"]} defaultValues={currentLaborTypes} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">개업년월일</label>
-          <input
-            name="openDate"
-            type="date"
-            defaultValue={client.openDate ?? ""}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-          />
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-800 mb-1">개업년월일</label>
+            <input
+              name="openDate"
+              type="date"
+              defaultValue={client.openDate ?? ""}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            />
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="halfYearTax"
+              value="true"
+              defaultChecked={client.halfYearTax ?? false}
+              className="accent-[#1a2e4a] w-4 h-4"
+            />
+            <span className="text-sm font-medium text-gray-800">6개월납</span>
+          </label>
         </div>
       </div>
 
