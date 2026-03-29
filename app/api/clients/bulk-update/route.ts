@@ -38,6 +38,7 @@ const HEADER_MAP: Record<string, string> = {
   개업년월일: "openDate",
   개업일: "openDate",
   원천세신고유형: "halfYearTax",
+  소속: "affiliation",
   특이사항: "notes",
   비고: "notes",
   메모: "notes",
