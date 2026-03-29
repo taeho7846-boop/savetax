@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleDataCollection } from "@/app/actions/data-collect";
-import { DOC_TYPES } from "@/lib/doc-types";
+import { DOC_TYPES, getDefaultParams, type SettingType } from "@/lib/doc-types";
 
-type DCRecord = { docType: string; status: string };
+type DCRecord = { docType: string; status: string; params: string | null };
 
 type Client = {
   id: number;
@@ -14,22 +14,14 @@ type Client = {
   dataCollections: DCRecord[];
 };
 
-// 수집기관별 그룹
-const SOURCE_GROUPS = [
-  { source: "홈택스", color: "bg-blue-50 text-blue-600 border-blue-200" },
-  { source: "건강보험공단", color: "bg-green-50 text-green-600 border-green-200" },
-  { source: "고용산재포탈", color: "bg-orange-50 text-orange-600 border-orange-200" },
-  { source: "대법원", color: "bg-purple-50 text-purple-600 border-purple-200" },
-  { source: "은행", color: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-  { source: "인터넷등기소", color: "bg-pink-50 text-pink-600 border-pink-200" },
-  { source: "정부24", color: "bg-indigo-50 text-indigo-600 border-indigo-200" },
-];
-
 export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxYear: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
+
+  // 홈택스만
+  const hometaxDocs = DOC_TYPES.filter(d => d.source === "홈택스");
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
@@ -47,12 +39,19 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     return rec?.status ?? "none";
   }
 
+  function getParams(client: Client, docType: string): Record<string, string> {
+    const rec = client.dataCollections.find(d => d.docType === docType);
+    if (rec?.params) {
+      try { return JSON.parse(rec.params); } catch { return {}; }
+    }
+    return {};
+  }
+
   const filteredClients = search
     ? clients.filter(c => c.name.includes(search))
     : clients;
 
-  // 전체 진행률
-  const totalDocs = DOC_TYPES.length * clients.length;
+  const totalDocs = hometaxDocs.length * clients.length;
   const collectedDocs = clients.reduce(
     (sum, c) => sum + c.dataCollections.filter(d => d.status === "collected").length,
     0
@@ -60,7 +59,6 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
 
   return (
     <>
-      {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-900">자료수집</h1>
         <div className="flex items-center gap-4">
@@ -111,7 +109,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                       isSelected ? "bg-white/20 text-white" : "bg-green-100 text-green-700"
                     }`}>
-                      {collected}/{DOC_TYPES.length}
+                      {collected}/{hometaxDocs.length}
                     </span>
                   )}
                 </div>
@@ -120,7 +118,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
           </div>
         </div>
 
-        {/* 우측: 자료 수집 체크리스트 */}
+        {/* 우측: 자료 체크리스트 */}
         <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-100 overflow-y-auto">
           {!selectedClient ? (
             <div className="flex items-center justify-center h-full text-gray-400 text-sm">
@@ -134,50 +132,63 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                   <p className="text-xs text-gray-500 mt-0.5">{taxYear}년 귀속 자료수집</p>
                 </div>
                 <div className="text-sm text-gray-500">
-                  {selectedClient.dataCollections.filter(d => d.status === "collected").length} / {DOC_TYPES.length} 수집완료
+                  {selectedClient.dataCollections.filter(d => d.status === "collected").length} / {hometaxDocs.length} 수집완료
                 </div>
               </div>
 
-              <div className="space-y-5">
-                {SOURCE_GROUPS.map(group => {
-                  const docs = DOC_TYPES.filter(d => d.source === group.source);
-                  if (docs.length === 0) return null;
-                  return (
-                    <div key={group.source}>
-                      <div className={`inline-block px-2 py-0.5 rounded text-xs font-medium border mb-2 ${group.color}`}>
-                        {group.source}
-                      </div>
-                      <div className="space-y-1">
-                        {docs.map(doc => {
-                          const status = getStatus(selectedClient, doc.key);
-                          const isCollected = status === "collected";
-                          return (
-                            <label
-                              key={doc.key}
-                              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                                isCollected ? "bg-green-50" : "hover:bg-gray-50"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isCollected}
-                                onChange={() => handleToggle(selectedClient.id, doc.key)}
-                                disabled={isPending}
-                                className="accent-[#1a2e4a] w-4 h-4"
-                              />
-                              <span className={`text-sm ${isCollected ? "text-green-700 line-through" : "text-gray-800"}`}>
-                                {doc.label}
-                              </span>
-                              {isCollected && (
-                                <span className="text-[10px] text-green-500 ml-auto">수집완료</span>
-                              )}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="inline-block px-2 py-0.5 rounded text-xs font-medium border mb-3 bg-blue-50 text-blue-600 border-blue-200">
+                홈택스
+              </div>
+
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="w-10 px-3 py-2"></th>
+                      <th className="text-left px-3 py-2 text-gray-600 font-medium">요청서류</th>
+                      <th className="text-left px-3 py-2 text-gray-600 font-medium">필수 선택사항</th>
+                      <th className="text-center px-3 py-2 text-gray-600 font-medium w-20">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {hometaxDocs.map(doc => {
+                      const status = getStatus(selectedClient, doc.key);
+                      const isCollected = status === "collected";
+                      const defaults = getDefaultParams(doc.settingType, taxYear);
+                      const saved = getParams(selectedClient, doc.key);
+                      const params = { ...defaults, ...saved };
+
+                      return (
+                        <tr key={doc.key} className={isCollected ? "bg-green-50/50" : "hover:bg-gray-50"}>
+                          <td className="px-3 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isCollected}
+                              onChange={() => handleToggle(selectedClient.id, doc.key)}
+                              disabled={isPending}
+                              className="accent-[#1a2e4a] w-4 h-4"
+                            />
+                          </td>
+                          <td className={`px-3 py-3 ${isCollected ? "text-green-700" : "text-gray-800"}`}>
+                            {doc.label}
+                          </td>
+                          <td className="px-3 py-3">
+                            <SettingInput type={doc.settingType} params={params} />
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {isCollected ? (
+                              <span className="text-xs text-green-600 font-medium">완료</span>
+                            ) : status === "pending" ? (
+                              <span className="text-xs text-yellow-600">대기</span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -185,4 +196,61 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       </div>
     </>
   );
+}
+
+function SettingInput({ type, params }: { type: SettingType; params: Record<string, string> }) {
+  const inputClass = "border border-gray-300 rounded px-2 py-1 text-xs w-28 focus:outline-none";
+  const selectClass = "border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none";
+
+  switch (type) {
+    case "year":
+      return (
+        <div className="flex items-center gap-1">
+          <input type="number" defaultValue={params.year} className={`${inputClass} w-20`} /> <span className="text-xs text-gray-500">년</span>
+        </div>
+      );
+    case "yearRange":
+      return (
+        <div className="flex items-center gap-1">
+          <input type="number" defaultValue={params.startYear} className={`${inputClass} w-20`} />
+          <span className="text-xs text-gray-400">~</span>
+          <input type="number" defaultValue={params.endYear} className={`${inputClass} w-20`} />
+          <span className="text-xs text-gray-500">년</span>
+        </div>
+      );
+    case "monthRange":
+      return (
+        <div className="flex items-center gap-1">
+          <input type="month" defaultValue={params.startMonth} className={inputClass} />
+          <span className="text-xs text-gray-400">~</span>
+          <input type="month" defaultValue={params.endMonth} className={inputClass} />
+        </div>
+      );
+    case "dateRange":
+      return (
+        <div className="flex items-center gap-1">
+          <input type="date" defaultValue={params.startDate} className={inputClass} />
+          <span className="text-xs text-gray-400">~</span>
+          <input type="date" defaultValue={params.endDate} className={inputClass} />
+        </div>
+      );
+    case "vatPeriod":
+      return (
+        <div className="flex items-center gap-1">
+          <input type="number" defaultValue={params.startYear} className={`${inputClass} w-20`} />
+          <select defaultValue={params.startPeriod} className={selectClass}>
+            <option value="1">1기</option>
+            <option value="2">2기</option>
+          </select>
+          <span className="text-xs text-gray-400">~</span>
+          <input type="number" defaultValue={params.endYear} className={`${inputClass} w-20`} />
+          <select defaultValue={params.endPeriod} className={selectClass}>
+            <option value="1">1기</option>
+            <option value="2">2기</option>
+          </select>
+        </div>
+      );
+    case "none":
+      return <span className="text-xs text-gray-400">-</span>;
+  }
 }

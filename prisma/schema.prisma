@@ -243,6 +243,7 @@ model DataCollection {
   docType    String   // 문서 종류
   taxYear    String   // 귀속연도 "2025"
   status     String   @default("pending") // pending | collected | error
+  params     String?  // 기간 설정 JSON
   notes      String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

@@ -1,25 +1,44 @@
-// 수집 가능한 문서 목록
-export const DOC_TYPES = [
-  { key: "종합소득세_신고도움", label: "종합소득세 신고도움 서비스", source: "홈택스" },
-  { key: "종합소득세_신고서", label: "종합소득세 신고서", source: "홈택스" },
-  { key: "부가가치세_신고서", label: "부가가치세 신고서", source: "홈택스" },
-  { key: "부가가치세_과세표준증명", label: "부가가치세 과세표준증명", source: "홈택스" },
-  { key: "간이지급명세서", label: "간이 지급명세서", source: "홈택스" },
-  { key: "사업소득_지급명세서", label: "사업소득 지급명세서", source: "홈택스" },
-  { key: "납부내역증명", label: "납부내역증명(납세사실증명)", source: "홈택스" },
-  { key: "법인소득세_신고서", label: "법인소득세 신고서", source: "홈택스" },
-  { key: "사업자등록증명원", label: "사업자등록증명원", source: "홈택스" },
-  { key: "양도소득세_신고서", label: "양도소득세 신고서", source: "홈택스" },
-  { key: "연말정산_간소화", label: "연말정산 간소화 자료", source: "홈택스" },
-  { key: "증여세_신고서", label: "증여세 신고서", source: "홈택스" },
-  { key: "건강보험_산출내역", label: "사업장 보험료산출내역조회", source: "건강보험공단" },
-  { key: "근로자고용정보", label: "근로자고용정보현황", source: "고용산재포탈" },
-  { key: "근로자보수총액", label: "근로자보수총액신고", source: "고용산재포탈" },
-  { key: "사업장요율", label: "사업장요율(고용,산재)", source: "고용산재포탈" },
-  { key: "가족관계증명서", label: "가족관계증명서", source: "대법원" },
-  { key: "대출이자비용", label: "대출 이자비용 납입증명서", source: "은행" },
-  { key: "이자소득_원천징수", label: "이자소득 원천징수영수증", source: "은행" },
-  { key: "법인등기부등본", label: "법인등기부등본", source: "인터넷등기소" },
-  { key: "주민등록등본", label: "주민등록등본", source: "정부24" },
-  { key: "지방세_과세증명", label: "지방세 세목별 과세증명", source: "정부24" },
+// 설정 타입: year(년도), yearRange(년~년), monthRange(월~월), dateRange(날짜~날짜), vatPeriod(부가세 기수), none(없음)
+export type SettingType = "year" | "yearRange" | "monthRange" | "dateRange" | "vatPeriod" | "none";
+
+export type DocType = {
+  key: string;
+  label: string;
+  source: string;
+  settingType: SettingType;
+};
+
+// 홈택스 수집 문서 목록
+export const DOC_TYPES: DocType[] = [
+  { key: "종합소득세_신고도움", label: "종합소득세 신고도움 서비스", source: "홈택스", settingType: "year" },
+  { key: "종합소득세_신고서", label: "종합소득세 신고서", source: "홈택스", settingType: "dateRange" },
+  { key: "부가가치세_신고서", label: "부가가치세 신고서", source: "홈택스", settingType: "dateRange" },
+  { key: "부가가치세_과세표준증명", label: "부가가치세 과세표준증명", source: "홈택스", settingType: "vatPeriod" },
+  { key: "간이지급명세서", label: "간이 지급명세서", source: "홈택스", settingType: "monthRange" },
+  { key: "사업소득_지급명세서", label: "사업소득 지급명세서", source: "홈택스", settingType: "monthRange" },
+  { key: "납부내역증명", label: "납부내역증명(납세사실증명)", source: "홈택스", settingType: "dateRange" },
+  { key: "법인소득세_신고서", label: "법인소득세 신고서", source: "홈택스", settingType: "dateRange" },
+  { key: "사업자등록증명원", label: "사업자등록증명원", source: "홈택스", settingType: "none" },
+  { key: "양도소득세_신고서", label: "양도소득세 신고서", source: "홈택스", settingType: "dateRange" },
+  { key: "연말정산_간소화", label: "연말정산 간소화 자료", source: "홈택스", settingType: "year" },
+  { key: "증여세_신고서", label: "증여세 신고서", source: "홈택스", settingType: "dateRange" },
 ];
+
+// 기본값 계산
+export function getDefaultParams(settingType: SettingType, taxYear: string) {
+  const y = parseInt(taxYear);
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const yearAgo = `${now.getFullYear() - 1}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const monthAgo12 = `${now.getFullYear() - 1}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  switch (settingType) {
+    case "year": return { year: String(y) };
+    case "yearRange": return { startYear: String(y), endYear: String(y + 1) };
+    case "monthRange": return { startMonth: monthAgo12, endMonth: thisMonth };
+    case "dateRange": return { startDate: yearAgo, endDate: today };
+    case "vatPeriod": return { startYear: String(y), startPeriod: "1", endYear: String(y + 1), endPeriod: "2" };
+    case "none": return {};
+  }
+}
