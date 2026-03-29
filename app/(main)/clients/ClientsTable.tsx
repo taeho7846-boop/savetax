@@ -328,7 +328,15 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                     <td className="px-4 py-3 text-center text-gray-800">{client.phone || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.ceoName || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.residentNumber || <span className="text-gray-400">-</span>}</td>
-                    <td className="px-4 py-3 text-center text-gray-800 text-xs">{client.affiliation || <span className="text-gray-400">-</span>}</td>
+                    <td className="px-4 py-3 text-center text-xs">
+                      {client.affiliation === "세이브택스" ? (
+                        <span className="text-blue-600 font-medium">세이브택스</span>
+                      ) : client.affiliation ? (
+                        <span className="text-gray-800">{client.affiliation}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const status = loginStatuses[client.id] ?? "idle";
