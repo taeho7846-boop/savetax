@@ -11,6 +11,10 @@
       console.log("SaveTax: alert 자동 닫기 →", msg);
       return;
     }
+    if (s.indexOf("확인되었습니다") !== -1) {
+      console.log("SaveTax: alert 자동 닫기 →", msg);
+      return;
+    }
     return origAlert.call(window, msg);
   };
 
