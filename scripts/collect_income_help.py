@@ -1,12 +1,12 @@
 """
-종합소득세 신고도움 서비스 자동 수집 (헤드리스 Chrome + Selenium)
+종합소득세 신고도움 서비스 자동 수집 (헤드리스 Chrome + Selenium + JS 기반)
 사용법: python3 collect_income_help.py <hometax_id> <hometax_pw> <start_year> <end_year> <output_dir>
 """
 
 import sys
 import os
 import time
-import glob
+import base64
 
 def main():
     if len(sys.argv) < 6:
@@ -23,12 +23,10 @@ def main():
 
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait, Select
+    from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
 
-    # Chrome 설정
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -36,179 +34,168 @@ def main():
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
 
-    # PDF 다운로드 설정
-    prefs = {
-        "printing.print_preview_sticky_settings.appState": '{"recentDestinations":[{"id":"Save as PDF","origin":"local","account":""}],"selectedDestinationId":"Save as PDF","version":2}',
-        "savefile.default_directory": output_dir,
-        "download.default_directory": output_dir,
-        "download.prompt_for_download": False,
-        "plugins.always_open_pdf_externally": True,
-    }
-    options.add_experimental_option("prefs", prefs)
-    options.add_argument("--kiosk-printing")
-
     driver = None
     try:
         driver = webdriver.Chrome(options=options)
-        wait = WebDriverWait(driver, 20)
+        driver.set_page_load_timeout(30)
+
+        # alert 자동 처리 함수
+        def dismiss_alerts():
+            for _ in range(5):
+                try:
+                    alert = driver.switch_to.alert
+                    txt = alert.text
+                    print(f"  alert 처리: {txt}")
+                    alert.accept()
+                    time.sleep(0.5)
+                except:
+                    break
+
+        def js(script):
+            """JS 실행 + alert 처리"""
+            try:
+                result = driver.execute_script(script)
+                time.sleep(0.3)
+                dismiss_alerts()
+                return result
+            except Exception as e:
+                dismiss_alerts()
+                return None
+
+        def wait_for(element_id, timeout=15):
+            """요소가 나타날 때까지 대기"""
+            for _ in range(timeout * 2):
+                if js(f'return !!document.getElementById("{element_id}")'):
+                    return True
+                time.sleep(0.5)
+            return False
 
         # 1. 홈택스 접속
         print("홈택스 접속 중...")
         driver.get("https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3")
-        time.sleep(3)
+        time.sleep(4)
+        dismiss_alerts()
 
         # 2. 로그인
         print("로그인 중...")
-        # 로그인 버튼 클릭
-        login_btn = wait.until(EC.element_to_be_clickable((By.ID, "mf_wfHeader_group1503")))
-        login_btn.click()
+        js('document.getElementById("mf_wfHeader_group1503")?.click()')
         time.sleep(1)
-
-        # 아이디/비밀번호 탭 클릭
-        id_tab = wait.until(EC.element_to_be_clickable((By.ID, "mf_txppWframe_anchor15")))
-        id_tab.click()
+        js('document.getElementById("mf_txppWframe_anchor15")?.click()')
         time.sleep(0.5)
 
-        # 아이디 입력
-        id_input = wait.until(EC.presence_of_element_located((By.ID, "mf_txppWframe_iptUserId")))
-        id_input.clear()
-        id_input.send_keys(hometax_id)
-
-        # 비밀번호 입력
-        pw_input = driver.find_element(By.ID, "mf_txppWframe_iptUserPw")
-        pw_input.clear()
-        pw_input.send_keys(hometax_pw)
+        # 아이디/비밀번호 입력 (JS로)
+        js(f'''
+            var id = document.getElementById("mf_txppWframe_iptUserId");
+            if(id) {{ id.value = "{hometax_id}"; id.dispatchEvent(new Event("input", {{bubbles:true}})); }}
+            var pw = document.getElementById("mf_txppWframe_iptUserPw");
+            if(pw) {{ pw.value = "{hometax_pw}"; pw.dispatchEvent(new Event("input", {{bubbles:true}})); }}
+        ''')
         time.sleep(0.3)
+        js('document.getElementById("mf_txppWframe_anchor25")?.click()')
+        time.sleep(4)
+        dismiss_alerts()
 
-        # 로그인 버튼 클릭
-        submit_btn = driver.find_element(By.ID, "mf_txppWframe_anchor25")
-        submit_btn.click()
-        time.sleep(3)
-
-        # 권한 팝업 처리
-        try:
-            allow_btn = WebDriverWait(driver, 3).until(
-                EC.element_to_be_clickable((By.XPATH, "//*[normalize-space(text())='허용']"))
-            )
-            allow_btn.click()
-            time.sleep(1)
-        except:
-            pass
-
-        # 세무대리인 팝업 처리 (취소)
-        try:
-            cancel_btn = WebDriverWait(driver, 3).until(
-                EC.element_to_be_clickable((By.XPATH, "//input[contains(@id,'btn_cancel') and @value='취소']"))
-            )
-            cancel_btn.click()
-            time.sleep(1)
-        except:
-            pass
-
-        # confirm/alert 팝업 반복 처리
+        # 팝업 모두 닫기
         for _ in range(5):
-            try:
-                alert = driver.switch_to.alert
-                alert.dismiss()
-                time.sleep(0.5)
-            except:
+            closed = js('''
+                var btns = document.querySelectorAll("input[value='취소'], input[value='닫기'], input[value='확인']");
+                var popup = null;
+                btns.forEach(function(b) {
+                    var parent = b.closest(".w2window, .w2popup_window");
+                    if (parent && parent.style.display !== "none") {
+                        if (b.value === "취소") { b.click(); popup = "취소"; }
+                        else if (b.value === "닫기") { b.click(); popup = "닫기"; }
+                    }
+                });
+                return popup;
+            ''')
+            if not closed:
                 break
-
-        # 모든 팝업 창 닫기 (UTXPPABC12 등)
-        for _ in range(3):
-            try:
-                popup_close = driver.find_element(By.XPATH, "//div[contains(@class,'w2window')]//input[@value='닫기' or @value='취소' or @value='확인']")
-                popup_close.click()
-                time.sleep(0.5)
-            except:
-                break
-
-        # 팝업 오버레이가 사라질 때까지 대기
-        time.sleep(2)
+            print(f"  팝업 닫기: {closed}")
+            time.sleep(0.5)
 
         print("로그인 완료")
 
-        # 3. 메뉴 이동: 세금신고 → 종합소득세 신고 → 신고도움 서비스
+        # 3. 메뉴 이동
         print("메뉴 이동 중...")
         time.sleep(1)
-
-        # JavaScript로 직접 클릭 (팝업에 가려져도 작동)
-        driver.execute_script('document.getElementById("mf_wfHeader_wq_uuid_399")?.click()')
+        js('document.getElementById("mf_wfHeader_wq_uuid_399")?.click()')
         time.sleep(0.5)
 
-        income_tax = wait.until(EC.presence_of_element_located(
-            (By.XPATH, "//span[@escape='false' and @label='종합소득세 신고']")
-        ))
-        driver.execute_script("arguments[0].click()", income_tax)
+        # 종합소득세 신고 메뉴
+        js('''
+            var spans = document.querySelectorAll("span[label='종합소득세 신고']");
+            if(spans.length > 0) spans[0].click();
+        ''')
         time.sleep(0.5)
 
-        help_service = wait.until(EC.presence_of_element_located(
-            (By.XPATH, "//span[contains(text(),'신고도움 서비스')]")
-        ))
-        driver.execute_script("arguments[0].click()", help_service)
-        time.sleep(3)
+        # 신고도움 서비스
+        js('''
+            var spans = document.querySelectorAll("span");
+            for(var i=0; i<spans.length; i++) {
+                if(spans[i].textContent.trim().indexOf("신고도움 서비스") >= 0) {
+                    spans[i].click(); break;
+                }
+            }
+        ''')
+        time.sleep(4)
+        dismiss_alerts()
+
+        # 페이지 로드 확인
+        if not wait_for("mf_txppWframe_selectTxyr"):
+            print("ERROR: 신고도움 서비스 페이지 로드 실패", file=sys.stderr)
+            sys.exit(1)
 
         print("신고도움 서비스 페이지 도착")
+
+        # 사용 가능한 년도 확인
+        available = js('''
+            var sel = document.getElementById("mf_txppWframe_selectTxyr");
+            if(!sel) return [];
+            var years = [];
+            for(var i=0; i<sel.options.length; i++) years.push(sel.options[i].text.trim());
+            return years;
+        ''') or []
+        print(f"  사용 가능한 년도: {available}")
 
         # 4. 년도별 조회 + PDF 저장
         collected = 0
         for year in range(start_year, end_year + 1):
             try:
-                print(f"{year}년 조회 중...")
-
-                # 귀속년도 선택
-                select_el = wait.until(EC.presence_of_element_located((By.ID, "mf_txppWframe_selectTxyr")))
-                select = Select(select_el)
-
-                # 해당 년도가 옵션에 있는지 확인
-                available_years = [o.text.strip() for o in select.options]
-                if str(year) not in available_years:
+                year_str = str(year)
+                if year_str not in available:
                     print(f"  {year}년: 옵션 없음, 패스")
                     continue
 
-                select.select_by_visible_text(str(year))
+                print(f"  {year}년 조회 중...")
+
+                # 년도 선택 + 조회 (JS)
+                js(f'''
+                    var sel = document.getElementById("mf_txppWframe_selectTxyr");
+                    if(sel) {{
+                        sel.value = "{year_str}";
+                        sel.dispatchEvent(new Event("change", {{bubbles:true}}));
+                    }}
+                ''')
                 time.sleep(0.5)
 
-                # 조회 버튼 클릭 (JS로)
-                driver.execute_script('document.getElementById("mf_txppWframe_trigger21")?.click()')
-                time.sleep(3)
+                js('document.getElementById("mf_txppWframe_trigger21")?.click()')
+                time.sleep(4)
+                dismiss_alerts()
 
-                # alert 처리
-                try:
-                    alert = driver.switch_to.alert
-                    alert_text = alert.text
-                    print(f"  {year}년: alert → {alert_text}")
-                    alert.accept()
-                    time.sleep(1)
-                    # 데이터 없음 alert면 다음 년도로
-                    continue
-                except:
-                    pass
+                # 미리보기 클릭
+                js('document.getElementById("mf_txppWframe_trigger1")?.click()')
+                time.sleep(4)
+                dismiss_alerts()
 
-                # 미리보기 버튼 클릭 (JS로)
-                driver.execute_script('document.getElementById("mf_txppWframe_trigger1")?.click()')
-                time.sleep(3)
-
-                # alert 처리 (미리보기 후)
-                try:
-                    alert = driver.switch_to.alert
-                    alert_text = alert.text
-                    print(f"  {year}년: 미리보기 alert → {alert_text}")
-                    alert.accept()
-                    time.sleep(1)
-                except:
-                    pass
-
-                # 새 창으로 전환
+                # 새 창 확인
                 windows = driver.window_handles
                 if len(windows) > 1:
                     driver.switch_to.window(windows[-1])
-                    time.sleep(2)
-
-                    # PDF로 저장 (Ctrl+P → PDF)
-                    pdf_path = os.path.join(output_dir, f"신고도움서비스_{year}년.pdf")
+                    time.sleep(3)
 
                     # CDP로 PDF 생성
+                    pdf_path = os.path.join(output_dir, f"신고도움서비스_{year}년.pdf")
                     result = driver.execute_cdp_cmd("Page.printToPDF", {
                         "printBackground": True,
                         "preferCSSPageSize": True,
@@ -216,24 +203,23 @@ def main():
                         "paperHeight": 11.69,
                     })
 
-                    import base64
                     pdf_data = base64.b64decode(result["data"])
                     with open(pdf_path, "wb") as f:
                         f.write(pdf_data)
 
-                    print(f"  {year}년: PDF 저장 완료 → {pdf_path}")
+                    print(f"  {year}년: PDF 저장 완료")
                     collected += 1
 
-                    # 새 창 닫고 원래 창으로
                     driver.close()
                     driver.switch_to.window(windows[0])
                     time.sleep(1)
                 else:
-                    print(f"  {year}년: 미리보기 창이 열리지 않음")
+                    print(f"  {year}년: 미리보기 창 없음, 패스")
 
             except Exception as e:
-                print(f"  {year}년: 오류 - {str(e)[:200]}", file=sys.stderr)
-                # 원래 창으로 복귀 시도
+                err_msg = str(e)[:150]
+                print(f"  {year}년: 오류 - {err_msg}", file=sys.stderr)
+                dismiss_alerts()
                 try:
                     windows = driver.window_handles
                     driver.switch_to.window(windows[0])
@@ -243,7 +229,7 @@ def main():
         print(f"SUCCESS: {collected}건 수집 완료")
 
     except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
+        print(f"ERROR: {str(e)[:300]}", file=sys.stderr)
         sys.exit(1)
     finally:
         if driver:
