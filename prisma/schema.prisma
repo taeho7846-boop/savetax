@@ -68,6 +68,7 @@ model Client {
   feeRecords FeeRecord[]
   commission CommissionProcess?
   withholdingRecords WithholdingRecord[]
+  incomeTaxRecords   IncomeTaxRecord[]
 }
 
 // 기장료 수납 기록
@@ -181,6 +182,55 @@ model WithholdingRecord {
   updatedAt DateTime  @updatedAt
 
   @@unique([clientId, yearMonth, taskType])
+}
+
+// 종합소득세 연도별 신고
+model IncomeTaxRecord {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  client    Client   @relation(fields: [clientId], references: [id])
+  taxYear   String   // "2025" (귀속연도)
+
+  // 기본
+  bookkeepingDuty  String?  // 기장의무 (간편장부, 복식부기 등)
+  filingType       String?  // 신고유형 (D, E, F 등)
+
+  // 준비 체크
+  noticeSent       Boolean  @default(false) // 안내문발송
+  linkPass         Boolean  @default(false) // 링크패스
+  depreciation     Boolean  @default(false) // 감가상각자산
+  interestExpense  Boolean  @default(false) // 이자비용
+  insurance        Boolean  @default(false) // 보험료
+  donation         Boolean  @default(false) // 기부금
+
+  // 가결산
+  preSettlement    Boolean  @default(false) // 가결산
+
+  // 전기
+  prevSales        BigInt?  // 전기매출
+  prevIncome       BigInt?  // 전기종합소득금액
+  prevTax          BigInt?  // 전기결정세액
+
+  // 당기
+  currSales        BigInt?  // 당기매출
+  currIncome       BigInt?  // 당기종합소득금액
+  currTax          BigInt?  // 당기결정세액
+
+  // 감면 체크
+  bookkeepingCredit Boolean @default(false) // 기장세액공제
+  startupReduction  Boolean @default(false) // 창중감
+  smeReduction      Boolean @default(false) // 중특감
+  investCredit      Boolean @default(false) // 통합투자
+  employmentCredit  Boolean @default(false) // 고용증대
+
+  // 완료
+  filingDone       Boolean  @default(false) // 신고완료
+  paymentSent      Boolean  @default(false) // 납부서발송
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, taxYear])
 }
 
 // 메모
