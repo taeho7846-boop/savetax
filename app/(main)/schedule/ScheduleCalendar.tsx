@@ -154,7 +154,7 @@ export function ScheduleCalendar({
               </div>
             ))}
             {days.map((day, i) => {
-              if (day === null) return <div key={`e-${i}`} className="min-h-[120px]" />;
+              if (day === null) return <div key={`e-${i}`} className="min-h-[160px]" />;
               const dateStr = getDateStr(day);
               const daySchedules = getSchedulesForDay(day);
               const dayTaxEvents = getTaxEventsForDay(day);
@@ -165,7 +165,7 @@ export function ScheduleCalendar({
               return (
                 <div
                   key={day}
-                  className={`min-h-[120px] border border-gray-100 rounded p-1 cursor-pointer hover:bg-blue-50/50 transition-colors ${isToday ? "bg-blue-50 border-blue-300" : ""}`}
+                  className={`min-h-[160px] border border-gray-100 rounded p-1 cursor-pointer hover:bg-blue-50/50 transition-colors ${isToday ? "bg-blue-50 border-blue-300" : ""}`}
                   onClick={() => handleDayClick(day)}
                 >
                   <div className={`text-xs font-medium mb-0.5 ${isToday ? "text-blue-600 font-bold" : dayOfWeek === 0 ? "text-red-500" : dayOfWeek === 6 ? "text-blue-500" : "text-gray-700"}`}>
@@ -173,7 +173,7 @@ export function ScheduleCalendar({
                   </div>
                   <div className="space-y-0.5">
                     {/* 세무 일정 (핵심) */}
-                    {dayTaxEvents.slice(0, 2).map((te, i) => (
+                    {dayTaxEvents.slice(0, 5).map((te, i) => (
                       <div
                         key={`tax-${i}`}
                         className="bg-red-50 text-red-600 text-[10px] px-1 py-0.5 rounded truncate"
@@ -182,11 +182,11 @@ export function ScheduleCalendar({
                         {te.title}
                       </div>
                     ))}
-                    {dayTaxEvents.length > 2 && (
-                      <div className="text-[10px] text-red-400 pl-1">+{dayTaxEvents.length - 2}개 세무</div>
+                    {dayTaxEvents.length > 5 && (
+                      <div className="text-[10px] text-red-400 pl-1">+{dayTaxEvents.length - 5}개 세무</div>
                     )}
                     {/* 개인 일정 */}
-                    {daySchedules.slice(0, Math.max(1, 3 - dayTaxEvents.length)).map(s => {
+                    {daySchedules.slice(0, Math.max(1, 5 - dayTaxEvents.length)).map(s => {
                       const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
                       return (
                         <div
@@ -199,8 +199,8 @@ export function ScheduleCalendar({
                         </div>
                       );
                     })}
-                    {totalItems > 4 && (
-                      <div className="text-[10px] text-gray-400 pl-1">+{totalItems - 4}개 더</div>
+                    {totalItems > 6 && (
+                      <div className="text-[10px] text-gray-400 pl-1">+{totalItems - 6}개 더</div>
                     )}
                   </div>
                 </div>
