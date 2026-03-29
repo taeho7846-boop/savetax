@@ -42,6 +42,7 @@ export async function createClient(formData: FormData) {
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
       halfYearTax: formData.get("halfYearTax") === "true",
+      affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
@@ -80,6 +81,7 @@ export async function updateClient(id: number, formData: FormData) {
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
       halfYearTax: formData.get("halfYearTax") === "true",
+      affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
@@ -115,6 +117,7 @@ export async function updateClientInModal(id: number, formData: FormData) {
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
       halfYearTax: formData.get("halfYearTax") === "true",
+      affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
@@ -182,6 +185,7 @@ export async function createClientInModal(formData: FormData) {
       bankAccount: (formData.get("bankAccount") as string) || null,
       openDate: (formData.get("openDate") as string) || null,
       halfYearTax: formData.get("halfYearTax") === "true",
+      affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)

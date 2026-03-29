@@ -24,6 +24,7 @@ interface Props {
     bankAccount: string | null;
     openDate?: string | null;
     halfYearTax?: boolean;
+    affiliation?: string | null;
     notes: string | null;
     assignedUserId: number | null;
   };
@@ -166,22 +167,36 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
       </div>
 
-      {/* 행5: 담당자 (직원 권한이면 숨김) */}
-      {currentUserRole !== "employee" && (
+      {/* 행5: 담당직원 / 소속 */}
+      <div className="grid grid-cols-2 gap-4">
+        {currentUserRole !== "employee" ? (
+          <div>
+            <label className="block text-sm font-medium text-gray-800 mb-1">담당 직원</label>
+            <select
+              name="assignedUserId"
+              defaultValue={client.assignedUserId ?? ""}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none"
+            >
+              <option value="">미배정</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : <div />}
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">담당 직원</label>
+          <label className="block text-sm font-medium text-gray-800 mb-1">소속</label>
           <select
-            name="assignedUserId"
-            defaultValue={client.assignedUserId ?? ""}
+            name="affiliation"
+            defaultValue={client.affiliation ?? ""}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none"
           >
-            <option value="">미배정</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
+            <option value="">미선택</option>
+            <option value="세이브택스">세이브택스</option>
+            <option value="그 외">그 외</option>
           </select>
         </div>
-      )}
+      </div>
 
       {/* 홈택스 */}
       <div className="border-t border-gray-100 pt-4">
