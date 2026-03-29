@@ -181,7 +181,7 @@ export function IncomeTaxTable({ clients, taxYear }: { clients: Client[]; taxYea
                     <td className="px-1 py-1 text-center">
                       <SelectCell
                         value={r.bookkeepingDuty}
-                        options={["간편장부", "복식부기"]}
+                        options={["간편장부", "복식부기", "성실신고"]}
                         onSave={(v) => handleFieldBlur(client.id, "bookkeepingDuty", v)}
                       />
                     </td>
@@ -190,7 +190,7 @@ export function IncomeTaxTable({ clients, taxYear }: { clients: Client[]; taxYea
                     <td className="px-1 py-1 text-center">
                       <SelectCell
                         value={r.filingType}
-                        options={["D", "E", "F", "G", "I", "기타"]}
+                        options={["자기조정", "외부조정", "간편장부", "추계-기준율", "추계-단순율", "성실신고"]}
                         onSave={(v) => handleFieldBlur(client.id, "filingType", v)}
                       />
                     </td>
@@ -286,7 +286,7 @@ function SelectCell({ value, options, onSave }: { value: string | null; options:
       <select
         value={value ?? ""}
         onChange={(e) => onSave(e.target.value)}
-        className="border border-gray-200 rounded px-1 py-0.5 text-xs bg-white focus:outline-none w-16"
+        className="border border-gray-200 rounded px-1 py-0.5 text-xs bg-white focus:outline-none w-20"
       >
         <option value="">-</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
