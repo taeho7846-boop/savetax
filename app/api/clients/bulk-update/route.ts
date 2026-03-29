@@ -35,6 +35,8 @@ const HEADER_MAP: Record<string, string> = {
   은행명: "bankName",
   계좌번호: "bankAccount",
   출금계좌: "bankAccount",
+  개업년월일: "openDate",
+  개업일: "openDate",
   특이사항: "notes",
   비고: "notes",
   메모: "notes",
@@ -57,6 +59,25 @@ function normalizeTaxationType(val: string): string | null {
   if (v === "면세") return "면세";
   if (v === "폐업") return "폐업";
   return v || null;
+}
+
+// 날짜 정규화 (다양한 형식 → YYYY-MM-DD)
+function normalizeDate(val: string): string | null {
+  // 엑셀 시리얼 번호 (숫자만)
+  const num = Number(val);
+  if (!isNaN(num) && num > 30000 && num < 60000) {
+    const d = new Date((num - 25569) * 86400000);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  // YYYY-MM-DD 또는 YYYY.MM.DD 또는 YYYY/MM/DD
+  const match = val.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (match) {
+    return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`;
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -157,6 +178,9 @@ export async function POST(req: NextRequest) {
           if (converted && converted !== existingVal) updateData[field] = converted;
         } else if (field === "taxationType") {
           const converted = normalizeTaxationType(val);
+          if (converted && converted !== existingVal) updateData[field] = converted;
+        } else if (field === "openDate") {
+          const converted = normalizeDate(val);
           if (converted && converted !== existingVal) updateData[field] = converted;
         } else if (field === "monthlyFee") {
           const num = parseInt(val.replace(/[^0-9]/g, ""));

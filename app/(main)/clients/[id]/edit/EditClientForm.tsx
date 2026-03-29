@@ -22,6 +22,7 @@ interface Props {
     firstWithdrawalMonth: string | null;
     bankName: string | null;
     bankAccount: string | null;
+    openDate: string | null;
     notes: string | null;
     assignedUserId: number | null;
   };
@@ -134,10 +135,21 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
       </div>
 
-      {/* 행4: 인건비 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-800 mb-2">인건비</label>
-        <CheckboxGroup name="laborType" options={["1인사업자", "근로소득", "사업소득", "일용직"]} defaultValues={currentLaborTypes} />
+      {/* 행4: 인건비 / 개업년월일 */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-2">인건비</label>
+          <CheckboxGroup name="laborType" options={["1인사업자", "근로소득", "사업소득", "일용직"]} defaultValues={currentLaborTypes} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">개업년월일</label>
+          <input
+            name="openDate"
+            type="date"
+            defaultValue={client.openDate ?? ""}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          />
+        </div>
       </div>
 
       {/* 행5: 담당자 */}
