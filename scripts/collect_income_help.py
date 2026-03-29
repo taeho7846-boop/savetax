@@ -105,35 +105,47 @@ def main():
         except:
             pass
 
-        # confirm 팝업 처리
-        try:
-            from selenium.webdriver.common.alert import Alert
-            alert = driver.switch_to.alert
-            alert.dismiss()
-            time.sleep(0.5)
-        except:
-            pass
+        # confirm/alert 팝업 반복 처리
+        for _ in range(5):
+            try:
+                alert = driver.switch_to.alert
+                alert.dismiss()
+                time.sleep(0.5)
+            except:
+                break
+
+        # 모든 팝업 창 닫기 (UTXPPABC12 등)
+        for _ in range(3):
+            try:
+                popup_close = driver.find_element(By.XPATH, "//div[contains(@class,'w2window')]//input[@value='닫기' or @value='취소' or @value='확인']")
+                popup_close.click()
+                time.sleep(0.5)
+            except:
+                break
+
+        # 팝업 오버레이가 사라질 때까지 대기
+        time.sleep(2)
 
         print("로그인 완료")
 
         # 3. 메뉴 이동: 세금신고 → 종합소득세 신고 → 신고도움 서비스
         print("메뉴 이동 중...")
-        time.sleep(2)
+        time.sleep(1)
 
-        tax_menu = wait.until(EC.element_to_be_clickable((By.ID, "mf_wfHeader_wq_uuid_399")))
-        tax_menu.click()
+        # JavaScript로 직접 클릭 (팝업에 가려져도 작동)
+        driver.execute_script('document.getElementById("mf_wfHeader_wq_uuid_399")?.click()')
         time.sleep(0.5)
 
-        income_tax = wait.until(EC.element_to_be_clickable(
+        income_tax = wait.until(EC.presence_of_element_located(
             (By.XPATH, "//span[@escape='false' and @label='종합소득세 신고']")
         ))
-        income_tax.click()
+        driver.execute_script("arguments[0].click()", income_tax)
         time.sleep(0.5)
 
-        help_service = wait.until(EC.element_to_be_clickable(
+        help_service = wait.until(EC.presence_of_element_located(
             (By.XPATH, "//span[contains(text(),'신고도움 서비스')]")
         ))
-        help_service.click()
+        driver.execute_script("arguments[0].click()", help_service)
         time.sleep(3)
 
         print("신고도움 서비스 페이지 도착")
