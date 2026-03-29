@@ -50,9 +50,58 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     }
   }
 
-  function handleCollect() {
+  const [collecting, setCollecting] = useState(false);
+
+  async function handleCollect() {
     if (!selectedClient || checkedDocs.size === 0) return;
-    alert(`${selectedClient.name}: ${checkedDocs.size}개 자료 수집 요청\n\n(자동 수집 기능은 추후 연결 예정)`);
+
+    // 종합소득세 신고도움 서비스
+    if (checkedDocs.has("종합소득세_신고도움")) {
+      const doc = hometaxDocs.find(d => d.key === "종합소득세_신고도움")!;
+      const defaults = getDefaultParams(doc.settingType, taxYear);
+      const saved = getParams(selectedClient, doc.key);
+      const params = { ...defaults, ...saved };
+
+      // 폼에서 실제 입력값 가져오기
+      const container = document.querySelector(`div[data-doc="종합소득세_신고도움"]`);
+      const inputs = container?.querySelectorAll<HTMLInputElement>("input[type='number']");
+      const startYear = inputs?.[0]?.value || params.startYear || taxYear;
+      const endYear = inputs?.[1]?.value || params.endYear || String(parseInt(taxYear) + 1);
+
+      setCollecting(true);
+      try {
+        const res = await fetch("/api/data-collect/income-help", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: selectedClient.id,
+            startYear: parseInt(startYear),
+            endYear: parseInt(endYear),
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          alert(`수집 실패: ${data.error}`);
+        } else {
+          // ZIP 다운로드
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${selectedClient.name}_신고도움서비스.zip`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } catch (e: any) {
+        alert(`오류: ${e.message}`);
+      } finally {
+        setCollecting(false);
+      }
+      return;
+    }
+
+    alert(`${selectedClient.name}: ${checkedDocs.size}개 자료 수집 (추후 연결 예정)`);
   }
 
   function getStatus(client: Client, docType: string): string {
@@ -145,14 +194,14 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                 </div>
                 <button
                   onClick={handleCollect}
-                  disabled={checkedDocs.size === 0}
+                  disabled={checkedDocs.size === 0 || collecting}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    checkedDocs.size > 0
+                    checkedDocs.size > 0 && !collecting
                       ? "bg-[#1a2e4a] text-white hover:bg-[#243d61]"
                       : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   }`}
                 >
-                  자료수집 ({checkedDocs.size}건)
+                  {collecting ? "수집 중..." : `자료수집 (${checkedDocs.size}건)`}
                 </button>
               </div>
 
@@ -199,8 +248,8 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                           <td className={`px-3 py-3 ${isCollected ? "text-green-700" : "text-gray-800"}`}>
                             {doc.label}
                           </td>
-                          <td className="px-3 py-3">
-                            <SettingInput type={doc.settingType} params={params} />
+                          <td className="px-3 py-3" data-doc={doc.key}>
+                            <SettingInput type={doc.settingType} params={params} docKey={doc.key} />
                           </td>
                           <td className="px-3 py-3 text-center">
                             {isCollected ? (
@@ -223,7 +272,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   );
 }
 
-function SettingInput({ type, params }: { type: SettingType; params: Record<string, string | undefined> }) {
+function SettingInput({ type, params, docKey }: { type: SettingType; params: Record<string, string | undefined>; docKey?: string }) {
   const inputClass = "border border-gray-300 rounded px-2 py-1 text-xs w-28 focus:outline-none";
   const selectClass = "border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none";
 
@@ -236,7 +285,7 @@ function SettingInput({ type, params }: { type: SettingType; params: Record<stri
       );
     case "yearRange":
       return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" data-doc={docKey}>
           <input type="number" defaultValue={params.startYear} className={`${inputClass} w-20`} />
           <span className="text-xs text-gray-400">~</span>
           <input type="number" defaultValue={params.endYear} className={`${inputClass} w-20`} />

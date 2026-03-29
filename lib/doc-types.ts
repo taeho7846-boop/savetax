@@ -10,7 +10,7 @@ export type DocType = {
 
 // 홈택스 수집 문서 목록
 export const DOC_TYPES: DocType[] = [
-  { key: "종합소득세_신고도움", label: "종합소득세 신고도움 서비스", source: "홈택스", settingType: "year" },
+  { key: "종합소득세_신고도움", label: "종합소득세 신고도움 서비스", source: "홈택스", settingType: "yearRange" },
   { key: "종합소득세_신고서", label: "종합소득세 신고서", source: "홈택스", settingType: "dateRange" },
   { key: "부가가치세_신고서", label: "부가가치세 신고서", source: "홈택스", settingType: "dateRange" },
   { key: "부가가치세_과세표준증명", label: "부가가치세 과세표준증명", source: "홈택스", settingType: "vatPeriod" },
