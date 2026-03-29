@@ -10,6 +10,8 @@ const menus = [
   { href: "/clients", label: "고객사 관리", icon: "🏢" },
   { href: "/commission", label: "신규수임", icon: "📋" },
   { href: "/tax-agency", label: "신고대리", icon: "📄" },
+  { href: "/withholding", label: "원천세", icon: "🧾" },
+  { href: "/income-tax", label: "종합소득세", icon: "📑" },
   { href: "/receivables", label: "채권 관리", icon: "💰" },
   { href: "/tasks", label: "업무 일정", icon: "🗓️" },
   { href: "/memos", label: "내부 메모", icon: "📝" },
