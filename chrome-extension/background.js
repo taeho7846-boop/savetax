@@ -27,6 +27,45 @@ chrome.runtime.onInstalled?.addListener(() => setTimeout(checkVersion, 5000));
 setInterval(checkVersion, CHECK_INTERVAL);
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "print-pdf") {
+    // 현재 활성 탭의 페이지를 PDF로 저장
+    (async () => {
+      try {
+        const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        const tabId = tabs[0]?.id || sender.tab?.id;
+        if (!tabId) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+
+        // 새 창(마지막 탭)에서 PDF 캡처
+        const allTabs = await chrome.tabs.query({});
+        const lastTab = allTabs[allTabs.length - 1];
+        if (!lastTab?.id) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+
+        await chrome.debugger.attach({ tabId: lastTab.id }, "1.3");
+        const result = await chrome.debugger.sendCommand({ tabId: lastTab.id }, "Page.printToPDF", {
+          printBackground: true,
+          preferCSSPageSize: true,
+          paperWidth: 8.27,
+          paperHeight: 11.69,
+        });
+        await chrome.debugger.detach({ tabId: lastTab.id });
+
+        // PDF 데이터를 다운로드
+        const filename = `savetax_${msg.clientName || "거래처"}_${msg.docName || "문서"}.pdf`;
+        const dataUrl = "data:application/pdf;base64," + result.data;
+        await chrome.downloads.download({
+          url: dataUrl,
+          filename: filename,
+          conflictAction: "uniquify",
+        });
+
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
   if (msg.type === "fetch-file") {
     fetch(msg.url)
       .then(async (res) => {

@@ -101,7 +101,39 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       return;
     }
 
-    alert(`${selectedClient.name}: ${checkedDocs.size}개 자료 수집 (추후 연결 예정)`);
+    // 사업자등록증명 (크롬 확장으로 실행)
+    if (checkedDocs.has("사업자등록증명원")) {
+      try {
+        const res = await fetch("/api/automation/hometax-credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: selectedClient.id }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(`오류: ${data.error}`); return; }
+
+        const creds = btoa(unescape(encodeURIComponent(JSON.stringify({
+          mode: "collect_biz_cert",
+          id: data.hometaxId,
+          pw: data.hometaxPw,
+          certName: "",
+          certPw: "",
+          bizNumber: data.bizNumber || "",
+          clientName: selectedClient.name,
+        }))));
+
+        window.open(
+          `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+          "_blank"
+        );
+        return;
+      } catch (e: any) {
+        alert(`오류: ${e.message}`);
+        return;
+      }
+    }
+
+    alert(`${selectedClient.name}: 선택한 자료의 자동 수집은 추후 연결 예정`);
   }
 
   function getStatus(client: Client, docType: string): string {

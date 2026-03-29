@@ -430,4 +430,129 @@
     }
   }
 
+  // ============================================================
+  // MODE: collect_biz_cert (사업자등록증명 자동 수집)
+  // ============================================================
+  if (mode === "collect_biz_cert") {
+    try {
+      if (await checkLogout()) return;
+
+      // 1. 로그인
+      await doLogin(creds.id, creds.pw);
+      await doCert(creds.certName, creds.certPw);
+
+      await sleep(2000);
+
+      // 2. 증명·등록·신청 메뉴
+      console.log("SaveTax: 사업자등록증명 수집 시작");
+      (await waitForId("mf_wfHeader_wq_uuid_379")).click();
+      await sleep(500);
+
+      // 민원증명
+      (await waitForXPath("//span[@escape='false' and @label='민원증명']")).click();
+      await sleep(500);
+
+      // 국세 민원 서류 찾기
+      (await waitForXPath("//span[contains(text(),'국세 민원 서류 찾기')]")).click();
+      await sleep(2000);
+
+      // 3. 사업자등록증명 → 신청하기 (6번째 항목)
+      const applyBtn = await waitForId("mf_txppWframe_gen_cvaInf_6_btn_apln", 10000);
+      applyBtn.click();
+      await sleep(2000);
+
+      // 4. 사업자등록번호 선택
+      const bizNumber = creds.bizNumber || "";
+      if (bizNumber) {
+        const bizSelect = document.getElementById("mf_txppWframe_pfm_UTECAAA0Z001_sbx_pfbPsenNtplBsno");
+        if (bizSelect) {
+          // 매칭되는 사업자번호 찾기
+          for (let i = 0; i < bizSelect.options.length; i++) {
+            if (bizSelect.options[i].text.replace(/[^0-9]/g, "").includes(bizNumber.replace(/[^0-9]/g, ""))) {
+              bizSelect.selectedIndex = i;
+              bizSelect.dispatchEvent(new Event("change", { bubbles: true }));
+              break;
+            }
+          }
+        }
+      }
+      await sleep(500);
+
+      // 5. 사용용도 → 기타
+      const useSelect = document.getElementById("mf_txppWframe_sbx_cvaDcumUseUsgCd");
+      if (useSelect) {
+        for (let i = 0; i < useSelect.options.length; i++) {
+          if (useSelect.options[i].text === "기타") { useSelect.selectedIndex = i; break; }
+        }
+        useSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      await sleep(300);
+
+      // 6. 제출처 → 기타
+      const submitSelect = document.getElementById("mf_txppWframe_sbx_cvaDcumSbmsOrgnClCd");
+      if (submitSelect) {
+        for (let i = 0; i < submitSelect.options.length; i++) {
+          if (submitSelect.options[i].text === "기타") { submitSelect.selectedIndex = i; break; }
+        }
+        submitSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      await sleep(300);
+
+      // 7. 수령방법 → 인터넷발급(프린터출력)
+      const receiveSelect = document.getElementById("mf_txppWframe_pfm_UTECAAA0Z002_sbx_cvaAplnRecptMthd");
+      if (receiveSelect) {
+        for (let i = 0; i < receiveSelect.options.length; i++) {
+          if (receiveSelect.options[i].text.includes("프린터출력")) { receiveSelect.selectedIndex = i; break; }
+        }
+        receiveSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      await sleep(500);
+
+      // 8. 작성완료
+      (await waitForId("mf_txppWframe_btn_wrtCmpl")).click();
+      await sleep(2000);
+
+      // 9. 신청하기
+      (await waitForId("mf_txppWframe_UTECAAA0A016_wframe_btn_sbms")).click();
+      await sleep(2000);
+
+      // 10. 확인 버튼
+      try {
+        (await waitForId("mf_txppWframe_info812008528_wframe_btn_confirm", 5000)).click();
+        await sleep(2000);
+      } catch (e) {}
+
+      // 11. 민원처리결과 조회
+      (await waitForId("mf_txppWframe_btn_cvaTrtRsltInqr")).click();
+      await sleep(3000);
+
+      // 12. 출력 버튼
+      (await waitForId("mf_txppWframe_gen_cvaInf_0_btn_cvaDcumGranMthdNm")).click();
+      await sleep(1000);
+
+      // 13. 예 (새창)
+      (await waitForId("mf_txppWframe_UTECAAP0A024_wframe_btn_yes")).click();
+      await sleep(3000);
+
+      // 14. 새 창에서 PDF 다운로드 요청 (service worker에게)
+      try {
+        const result = await chrome.runtime.sendMessage({
+          type: "print-pdf",
+          clientName: creds.clientName || "거래처",
+          docName: "사업자등록증명",
+        });
+        if (result && result.ok) {
+          console.log("SaveTax: 사업자등록증명 PDF 저장 완료");
+        }
+      } catch (e) {
+        console.log("SaveTax: PDF 저장은 수동으로 해주세요");
+      }
+
+      console.log("SaveTax: 사업자등록증명 수집 완료");
+
+    } catch (e) {
+      console.error("SaveTax 사업자등록증명 수집 실패:", e);
+    }
+  }
+
 })();

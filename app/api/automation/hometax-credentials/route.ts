@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       hometaxId: true,
       hometaxPw: true,
       residentNumber: true,
+      bizNumber: true,
     },
   });
 
@@ -35,5 +36,6 @@ export async function POST(req: NextRequest) {
     hometaxId: client.hometaxId,
     hometaxPw: client.hometaxPw,
     residentNumber: client.residentNumber ?? "",
+    bizNumber: client.bizNumber ?? "",
   });
 }
