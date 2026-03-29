@@ -18,6 +18,7 @@ export default async function IncomeTaxPage({
     where: {
       isDeleted: false,
       assignedUserId: session.id,
+      clientType: { not: "corporate" },
       OR: [
         { taxTypes: null },
         { NOT: { taxTypes: { contains: "신고대리" } } },
