@@ -31,6 +31,48 @@ def format_corp_num(num):
     return num
 
 
+def overlay_stamp_on_pdf(input_pdf, output_pdf, stamp_png_data, x=480, y=95, size=50):
+    """PDF 위에 도장 이미지를 오버레이"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas as rl_canvas
+    from PyPDF2 import PdfReader, PdfWriter
+    import io
+
+    # 도장 PNG를 임시 파일로
+    stamp_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    stamp_tmp.write(stamp_png_data)
+    stamp_tmp.close()
+
+    try:
+        # reportlab으로 도장만 있는 투명 PDF 생성
+        packet = io.BytesIO()
+        c = rl_canvas.Canvas(packet, pagesize=A4)
+        from reportlab.lib.utils import ImageReader
+        stamp_img = ImageReader(stamp_tmp.name)
+        c.drawImage(stamp_img, x, y, width=size, height=size, mask="auto")
+        c.save()
+        packet.seek(0)
+
+        # 원본 PDF에 도장 PDF 오버레이
+        reader = PdfReader(input_pdf)
+        stamp_reader = PdfReader(packet)
+        writer = PdfWriter()
+
+        page = reader.pages[0]
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+        # 나머지 페이지
+        for i in range(1, len(reader.pages)):
+            writer.add_page(reader.pages[i])
+
+        with open(output_pdf, "wb") as f:
+            writer.write(f)
+        print(f"도장 오버레이 완료 (x={x}, y={y}, size={size})")
+    finally:
+        os.unlink(stamp_tmp.name)
+
+
 NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
 
@@ -276,21 +318,32 @@ def main():
 
     # 3. PDF 변환
     try:
-        output_dir = os.path.dirname(os.path.abspath(output_pdf))
-        os.makedirs(output_dir, exist_ok=True)
+        pdf_dir = os.path.join(tmp_dir, "pdf")
+        os.makedirs(pdf_dir, exist_ok=True)
         result = subprocess.run(
-            ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", output_dir, xlsx_output],
+            ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", pdf_dir, xlsx_output],
             capture_output=True, text=True, timeout=60
         )
         if result.returncode != 0:
             raise RuntimeError(f"LibreOffice 변환 실패: {result.stderr}")
-        generated = os.path.join(output_dir, Path(xlsx_output).stem + ".pdf")
-        if generated != os.path.abspath(output_pdf):
-            shutil.move(generated, os.path.abspath(output_pdf))
-        print(f"SUCCESS: {output_pdf}")
+        generated_pdf = os.path.join(pdf_dir, Path(xlsx_output).stem + ".pdf")
+        print("PDF 변환 완료")
     except Exception as e:
         print(f"ERROR: PDF 변환 실패: {e}", file=sys.stderr)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         sys.exit(1)
+
+    # 4. PDF 위에 도장 오버레이
+    try:
+        output_dir = os.path.dirname(os.path.abspath(output_pdf))
+        os.makedirs(output_dir, exist_ok=True)
+        overlay_stamp_on_pdf(generated_pdf, os.path.abspath(output_pdf), stamp_data)
+        print(f"SUCCESS: {output_pdf}")
+    except Exception as e:
+        print(f"ERROR: 도장 오버레이 실패: {e}", file=sys.stderr)
+        # 도장 없이라도 PDF 저장
+        shutil.copy2(generated_pdf, os.path.abspath(output_pdf))
+        print(f"SUCCESS (도장 없음): {output_pdf}")
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
