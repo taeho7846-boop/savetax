@@ -123,6 +123,9 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           >
             <option value="과세">과세</option>
             <option value="면세">면세</option>
+            <option value="간이">간이</option>
+            <option value="간이(세금계산서발행)">간이(세계발행)</option>
+            <option value="폐업">폐업</option>
           </select>
         </div>
         <div>
