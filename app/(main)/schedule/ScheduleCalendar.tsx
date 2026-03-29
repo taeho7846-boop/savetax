@@ -235,13 +235,11 @@ export function ScheduleCalendar({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">시작</label>
-                  <input name="startTime" type="time" defaultValue={editSchedule?.startTime ?? ""}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                  <TimeSelect name="startTime" defaultValue={editSchedule?.startTime ?? ""} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">종료</label>
-                  <input name="endTime" type="time" defaultValue={editSchedule?.endTime ?? ""}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                  <TimeSelect name="endTime" defaultValue={editSchedule?.endTime ?? ""} />
                 </div>
               </div>
               <div>
@@ -323,5 +321,29 @@ export function ScheduleCalendar({
         </div>
       )}
     </>
+  );
+}
+
+const TIME_OPTIONS = (() => {
+  const opts: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    opts.push(`${String(h).padStart(2, "0")}:00`);
+    opts.push(`${String(h).padStart(2, "0")}:30`);
+  }
+  return opts;
+})();
+
+function TimeSelect({ name, defaultValue }: { name: string; defaultValue: string }) {
+  return (
+    <select
+      name={name}
+      defaultValue={defaultValue}
+      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+    >
+      <option value="">선택</option>
+      {TIME_OPTIONS.map(t => (
+        <option key={t} value={t}>{t}</option>
+      ))}
+    </select>
   );
 }
