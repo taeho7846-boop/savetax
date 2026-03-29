@@ -125,7 +125,7 @@ export default async function TasksPage({
                         href={`/clients/${task.clientId}`}
                         className="text-[#1a2e4a] hover:underline font-medium"
                       >
-                        {task.client.name}
+                        {task.client?.name ?? "고객사 없음"}
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-gray-800">{task.title}</td>
