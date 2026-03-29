@@ -355,7 +355,7 @@ def main():
     # 2. ZIP 직접 수정 (이미지 보존 + 도장 추가)
     xlsx_output = os.path.join(tmp_dir, "output.xlsx")
     try:
-        modify_xlsx_cells_and_stamp(xlsx_input, xlsx_output, cell_data, None)
+        modify_xlsx_cells_and_stamp(xlsx_input, xlsx_output, cell_data, stamp_data)
         print("셀 입력 + 도장 완료 (ZIP 직접 수정)")
     except Exception as e:
         print(f"ERROR: 셀 수정 실패: {e}", file=sys.stderr)
@@ -383,7 +383,7 @@ def main():
     try:
         output_dir = os.path.dirname(os.path.abspath(output_pdf))
         os.makedirs(output_dir, exist_ok=True)
-        overlay_stamp_on_pdf(generated_pdf, os.path.abspath(output_pdf), stamp_data)
+        shutil.copy2(generated_pdf, os.path.abspath(output_pdf))
         print(f"SUCCESS: {output_pdf}")
     except Exception as e:
         print(f"ERROR: 도장 오버레이 실패: {e}", file=sys.stderr)
