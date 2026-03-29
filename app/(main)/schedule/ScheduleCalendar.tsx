@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSchedule, updateSchedule, deleteSchedule } from "@/app/actions/schedule";
+import { getTaxEventsForMonth, type TaxEvent } from "@/lib/tax-calendar";
 
 type Schedule = {
   id: number;
@@ -55,6 +56,14 @@ export function ScheduleCalendar({
   const days = getDaysInMonth(year, month);
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  const taxEvents = getTaxEventsForMonth(month);
+  const coreTaxEvents = taxEvents.filter(e => e.priority === "core");
+  const optionalTaxEvents = taxEvents.filter(e => e.priority === "optional");
+
+  function getTaxEventsForDay(day: number): TaxEvent[] {
+    return coreTaxEvents.filter(e => e.day === day);
+  }
 
   function handleMonthChange(delta: number) {
     const d = new Date(year, month - 1 + delta, 1);
@@ -148,8 +157,10 @@ export function ScheduleCalendar({
               if (day === null) return <div key={`e-${i}`} className="min-h-[120px]" />;
               const dateStr = getDateStr(day);
               const daySchedules = getSchedulesForDay(day);
+              const dayTaxEvents = getTaxEventsForDay(day);
               const isToday = dateStr === todayStr;
               const dayOfWeek = new Date(year, month - 1, day).getDay();
+              const totalItems = dayTaxEvents.length + daySchedules.length;
 
               return (
                 <div
@@ -161,7 +172,21 @@ export function ScheduleCalendar({
                     {day}
                   </div>
                   <div className="space-y-0.5">
-                    {daySchedules.slice(0, 3).map(s => {
+                    {/* 세무 일정 (핵심) */}
+                    {dayTaxEvents.slice(0, 2).map((te, i) => (
+                      <div
+                        key={`tax-${i}`}
+                        className="bg-red-50 text-red-600 text-[10px] px-1 py-0.5 rounded truncate"
+                        title={`${te.title} - ${te.desc}`}
+                      >
+                        {te.title}
+                      </div>
+                    ))}
+                    {dayTaxEvents.length > 2 && (
+                      <div className="text-[10px] text-red-400 pl-1">+{dayTaxEvents.length - 2}개 세무</div>
+                    )}
+                    {/* 개인 일정 */}
+                    {daySchedules.slice(0, Math.max(1, 3 - dayTaxEvents.length)).map(s => {
                       const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
                       return (
                         <div
@@ -174,8 +199,8 @@ export function ScheduleCalendar({
                         </div>
                       );
                     })}
-                    {daySchedules.length > 3 && (
-                      <div className="text-[10px] text-gray-400 pl-1">+{daySchedules.length - 3}개</div>
+                    {totalItems > 4 && (
+                      <div className="text-[10px] text-gray-400 pl-1">+{totalItems - 4}개 더</div>
                     )}
                   </div>
                 </div>
@@ -281,6 +306,22 @@ export function ScheduleCalendar({
           </div>
         )}
       </div>
+
+      {/* 참고 세무 일정 (해당 거래처만 / 거의 안 쓰는 거) */}
+      {optionalTaxEvents.length > 0 && (
+        <div className="mt-4 bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">참고 세무 일정 (해당 시에만)</h3>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            {optionalTaxEvents.map((te, i) => (
+              <div key={i} className="flex items-baseline gap-2 text-xs py-1">
+                <span className="text-gray-400 font-mono shrink-0">{month}/{te.day}</span>
+                <span className="text-gray-700">{te.title}</span>
+                <span className="text-gray-400 text-[10px] truncate">{te.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
