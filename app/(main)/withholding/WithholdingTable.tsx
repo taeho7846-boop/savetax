@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toggleWithholdingTask } from "@/app/actions/withholding";
 
 const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }> = {
@@ -87,11 +87,24 @@ function getAllColumns(month: number) {
   return cols;
 }
 
+type SortKey = "laborTypes" | "halfYearTax" | string;
+
 export function WithholdingTable({ clients, yearMonth }: { clients: Client[]; yearMonth: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [sortCol, setSortCol] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const month = parseInt(yearMonth.split("-")[1]);
   const columns = getAllColumns(month);
+
+  function handleSort(col: SortKey) {
+    if (sortCol === col) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
 
   function handleMonthChange(delta: number) {
     const [y, m] = yearMonth.split("-").map(Number);
@@ -114,6 +127,32 @@ export function WithholdingTable({ clients, yearMonth }: { clients: Client[]; ye
   const doneTasks = clients.reduce((sum, c) => {
     return sum + c.withholdingRecords.filter(r => r.done).length;
   }, 0);
+
+  // 정렬 적용
+  const sortedClients = [...clients].sort((a, b) => {
+    if (!sortCol) return 0;
+
+    let av: number | string = "";
+    let bv: number | string = "";
+
+    if (sortCol === "laborTypes") {
+      av = a.laborTypes ?? "";
+      bv = b.laborTypes ?? "";
+    } else if (sortCol === "halfYearTax") {
+      av = a.halfYearTax ? 1 : 0;
+      bv = b.halfYearTax ? 1 : 0;
+    } else {
+      // 업무 컬럼: 체크 여부로 정렬
+      const aDone = a.withholdingRecords.some(r => r.taskType === sortCol && r.done) ? 1 : 0;
+      const bDone = b.withholdingRecords.some(r => r.taskType === sortCol && r.done) ? 1 : 0;
+      av = aDone;
+      bv = bDone;
+    }
+
+    if (av < bv) return sortDir === "asc" ? -1 : 1;
+    if (av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
+  });
 
   const [year, mon] = yearMonth.split("-");
 
@@ -152,24 +191,34 @@ export function WithholdingTable({ clients, yearMonth }: { clients: Client[]; ye
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
               <th className="text-left px-4 py-3 text-gray-700 font-medium">고객사명</th>
-              <th className="text-center px-3 py-3 text-gray-700 font-medium">인건비</th>
-              <th className="text-center px-3 py-3 text-gray-700 font-medium">6개월납</th>
+              <th className="text-center px-3 py-3 text-gray-700 font-medium">
+                <button onClick={() => handleSort("laborTypes")} className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]">
+                  인건비{sortCol === "laborTypes" ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}
+                </button>
+              </th>
+              <th className="text-center px-3 py-3 text-gray-700 font-medium">
+                <button onClick={() => handleSort("halfYearTax")} className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]">
+                  6개월납{sortCol === "halfYearTax" ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}
+                </button>
+              </th>
               {columns.map((col) => (
                 <th key={col.key} className="text-center px-2 py-3 text-gray-700 font-medium whitespace-pre-line text-xs leading-tight">
-                  {col.label}
+                  <button onClick={() => handleSort(col.key)} className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]">
+                    {col.label}{sortCol === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}
+                  </button>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {clients.length === 0 ? (
+            {sortedClients.length === 0 ? (
               <tr>
                 <td colSpan={3 + columns.length} className="text-center py-12 text-gray-500">
                   해당하는 거래처가 없습니다
                 </td>
               </tr>
             ) : (
-              clients.map((client) => {
+              sortedClients.map((client) => {
                 const laborList = client.laborTypes
                   ?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
                 const requiredTasks = getRequiredTasks(laborList, client.halfYearTax, month);
