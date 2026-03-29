@@ -338,7 +338,7 @@ def main():
                 packet = io.BytesIO()
                 c = rl_canvas.Canvas(packet, pagesize=(page_width, page_height))
                 stamp_img = ImageReader(stamp_tmp)
-                c.drawImage(stamp_img, 370, 270, width=50, height=50, mask="auto")
+                c.drawImage(stamp_img, 410, 270, width=50, height=50, mask="auto")
                 c.save()
                 packet.seek(0)
 
