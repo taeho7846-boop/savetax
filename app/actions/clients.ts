@@ -136,10 +136,12 @@ export async function getClientById(id: number) {
     }),
   ]);
 
-  // 세무사: 본인 + 소속 직원만 표시
+  // 세무사/관리자: 본인 + 소속 직원만 표시, 대표: 전체
   let users: { id: number; name: string }[];
-  if (session.role === "accountant") {
+  if (session.role === "accountant" || session.role === "admin") {
     users = allUsers.filter(u => u.id === session.id || u.managerId === session.id);
+  } else if (session.role === "owner") {
+    users = allUsers;
   } else {
     users = allUsers;
   }

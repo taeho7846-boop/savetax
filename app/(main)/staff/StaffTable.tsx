@@ -43,14 +43,13 @@ export default function StaffTable({
   const [error, setError] = useState("");
   const [openAccountants, setOpenAccountants] = useState<Set<number>>(new Set());
 
-  // 그룹 분류
-  const owners = staffList.filter(s => s.role === "owner" || s.role === "admin");
-  const accountants = staffList.filter(s => s.role === "accountant");
+  // 그룹 분류: 직원을 가질 수 있는 사람 = 대표/관리자/세무사
+  const managers = staffList.filter(s => s.role === "owner" || s.role === "admin" || s.role === "accountant");
   const unassigned = staffList.filter(s => s.role === "employee" && !s.managerId);
   const readonlyUsers = staffList.filter(s => s.role === "readonly");
 
-  function getEmployees(accountantId: number) {
-    return staffList.filter(s => s.role === "employee" && s.managerId === accountantId);
+  function getEmployees(managerId: number) {
+    return staffList.filter(s => s.role === "employee" && s.managerId === managerId);
   }
 
   function toggleAccountant(id: number) {
@@ -98,7 +97,7 @@ export default function StaffTable({
       return (
         <EditRow
           staff={person}
-          accountants={accountants}
+          accountants={managers}
           onSave={handleUpdate}
           onCancel={() => setEditId(null)}
         />
@@ -170,11 +169,11 @@ export default function StaffTable({
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">소속 세무사 (직원만)</label>
+              <label className="block text-xs text-gray-500 mb-1">소속 (직원만)</label>
               <select name="managerId" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="">없음</option>
-                {accountants.filter(a => a.isActive).map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
+                {managers.filter((m: Staff) => m.isActive).map((m: Staff) => (
+                  <option key={m.id} value={m.id}>{m.name} ({roleLabels[m.role]})</option>
                 ))}
               </select>
             </div>
@@ -187,50 +186,45 @@ export default function StaffTable({
       )}
 
       <div className="space-y-3">
-        {/* 대표/관리자 */}
-        {owners.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-4 py-2.5 bg-purple-50 border-b border-purple-100">
-              <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">대표 / 관리자</span>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {owners.map(p => <PersonRow key={p.id} person={p} />)}
-            </div>
-          </div>
-        )}
+        {/* 대표/관리자/세무사 + 소속 직원 */}
+        {managers.map((mgr: Staff) => {
+          const emps = getEmployees(mgr.id);
+          const isOpen = openAccountants.has(mgr.id);
+          const headerBg = mgr.role === "owner" || mgr.role === "admin"
+            ? "bg-purple-50 border-b border-purple-100 hover:bg-purple-100"
+            : "bg-emerald-50 border-b border-emerald-100 hover:bg-emerald-100";
+          const arrowColor = mgr.role === "owner" || mgr.role === "admin" ? "text-purple-600" : "text-emerald-600";
 
-        {/* 세무사 + 소속 직원 */}
-        {accountants.map(acc => {
-          const emps = getEmployees(acc.id);
-          const isOpen = openAccountants.has(acc.id);
           return (
-            <div key={acc.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div key={mgr.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
               <div
-                className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border-b border-emerald-100 cursor-pointer hover:bg-emerald-100 transition-colors"
-                onClick={() => toggleAccountant(acc.id)}
+                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${headerBg}`}
+                onClick={() => toggleAccountant(mgr.id)}
               >
-                <span className="text-sm text-emerald-600">{isOpen ? "▼" : "▶"}</span>
-                <span className="font-medium text-gray-900 flex-1">{acc.name}</span>
-                <span className="text-xs text-gray-400">{acc.username}</span>
-                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${roleColors.accountant}`}>세무사</span>
-                {!acc.isActive && <span className="text-xs text-red-500">비활성</span>}
+                <span className={`text-sm ${arrowColor}`}>{isOpen ? "▼" : "▶"}</span>
+                <span className="font-medium text-gray-900 flex-1">{mgr.name}</span>
+                <span className="text-xs text-gray-400">{mgr.username}</span>
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${roleColors[mgr.role] || "bg-gray-100 text-gray-600"}`}>
+                  {roleLabels[mgr.role] || mgr.role}
+                </span>
+                {!mgr.isActive && <span className="text-xs text-red-500">비활성</span>}
                 <span className="text-xs text-gray-400">{emps.length}명</span>
-                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setEditId(acc.id)} className="text-xs text-[#1a2e4a] hover:underline">수정</button>
-                  {acc.id !== currentUserId && acc.isActive && (
-                    <button onClick={() => handleDelete(acc.id, acc.name)} className="text-xs text-red-500 hover:underline">비활성화</button>
+                <div className="flex gap-2" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <button onClick={() => setEditId(mgr.id)} className="text-xs text-[#1a2e4a] hover:underline">수정</button>
+                  {mgr.id !== currentUserId && mgr.isActive && (
+                    <button onClick={() => handleDelete(mgr.id, mgr.name)} className="text-xs text-red-500 hover:underline">비활성화</button>
                   )}
                 </div>
               </div>
-              {editId === acc.id && (
-                <EditRow staff={acc} accountants={accountants} onSave={handleUpdate} onCancel={() => setEditId(null)} />
+              {editId === mgr.id && (
+                <EditRow staff={mgr} accountants={managers} onSave={handleUpdate} onCancel={() => setEditId(null)} />
               )}
               {isOpen && (
                 <div className="divide-y divide-gray-100">
                   {emps.length === 0 ? (
                     <div className="px-12 py-3 text-xs text-gray-400">소속 직원 없음</div>
                   ) : (
-                    emps.map(emp => <PersonRow key={emp.id} person={emp} indent />)
+                    emps.map((emp: Staff) => <PersonRow key={emp.id} person={emp} indent />)
                   )}
                 </div>
               )}
