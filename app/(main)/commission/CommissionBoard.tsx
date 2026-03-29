@@ -1085,7 +1085,7 @@ export default function CommissionBoard({
                   {(
                     [
                       { key: "pension", label: "국민연금", enabled: true },
-                      { key: "health", label: "건강보험", enabled: false },
+                      { key: "health", label: "건강보험", enabled: true },
                       { key: "employment", label: "고용산재", enabled: false },
                     ] as { key: string; label: string; enabled: boolean }[]
                   ).map(({ key, label, enabled }) => (
