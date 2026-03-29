@@ -25,7 +25,7 @@ export const DOC_TYPES: DocType[] = [
 ];
 
 // 기본값 계산
-export function getDefaultParams(settingType: SettingType, taxYear: string) {
+export function getDefaultParams(settingType: SettingType, taxYear: string): Record<string, string> {
   const y = parseInt(taxYear);
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

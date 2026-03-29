@@ -198,7 +198,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   );
 }
 
-function SettingInput({ type, params }: { type: SettingType; params: Record<string, string> }) {
+function SettingInput({ type, params }: { type: SettingType; params: Record<string, string | undefined> }) {
   const inputClass = "border border-gray-300 rounded px-2 py-1 text-xs w-28 focus:outline-none";
   const selectClass = "border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none";
 
