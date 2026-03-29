@@ -238,9 +238,9 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         <label className="block text-sm font-medium text-gray-800 mb-1">특이사항</label>
         <textarea
           name="notes"
-          rows={3}
+          rows={6}
           defaultValue={client.notes ?? ""}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
         />
       </div>
 
