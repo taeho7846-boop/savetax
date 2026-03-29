@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import path from "path";
+import { readdir, readFile, stat } from "fs/promises";
 import archiver from "archiver";
-import { PassThrough } from "stream";
 
 export async function GET() {
   const session = await getSession();
@@ -13,21 +13,28 @@ export async function GET() {
   const extDir = path.join(process.cwd(), "chrome-extension");
 
   try {
-    const chunks: Buffer[] = [];
-    const passthrough = new PassThrough();
+    const files = await readdir(extDir);
+    const zipData = await new Promise<Buffer>(async (resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const archive = archiver("zip");
 
-    passthrough.on("data", (chunk: Buffer) => chunks.push(chunk));
+      archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+      archive.on("end", () => resolve(Buffer.concat(chunks)));
+      archive.on("error", reject);
 
-    const archive = archiver("zip", { zlib: { level: 9 } });
-    archive.pipe(passthrough);
-    archive.directory(extDir, "chrome-extension");
+      for (const file of files) {
+        const filePath = path.join(extDir, file);
+        const fileStat = await stat(filePath);
+        if (fileStat.isFile()) {
+          const content = await readFile(filePath);
+          archive.append(content, { name: file });
+        }
+      }
 
-    await archive.finalize();
-    await new Promise((resolve) => passthrough.on("end", resolve));
+      await archive.finalize();
+    });
 
-    const zipBuffer = Buffer.concat(chunks);
-
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(zipData, {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="savetax-chrome-extension.zip"`,
