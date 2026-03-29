@@ -91,33 +91,44 @@ def set_cell_inline(sheet_data, cell_ref, value):
     t_elem.text = value
 
 
-def modify_xlsx_cells(input_xlsx, output_xlsx, cell_data):
-    """xlsx ZIP 내부의 sheet XML만 수정 (이미지/도형 완전 보존)"""
+def modify_xlsx_cells_and_stamp(input_xlsx, output_xlsx, cell_data, stamp_png_data=None):
+    """xlsx ZIP 내부의 sheet XML 수정 + 도장 이미지 추가 (기존 이미지 완전 보존)"""
+    import re
 
-    # 모든 네임스페이스 등록 (원본 보존)
-    namespaces = {}
+    # 네임스페이스 등록
+    ns_map = {}
     with zipfile.ZipFile(input_xlsx, "r") as zf:
         for name in zf.namelist():
             if name.endswith(".xml") or name.endswith(".rels"):
                 try:
                     content = zf.read(name).decode("utf-8")
-                    for _, (prefix, uri) in enumerate(
-                        __import__("re").findall(r'xmlns:?(\w*)=["\']([^"\']+)["\']', content)
-                    ):
+                    for prefix, uri in re.findall(r'xmlns:?(\w*)=["\']([^"\']+)["\']', content):
                         if prefix:
                             ET.register_namespace(prefix, uri)
-                        elif uri == NS:
-                            ET.register_namespace("", uri)
+                            ns_map[prefix] = uri
                 except Exception:
                     pass
-
     ET.register_namespace("", NS)
+
+    # 기존 이미지 개수 파악
+    existing_images = []
+    with zipfile.ZipFile(input_xlsx, "r") as zf:
+        for name in zf.namelist():
+            if name.startswith("xl/media/"):
+                existing_images.append(name)
+
+    new_image_num = len(existing_images) + 1
+    new_image_name = f"xl/media/stamp{new_image_num}.png"
 
     with zipfile.ZipFile(input_xlsx, "r") as zin:
         with zipfile.ZipFile(output_xlsx, "w", zipfile.ZIP_DEFLATED) as zout:
+            has_drawing = False
+            drawing_rels_path = None
+
             for item in zin.infolist():
                 data = zin.read(item.filename)
 
+                # 셀 데이터 수정
                 if item.filename == "xl/worksheets/sheet1.xml":
                     try:
                         root = ET.fromstring(data)
@@ -131,7 +142,73 @@ def modify_xlsx_cells(input_xlsx, output_xlsx, cell_data):
                     except Exception as e:
                         print(f"WARNING: sheet XML 수정 실패: {e}", file=sys.stderr)
 
+                # drawing 존재 확인
+                if item.filename.startswith("xl/drawings/drawing") and item.filename.endswith(".xml"):
+                    has_drawing = True
+                    drawing_rels_path = f"xl/drawings/_rels/{Path(item.filename).name}.rels"
+
+                    if stamp_png_data:
+                        # drawing XML에 도장 추가
+                        try:
+                            xdr = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+                            a_ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
+                            r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+                            root = ET.fromstring(data)
+                            rid = f"rId{new_image_num + 100}"
+
+                            # oneCellAnchor 추가 (Q31 = col 16, row 30)
+                            anchor_xml = f'''<xdr:oneCellAnchor xmlns:xdr="{xdr}" xmlns:a="{a_ns}" xmlns:r="{r_ns}">
+                                <xdr:from><xdr:col>16</xdr:col><xdr:colOff>180000</xdr:colOff><xdr:row>30</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+                                <xdr:ext cx="720000" cy="720000"/>
+                                <xdr:pic>
+                                    <xdr:nvPicPr>
+                                        <xdr:cNvPr id="{new_image_num + 100}" name="stamp"/>
+                                        <xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>
+                                    </xdr:nvPicPr>
+                                    <xdr:blipFill>
+                                        <a:blip r:embed="{rid}"/>
+                                        <a:stretch><a:fillRect/></a:stretch>
+                                    </xdr:blipFill>
+                                    <xdr:spPr>
+                                        <a:xfrm><a:off x="0" y="0"/><a:ext cx="720000" cy="720000"/></a:xfrm>
+                                        <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                                    </xdr:spPr>
+                                </xdr:pic>
+                                <xdr:clientData/>
+                            </xdr:oneCellAnchor>'''
+
+                            anchor_elem = ET.fromstring(anchor_xml)
+                            root.append(anchor_elem)
+                            data = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                            data += ET.tostring(root, encoding="unicode").encode("utf-8")
+                            print("도장 drawing 추가 완료")
+                        except Exception as e:
+                            print(f"WARNING: drawing 수정 실패: {e}", file=sys.stderr)
+
+                # drawing rels에 이미지 관계 추가
+                if stamp_png_data and drawing_rels_path and item.filename == drawing_rels_path:
+                    try:
+                        root = ET.fromstring(data)
+                        rid = f"rId{new_image_num + 100}"
+                        rel_ns = "http://schemas.openxmlformats.org/package/2006/relationships"
+                        ET.register_namespace("", rel_ns)
+                        new_rel = ET.SubElement(root, f"{{{rel_ns}}}Relationship")
+                        new_rel.set("Id", rid)
+                        new_rel.set("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image")
+                        new_rel.set("Target", f"../media/stamp{new_image_num}.png")
+                        data = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                        data += ET.tostring(root, encoding="unicode").encode("utf-8")
+                        print("도장 relationship 추가 완료")
+                    except Exception as e:
+                        print(f"WARNING: rels 수정 실패: {e}", file=sys.stderr)
+
                 zout.writestr(item, data)
+
+            # 도장 이미지 파일 추가
+            if stamp_png_data:
+                zout.writestr(new_image_name, stamp_png_data)
+                print(f"도장 이미지 추가: {new_image_name}")
 
 
 def main():
@@ -189,11 +266,19 @@ def main():
     else:
         xlsx_input = template_path
 
-    # 2. ZIP 직접 수정 (이미지 보존)
+    # 1.5. 도장 생성
+    stamp_data = None
+    try:
+        stamp_data = create_stamp_png(stamp_name, size_px=300)
+        print(f"도장 생성: {stamp_name}")
+    except Exception as e:
+        print(f"WARNING: 도장 생성 실패: {e}", file=sys.stderr)
+
+    # 2. ZIP 직접 수정 (이미지 보존 + 도장 추가)
     xlsx_output = os.path.join(tmp_dir, "output.xlsx")
     try:
-        modify_xlsx_cells(xlsx_input, xlsx_output, cell_data)
-        print("셀 입력 완료 (ZIP 직접 수정 - 이미지 보존)")
+        modify_xlsx_cells_and_stamp(xlsx_input, xlsx_output, cell_data, stamp_data)
+        print("셀 입력 + 도장 완료 (ZIP 직접 수정)")
     except Exception as e:
         print(f"ERROR: 셀 수정 실패: {e}", file=sys.stderr)
         shutil.rmtree(tmp_dir)
