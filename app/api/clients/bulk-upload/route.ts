@@ -4,6 +4,32 @@ import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { revalidatePath } from "next/cache";
 
+// 최초출금월 정규화: Excel 날짜/숫자/문자 → YYYY-MM
+function normalizeYearMonth(val: any): string | null {
+  if (val == null) return null;
+  // Excel 시리얼 번호 (숫자)
+  if (typeof val === "number" && val > 30000 && val < 60000) {
+    const d = new Date((val - 25569) * 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+  // Date 객체
+  if (val instanceof Date) {
+    return `${val.getFullYear()}-${String(val.getMonth() + 1).padStart(2, "0")}`;
+  }
+  const s = String(val).trim();
+  if (!s) return null;
+  // YYYY-MM 형식
+  const m1 = s.match(/^(\d{4})-(\d{1,2})$/);
+  if (m1) return `${m1[1]}-${m1[2].padStart(2, "0")}`;
+  // YYYY/MM 또는 YYYY.MM
+  const m2 = s.match(/^(\d{4})[/.](\d{1,2})$/);
+  if (m2) return `${m2[1]}-${m2[2].padStart(2, "0")}`;
+  // YYYY-MM-DD (날짜에서 월만)
+  const m3 = s.match(/^(\d{4})-(\d{1,2})-\d{1,2}/);
+  if (m3) return `${m3[1]}-${m3[2].padStart(2, "0")}`;
+  return s;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
@@ -48,7 +74,7 @@ export async function POST(req: NextRequest) {
       hometaxId: String(row[7] ?? "").trim() || null,
       hometaxPw: String(row[8] ?? "").trim() || null,
       monthlyFee: row[9] ? parseInt(String(row[9])) || null : null,
-      firstWithdrawalMonth: String(row[10] ?? "").trim() || null,
+      firstWithdrawalMonth: normalizeYearMonth(row[10]) || null,
       bankName: String(row[11] ?? "").trim() || null,
       bankAccount: String(row[12] ?? "").trim() || null,
       address: String(row[13] ?? "").trim() || null,
