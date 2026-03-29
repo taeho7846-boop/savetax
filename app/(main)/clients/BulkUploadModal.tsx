@@ -21,7 +21,7 @@ export function BulkUploadButton() {
 
 function BulkUploadModal({ onClose }: { onClose: () => void }) {
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{ created: number; errors: string[]; message: string } | null>(null);
+  const [result, setResult] = useState<{ created: number; updated?: number; errors: string[]; message: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -65,7 +65,7 @@ function BulkUploadModal({ onClose }: { onClose: () => void }) {
         {/* 템플릿 다운로드 */}
         <div className="bg-gray-50 rounded-lg p-4 mb-4">
           <div className="text-sm font-medium text-gray-700 mb-2">1. 엑셀 템플릿 다운로드</div>
-          <p className="text-xs text-gray-500 mb-3">양식에 맞춰 거래처 정보를 입력한 뒤 업로드하세요.</p>
+          <p className="text-xs text-gray-500 mb-3">양식에 맞춰 거래처 정보를 입력한 뒤 업로드하세요.<br />사업자등록번호가 일치하는 기존 거래처는 빈 항목만 자동으로 채워집니다.</p>
           <a
             href="/api/clients/bulk-template"
             className="inline-block bg-white border border-gray-300 text-gray-700 text-sm px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -87,7 +87,7 @@ function BulkUploadModal({ onClose }: { onClose: () => void }) {
 
         {/* 결과 표시 */}
         {result && (
-          <div className={`rounded-lg p-4 mb-4 text-sm ${result.created > 0 ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
+          <div className={`rounded-lg p-4 mb-4 text-sm ${(result.created > 0 || (result.updated ?? 0) > 0) ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
             <div className="font-medium mb-1">{result.message}</div>
             {result.errors.length > 0 && (
               <ul className="text-xs mt-2 space-y-1">

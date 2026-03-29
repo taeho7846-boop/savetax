@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   let created = 0;
+  let updated = 0;
   let errors: string[] = [];
 
   for (let i = 1; i < rows.length; i++) {
@@ -35,30 +36,68 @@ export async function POST(req: NextRequest) {
     const name = String(row[0] ?? "").trim();
     if (!name) continue;
 
-    try {
-      const client = await prisma.client.create({
-        data: {
-          name,
-          bizNumber: String(row[1] ?? "").trim() || null,
-          ceoName: String(row[2] ?? "").trim() || null,
-          residentNumber: String(row[3] ?? "").trim() || null,
-          phone: String(row[4] ?? "").trim() || null,
-          clientType: String(row[5] ?? "").trim() === "법인" ? "corporate" : "individual",
-          taxationType: String(row[6] ?? "").trim() || null,
-          hometaxId: String(row[7] ?? "").trim() || null,
-          hometaxPw: String(row[8] ?? "").trim() || null,
-          monthlyFee: row[9] ? parseInt(String(row[9])) || null : null,
-          firstWithdrawalMonth: String(row[10] ?? "").trim() || null,
-          bankName: String(row[11] ?? "").trim() || null,
-          bankAccount: String(row[12] ?? "").trim() || null,
-          address: String(row[13] ?? "").trim() || null,
-          notes: String(row[14] ?? "").trim() || null,
-          assignedUserId: session.id,
-        },
-      });
+    const bizNumber = String(row[1] ?? "").trim() || null;
+    const excelData = {
+      name,
+      bizNumber,
+      ceoName: String(row[2] ?? "").trim() || null,
+      residentNumber: String(row[3] ?? "").trim() || null,
+      phone: String(row[4] ?? "").trim() || null,
+      clientType: String(row[5] ?? "").trim() === "법인" ? "corporate" : "individual",
+      taxationType: String(row[6] ?? "").trim() || null,
+      hometaxId: String(row[7] ?? "").trim() || null,
+      hometaxPw: String(row[8] ?? "").trim() || null,
+      monthlyFee: row[9] ? parseInt(String(row[9])) || null : null,
+      firstWithdrawalMonth: String(row[10] ?? "").trim() || null,
+      bankName: String(row[11] ?? "").trim() || null,
+      bankAccount: String(row[12] ?? "").trim() || null,
+      address: String(row[13] ?? "").trim() || null,
+      notes: String(row[14] ?? "").trim() || null,
+    };
 
-      await prisma.commissionProcess.create({ data: { clientId: client.id } });
-      created++;
+    try {
+      // 사업자등록번호로 기존 거래처 매칭
+      let existing = null;
+      if (bizNumber) {
+        existing = await prisma.client.findFirst({
+          where: { bizNumber, assignedUserId: session.id },
+        });
+      }
+
+      if (existing) {
+        // 기존 거래처: 비어있는 필드만 엑셀 데이터로 채움
+        const updateData: Record<string, any> = {};
+        if (!existing.ceoName && excelData.ceoName) updateData.ceoName = excelData.ceoName;
+        if (!existing.residentNumber && excelData.residentNumber) updateData.residentNumber = excelData.residentNumber;
+        if (!existing.phone && excelData.phone) updateData.phone = excelData.phone;
+        if (!existing.taxationType && excelData.taxationType) updateData.taxationType = excelData.taxationType;
+        if (!existing.hometaxId && excelData.hometaxId) updateData.hometaxId = excelData.hometaxId;
+        if (!existing.hometaxPw && excelData.hometaxPw) updateData.hometaxPw = excelData.hometaxPw;
+        if (existing.monthlyFee == null && excelData.monthlyFee != null) updateData.monthlyFee = excelData.monthlyFee;
+        if (!existing.firstWithdrawalMonth && excelData.firstWithdrawalMonth) updateData.firstWithdrawalMonth = excelData.firstWithdrawalMonth;
+        if (!existing.bankName && excelData.bankName) updateData.bankName = excelData.bankName;
+        if (!existing.bankAccount && excelData.bankAccount) updateData.bankAccount = excelData.bankAccount;
+        if (!existing.address && excelData.address) updateData.address = excelData.address;
+        if (!existing.notes && excelData.notes) updateData.notes = excelData.notes;
+
+        if (Object.keys(updateData).length > 0) {
+          await prisma.client.update({
+            where: { id: existing.id },
+            data: updateData,
+          });
+          updated++;
+        }
+      } else {
+        // 새 거래처 등록
+        const client = await prisma.client.create({
+          data: {
+            ...excelData,
+            assignedUserId: session.id,
+          },
+        });
+        await prisma.commissionProcess.create({ data: { clientId: client.id } });
+        created++;
+      }
     } catch (e: any) {
       errors.push(`${i + 1}행 "${name}": ${e.message || "오류"}`);
     }
@@ -68,9 +107,15 @@ export async function POST(req: NextRequest) {
   revalidatePath("/commission");
   revalidatePath("/dashboard");
 
+  const parts = [];
+  if (created > 0) parts.push(`${created}건 신규등록`);
+  if (updated > 0) parts.push(`${updated}건 업데이트`);
+  if (errors.length > 0) parts.push(`${errors.length}건 오류`);
+
   return NextResponse.json({
     created,
+    updated,
     errors,
-    message: `${created}건 등록 완료${errors.length > 0 ? `, ${errors.length}건 오류` : ""}`,
+    message: parts.join(", ") || "변경사항 없음",
   });
 }
