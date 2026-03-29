@@ -73,6 +73,21 @@ export default async function SettingsPage() {
         </button>
       </form>
 
+      {/* 크롬 확장 프로그램 */}
+      <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">크롬 확장 프로그램</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          홈택스 자동 로그인 및 기장등록 자동화를 위한 크롬 확장 프로그램입니다.<br />
+          다운로드 후 압축 해제 → Chrome 주소창에 chrome://extensions 입력 → 개발자 모드 켜기 → &quot;압축해제된 확장 프로그램을 로드합니다&quot; 클릭 → 폴더 선택
+        </p>
+        <a
+          href="/api/chrome-extension"
+          className="inline-flex items-center gap-2 bg-[#1a2e4a] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+        >
+          크롬 확장 프로그램 다운로드
+        </a>
+      </div>
+
       <div className="mt-6">
         <SettingsUploads
           commissionFormPath={settings?.commissionFormPath ?? null}
