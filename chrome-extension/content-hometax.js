@@ -303,14 +303,16 @@
       await doLogin(creds.id, creds.pw);
       await doCert(creds.certName, creds.certPw);
 
-      // 2. 메뉴 이동 (1.5초 대기 후 시작)
+      // 2. 메뉴 이동
       await sleep(1500);
       (await waitForId("mf_wfHeader_wq_uuid_619")).click();
+      await sleep(200);
       (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
+      await sleep(200);
       (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
-      await sleep(500);
+      await sleep(1000);
 
-      // 3. 폼 입력 (요소가 나타나면 즉시 입력)
+      // 3. 폼 입력
       const clientType = creds.clientType;
       const bizNumber = (creds.bizNumber || "").replace(/[-\s]/g, "");
       const residentNumber = (creds.residentNumber || "").replace(/[-\s]/g, "");
