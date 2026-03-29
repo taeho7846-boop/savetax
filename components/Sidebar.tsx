@@ -176,8 +176,12 @@ export default function Sidebar({
               ? "대표"
               : user.role === "admin"
               ? "관리자"
+              : user.role === "accountant"
+              ? "세무사"
+              : user.role === "employee"
+              ? "직원"
               : user.role === "staff"
-              ? "실무자"
+              ? "세무사"
               : "조회전용"}
           </div>
         </div>

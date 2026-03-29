@@ -10,14 +10,24 @@ interface Staff {
   name: string;
   role: string;
   isActive: boolean;
+  managerId: number | null;
   createdAt: Date;
 }
 
 const roleLabels: Record<string, string> = {
   owner: "대표",
   admin: "관리자",
-  staff: "실무자",
+  accountant: "세무사",
+  employee: "직원",
   readonly: "조회전용",
+};
+
+const roleColors: Record<string, string> = {
+  owner: "bg-purple-100 text-purple-700",
+  admin: "bg-blue-100 text-blue-700",
+  accountant: "bg-emerald-100 text-emerald-700",
+  employee: "bg-gray-100 text-gray-600",
+  readonly: "bg-gray-100 text-gray-400",
 };
 
 export default function StaffTable({
@@ -31,6 +41,25 @@ export default function StaffTable({
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [openAccountants, setOpenAccountants] = useState<Set<number>>(new Set());
+
+  // 그룹 분류
+  const owners = staffList.filter(s => s.role === "owner" || s.role === "admin");
+  const accountants = staffList.filter(s => s.role === "accountant");
+  const unassigned = staffList.filter(s => s.role === "employee" && !s.managerId);
+  const readonlyUsers = staffList.filter(s => s.role === "readonly");
+
+  function getEmployees(accountantId: number) {
+    return staffList.filter(s => s.role === "employee" && s.managerId === accountantId);
+  }
+
+  function toggleAccountant(id: number) {
+    setOpenAccountants(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   async function handleCreate(formData: FormData) {
     setError("");
@@ -58,9 +87,43 @@ export default function StaffTable({
     if (!confirm(`'${name}' 계정을 비활성화하시겠습니까?`)) return;
     try {
       await deleteStaff(id);
+      router.refresh();
     } catch (e: any) {
       setError(e.message || "오류 발생");
     }
+  }
+
+  function PersonRow({ person, indent = false }: { person: Staff; indent?: boolean }) {
+    if (editId === person.id) {
+      return (
+        <EditRow
+          staff={person}
+          accountants={accountants}
+          onSave={handleUpdate}
+          onCancel={() => setEditId(null)}
+        />
+      );
+    }
+    return (
+      <div className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors ${indent ? "pl-12" : ""}`}>
+        {indent && <span className="text-gray-300 -ml-4">└</span>}
+        <div className="flex-1 min-w-0">
+          <span className="font-medium text-gray-900">{person.name}</span>
+          {person.id === currentUserId && <span className="ml-1 text-xs text-blue-500">(나)</span>}
+          <span className="ml-2 text-xs text-gray-400">{person.username}</span>
+        </div>
+        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${roleColors[person.role] || "bg-gray-100 text-gray-600"}`}>
+          {roleLabels[person.role] || person.role}
+        </span>
+        {!person.isActive && <span className="text-xs text-red-500">비활성</span>}
+        <div className="flex gap-2">
+          <button onClick={() => setEditId(person.id)} className="text-xs text-[#1a2e4a] hover:underline">수정</button>
+          {person.id !== currentUserId && person.isActive && (
+            <button onClick={() => handleDelete(person.id, person.name)} className="text-xs text-red-500 hover:underline">비활성화</button>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -77,13 +140,13 @@ export default function StaffTable({
           onClick={() => setShowCreate(!showCreate)}
           className="bg-[#1a2e4a] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#243d61] transition-colors"
         >
-          + 직원 추가
+          + 계정 추가
         </button>
       </div>
 
       {showCreate && (
         <form action={handleCreate} className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 mb-4">
-          <h3 className="font-semibold text-gray-800 mb-4">새 직원 등록</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">새 계정 등록</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1">아이디</label>
@@ -91,7 +154,7 @@ export default function StaffTable({
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">이름</label>
-              <input name="name" required placeholder="직원 이름" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <input name="name" required placeholder="이름" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">비밀번호</label>
@@ -99,10 +162,20 @@ export default function StaffTable({
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">권한</label>
-              <select name="role" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                <option value="staff">실무자</option>
+              <select name="role" defaultValue="accountant" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="accountant">세무사</option>
+                <option value="employee">직원</option>
                 <option value="admin">관리자</option>
                 <option value="readonly">조회전용</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">소속 세무사 (직원만)</label>
+              <select name="managerId" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">없음</option>
+                {accountants.filter(a => a.isActive).map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -113,98 +186,139 @@ export default function StaffTable({
         </form>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b">
-              <th className="text-left px-4 py-3 font-medium text-gray-600">이름</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">아이디</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">권한</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">상태</th>
-              <th className="text-right px-4 py-3 font-medium text-gray-600">관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {staffList.map((s) => (
-              <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
-                {editId === s.id ? (
-                  <EditRow staff={s} onSave={handleUpdate} onCancel={() => setEditId(null)} />
-                ) : (
-                  <>
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {s.name}
-                      {s.id === currentUserId && <span className="ml-1 text-xs text-blue-500">(나)</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{s.username}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                        s.role === "owner" ? "bg-purple-100 text-purple-700" :
-                        s.role === "admin" ? "bg-blue-100 text-blue-700" :
-                        s.role === "staff" ? "bg-green-100 text-green-700" :
-                        "bg-gray-100 text-gray-600"
-                      }`}>
-                        {roleLabels[s.role] || s.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs ${s.isActive ? "text-green-600" : "text-red-500"}`}>
-                        {s.isActive ? "활성" : "비활성"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={() => setEditId(s.id)} className="text-xs text-[#1a2e4a] hover:underline">수정</button>
-                        {s.id !== currentUserId && (
-                          <button onClick={() => handleDelete(s.id, s.name)} className="text-xs text-red-500 hover:underline">
-                            {s.isActive ? "비활성화" : ""}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-3">
+        {/* 대표/관리자 */}
+        {owners.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-4 py-2.5 bg-purple-50 border-b border-purple-100">
+              <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">대표 / 관리자</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {owners.map(p => <PersonRow key={p.id} person={p} />)}
+            </div>
+          </div>
+        )}
+
+        {/* 세무사 + 소속 직원 */}
+        {accountants.map(acc => {
+          const emps = getEmployees(acc.id);
+          const isOpen = openAccountants.has(acc.id);
+          return (
+            <div key={acc.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+              <div
+                className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border-b border-emerald-100 cursor-pointer hover:bg-emerald-100 transition-colors"
+                onClick={() => toggleAccountant(acc.id)}
+              >
+                <span className="text-sm text-emerald-600">{isOpen ? "▼" : "▶"}</span>
+                <span className="font-medium text-gray-900 flex-1">{acc.name}</span>
+                <span className="text-xs text-gray-400">{acc.username}</span>
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${roleColors.accountant}`}>세무사</span>
+                {!acc.isActive && <span className="text-xs text-red-500">비활성</span>}
+                <span className="text-xs text-gray-400">{emps.length}명</span>
+                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => setEditId(acc.id)} className="text-xs text-[#1a2e4a] hover:underline">수정</button>
+                  {acc.id !== currentUserId && acc.isActive && (
+                    <button onClick={() => handleDelete(acc.id, acc.name)} className="text-xs text-red-500 hover:underline">비활성화</button>
+                  )}
+                </div>
+              </div>
+              {editId === acc.id && (
+                <EditRow staff={acc} accountants={accountants} onSave={handleUpdate} onCancel={() => setEditId(null)} />
+              )}
+              {isOpen && (
+                <div className="divide-y divide-gray-100">
+                  {emps.length === 0 ? (
+                    <div className="px-12 py-3 text-xs text-gray-400">소속 직원 없음</div>
+                  ) : (
+                    emps.map(emp => <PersonRow key={emp.id} person={emp} indent />)
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* 미배정 직원 */}
+        {unassigned.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-4 py-2.5 bg-yellow-50 border-b border-yellow-100">
+              <span className="text-xs font-semibold text-yellow-600 uppercase tracking-wide">미배정 직원</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {unassigned.map(p => <PersonRow key={p.id} person={p} />)}
+            </div>
+          </div>
+        )}
+
+        {/* 조회전용 */}
+        {readonlyUsers.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">조회전용</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {readonlyUsers.map(p => <PersonRow key={p.id} person={p} />)}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
 }
 
-function EditRow({ staff, onSave, onCancel }: { staff: Staff; onSave: (id: number, fd: FormData) => void; onCancel: () => void }) {
+function EditRow({
+  staff,
+  accountants,
+  onSave,
+  onCancel,
+}: {
+  staff: Staff;
+  accountants: Staff[];
+  onSave: (id: number, fd: FormData) => void;
+  onCancel: () => void;
+}) {
   return (
-    <td colSpan={5} className="px-4 py-3">
-      <form action={(fd) => onSave(staff.id, fd)} className="flex items-center gap-3 flex-wrap">
+    <div className="px-4 py-3 bg-blue-50/50 border-b border-gray-100">
+      <form action={(fd) => onSave(staff.id, fd)} className="flex items-end gap-3 flex-wrap">
         <div>
           <label className="text-xs text-gray-500">이름</label>
-          <input name="name" defaultValue={staff.name} className="border border-gray-300 rounded px-2 py-1 text-sm w-24" />
+          <input name="name" defaultValue={staff.name} className="border border-gray-300 rounded px-2 py-1 text-sm w-24 block" />
         </div>
         <div>
           <label className="text-xs text-gray-500">권한</label>
-          <select name="role" defaultValue={staff.role} className="border border-gray-300 rounded px-2 py-1 text-sm">
+          <select name="role" defaultValue={staff.role} className="border border-gray-300 rounded px-2 py-1 text-sm block">
             <option value="owner">대표</option>
             <option value="admin">관리자</option>
-            <option value="staff">실무자</option>
+            <option value="accountant">세무사</option>
+            <option value="employee">직원</option>
             <option value="readonly">조회전용</option>
           </select>
         </div>
         <div>
+          <label className="text-xs text-gray-500">소속 세무사</label>
+          <select name="managerId" defaultValue={staff.managerId ?? ""} className="border border-gray-300 rounded px-2 py-1 text-sm block">
+            <option value="">없음</option>
+            {accountants.filter(a => a.isActive && a.id !== staff.id).map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="text-xs text-gray-500">상태</label>
-          <select name="isActive" defaultValue={String(staff.isActive)} className="border border-gray-300 rounded px-2 py-1 text-sm">
+          <select name="isActive" defaultValue={String(staff.isActive)} className="border border-gray-300 rounded px-2 py-1 text-sm block">
             <option value="true">활성</option>
             <option value="false">비활성</option>
           </select>
         </div>
         <div>
           <label className="text-xs text-gray-500">새 비밀번호</label>
-          <input name="newPassword" type="password" placeholder="변경 시 입력" className="border border-gray-300 rounded px-2 py-1 text-sm w-28" />
+          <input name="newPassword" type="password" placeholder="변경 시 입력" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 block" />
         </div>
-        <div className="flex gap-2 mt-3">
+        <div className="flex gap-2">
           <button type="submit" className="bg-[#1a2e4a] text-white px-3 py-1 rounded text-xs">저장</button>
           <button type="button" onClick={onCancel} className="border border-gray-300 px-3 py-1 rounded text-xs">취소</button>
         </div>
       </form>
-    </td>
+    </div>
   );
 }

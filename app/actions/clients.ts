@@ -126,16 +126,25 @@ export async function updateClientInModal(id: number, formData: FormData) {
 }
 
 export async function getClientById(id: number) {
-  await requireAuth();
-  const [client, users] = await Promise.all([
+  const session = await requireAuth();
+  const [client, allUsers] = await Promise.all([
     prisma.client.findUnique({ where: { id, isDeleted: false } }),
     prisma.user.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, role: true, managerId: true },
       orderBy: { name: "asc" },
     }),
   ]);
-  return { client, users };
+
+  // 세무사: 본인 + 소속 직원만 표시
+  let users: { id: number; name: string }[];
+  if (session.role === "accountant") {
+    users = allUsers.filter(u => u.id === session.id || u.managerId === session.id);
+  } else {
+    users = allUsers;
+  }
+
+  return { client, users, currentUserRole: session.role };
 }
 
 export async function getCreateClientData() {

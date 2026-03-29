@@ -23,6 +23,7 @@ export async function getStaffList() {
       name: true,
       role: true,
       isActive: true,
+      managerId: true,
       createdAt: true,
     },
   });
@@ -45,9 +46,11 @@ export async function createStaff(formData: FormData) {
     throw new Error("이미 존재하는 아이디입니다.");
   }
 
+  const managerId = formData.get("managerId") ? parseInt(formData.get("managerId") as string) : null;
+
   const hashed = await bcrypt.hash(password, 10);
   await prisma.user.create({
-    data: { username, name, password: hashed, role },
+    data: { username, name, password: hashed, role, managerId },
   });
 
   revalidatePath("/staff");
@@ -61,7 +64,8 @@ export async function updateStaff(id: number, formData: FormData) {
   const isActive = formData.get("isActive") === "true";
   const newPassword = formData.get("newPassword") as string;
 
-  const data: Record<string, unknown> = { name, role, isActive };
+  const managerId = formData.get("managerId") ? parseInt(formData.get("managerId") as string) : null;
+  const data: Record<string, unknown> = { name, role, isActive, managerId };
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);
   }
