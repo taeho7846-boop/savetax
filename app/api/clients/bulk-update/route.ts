@@ -78,6 +78,17 @@ function normalizeDate(val: string): string | null {
   if (match) {
     return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`;
   }
+  // MM/DD/YY 또는 M/D/YYYY (미국식)
+  const match2 = val.match(/(\d{1,2})[/](\d{1,2})[/](\d{2,4})/);
+  if (match2) {
+    const yr = match2[3].length === 2 ? "20" + match2[3] : match2[3];
+    return `${yr}-${match2[1].padStart(2, "0")}-${match2[2].padStart(2, "0")}`;
+  }
+  // YYYYMMDD (8자리 숫자)
+  const digits = val.replace(/[^0-9]/g, "");
+  if (digits.length === 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  }
   return null;
 }
 
@@ -94,9 +105,9 @@ export async function POST(req: NextRequest) {
   }
 
   const bytes = await file.arrayBuffer();
-  const wb = XLSX.read(bytes, { type: "array" });
+  const wb = XLSX.read(bytes, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 });
+  const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: false });
 
   if (rows.length < 2) {
     return NextResponse.json({ error: "데이터가 없습니다 (헤더만 있음)" }, { status: 400 });
