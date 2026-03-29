@@ -17,11 +17,14 @@ type Client = {
 export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxYear: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
   // 홈택스만
   const hometaxDocs = DOC_TYPES.filter(d => d.source === "홈택스");
+
+  // 최신 데이터에서 선택된 클라이언트 찾기
+  const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) ?? null : null;
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
@@ -95,7 +98,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                   className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer transition-colors border-b border-gray-50 ${
                     isSelected ? "bg-[#1a2e4a] text-white" : "hover:bg-gray-50"
                   }`}
-                  onClick={() => setSelectedClient(client)}
+                  onClick={() => setSelectedClientId(client.id)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm font-medium truncate ${isSelected ? "text-white" : "text-gray-900"}`}>
