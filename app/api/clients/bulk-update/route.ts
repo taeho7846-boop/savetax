@@ -150,26 +150,18 @@ export async function POST(req: NextRequest) {
 
         const existingVal = (existing as any)[field];
 
-        // 빈 필드만 채우기
+        // 엑셀 데이터로 덮어쓰기
         if (field === "clientType") {
-          if (!existingVal || existingVal === "individual") {
-            const converted = normalizeClientType(val);
-            if (converted && converted !== existingVal) updateData[field] = converted;
-          }
+          const converted = normalizeClientType(val);
+          if (converted && converted !== existingVal) updateData[field] = converted;
         } else if (field === "taxationType") {
-          if (!existingVal) {
-            const converted = normalizeTaxationType(val);
-            if (converted) updateData[field] = converted;
-          }
+          const converted = normalizeTaxationType(val);
+          if (converted && converted !== existingVal) updateData[field] = converted;
         } else if (field === "monthlyFee") {
-          if (existingVal == null) {
-            const num = parseInt(val.replace(/[^0-9]/g, ""));
-            if (!isNaN(num)) updateData[field] = num;
-          }
+          const num = parseInt(val.replace(/[^0-9]/g, ""));
+          if (!isNaN(num) && num !== existingVal) updateData[field] = num;
         } else {
-          if (!existingVal) {
-            updateData[field] = val;
-          }
+          if (val !== existingVal) updateData[field] = val;
         }
       }
 
