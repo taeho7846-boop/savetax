@@ -355,7 +355,7 @@ def main():
     # 2. ZIP 직접 수정 (이미지 보존 + 도장 추가)
     xlsx_output = os.path.join(tmp_dir, "output.xlsx")
     try:
-        modify_xlsx_cells_and_stamp(xlsx_input, xlsx_output, cell_data, stamp_data)
+        modify_xlsx_cells_and_stamp(xlsx_input, xlsx_output, cell_data, None)
         print("셀 입력 + 도장 완료 (ZIP 직접 수정)")
     except Exception as e:
         print(f"ERROR: 셀 수정 실패: {e}", file=sys.stderr)
