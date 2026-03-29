@@ -31,6 +31,52 @@ def format_corp_num(num):
     return num
 
 
+def create_stamp_png(name, size_px=300):
+    from PIL import Image, ImageDraw, ImageFont
+    import io
+
+    img = Image.new("RGBA", (size_px, size_px), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+    margin = size_px // 15
+    line_w = round(15 * size_px / 300)
+    draw.ellipse([margin, margin, size_px - margin, size_px - margin], outline=(180, 0, 0), width=line_w)
+
+    n = len(name)
+    inner_h = size_px - margin * 5
+    font_size = max(14, int(inner_h / (n + 0.3)))
+
+    font_paths = [
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/nanum/NanumGothicBold.ttf",
+        "C:/Windows/Fonts/malgunbd.ttf",
+    ]
+    font = None
+    for fp in font_paths:
+        try:
+            font = ImageFont.truetype(fp, font_size)
+            break
+        except Exception:
+            pass
+    if font is None:
+        font = ImageFont.load_default()
+
+    char_sizes = []
+    for char in name:
+        bbox = draw.textbbox((0, 0), char, font=font)
+        char_sizes.append((bbox[2] - bbox[0], bbox[3] - bbox[1]))
+
+    total_h = sum(h for _, h in char_sizes)
+    y = (size_px - total_h) // 2
+    for char, (cw, ch) in zip(name, char_sizes):
+        x = (size_px - cw) // 2
+        draw.text((x, y), char, fill=(180, 0, 0), font=font)
+        y += ch
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def overlay_stamp_on_pdf(input_pdf, output_pdf, stamp_png_data, x=480, y=95, size=50):
     """PDF 위에 도장 이미지를 오버레이"""
     from reportlab.lib.pagesizes import A4
