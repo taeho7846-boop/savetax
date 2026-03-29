@@ -105,9 +105,9 @@ export async function POST(req: NextRequest) {
   }
 
   const bytes = await file.arrayBuffer();
-  const wb = XLSX.read(bytes, { type: "array", cellDates: true });
+  const wb = XLSX.read(bytes, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: false });
+  const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 });
 
   if (rows.length < 2) {
     return NextResponse.json({ error: "데이터가 없습니다 (헤더만 있음)" }, { status: 400 });
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
       const bizFormatted = `${bizClean.slice(0, 3)}-${bizClean.slice(3, 5)}-${bizClean.slice(5, 10)}`;
       const existing = await prisma.client.findFirst({
         where: {
-          assignedUserId: session.id,
+          isDeleted: false,
           OR: [
             { bizNumber: bizClean },
             { bizNumber: bizFormatted },
@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
 
       if (!existing) {
         skipped++;
+        errors.push(`${i + 1}행 "${rawBiz}": 매칭되는 거래처 없음`);
         continue;
       }
 
@@ -179,7 +180,17 @@ export async function POST(req: NextRequest) {
 
       for (const [colIdx, field] of Object.entries(colMap)) {
         if (field === "bizNumber") continue; // 매칭용이므로 건너뜀
-        const val = String(row[Number(colIdx)] ?? "").trim();
+        const rawVal = row[Number(colIdx)];
+        // Date 객체 처리
+        let val: string;
+        if (rawVal instanceof Date) {
+          const y = rawVal.getFullYear();
+          const m = String(rawVal.getMonth() + 1).padStart(2, "0");
+          const d = String(rawVal.getDate()).padStart(2, "0");
+          val = `${y}-${m}-${d}`;
+        } else {
+          val = String(rawVal ?? "").trim();
+        }
         if (!val) continue;
 
         const existingVal = (existing as any)[field];
