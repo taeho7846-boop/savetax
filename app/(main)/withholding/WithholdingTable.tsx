@@ -10,13 +10,13 @@ const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }>
   "일용직": { border: "border-green-500", text: "text-green-700", bg: "bg-green-50" },
 };
 
-type Record = { taskType: string; done: boolean };
+type WHRecord = { taskType: string; done: boolean };
 type Client = {
   id: number;
   name: string;
   laborTypes: string | null;
   halfYearTax: boolean;
-  withholdingRecords: Record[];
+  withholdingRecords: WHRecord[];
 };
 
 // 해당 월에 필요한 업무 판별
