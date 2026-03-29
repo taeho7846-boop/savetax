@@ -34,7 +34,7 @@ export async function GET() {
       await archive.finalize();
     });
 
-    return new NextResponse(zipData, {
+    return new NextResponse(zipData as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="savetax-chrome-extension.zip"`,
