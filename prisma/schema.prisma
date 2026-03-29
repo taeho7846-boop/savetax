@@ -26,6 +26,7 @@ model User {
   clients   Client[]
   tasks     Task[]
   memos     Memo[]
+  schedules Schedule[]
   settings  Settings?
 }
 
@@ -231,6 +232,21 @@ model IncomeTaxRecord {
   updatedAt DateTime @updatedAt
 
   @@unique([clientId, taxYear])
+}
+
+// 스케쥴
+model Schedule {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  date      String   // "2026-03-29"
+  startTime String?  // "09:00"
+  endTime   String?  // "18:00"
+  color     String   @default("blue") // blue, red, green, purple, orange
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 메모
