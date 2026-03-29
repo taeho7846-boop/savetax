@@ -1,5 +1,31 @@
 // 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
+// 확장 프로그램 시작 시 버전 체크
+const SERVER = "http://64.176.227.99";
+const CHECK_INTERVAL = 60 * 60 * 1000; // 1시간마다
+
+async function checkVersion() {
+  try {
+    const res = await fetch(SERVER + "/extension/version.json?t=" + Date.now());
+    if (!res.ok) return;
+    const data = await res.json();
+    const manifest = chrome.runtime.getManifest();
+    if (data.version && data.version !== manifest.version) {
+      // 업데이트 필요 알림
+      chrome.notifications?.create("savetax-update", {
+        type: "basic",
+        iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        title: "SaveTax 확장 프로그램 업데이트",
+        message: `새 버전(v${data.version})이 있습니다. 설정 탭에서 다운로드해주세요.`,
+      });
+    }
+  } catch (e) {}
+}
+
+// 설치/업데이트 시 + 주기적 체크
+chrome.runtime.onInstalled?.addListener(() => setTimeout(checkVersion, 5000));
+setInterval(checkVersion, CHECK_INTERVAL);
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "fetch-file") {
     fetch(msg.url)
