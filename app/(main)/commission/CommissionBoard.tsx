@@ -998,9 +998,9 @@ export default function CommissionBoard({
                 </button>
               </div>
 
-              {/* 홈택스 자동화 */}
+              {/* 홈택스 */}
               <div className="pt-3 border-t border-gray-100">
-                <div className="text-xs text-gray-400 mb-2">홈택스 자동화</div>
+                <div className="text-xs text-gray-400 mb-2">홈택스</div>
                 <div className="flex gap-2">
                   {(
                     [
@@ -1045,6 +1045,28 @@ export default function CommissionBoard({
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* 4대보험 */}
+              <div className="pt-3 border-t border-gray-100">
+                <div className="text-xs text-gray-400 mb-2">4대보험</div>
+                <div className="flex gap-2">
+                  {(
+                    [
+                      { key: "pension", label: "국민연금" },
+                      { key: "health", label: "건강보험" },
+                      { key: "employment", label: "고용산재" },
+                    ] as { key: string; label: string }[]
+                  ).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      disabled
+                      className="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:cursor-not-allowed"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <button
