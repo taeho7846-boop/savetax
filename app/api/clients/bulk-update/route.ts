@@ -195,24 +195,35 @@ export async function POST(req: NextRequest) {
 
         const existingVal = (existing as any)[field];
 
-        // 엑셀 데이터로 덮어쓰기
-        if (field === "clientType") {
-          const converted = normalizeClientType(val);
-          if (converted && converted !== existingVal) updateData[field] = converted;
-        } else if (field === "taxationType") {
+        // 기본: 빈칸만 채우기, 과세유형만 덮어쓰기 허용
+        if (field === "taxationType") {
+          // 과세유형은 항상 덮어쓰기
           const converted = normalizeTaxationType(val);
           if (converted && converted !== existingVal) updateData[field] = converted;
+        } else if (field === "clientType") {
+          if (!existingVal || existingVal === "individual") {
+            const converted = normalizeClientType(val);
+            if (converted && converted !== existingVal) updateData[field] = converted;
+          }
         } else if (field === "halfYearTax") {
-          const isHalf = val.includes("6개월납");
-          if (isHalf !== existingVal) updateData[field] = isHalf;
+          // boolean: false(기본값)이면 채우기
+          if (!existingVal) {
+            const isHalf = val.includes("6개월납");
+            if (isHalf) updateData[field] = true;
+          }
         } else if (field === "openDate") {
-          const converted = normalizeDate(val);
-          if (converted && converted !== existingVal) updateData[field] = converted;
+          if (!existingVal) {
+            const converted = normalizeDate(val);
+            if (converted) updateData[field] = converted;
+          }
         } else if (field === "monthlyFee") {
-          const num = parseInt(val.replace(/[^0-9]/g, ""));
-          if (!isNaN(num) && num !== existingVal) updateData[field] = num;
+          if (existingVal == null) {
+            const num = parseInt(val.replace(/[^0-9]/g, ""));
+            if (!isNaN(num)) updateData[field] = num;
+          }
         } else {
-          if (val !== existingVal) updateData[field] = val;
+          // 나머지 필드: 빈칸만 채우기
+          if (!existingVal) updateData[field] = val;
         }
       }
 
