@@ -240,9 +240,9 @@
       await sleep(3000);
     }
 
-    // 인증 후 팝업 처리 - "취소" 클릭 (여러 방법으로 시도)
-    for (let attempt = 0; attempt < 15; attempt++) {
-      await sleep(500);
+    // 인증 후 팝업 처리 - "취소" 클릭 (빠르게 시도)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await sleep(300);
       // 방법1: btn_cancel
       const cancel1 = document.querySelector("input[id*='btn_cancel'][value='취소']");
       if (cancel1) { cancel1.click(); console.log("SaveTax: 취소 클릭 (btn_cancel)"); break; }
