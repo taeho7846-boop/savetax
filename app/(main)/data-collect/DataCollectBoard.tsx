@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { DOC_TYPES, toggleDataCollection } from "@/app/actions/data-collect";
+import { toggleDataCollection } from "@/app/actions/data-collect";
+import { DOC_TYPES } from "@/lib/doc-types";
 
 type DCRecord = { docType: string; status: string };
 
