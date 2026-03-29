@@ -140,7 +140,7 @@ export default async function DashboardPage() {
                 <div key={task.id} className="px-5 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-800 truncate">
-                      {task.client.name}
+                      {task.client?.name ?? "고객사 없음"}
                     </div>
                     <div className="text-xs text-gray-500 truncate">
                       {task.title}
