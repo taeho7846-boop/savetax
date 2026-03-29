@@ -322,6 +322,37 @@ export default function CommissionBoard({
     }
   }
 
+  async function doInsuranceDownload(clientId: number, type: string) {
+    setAutoLoading(type);
+    setAutoResult(null);
+    try {
+      const res = await fetch(`/api/automation/${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setAutoResult({ ok: false, msg: data.error ?? "오류 발생" });
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename\*?=(?:UTF-8'')?(.+)/);
+      a.download = match ? decodeURIComponent(match[1]) : `${type}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setAutoResult({ ok: true, msg: "PDF 다운로드 완료" });
+    } catch (err) {
+      setAutoResult({ ok: false, msg: String(err) });
+    } finally {
+      setAutoLoading(null);
+    }
+  }
+
   // Stage breakdown for stats
   const stageCounts = commissions.reduce(
     (acc, c) => {
@@ -1053,17 +1084,24 @@ export default function CommissionBoard({
                 <div className="flex gap-2">
                   {(
                     [
-                      { key: "pension", label: "국민연금" },
-                      { key: "health", label: "건강보험" },
-                      { key: "employment", label: "고용산재" },
-                    ] as { key: string; label: string }[]
-                  ).map(({ key, label }) => (
+                      { key: "pension", label: "국민연금", enabled: true },
+                      { key: "health", label: "건강보험", enabled: false },
+                      { key: "employment", label: "고용산재", enabled: false },
+                    ] as { key: string; label: string; enabled: boolean }[]
+                  ).map(({ key, label, enabled }) => (
                     <button
                       key={key}
-                      disabled
-                      className="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:cursor-not-allowed"
+                      onClick={enabled ? () => doInsuranceDownload(modal.clientId, key) : undefined}
+                      disabled={!enabled || autoLoading !== null}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
+                        autoLoading === key
+                          ? "bg-[#1a2e4a] text-white opacity-70"
+                          : enabled
+                            ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      } disabled:cursor-not-allowed`}
                     >
-                      {label}
+                      {autoLoading === key ? "생성 중..." : label}
                     </button>
                   ))}
                 </div>
