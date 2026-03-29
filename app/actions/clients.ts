@@ -154,18 +154,19 @@ export async function getClientById(id: number) {
   }
 
   // 소속 옵션: 본인(세무사/관리자/대표)의 사업체명 또는 소속 세무사의 사업체명
-  let affiliationOptions: string[] = ["세이브택스"];
+  const affiliationSet = new Set<string>(["세이브택스"]);
   if (session.role === "employee" && currentUser?.managerId) {
     const mgr = await prisma.user.findUnique({
       where: { id: currentUser.managerId },
       select: { bizName1: true, bizName2: true },
     });
-    if (mgr?.bizName1) affiliationOptions.push(mgr.bizName1);
-    if (mgr?.bizName2) affiliationOptions.push(mgr.bizName2);
+    if (mgr?.bizName1) affiliationSet.add(mgr.bizName1);
+    if (mgr?.bizName2) affiliationSet.add(mgr.bizName2);
   } else {
-    if (currentUser?.bizName1) affiliationOptions.push(currentUser.bizName1);
-    if (currentUser?.bizName2) affiliationOptions.push(currentUser.bizName2);
+    if (currentUser?.bizName1) affiliationSet.add(currentUser.bizName1);
+    if (currentUser?.bizName2) affiliationSet.add(currentUser.bizName2);
   }
+  const affiliationOptions = [...affiliationSet];
 
   return { client, users, currentUserRole: session.role, affiliationOptions };
 }
