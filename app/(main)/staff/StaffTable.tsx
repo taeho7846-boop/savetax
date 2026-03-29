@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createStaff, updateStaff, deleteStaff } from "@/app/actions/staff";
 
 interface Staff {
@@ -26,6 +27,7 @@ export default function StaffTable({
   staffList: Staff[];
   currentUserId: number;
 }) {
+  const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -35,6 +37,7 @@ export default function StaffTable({
     try {
       await createStaff(formData);
       setShowCreate(false);
+      router.refresh();
     } catch (e: any) {
       setError(e.message || "오류 발생");
     }
@@ -45,6 +48,7 @@ export default function StaffTable({
     try {
       await updateStaff(id, formData);
       setEditId(null);
+      router.refresh();
     } catch (e: any) {
       setError(e.message || "오류 발생");
     }
