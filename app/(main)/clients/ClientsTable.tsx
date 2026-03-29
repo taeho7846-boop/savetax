@@ -39,6 +39,7 @@ type Client = {
   hometaxPw: string | null;
   clientType: string;
   taxTypes: string | null;
+  affiliation: string | null;
 };
 
 type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber";
@@ -276,15 +277,14 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                   </button>
                 </th>
               ))}
-              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
-                홈택스
-              </th>
+              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">소속</th>
+              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-gray-500">
+                <td colSpan={9} className="text-center py-12 text-gray-500">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -328,6 +328,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                     <td className="px-4 py-3 text-center text-gray-800">{client.phone || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.ceoName || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.residentNumber || <span className="text-gray-400">-</span>}</td>
+                    <td className="px-4 py-3 text-center text-gray-800 text-xs">{client.affiliation || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const status = loginStatuses[client.id] ?? "idle";
