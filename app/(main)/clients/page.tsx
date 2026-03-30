@@ -61,6 +61,12 @@ export default async function ClientsPage({
             ))}
           </div>
 
+          <a
+            href="/api/clients/alimtalk-excel"
+            className="bg-yellow-400 text-gray-900 text-sm px-4 py-2 rounded-lg hover:bg-yellow-500 font-medium transition-colors"
+          >
+            알림톡
+          </a>
           <BulkUpdateButton />
           <BulkUploadButton />
           <ClientCreateButton />
