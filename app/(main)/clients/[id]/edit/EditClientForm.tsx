@@ -19,6 +19,7 @@ interface Props {
     hometaxId: string | null;
     hometaxPw: string | null;
     monthlyFee: number | null;
+    freeMonths: number | null;
     firstWithdrawalMonth: string | null;
     bankName: string | null;
     bankAccount: string | null;
@@ -227,7 +228,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 기장료 / 출금 정보 */}
       <div className="border-t border-gray-100 pt-4">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">청구 정보</p>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-1">월 기장료</label>
             <div className="relative">
@@ -240,6 +241,22 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-800 mb-1">무료 기장</label>
+            <div className="relative">
+              <select
+                name="freeMonths"
+                defaultValue={client.freeMonths ?? ""}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              >
+                <option value="">미설정</option>
+                <option value="0">0개월</option>
+                <option value="1">1개월</option>
+                <option value="2">2개월</option>
+                <option value="3">3개월</option>
+              </select>
             </div>
           </div>
           <div>

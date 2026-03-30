@@ -52,6 +52,7 @@ model Client {
   hometaxId      String?  // 홈택스 ID
   hometaxPw      String?  // 홈택스 PW
   monthlyFee     Int?     // 월 기장료
+  freeMonths     Int?     // 무료 기장 개월 수 (0 or 2)
   firstWithdrawalMonth String? // 최초 출금월 (YYYY-MM)
   bankName       String?  // 출금 은행
   bankAccount    String?  // 출금 계좌번호
