@@ -28,7 +28,7 @@ export default async function ClientsPage({
   // 세무사/관리자: 본인 + 소속 직원의 거래처
   let assignedFilter: any = { assignedUserId: session.id };
   if (isReadonly) {
-    assignedFilter = {};
+    assignedFilter = { affiliation: "세이브택스" };
   } else if (isManager) {
     const employees = await prisma.user.findMany({
       where: { managerId: session.id, isActive: true },
