@@ -7,7 +7,7 @@ interface ClientData {
   monthlyFee: number | null;
   freeMonths: number | null;
   firstWithdrawalMonth: string | null;
-  assignedUserId: number;
+  assignedUserId: number | null;
   assignedUser: { name: string } | null;
 }
 
