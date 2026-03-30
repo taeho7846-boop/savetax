@@ -41,6 +41,7 @@ export function DistributionBoard({
 
   const inputs = isCorporate ? corpInputs : indInputs;
   const setInputs = isCorporate ? setCorpInputs : setIndInputs;
+  const [forceUserId, setForceUserId] = useState<number | null>(null);
   const passSet = new Set(passUserIds);
 
   function updateInput(idx: number, val: string) {
@@ -56,7 +57,7 @@ export function DistributionBoard({
     if (names.length === 0) return;
 
     startTransition(async () => {
-      await addDistribution(names, tab);
+      await addDistribution(names, tab, forceUserId ?? undefined);
       setInputs(["", "", "", "", ""]);
       router.refresh();
     });
@@ -118,6 +119,16 @@ export function DistributionBoard({
           <h3 className="text-sm font-medium text-gray-700">
             거래처 추가 ({isCorporate ? "법인" : "개인"})
           </h3>
+          <select
+            value={forceUserId ?? ""}
+            onChange={(e) => setForceUserId(e.target.value ? Number(e.target.value) : null)}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+          >
+            <option value="">자동배분</option>
+            {accountants.map((a) => (
+              <option key={a.id} value={a.id}>{a.name} 지정</option>
+            ))}
+          </select>
           <button
             onClick={handleAdd}
             disabled={isPending || inputs.every((n) => !n.trim())}

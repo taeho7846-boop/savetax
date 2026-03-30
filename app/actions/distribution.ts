@@ -65,6 +65,7 @@ export async function togglePass(userId: number, clientType: string) {
 export async function addDistribution(
   clientNames: string[],
   clientType: string,
+  forceUserId?: number,
 ) {
   await requireAuth();
 
@@ -73,6 +74,23 @@ export async function addDistribution(
 
   const accountants = await getAccountants();
   if (accountants.length === 0) throw new Error("배정 가능한 세무사가 없습니다");
+
+  // 강제 배정인 경우 바로 처리
+  if (forceUserId) {
+    const batchId = `${Date.now()}`;
+    for (const name of names) {
+      await prisma.distribution.create({
+        data: {
+          clientName: name.trim(),
+          clientType,
+          assignedUserId: forceUserId,
+          batchId,
+        },
+      });
+    }
+    revalidatePath("/distribution");
+    return;
+  }
 
   // PASS 상태 조회
   const passes = await prisma.distributionPass.findMany({ where: { clientType } });
