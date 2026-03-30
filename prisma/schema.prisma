@@ -29,7 +29,8 @@ model User {
   memos         Memo[]
   schedules     Schedule[]
   settings      Settings?
-  distributions Distribution[] @relation("distributions")
+  distributions     Distribution[]     @relation("distributions")
+  distributionPasses DistributionPass[] @relation("distributionPasses")
 }
 
 // 고객사
@@ -286,10 +287,21 @@ model Memo {
 // 세이브택스 배분
 model Distribution {
   id             Int      @id @default(autoincrement())
-  clientName     String   // 거래처명
+  clientName     String   // 거래처명 ("-"이면 PASS로 건너뜀)
   clientType     String   // corporate | individual
   assignedUserId Int      // 배정된 세무사
   assignedUser   User     @relation("distributions", fields: [assignedUserId], references: [id])
   batchId        String?  // 세트로 들어온 경우 같은 batchId
+  isSkipped      Boolean  @default(false) // PASS로 건너뛴 자리
   createdAt      DateTime @default(now())
+}
+
+// 배분 PASS 상태
+model DistributionPass {
+  id         Int    @id @default(autoincrement())
+  userId     Int
+  clientType String // corporate | individual
+  user       User   @relation("distributionPasses", fields: [userId], references: [id])
+
+  @@unique([userId, clientType])
 }

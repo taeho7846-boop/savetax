@@ -24,6 +24,7 @@ export default async function DistributionPage({
         accountants={data.accountants}
         distributions={data.distributions}
         counts={data.counts}
+        passUserIds={data.passUserIds}
       />
     </div>
   );

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addDistribution, deleteDistribution } from "@/app/actions/distribution";
+import { addDistribution, deleteDistribution, togglePass } from "@/app/actions/distribution";
 
 interface Accountant {
   id: number;
@@ -16,6 +16,7 @@ interface Distribution {
   clientType: string;
   assignedUserId: number;
   assignedUser: { name: string };
+  isSkipped: boolean;
   createdAt: Date;
 }
 
@@ -24,11 +25,13 @@ export function DistributionBoard({
   accountants,
   distributions,
   counts,
+  passUserIds,
 }: {
   tab: string;
   accountants: Accountant[];
   distributions: Distribution[];
   counts: Record<number, number>;
+  passUserIds: number[];
 }) {
   const isCorporate = tab === "corporate";
   const [corpInputs, setCorpInputs] = useState<string[]>(["", "", "", "", ""]);
@@ -38,6 +41,7 @@ export function DistributionBoard({
 
   const inputs = isCorporate ? corpInputs : indInputs;
   const setInputs = isCorporate ? setCorpInputs : setIndInputs;
+  const passSet = new Set(passUserIds);
 
   function updateInput(idx: number, val: string) {
     setInputs((prev) => {
@@ -66,6 +70,13 @@ export function DistributionBoard({
     });
   }
 
+  function handleTogglePass(userId: number) {
+    startTransition(async () => {
+      await togglePass(userId, tab);
+      router.refresh();
+    });
+  }
+
   // 세무사별 거래처 그룹핑
   const byAccountant: Record<number, Distribution[]> = {};
   for (const a of accountants) byAccountant[a.id] = [];
@@ -73,7 +84,6 @@ export function DistributionBoard({
     if (byAccountant[d.assignedUserId]) byAccountant[d.assignedUserId].push(d);
   }
 
-  // 가장 많은 행 수
   const maxRows = Math.max(1, ...accountants.map((a) => byAccountant[a.id].length));
 
   return (
@@ -140,14 +150,28 @@ export function DistributionBoard({
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
             <tr>
-              {accountants.map((a) => (
-                <th key={a.id} className="text-center px-4 py-3 text-gray-700 font-medium">
-                  <div>{a.name}</div>
-                  <div className="text-xs text-gray-400 font-normal mt-0.5">
-                    {counts[a.id] || 0}건
-                  </div>
-                </th>
-              ))}
+              {accountants.map((a) => {
+                const isPass = passSet.has(a.id);
+                return (
+                  <th key={a.id} className="text-center px-4 py-3">
+                    <div className="font-medium text-gray-700">{a.name}</div>
+                    <div className="text-xs text-gray-400 font-normal mt-0.5">
+                      {counts[a.id] || 0}건
+                    </div>
+                    <button
+                      onClick={() => handleTogglePass(a.id)}
+                      disabled={isPending}
+                      className={`mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                        isPass
+                          ? "bg-red-100 text-red-600 hover:bg-red-200"
+                          : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                      }`}
+                    >
+                      PASS {isPass ? "ON" : "OFF"}
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -158,15 +182,19 @@ export function DistributionBoard({
                   return (
                     <td key={a.id} className="px-4 py-2 text-center">
                       {d ? (
-                        <div className="flex items-center justify-center gap-1.5 group">
-                          <span className="text-gray-800">{d.clientName}</span>
-                          <button
-                            onClick={() => handleDelete(d.id, d.clientName)}
-                            className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
+                        d.isSkipped ? (
+                          <span className="text-gray-300">-</span>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5 group">
+                            <span className="text-gray-800">{d.clientName}</span>
+                            <button
+                              onClick={() => handleDelete(d.id, d.clientName)}
+                              className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )
                       ) : (
                         <span className="text-gray-200">-</span>
                       )}
