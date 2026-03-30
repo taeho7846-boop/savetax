@@ -248,7 +248,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
             <div className="relative">
               <select
                 name="freeMonths"
-                defaultValue={client.freeMonths ?? ""}
+                defaultValue={client.freeMonths ?? 2}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
               >
                 <option value="">미설정</option>
