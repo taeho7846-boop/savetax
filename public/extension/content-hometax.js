@@ -398,25 +398,26 @@
       } catch (e) {}
       await sleep(500);
 
-      // 4. 첨부파일 다운로드 (사용자가 직접 첨부)
+      // 4. 첨부파일 다운로드 (background에서 chrome.downloads API로 다운로드)
       const filesToDownload = [
-        { label: "세무대리인 신분증", url: creds.agentIdCardUrl, filename: "agent-idcard.jpg" },
-        { label: "대표자 신분증", url: creds.clientIdCardUrl, filename: "client-idcard.jpg" },
-        { label: "홈택스수임신청서", url: creds.pdfUrl, filename: "commission-form.pdf" },
+        { label: "세무대리인 신분증", url: creds.agentIdCardUrl, filename: "세무대리인_신분증.jpg" },
+        { label: "대표자 신분증", url: creds.clientIdCardUrl, filename: "대표자_신분증.jpg" },
+        { label: "홈택스수임신청서", url: creds.pdfUrl, filename: "홈택스수임신청서.pdf" },
       ].filter(f => f.url);
 
-      for (const file of filesToDownload) {
+      if (filesToDownload.length > 0) {
         try {
-          const a = document.createElement("a");
-          a.href = file.url;
-          a.download = file.filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          console.log(`SaveTax: ${file.label} 다운로드 완료`);
-          await sleep(500);
+          const result = await chrome.runtime.sendMessage({
+            type: "download-files",
+            files: filesToDownload,
+          });
+          if (result && result.ok) {
+            console.log(`SaveTax: ${result.count}개 파일 다운로드 완료`);
+          } else {
+            console.log("SaveTax: 파일 다운로드 실패 -", result?.error || "알 수 없는 오류");
+          }
         } catch (e) {
-          console.error(`SaveTax: ${file.label} 다운로드 실패:`, e);
+          console.error("SaveTax: 파일 다운로드 실패:", e);
         }
       }
 
