@@ -183,7 +183,15 @@ export function DistributionBoard({
                     <td key={a.id} className={`px-4 py-2 text-center ${d?.isSkipped ? "bg-red-50" : ""}`}>
                       {d ? (
                         d.isSkipped ? (
-                          <span className="text-red-400 text-xs font-bold">PASS</span>
+                          <div className="flex items-center justify-center gap-1.5 group">
+                            <span className="text-red-400 text-xs font-bold">PASS</span>
+                            <button
+                              onClick={() => handleDelete(d.id, "PASS")}
+                              className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1.5 group">
                             <span className="text-gray-800">{d.clientName}</span>
