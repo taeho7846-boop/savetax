@@ -40,10 +40,11 @@ type Client = {
   clientType: string;
   taxTypes: string | null;
   affiliation: string | null;
+  monthlyFee: number | null;
   assignedUser?: { name: string } | null;
 };
 
-type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "affiliation";
+type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "monthlyFee" | "affiliation";
 
 const LABOR_OPTIONS = ["1인사업자", "근로소득", "사업소득", "일용직"];
 const SORT_COLS: { key: SortCol; label: string }[] = [
@@ -51,6 +52,7 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
   { key: "phone",           label: "연락처"       },
   { key: "ceoName",         label: "대표자"       },
   { key: "residentNumber",  label: "주민등록번호" },
+  { key: "monthlyFee",      label: "월 기장료"    },
 ];
 
 export function ClientsTable({ clients, readonly = false, showAssignedUser = false }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean }) {
@@ -59,6 +61,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [affiliationFilter, setAffiliationFilter] = useState<string[]>([]);
+  const [affFilterOpen, setAffFilterOpen] = useState(false);
   const [loginStatuses, setLoginStatuses] = useState<Record<number, LoginStatus>>({});
   const [loginErrors, setLoginErrors] = useState<Record<number, string>>({});
   const [vncOpen, setVncOpen] = useState(false);
@@ -66,6 +70,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const filterRef = useRef<HTMLDivElement>(null);
+  const affFilterRef = useRef<HTMLDivElement>(null);
 
   function toggleCheck(id: number) {
     setCheckedIds((prev) => {
@@ -137,6 +142,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setFilterOpen(false);
       }
+      if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) {
+        setAffFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -158,10 +166,18 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   }
 
   // 필터 적용
+  // 소속 옵션 목록 추출
+  const affiliationOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
+
   let rows = clients;
   if (laborFilter.length > 0) {
     rows = rows.filter((c) =>
       laborFilter.some((f) => c.laborTypes?.includes(f))
+    );
+  }
+  if (affiliationFilter.length > 0) {
+    rows = rows.filter((c) =>
+      affiliationFilter.includes(c.affiliation || "")
     );
   }
 
@@ -169,11 +185,16 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   if (sortCol) {
     const col = sortCol;
     rows = [...rows].sort((a, b) => {
-      const av = a[col] ?? "";
-      const bv = b[col] ?? "";
-      if (!av && bv) return 1;
-      if (av && !bv) return -1;
-      const cmp = av.localeCompare(bv, "ko");
+      const av = a[col];
+      const bv = b[col];
+      if (av == null && bv != null) return 1;
+      if (av != null && bv == null) return -1;
+      if (av == null && bv == null) return 0;
+      if (col === "monthlyFee") {
+        const cmp = (av as number) - (bv as number);
+        return sortDir === "asc" ? cmp : -cmp;
+      }
+      const cmp = String(av).localeCompare(String(bv), "ko");
       return sortDir === "asc" ? cmp : -cmp;
     });
   }
@@ -284,13 +305,48 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                 </th>
               ))}
               <th className="text-center px-4 py-3 text-gray-700 font-medium">
-                <button
-                  onClick={() => handleSort("affiliation")}
-                  className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
-                >
-                  소속
-                  <SortIcon col={"affiliation"} />
-                </button>
+                <div className="relative inline-block" ref={affFilterRef}>
+                  <button
+                    onClick={() => setAffFilterOpen((o) => !o)}
+                    className={`flex items-center gap-1 mx-auto hover:text-[#1a2e4a] ${affiliationFilter.length > 0 ? "text-[#1a2e4a] font-semibold" : ""}`}
+                  >
+                    소속
+                    {affiliationFilter.length > 0 && (
+                      <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                        {affiliationFilter.length}
+                      </span>
+                    )}
+                    <span className="text-gray-400 text-[10px]">▼</span>
+                  </button>
+                  {affFilterOpen && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[140px]">
+                      {affiliationOptions.map((opt) => (
+                        <label
+                          key={opt}
+                          className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-700 whitespace-nowrap"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={affiliationFilter.includes(opt)}
+                            onChange={() => setAffiliationFilter((prev) =>
+                              prev.includes(opt) ? prev.filter((t) => t !== opt) : [...prev, opt]
+                            )}
+                            className="accent-[#1a2e4a]"
+                          />
+                          {opt}
+                        </label>
+                      ))}
+                      {affiliationFilter.length > 0 && (
+                        <button
+                          onClick={() => setAffiliationFilter([])}
+                          className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1 pt-1 border-t border-gray-100"
+                        >
+                          초기화
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </th>
               {!readonly && (
                 <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
@@ -300,7 +356,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <tbody className="divide-y divide-gray-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={readonly ? 8 : 9} className="text-center py-12 text-gray-500">
+                <td colSpan={readonly ? 9 : 10} className="text-center py-12 text-gray-500">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -351,6 +407,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                     <td className="px-4 py-3 text-center text-gray-800">{client.phone || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.ceoName || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.residentNumber || <span className="text-gray-400">-</span>}</td>
+                    <td className="px-4 py-3 text-center text-gray-800">
+                      {client.monthlyFee != null ? client.monthlyFee.toLocaleString() + "원" : <span className="text-gray-400">-</span>}
+                    </td>
                     <td className="px-4 py-3 text-center text-xs">
                       {client.affiliation === "세이브택스" ? (
                         <span className="text-blue-600 font-medium">세이브택스</span>
