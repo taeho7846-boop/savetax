@@ -25,7 +25,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   clients       Client[]
-  tasks         Task[]
+  assignedTasks Task[]   @relation("assignedTasks")
+  createdTasks  Task[]   @relation("createdTasks")
   memos         Memo[]
   schedules     Schedule[]
   settings      Settings?
@@ -96,7 +97,9 @@ model Task {
   clientId    Int?
   client      Client?   @relation(fields: [clientId], references: [id])
   assignedUserId Int?
-  assignedUser   User?  @relation(fields: [assignedUserId], references: [id])
+  assignedUser   User?  @relation("assignedTasks", fields: [assignedUserId], references: [id])
+  createdByUserId Int?
+  createdByUser   User? @relation("createdTasks", fields: [createdByUserId], references: [id])
   title       String
   taskType    String?   // 부가세 | 원천세 | 종합소득세 | 법인세 | 4대보험 | 결산 | 기타
   status      String    @default("scheduled") // scheduled | in_progress | done | hold | delayed

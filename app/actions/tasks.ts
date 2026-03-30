@@ -14,6 +14,7 @@ export async function createTask(formData: FormData) {
     data: {
       clientId: (formData.get("clientId") as string)?.trim() ? parseInt(formData.get("clientId") as string) : null,
       assignedUserId: session.id,
+      createdByUserId: session.id,
       title: formData.get("title") as string,
       taskType: (formData.get("taskType") as string) || null,
       status: (formData.get("status") as string) || "scheduled",
@@ -69,6 +70,7 @@ export async function createTaskInModal(formData: FormData) {
     data: {
       clientId: (formData.get("clientId") as string)?.trim() ? parseInt(formData.get("clientId") as string) : null,
       assignedUserId: session.id,
+      createdByUserId: session.id,
       title: formData.get("title") as string,
       taskType: (formData.get("taskType") as string) || null,
       status: (formData.get("status") as string) || "scheduled",

@@ -26,7 +26,7 @@ export default async function TasksPage({
   const tasks = await prisma.task.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: session.id,
+      createdByUserId: session.id,
       // 탭 필터: 진행중 탭이면 완료 제외, 완료 탭이면 완료만
       ...(isActiveTab
         ? { status: status || { not: "done" } }
