@@ -211,6 +211,14 @@ export function DistributionBoard({
                 })}
               </tr>
             ))}
+            {/* 하단 여백 */}
+            {[0, 1, 2].map(i => (
+              <tr key={`pad-${i}`} className="border-b border-gray-50">
+                {accountants.map(a => (
+                  <td key={a.id} className="px-4 py-2 text-center"><span className="text-gray-200">-</span></td>
+                ))}
+              </tr>
+            ))}
             {maxRows === 0 && (
               <tr>
                 <td colSpan={accountants.length} className="text-center py-12 text-gray-400">
