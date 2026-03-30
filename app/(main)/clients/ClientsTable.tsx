@@ -53,7 +53,7 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
   { key: "residentNumber",  label: "주민등록번호" },
 ];
 
-export function ClientsTable({ clients, readonly = false }: { clients: Client[]; readonly?: boolean }) {
+export function ClientsTable({ clients, readonly = false, showAssignedUser = false }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [laborFilter, setLaborFilter] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -223,7 +223,7 @@ export function ClientsTable({ clients, readonly = false }: { clients: Client[];
                 </th>
               )}
               <th className="text-left px-4 py-3 text-gray-700 font-medium w-40">고객사명</th>
-              {readonly && (
+              {showAssignedUser && (
                 <th className="text-center px-4 py-3 text-gray-700 font-medium">담당자</th>
               )}
 
@@ -333,7 +333,7 @@ export function ClientsTable({ clients, readonly = false }: { clients: Client[];
                         {client.taxTypes ? ` · ${client.taxTypes}` : ""}
                       </div>
                     </td>
-                    {readonly && (
+                    {showAssignedUser && (
                       <td className="px-4 py-3 text-center text-gray-700 text-xs">
                         {client.assignedUser?.name || <span className="text-gray-400">-</span>}
                       </td>

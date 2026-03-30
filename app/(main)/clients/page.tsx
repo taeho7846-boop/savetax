@@ -23,12 +23,25 @@ export default async function ClientsPage({
   const params = await searchParams;
   const q = params.q || "";
   const isReadonly = session.role === "readonly";
+  const isManager = session.role === "accountant" || session.role === "admin";
+
+  // 세무사/관리자: 본인 + 소속 직원의 거래처
+  let assignedFilter: any = { assignedUserId: session.id };
+  if (isReadonly) {
+    assignedFilter = {};
+  } else if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [session.id, ...employees.map(e => e.id)];
+    assignedFilter = { assignedUserId: { in: userIds } };
+  }
 
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      // readonly: 모든 사용자의 거래처 조회, 그 외: 본인 거래처만
-      ...(!isReadonly && { assignedUserId: session.id }),
+      ...assignedFilter,
       OR: [
         { taxTypes: null },
         { NOT: { taxTypes: { contains: "신고대리" } } },
@@ -43,7 +56,7 @@ export default async function ClientsPage({
         },
       }),
     },
-    include: isReadonly ? { assignedUser: { select: { name: true } } } : undefined,
+    include: (isReadonly || isManager) ? { assignedUser: { select: { name: true } } } : undefined,
     orderBy: { name: "asc" },
   });
 
@@ -100,7 +113,7 @@ export default async function ClientsPage({
         </button>
       </form>
 
-      <ClientsTable clients={clients} readonly={isReadonly} />
+      <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser={isReadonly || isManager} />
     </div>
   );
 }
