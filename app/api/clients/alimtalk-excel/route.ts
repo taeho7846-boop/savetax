@@ -9,18 +9,29 @@ export async function GET() {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
+  // 모든 사용자의 거래처에서 대표자명 + 전화번호 조회
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
       contractStatus: "active",
-      assignedUserId: session.id,
+      ceoName: { not: "" },
+      phone: { not: "" },
     },
     select: {
       name: true,
       ceoName: true,
       phone: true,
     },
-    orderBy: { name: "asc" },
+    orderBy: { ceoName: "asc" },
+  });
+
+  // 대표자명 + 전화번호 기준 중복 제거 (같은 대표님이 사업장 여러개인 경우)
+  const seen = new Set<string>();
+  const unique = clients.filter((c) => {
+    const key = `${c.ceoName}|${c.phone}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 
   const wb = new ExcelJS.Workbook();
@@ -28,7 +39,6 @@ export async function GET() {
 
   // 헤더
   ws.columns = [
-    { header: "고객사명", key: "name", width: 25 },
     { header: "대표자명", key: "ceoName", width: 15 },
     { header: "전화번호", key: "phone", width: 18 },
   ];
@@ -43,9 +53,8 @@ export async function GET() {
   });
 
   // 데이터
-  for (const c of clients) {
+  for (const c of unique) {
     ws.addRow({
-      name: c.name,
       ceoName: c.ceoName || "",
       phone: c.phone || "",
     });
