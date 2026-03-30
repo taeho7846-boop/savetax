@@ -135,6 +135,7 @@ export default async function TasksPage({
               <th className="text-left px-4 py-3 text-gray-600 font-medium">업무</th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">유형</th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">담당자</th>
+              <th className="text-left px-4 py-3 text-gray-600 font-medium">생성일</th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">
                 {isActiveTab ? "마감일" : "완료일"}
               </th>
@@ -145,7 +146,7 @@ export default async function TasksPage({
           <tbody className="divide-y divide-gray-50">
             {tasks.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400">
+                <td colSpan={8} className="text-center py-12 text-gray-400">
                   등록된 업무가 없습니다
                 </td>
               </tr>
@@ -185,6 +186,9 @@ export default async function TasksPage({
                       {task.assignedUser?.name || (
                         <span className="text-gray-400">미배정</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {new Date(task.createdAt).toLocaleDateString("ko-KR")}
                     </td>
                     <td className="px-4 py-3">
                       {isActiveTab ? (
