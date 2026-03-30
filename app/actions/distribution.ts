@@ -8,11 +8,16 @@ import { revalidatePath } from "next/cache";
 export async function getDistributionData(clientType: string) {
   await requireAuth();
 
-  const accountants = await prisma.user.findMany({
-    where: { role: "accountant", isActive: true },
+  // 배분 대상 세무사 고정 순서
+  const targetNames = ["김태호", "도희수", "최원석", "이종민"];
+  const allUsers = await prisma.user.findMany({
+    where: { name: { in: targetNames }, isActive: true },
     select: { id: true, name: true },
-    orderBy: { createdAt: "asc" },
   });
+  // targetNames 순서대로 정렬
+  const accountants = targetNames
+    .map(n => allUsers.find(u => u.name === n))
+    .filter((u): u is { id: number; name: string } => !!u);
 
   const distributions = await prisma.distribution.findMany({
     where: { clientType },
@@ -40,11 +45,14 @@ export async function addDistribution(
   const names = clientNames.filter((n) => n.trim());
   if (names.length === 0) return;
 
-  const accountants = await prisma.user.findMany({
-    where: { role: "accountant", isActive: true },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
+  const targetNames = ["김태호", "도희수", "최원석", "이종민"];
+  const allUsers = await prisma.user.findMany({
+    where: { name: { in: targetNames }, isActive: true },
+    select: { id: true, name: true },
   });
+  const accountants = targetNames
+    .map(n => allUsers.find(u => u.name === n))
+    .filter((u): u is { id: number; name: string } => !!u);
 
   if (accountants.length === 0) throw new Error("배정 가능한 세무사가 없습니다");
 
