@@ -179,21 +179,22 @@ export function DistributionBoard({
               <tr key={rowIdx} className="border-b border-gray-50">
                 {accountants.map((a) => {
                   const d = byAccountant[a.id][rowIdx];
-                  const isPass = passSet.has(a.id);
                   return (
-                    <td key={a.id} className={`px-4 py-2 text-center ${isPass ? "bg-red-50/50" : ""}`}>
+                    <td key={a.id} className={`px-4 py-2 text-center ${d?.isSkipped ? "bg-red-50" : ""}`}>
                       {d ? (
-                        <div className="flex items-center justify-center gap-1.5 group">
-                          <span className="text-gray-800">{d.clientName}</span>
-                          <button
-                            onClick={() => handleDelete(d.id, d.clientName)}
-                            className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : isPass ? (
-                        <span className="text-red-300 text-xs font-medium">PASS</span>
+                        d.isSkipped ? (
+                          <span className="text-red-400 text-xs font-bold">PASS</span>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5 group">
+                            <span className="text-gray-800">{d.clientName}</span>
+                            <button
+                              onClick={() => handleDelete(d.id, d.clientName)}
+                              className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )
                       ) : (
                         <span className="text-gray-200">-</span>
                       )}

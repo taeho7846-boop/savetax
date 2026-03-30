@@ -23,7 +23,7 @@ export async function getDistributionData(clientType: string) {
 
   const [distributions, passes] = await Promise.all([
     prisma.distribution.findMany({
-      where: { clientType, isSkipped: false },
+      where: { clientType },
       include: { assignedUser: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     }),
@@ -32,14 +32,13 @@ export async function getDistributionData(clientType: string) {
     }),
   ]);
 
-  // 세무사별 실제 배분 수 (스킵 제외)
+  // 세무사별 실제 배분 수 (PASS 제외)
   const counts: Record<number, number> = {};
   for (const a of accountants) counts[a.id] = 0;
   for (const d of distributions) {
     if (!d.isSkipped && counts[d.assignedUserId] !== undefined) counts[d.assignedUserId]++;
   }
 
-  // PASS 상태
   const passSet = new Set(passes.map(p => p.userId));
 
   return { accountants, distributions, counts, passUserIds: [...passSet] };
@@ -79,7 +78,7 @@ export async function addDistribution(
   const passes = await prisma.distributionPass.findMany({ where: { clientType } });
   const passSet = new Set(passes.map(p => p.userId));
 
-  // 현재 세무사별 실제 배분 수 (isSkipped 제외)
+  // 현재 세무사별 실제 배분 수 (PASS 행 제외)
   const existing = await prisma.distribution.groupBy({
     by: ["assignedUserId"],
     where: { clientType, isSkipped: false },
@@ -107,6 +106,7 @@ export async function addDistribution(
     }
   }
 
+  // 배정 대상에게 거래처 배정
   for (const name of names) {
     await prisma.distribution.create({
       data: {
@@ -116,6 +116,21 @@ export async function addDistribution(
         batchId,
       },
     });
+  }
+
+  // PASS인 사람들은 이번 차례를 영구적으로 잃음 → "PASS" 기록
+  for (const a of accountants) {
+    if (passSet.has(a.id)) {
+      await prisma.distribution.create({
+        data: {
+          clientName: "PASS",
+          clientType,
+          assignedUserId: a.id,
+          isSkipped: true,
+          batchId,
+        },
+      });
+    }
   }
 
   revalidatePath("/distribution");
