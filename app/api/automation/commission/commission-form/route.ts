@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       select: {
         name: true,
         ceoName: true,
+        clientType: true,
         residentNumber: true,
         bizNumber: true,
         phone: true,
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `${client.name}: 대표자명이 없습니다` }, { status: 400 });
   }
 
+  // 법인: 법인명 도장 / 개인: 대표자명 도장
+  const stampName = client.clientType === "corporate" ? client.name : client.ceoName;
+
   const templatePath = path.join(process.cwd(), "public", settings.commissionFormPath.replace(/^\/api\/uploads\//, "/uploads/"));
   const outputDir    = path.join(process.cwd(), "public", "uploads", "idcards");
   const outputName   = commission
@@ -66,6 +70,7 @@ export async function POST(req: NextRequest) {
         client.name,
         client.bizNumber ?? "",
         client.phone ?? "",
+        stampName,
       ],
       { env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" } }
     );

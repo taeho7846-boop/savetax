@@ -1,7 +1,7 @@
 """
 홈택스수임신청서 엑셀 템플릿 → PDF 생성
 Usage: python generate_commission_form.py <template_path> <output_pdf_path>
-       <ceo_name> <resident_number> <client_name> <biz_number> <phone>
+       <ceo_name> <resident_number> <client_name> <biz_number> <phone> [stamp_name]
 
 Linux(VPS): openpyxl + LibreOffice
 Windows: openpyxl + win32com (Excel COM)
@@ -177,6 +177,7 @@ def main():
     client_name     = sys.argv[5]
     biz_number      = sys.argv[6]
     phone           = sys.argv[7]
+    stamp_name      = sys.argv[8] if len(sys.argv) > 8 else ceo_name  # 법인: 법인명, 개인: 대표자명
 
     if not os.path.isfile(template_path):
         print(f"ERROR: 템플릿 파일 없음: {template_path}", file=sys.stderr)
@@ -184,8 +185,8 @@ def main():
 
     # 1. 도장 이미지 생성
     try:
-        stamp_data = create_stamp_png(ceo_name, size_px=300)
-        print(f"도장 생성: {ceo_name}")
+        stamp_data = create_stamp_png(stamp_name, size_px=300)
+        print(f"도장 생성: {stamp_name}")
     except ImportError:
         print("ERROR: Pillow를 설치해주세요 (pip install Pillow)", file=sys.stderr)
         sys.exit(1)
