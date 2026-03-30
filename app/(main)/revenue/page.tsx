@@ -14,6 +14,10 @@ export default async function RevenuePage() {
       isDeleted: false,
       monthlyFee: { not: null },
       firstWithdrawalMonth: { not: null },
+      OR: [
+        { taxTypes: null },
+        { NOT: { taxTypes: { contains: "신고대리" } } },
+      ],
       ...(!isAll && { assignedUserId: session.id }),
     },
     select: {
