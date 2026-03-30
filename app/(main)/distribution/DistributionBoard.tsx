@@ -146,14 +146,14 @@ export function DistributionBoard({
       </div>
 
       {/* 배분 테이블 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex-1">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 flex-1 overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
               {accountants.map((a) => {
                 const isPass = passSet.has(a.id);
                 return (
-                  <th key={a.id} className={`text-center px-4 py-3 ${isPass ? "bg-red-50" : ""}`}>
+                  <th key={a.id} className={`text-center px-4 py-3 ${isPass ? "bg-red-50" : "bg-gray-50"}`}>
                     <div className={`font-medium ${isPass ? "text-red-400 line-through" : "text-gray-700"}`}>{a.name}</div>
                     <div className="text-xs text-gray-400 font-normal mt-0.5">
                       {counts[a.id] || 0}건
