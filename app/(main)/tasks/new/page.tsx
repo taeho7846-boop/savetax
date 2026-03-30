@@ -37,15 +37,14 @@ export default async function NewTaskPage({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                고객사 <span className="text-red-500">*</span>
+                고객사
               </label>
               <select
                 name="clientId"
-                required
                 defaultValue={preselectedClientId}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
               >
-                <option value="">선택하세요</option>
+                <option value="">고객사 없음</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
