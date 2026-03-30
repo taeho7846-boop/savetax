@@ -16,6 +16,7 @@ model User {
   role      String   @default("employee") // owner | admin | accountant | employee | readonly
   bizName1  String?  // 사업체명 1
   bizName2  String?  // 사업체명 2
+  allowedMenus String?  // 허용 메뉴 (콤마 구분, null이면 전체 허용)
   managerId Int?     // 소속 세무사 ID (employee만 해당)
   manager   User?    @relation("ManagerEmployees", fields: [managerId], references: [id])
   employees User[]   @relation("ManagerEmployees")

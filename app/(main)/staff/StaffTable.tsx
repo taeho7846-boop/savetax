@@ -13,8 +13,24 @@ interface Staff {
   managerId: number | null;
   bizName1: string | null;
   bizName2: string | null;
+  allowedMenus: string | null;
   createdAt: Date;
 }
+
+const ALL_MENUS = [
+  { key: "dashboard", label: "대시보드" },
+  { key: "clients", label: "고객사 관리" },
+  { key: "commission", label: "신규수임" },
+  { key: "tax-agency", label: "신고대리" },
+  { key: "withholding", label: "원천세" },
+  { key: "income-tax", label: "종합소득세" },
+  { key: "receivables", label: "채권 관리" },
+  { key: "data-collect", label: "자료수집" },
+  { key: "distribution", label: "세이브택스 배분" },
+  { key: "schedule", label: "스케쥴" },
+  { key: "tasks", label: "업무 일정" },
+  { key: "memos", label: "내부 메모" },
+];
 
 const roleLabels: Record<string, string> = {
   owner: "대표",
@@ -280,54 +296,101 @@ function EditRow({
   onSave: (id: number, fd: FormData) => void;
   onCancel: () => void;
 }) {
+  const currentMenus = staff.allowedMenus ? staff.allowedMenus.split(",") : ALL_MENUS.map(m => m.key);
+  const [checkedMenus, setCheckedMenus] = useState<Set<string>>(new Set(currentMenus));
+
+  function toggleMenu(key: string) {
+    setCheckedMenus(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (checkedMenus.size === ALL_MENUS.length) {
+      setCheckedMenus(new Set());
+    } else {
+      setCheckedMenus(new Set(ALL_MENUS.map(m => m.key)));
+    }
+  }
+
   return (
     <div className="px-4 py-3 bg-blue-50/50 border-b border-gray-100">
-      <form action={(fd) => onSave(staff.id, fd)} className="flex items-end gap-3 flex-wrap">
-        <div>
-          <label className="text-xs text-gray-500">이름</label>
-          <input name="name" defaultValue={staff.name} className="border border-gray-300 rounded px-2 py-1 text-sm w-24 block" />
+      <form action={(fd) => {
+        fd.set("allowedMenus", [...checkedMenus].join(","));
+        onSave(staff.id, fd);
+      }} className="space-y-3">
+        <div className="flex items-end gap-3 flex-wrap">
+          <div>
+            <label className="text-xs text-gray-500">이름</label>
+            <input name="name" defaultValue={staff.name} className="border border-gray-300 rounded px-2 py-1 text-sm w-24 block" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">권한</label>
+            <select name="role" defaultValue={staff.role} className="border border-gray-300 rounded px-2 py-1 text-sm block">
+              <option value="owner">대표</option>
+              <option value="admin">관리자</option>
+              <option value="accountant">세무사</option>
+              <option value="employee">직원</option>
+              <option value="readonly">조회전용</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">소속 세무사</label>
+            <select name="managerId" defaultValue={staff.managerId ?? ""} className="border border-gray-300 rounded px-2 py-1 text-sm block">
+              <option value="">없음</option>
+              {accountants.filter(a => a.isActive && a.id !== staff.id).map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">사업체명 1</label>
+            <input name="bizName1" defaultValue={staff.bizName1 ?? ""} placeholder="예) 세이브택스" className="border border-gray-300 rounded px-2 py-1 text-sm w-32 block" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">사업체명 2</label>
+            <input name="bizName2" defaultValue={staff.bizName2 ?? ""} placeholder="예) 세무회계태호" className="border border-gray-300 rounded px-2 py-1 text-sm w-32 block" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">상태</label>
+            <select name="isActive" defaultValue={String(staff.isActive)} className="border border-gray-300 rounded px-2 py-1 text-sm block">
+              <option value="true">활성</option>
+              <option value="false">비활성</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">새 비밀번호</label>
+            <input name="newPassword" type="password" placeholder="변경 시 입력" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 block" />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="bg-[#1a2e4a] text-white px-3 py-1 rounded text-xs">저장</button>
+            <button type="button" onClick={onCancel} className="border border-gray-300 px-3 py-1 rounded text-xs">취소</button>
+          </div>
         </div>
-        <div>
-          <label className="text-xs text-gray-500">권한</label>
-          <select name="role" defaultValue={staff.role} className="border border-gray-300 rounded px-2 py-1 text-sm block">
-            <option value="owner">대표</option>
-            <option value="admin">관리자</option>
-            <option value="accountant">세무사</option>
-            <option value="employee">직원</option>
-            <option value="readonly">조회전용</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-gray-500">소속 세무사</label>
-          <select name="managerId" defaultValue={staff.managerId ?? ""} className="border border-gray-300 rounded px-2 py-1 text-sm block">
-            <option value="">없음</option>
-            {accountants.filter(a => a.isActive && a.id !== staff.id).map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
+
+        {/* 메뉴 권한 */}
+        <div className="border-t border-gray-200 pt-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-medium text-gray-600">메뉴 권한</span>
+            <button type="button" onClick={toggleAll} className="text-[10px] text-blue-500 hover:underline">
+              {checkedMenus.size === ALL_MENUS.length ? "전체 해제" : "전체 선택"}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {ALL_MENUS.map(m => (
+              <label key={m.key} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={checkedMenus.has(m.key)}
+                  onChange={() => toggleMenu(m.key)}
+                  className="accent-[#1a2e4a] w-3.5 h-3.5"
+                />
+                {m.label}
+              </label>
             ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-gray-500">사업체명 1</label>
-          <input name="bizName1" defaultValue={staff.bizName1 ?? ""} placeholder="예) 세이브택스" className="border border-gray-300 rounded px-2 py-1 text-sm w-32 block" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500">사업체명 2</label>
-          <input name="bizName2" defaultValue={staff.bizName2 ?? ""} placeholder="예) 세무회계태호" className="border border-gray-300 rounded px-2 py-1 text-sm w-32 block" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500">상태</label>
-          <select name="isActive" defaultValue={String(staff.isActive)} className="border border-gray-300 rounded px-2 py-1 text-sm block">
-            <option value="true">활성</option>
-            <option value="false">비활성</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-gray-500">새 비밀번호</label>
-          <input name="newPassword" type="password" placeholder="변경 시 입력" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 block" />
-        </div>
-        <div className="flex gap-2">
-          <button type="submit" className="bg-[#1a2e4a] text-white px-3 py-1 rounded text-xs">저장</button>
-          <button type="button" onClick={onCancel} className="border border-gray-300 px-3 py-1 rounded text-xs">취소</button>
+          </div>
         </div>
       </form>
     </div>

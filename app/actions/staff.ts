@@ -26,6 +26,7 @@ export async function getStaffList() {
       managerId: true,
       bizName1: true,
       bizName2: true,
+      allowedMenus: true,
       createdAt: true,
     },
   });
@@ -72,7 +73,8 @@ export async function updateStaff(id: number, formData: FormData) {
   const managerId = formData.get("managerId") ? parseInt(formData.get("managerId") as string) : null;
   const bizName1 = (formData.get("bizName1") as string) || null;
   const bizName2 = (formData.get("bizName2") as string) || null;
-  const data: Record<string, unknown> = { name, role, isActive, managerId, bizName1, bizName2 };
+  const allowedMenus = (formData.get("allowedMenus") as string) || null;
+  const data: Record<string, unknown> = { name, role, isActive, managerId, bizName1, bizName2, allowedMenus };
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);
   }

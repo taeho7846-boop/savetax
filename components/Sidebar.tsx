@@ -33,7 +33,7 @@ export default function Sidebar({
   user,
   settings,
 }: {
-  user: { name: string; role: string };
+  user: { name: string; role: string; allowedMenus: string | null };
   settings: Settings | null;
 }) {
   const pathname = usePathname();
@@ -76,7 +76,14 @@ export default function Sidebar({
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
-        {menus.map((menu) => {
+        {menus.filter((menu) => {
+          // 관리자/대표는 전체 메뉴, 그 외는 allowedMenus로 필터
+          if (user.role === "owner" || user.role === "admin") return true;
+          if (!user.allowedMenus) return true; // null이면 전체 허용
+          const allowed = user.allowedMenus.split(",");
+          const menuKey = menu.href.replace("/", "");
+          return allowed.includes(menuKey);
+        }).map((menu) => {
           const active = pathname.startsWith(menu.href);
           return (
             <Link

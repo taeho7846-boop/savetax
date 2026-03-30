@@ -8,7 +8,7 @@ export async function getSession() {
 
   const user = await prisma.user.findUnique({
     where: { id: parseInt(userId), isActive: true },
-    select: { id: true, username: true, name: true, role: true },
+    select: { id: true, username: true, name: true, role: true, allowedMenus: true },
   });
 
   return user;
