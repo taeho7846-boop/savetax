@@ -23,14 +23,19 @@ export default async function TasksPage({
   const tasks = await prisma.task.findMany({
     where: {
       isDeleted: false,
-      client: { assignedUserId: session.id },
+      OR: [
+        { client: { assignedUserId: session.id } },
+        { clientId: null },
+      ],
       ...(status && { status }),
       ...(type && { taskType: type }),
       ...(q && {
-        OR: [
-          { title: { contains: q } },
-          { client: { name: { contains: q } } },
-        ],
+        AND: {
+          OR: [
+            { title: { contains: q } },
+            { client: { name: { contains: q } } },
+          ],
+        },
       }),
     },
     include: { client: true, assignedUser: true },
