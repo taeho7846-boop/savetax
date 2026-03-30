@@ -10,15 +10,18 @@ import { TaskCreateButton } from "./TaskCreateModal";
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; type?: string; q?: string }>;
+  searchParams: Promise<{ tab?: string; status?: string; type?: string; q?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
   const params = await searchParams;
+  const tab = params.tab || "active";  // "active" 또는 "done"
   const status = params.status || "";
   const type = params.type || "";
   const q = params.q || "";
+
+  const isActiveTab = tab !== "done";
 
   const tasks = await prisma.task.findMany({
     where: {
@@ -27,7 +30,10 @@ export default async function TasksPage({
         { client: { assignedUserId: session.id } },
         { clientId: null },
       ],
-      ...(status && { status }),
+      // 탭 필터: 진행중 탭이면 완료 제외, 완료 탭이면 완료만
+      ...(isActiveTab
+        ? { status: status || { not: "done" } }
+        : { status: "done" }),
       ...(type && { taskType: type }),
       ...(q && {
         AND: {
@@ -39,7 +45,9 @@ export default async function TasksPage({
       }),
     },
     include: { client: true, assignedUser: true },
-    orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+    orderBy: isActiveTab
+      ? [{ dueDate: "asc" }, { createdAt: "desc" }]
+      : [{ completedAt: "desc" }, { createdAt: "desc" }],
   });
 
   return (
@@ -49,8 +57,33 @@ export default async function TasksPage({
         <TaskCreateButton />
       </div>
 
+      {/* 탭 */}
+      <div className="flex gap-1 mb-5 border-b border-gray-200">
+        <Link
+          href="/tasks?tab=active"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            isActiveTab
+              ? "border-[#1a2e4a] text-[#1a2e4a]"
+              : "border-transparent text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          진행중
+        </Link>
+        <Link
+          href="/tasks?tab=done"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            !isActiveTab
+              ? "border-[#1a2e4a] text-[#1a2e4a]"
+              : "border-transparent text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          완료
+        </Link>
+      </div>
+
       {/* 필터 */}
       <form className="flex gap-3 mb-5">
+        <input type="hidden" name="tab" value={tab} />
         <input
           name="q"
           defaultValue={q}
@@ -58,18 +91,19 @@ export default async function TasksPage({
           autoComplete="off"
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
         />
-        <select
-          name="status"
-          defaultValue={status}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-        >
-          <option value="">전체 상태</option>
-          <option value="scheduled">예정</option>
-          <option value="in_progress">진행중</option>
-          <option value="done">완료</option>
-          <option value="hold">보류</option>
-          <option value="delayed">지연</option>
-        </select>
+        {isActiveTab && (
+          <select
+            name="status"
+            defaultValue={status}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+          >
+            <option value="">전체 상태</option>
+            <option value="scheduled">예정</option>
+            <option value="in_progress">진행중</option>
+            <option value="hold">보류</option>
+            <option value="delayed">지연</option>
+          </select>
+        )}
         <select
           name="type"
           defaultValue={type}
@@ -101,7 +135,9 @@ export default async function TasksPage({
               <th className="text-left px-4 py-3 text-gray-600 font-medium">업무</th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">유형</th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">담당자</th>
-              <th className="text-left px-4 py-3 text-gray-600 font-medium">마감일</th>
+              <th className="text-left px-4 py-3 text-gray-600 font-medium">
+                {isActiveTab ? "마감일" : "완료일"}
+              </th>
               <th className="text-left px-4 py-3 text-gray-600 font-medium">상태</th>
               <th className="text-center px-4 py-3 text-gray-600 font-medium w-16">관리</th>
             </tr>
@@ -151,15 +187,23 @@ export default async function TasksPage({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={
-                          isOverdue ? "text-red-600 font-medium" : "text-gray-600"
-                        }
-                      >
-                        {task.dueDate
-                          ? new Date(task.dueDate).toLocaleDateString("ko-KR")
-                          : "-"}
-                      </span>
+                      {isActiveTab ? (
+                        <span
+                          className={
+                            isOverdue ? "text-red-600 font-medium" : "text-gray-600"
+                          }
+                        >
+                          {task.dueDate
+                            ? new Date(task.dueDate).toLocaleDateString("ko-KR")
+                            : "-"}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">
+                          {task.completedAt
+                            ? new Date(task.completedAt).toLocaleDateString("ko-KR")
+                            : "-"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <TaskStatusSelect taskId={task.id} currentStatus={task.status} />
