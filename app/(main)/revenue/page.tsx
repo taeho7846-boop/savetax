@@ -7,12 +7,14 @@ export default async function RevenuePage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  // 최초출금월 + 기장료가 있는 거래처 (소속 무관)
+  // 본인 거래처만 (관리자/readonly는 전체)
+  const isAll = session.role === "owner" || session.role === "admin" || session.role === "readonly";
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
       monthlyFee: { not: null },
       firstWithdrawalMonth: { not: null },
+      ...(!isAll && { assignedUserId: session.id }),
     },
     select: {
       name: true,
