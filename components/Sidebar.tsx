@@ -14,6 +14,7 @@ const menus = [
   { href: "/income-tax", label: "종합소득세", icon: "📑" },
   { href: "/receivables", label: "채권 관리", icon: "💰" },
   { href: "/data-collect", label: "자료수집", icon: "📥" },
+  { href: "/distribution", label: "세이브택스 배분", icon: "📊" },
   { href: "/schedule", label: "스케쥴", icon: "📅" },
   { href: "/tasks", label: "업무 일정", icon: "🗓️" },
   { href: "/memos", label: "내부 메모", icon: "📝" },
