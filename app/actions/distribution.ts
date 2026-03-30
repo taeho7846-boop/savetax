@@ -189,9 +189,60 @@ export async function addDistribution(
   revalidatePath("/distribution");
 }
 
-// 배분 삭제
-export async function deleteDistribution(id: number) {
+// 배분 삭제 → 관리제외로 이동
+export async function deleteDistribution(id: number, reason?: string) {
+  await requireAuth();
+  const item = await prisma.distribution.findUnique({ where: { id } });
+  if (!item) return;
+
+  if (item.isSkipped) {
+    await prisma.distribution.delete({ where: { id } });
+  } else {
+    await prisma.distribution.update({
+      where: { id },
+      data: {
+        clientType: `excluded_${item.clientType}`,
+        excludeReason: reason || null,
+      },
+    });
+  }
+  revalidatePath("/distribution");
+}
+
+// 관리제외 데이터 조회
+export async function getExcludedData() {
+  await requireAuth();
+
+  const accountants = await getAccountants();
+
+  const distributions = await prisma.distribution.findMany({
+    where: {
+      clientType: { startsWith: "excluded_" },
+    },
+    include: { assignedUser: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return { accountants, distributions };
+}
+
+// 관리제외에서 완전 삭제
+export async function permanentDeleteDistribution(id: number) {
   await requireAuth();
   await prisma.distribution.delete({ where: { id } });
+  revalidatePath("/distribution");
+}
+
+// 관리제외에서 복원
+export async function restoreDistribution(id: number) {
+  await requireAuth();
+  const item = await prisma.distribution.findUnique({ where: { id } });
+  if (!item) return;
+
+  const originalType = item.clientType.replace("excluded_", "");
+  await prisma.distribution.update({
+    where: { id },
+    data: { clientType: originalType },
+  });
   revalidatePath("/distribution");
 }

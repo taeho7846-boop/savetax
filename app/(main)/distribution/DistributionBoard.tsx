@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addDistribution, deleteDistribution, togglePass } from "@/app/actions/distribution";
+import { addDistribution, deleteDistribution, togglePass, permanentDeleteDistribution, restoreDistribution } from "@/app/actions/distribution";
 
 interface Accountant {
   id: number;
@@ -17,6 +17,7 @@ interface Distribution {
   assignedUserId: number;
   assignedUser: { name: string };
   isSkipped: boolean;
+  excludeReason: string | null;
   createdAt: Date;
 }
 
@@ -34,6 +35,7 @@ export function DistributionBoard({
   passUserIds: number[];
 }) {
   const isCorporate = tab === "corporate";
+  const isExcluded = tab === "excluded";
   const [corpInputs, setCorpInputs] = useState<string[]>(["", "", "", "", ""]);
   const [indInputs, setIndInputs] = useState<string[]>(["", "", "", "", ""]);
   const [isPending, startTransition] = useTransition();
@@ -64,9 +66,25 @@ export function DistributionBoard({
   }
 
   function handleDelete(id: number, name: string) {
-    if (!confirm(`'${name}'을(를) 삭제하시겠습니까?`)) return;
+    const reason = prompt(`'${name}' 관리제외 사유를 입력하세요 (선택사항):`, "");
+    if (reason === null) return; // 취소
     startTransition(async () => {
-      await deleteDistribution(id);
+      await deleteDistribution(id, reason || undefined);
+      router.refresh();
+    });
+  }
+
+  function handlePermanentDelete(id: number, name: string) {
+    if (!confirm(`'${name}'을(를) 완전 삭제하시겠습니까?`)) return;
+    startTransition(async () => {
+      await permanentDeleteDistribution(id);
+      router.refresh();
+    });
+  }
+
+  function handleRestore(id: number) {
+    startTransition(async () => {
+      await restoreDistribution(id);
       router.refresh();
     });
   }
@@ -104,17 +122,80 @@ export function DistributionBoard({
         <Link
           href="/distribution?tab=individual"
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            !isCorporate
+            tab === "individual"
               ? "border-[#1a2e4a] text-[#1a2e4a]"
               : "border-transparent text-gray-400 hover:text-gray-600"
           }`}
         >
           개인
         </Link>
+        <Link
+          href="/distribution?tab=excluded"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            isExcluded
+              ? "border-red-500 text-red-500"
+              : "border-transparent text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          관리제외
+        </Link>
       </div>
 
+      {/* 관리제외 탭 */}
+      {isExcluded && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 flex-1 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+              <tr>
+                <th className="text-left px-4 py-3 text-gray-700 font-medium">거래처명</th>
+                <th className="text-center px-4 py-3 text-gray-700 font-medium">구분</th>
+                <th className="text-center px-4 py-3 text-gray-700 font-medium">담당자</th>
+                <th className="text-left px-4 py-3 text-gray-700 font-medium">제외 사유</th>
+                <th className="text-center px-4 py-3 text-gray-700 font-medium w-32">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {distributions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-12 text-gray-400">관리제외 거래처가 없습니다</td>
+                </tr>
+              ) : (
+                distributions.map((d) => (
+                  <tr key={d.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-800">{d.clientName}</td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-500">
+                      {d.clientType.includes("corporate") ? "법인" : "개인"}
+                    </td>
+                    <td className="px-4 py-3 text-center text-gray-700">{d.assignedUser.name}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{d.excludeReason || "-"}</td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleRestore(d.id)}
+                          disabled={isPending}
+                          className="text-xs text-blue-500 hover:underline"
+                        >
+                          복원
+                        </button>
+                        <button
+                          onClick={() => handlePermanentDelete(d.id, d.clientName)}
+                          disabled={isPending}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* 거래처 입력 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 mb-5">
+      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 mb-5">
         <div className="flex items-center gap-3 mb-3">
           <h3 className="text-sm font-medium text-gray-700">
             거래처 추가 ({isCorporate ? "법인" : "개인"})
@@ -154,10 +235,10 @@ export function DistributionBoard({
             />
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* 배분 테이블 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 flex-1 overflow-y-auto">
+      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-gray-100 flex-1 overflow-y-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
@@ -239,7 +320,7 @@ export function DistributionBoard({
             )}
           </tbody>
         </table>
-      </div>
+      </div>}
     </>
   );
 }
