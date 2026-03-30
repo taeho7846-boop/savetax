@@ -28,7 +28,7 @@ export default async function TasksPage({
       isDeleted: false,
       OR: [
         { client: { assignedUserId: session.id } },
-        { clientId: null },
+        { clientId: null, assignedUserId: session.id },
       ],
       // 탭 필터: 진행중 탭이면 완료 제외, 완료 탭이면 완료만
       ...(isActiveTab
