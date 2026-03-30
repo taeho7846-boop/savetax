@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createTask(formData: FormData) {
-  await requireAuth();
+  const session = await requireAuth();
 
   const dueDateStr = formData.get("dueDate") as string;
 
@@ -68,7 +68,7 @@ export async function getCreateTaskData() {
 }
 
 export async function createTaskInModal(formData: FormData) {
-  await requireAuth();
+  const session = await requireAuth();
 
   const dueDateStr = formData.get("dueDate") as string;
 
