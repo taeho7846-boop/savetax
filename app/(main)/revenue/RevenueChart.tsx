@@ -25,12 +25,13 @@ export function RevenueChart({
   clients: ClientData[];
   currentUserId: number;
 }) {
-  // 24개월치 데이터 생성 (현재월 기준 -6 ~ +17)
+  // 2026-01부터 36개월치
   const now = new Date();
   const startYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const months: string[] = [];
-  for (let i = -6; i <= 17; i++) {
-    months.push(addMonths(startYM, i));
+  const fromYM = "2026-01";
+  for (let i = 0; i < 36; i++) {
+    months.push(addMonths(fromYM, i));
   }
 
   // 세이브택스: 무료기간 → 본사 귀속 17개월 → 18개월차부터 본인 귀속
