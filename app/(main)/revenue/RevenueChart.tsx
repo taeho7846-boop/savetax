@@ -115,7 +115,7 @@ export function RevenueChart({
               tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`}
             />
             <Tooltip
-              formatter={(value: number) => `${value.toLocaleString()}원`}
+              formatter={(value: unknown) => `${Number(value).toLocaleString()}원`}
               labelFormatter={(label) => `20${label}`}
             />
             <Legend />
