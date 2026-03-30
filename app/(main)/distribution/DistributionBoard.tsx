@@ -153,8 +153,8 @@ export function DistributionBoard({
               {accountants.map((a) => {
                 const isPass = passSet.has(a.id);
                 return (
-                  <th key={a.id} className="text-center px-4 py-3">
-                    <div className="font-medium text-gray-700">{a.name}</div>
+                  <th key={a.id} className={`text-center px-4 py-3 ${isPass ? "bg-red-50" : ""}`}>
+                    <div className={`font-medium ${isPass ? "text-red-400 line-through" : "text-gray-700"}`}>{a.name}</div>
                     <div className="text-xs text-gray-400 font-normal mt-0.5">
                       {counts[a.id] || 0}건
                     </div>
@@ -163,7 +163,7 @@ export function DistributionBoard({
                       disabled={isPending}
                       className={`mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
                         isPass
-                          ? "bg-red-100 text-red-600 hover:bg-red-200"
+                          ? "bg-red-500 text-white hover:bg-red-600"
                           : "bg-gray-100 text-gray-400 hover:bg-gray-200"
                       }`}
                     >
@@ -179,22 +179,21 @@ export function DistributionBoard({
               <tr key={rowIdx} className="border-b border-gray-50">
                 {accountants.map((a) => {
                   const d = byAccountant[a.id][rowIdx];
+                  const isPass = passSet.has(a.id);
                   return (
-                    <td key={a.id} className="px-4 py-2 text-center">
+                    <td key={a.id} className={`px-4 py-2 text-center ${isPass ? "bg-red-50/50" : ""}`}>
                       {d ? (
-                        d.isSkipped ? (
-                          <span className="text-gray-300">-</span>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1.5 group">
-                            <span className="text-gray-800">{d.clientName}</span>
-                            <button
-                              onClick={() => handleDelete(d.id, d.clientName)}
-                              className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )
+                        <div className="flex items-center justify-center gap-1.5 group">
+                          <span className="text-gray-800">{d.clientName}</span>
+                          <button
+                            onClick={() => handleDelete(d.id, d.clientName)}
+                            className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : isPass ? (
+                        <span className="text-red-300 text-xs font-medium">PASS</span>
                       ) : (
                         <span className="text-gray-200">-</span>
                       )}
