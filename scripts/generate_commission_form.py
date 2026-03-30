@@ -15,9 +15,33 @@ import subprocess
 from pathlib import Path
 
 
+def _load_font(font_size: int):
+    """한글 폰트 로드"""
+    from PIL import ImageFont
+
+    font_paths_linux = [
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/nanum/NanumGothic.ttf",
+    ]
+    font_paths_win = [
+        "C:/Windows/Fonts/malgunbd.ttf",
+        "C:/Windows/Fonts/malgun.ttf",
+        "C:/Windows/Fonts/gulim.ttc",
+        "C:/Windows/Fonts/batang.ttc",
+    ]
+    for fp in font_paths_linux + font_paths_win:
+        try:
+            return ImageFont.truetype(fp, font_size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
+
 def create_stamp_png(name: str, size_px: int = 300) -> bytes:
-    """대표자 이름 원형 도장 PNG 생성"""
-    from PIL import Image, ImageDraw, ImageFont
+    """개인 도장: 원형 테두리 + 이름 세로 배치"""
+    from PIL import Image, ImageDraw
     import io
 
     img = Image.new("RGBA", (size_px, size_px), (255, 255, 255, 0))
@@ -34,30 +58,7 @@ def create_stamp_png(name: str, size_px: int = 300) -> bytes:
     n = len(name)
     inner_h = size_px - margin * 5
     font_size = max(14, int(inner_h / (n + 0.3)))
-
-    font_paths_linux = [
-        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-        "/usr/share/fonts/nanum/NanumGothicBold.ttf",
-        "/usr/share/fonts/nanum/NanumGothic.ttf",
-    ]
-    font_paths_win = [
-        "C:/Windows/Fonts/malgunbd.ttf",
-        "C:/Windows/Fonts/malgun.ttf",
-        "C:/Windows/Fonts/gulim.ttc",
-        "C:/Windows/Fonts/batang.ttc",
-    ]
-    font_paths = font_paths_linux + font_paths_win
-
-    font = None
-    for fp in font_paths:
-        try:
-            font = ImageFont.truetype(fp, font_size)
-            break
-        except Exception:
-            pass
-    if font is None:
-        font = ImageFont.load_default()
+    font = _load_font(font_size)
 
     char_sizes = []
     for char in name:
@@ -70,6 +71,95 @@ def create_stamp_png(name: str, size_px: int = 300) -> bytes:
         x = (size_px - cw) // 2
         draw.text((x, y), char, fill=(180, 0, 0), font=font)
         y += ch
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def create_corporate_stamp_png(corp_name: str, size_px: int = 300) -> bytes:
+    """법인 도장: 원형 테두리 + 법인명 원형 배치 + 가운데 代表理事"""
+    from PIL import Image, ImageDraw, ImageFont
+    import io
+    import math
+
+    img = Image.new("RGBA", (size_px, size_px), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+    center = size_px // 2
+    color = (180, 0, 0)
+
+    # 바깥 원 테두리
+    margin = size_px // 15
+    line_w = round(15 * size_px / 300)
+    draw.ellipse(
+        [margin, margin, size_px - margin, size_px - margin],
+        outline=color,
+        width=line_w,
+    )
+
+    # 안쪽 원 (代表理事 영역 구분선)
+    inner_r = int(size_px * 0.25)
+    draw.ellipse(
+        [center - inner_r, center - inner_r, center + inner_r, center + inner_r],
+        outline=color,
+        width=max(2, line_w // 2),
+    )
+
+    # --- 가운데: 代表理事 (2x2 배치) ---
+    center_chars = "代表理事"
+    center_font_size = int(inner_r * 0.65)
+    center_font = _load_font(center_font_size)
+
+    # 글자 크기 측정
+    bbox0 = draw.textbbox((0, 0), center_chars[0], font=center_font)
+    cw = bbox0[2] - bbox0[0]
+    ch = bbox0[3] - bbox0[1]
+    gap = int(center_font_size * 0.05)
+
+    # 2x2 그리드: 代表 / 理事
+    grid_w = cw * 2 + gap
+    grid_h = ch * 2 + gap
+    base_x = center - grid_w // 2
+    base_y = center - grid_h // 2
+
+    for i, char in enumerate(center_chars):
+        row, col = divmod(i, 2)
+        x = base_x + col * (cw + gap)
+        y = base_y + row * (ch + gap)
+        draw.text((x, y), char, fill=color, font=center_font)
+
+    # --- 바깥 원형: 법인명 글자 배치 ---
+    text_r = int(size_px * 0.35)  # 글자가 놓일 원의 반지름
+    n = len(corp_name)
+    outer_font_size = max(14, int(size_px * 0.12))
+    outer_font = _load_font(outer_font_size)
+
+    # 12시 방향(위)부터 시계방향으로 균등 배치
+    start_angle = -math.pi / 2  # 12시 = -90도
+    for i, char in enumerate(corp_name):
+        angle = start_angle + (2 * math.pi * i / n)
+        cx = center + int(text_r * math.cos(angle))
+        cy = center + int(text_r * math.sin(angle))
+
+        # 글자를 개별 이미지로 그려서 회전 후 합성
+        bbox = draw.textbbox((0, 0), char, font=outer_font)
+        cw, ch = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        char_img_size = max(cw, ch) * 3
+        char_img = Image.new("RGBA", (char_img_size, char_img_size), (255, 255, 255, 0))
+        char_draw = ImageDraw.Draw(char_img)
+        char_draw.text(
+            ((char_img_size - cw) // 2, (char_img_size - ch) // 2),
+            char, fill=color, font=outer_font
+        )
+
+        # 회전: 글자 밑부분이 원 중심을 향하도록
+        rotate_deg = -math.degrees(angle) - 90
+        char_img = char_img.rotate(rotate_deg, resample=Image.BICUBIC, expand=False)
+
+        # 합성
+        paste_x = cx - char_img_size // 2
+        paste_y = cy - char_img_size // 2
+        img.paste(char_img, (paste_x, paste_y), char_img)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -178,15 +268,20 @@ def main():
     biz_number      = sys.argv[6]
     phone           = sys.argv[7]
     stamp_name      = sys.argv[8] if len(sys.argv) > 8 else ceo_name  # 법인: 법인명, 개인: 대표자명
+    stamp_type      = sys.argv[9] if len(sys.argv) > 9 else "individual"  # individual or corporate
 
     if not os.path.isfile(template_path):
         print(f"ERROR: 템플릿 파일 없음: {template_path}", file=sys.stderr)
         sys.exit(1)
 
-    # 1. 도장 이미지 생성
+    # 1. 도장 이미지 생성 (법인: 원형 법인도장, 개인: 이름 도장)
     try:
-        stamp_data = create_stamp_png(stamp_name, size_px=300)
-        print(f"도장 생성: {stamp_name}")
+        if stamp_type == "corporate":
+            stamp_data = create_corporate_stamp_png(stamp_name, size_px=300)
+            print(f"법인 도장 생성: {stamp_name}")
+        else:
+            stamp_data = create_stamp_png(stamp_name, size_px=300)
+            print(f"개인 도장 생성: {stamp_name}")
     except ImportError:
         print("ERROR: Pillow를 설치해주세요 (pip install Pillow)", file=sys.stderr)
         sys.exit(1)

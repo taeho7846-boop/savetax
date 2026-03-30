@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
         client.bizNumber ?? "",
         client.phone ?? "",
         stampName,
+        client.clientType === "corporate" ? "corporate" : "individual",
       ],
       { env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" } }
     );
