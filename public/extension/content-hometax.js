@@ -398,27 +398,25 @@
       } catch (e) {}
       await sleep(500);
 
-      // 4. 첨부파일 자동 업로드 (Debugger Protocol로 파일 다이얼로그 가로채기)
-      const filesToUpload = [
+      // 4. 첨부파일 다운로드 (사용자가 직접 첨부)
+      const filesToDownload = [
         { label: "세무대리인 신분증", url: creds.agentIdCardUrl, filename: "agent-idcard.jpg" },
         { label: "대표자 신분증", url: creds.clientIdCardUrl, filename: "client-idcard.jpg" },
         { label: "홈택스수임신청서", url: creds.pdfUrl, filename: "commission-form.pdf" },
       ].filter(f => f.url);
 
-      if (filesToUpload.length > 0) {
-        console.log(`SaveTax: ${filesToUpload.length}개 파일 업로드 시작...`);
+      for (const file of filesToDownload) {
         try {
-          const result = await chrome.runtime.sendMessage({
-            type: "upload-files",
-            files: filesToUpload,
-          });
-          if (result && result.ok) {
-            console.log(`SaveTax: ${result.count}개 파일 업로드 완료`);
-          } else {
-            console.log("SaveTax: 파일 업로드 실패 -", result?.error || "알 수 없는 오류");
-          }
+          const a = document.createElement("a");
+          a.href = file.url;
+          a.download = file.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          console.log(`SaveTax: ${file.label} 다운로드 완료`);
+          await sleep(500);
         } catch (e) {
-          console.error("SaveTax: 파일 업로드 실패:", e);
+          console.error(`SaveTax: ${file.label} 다운로드 실패:`, e);
         }
       }
 
