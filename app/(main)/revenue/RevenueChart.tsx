@@ -7,6 +7,7 @@ interface ClientData {
   monthlyFee: number | null;
   freeMonths: number | null;
   firstWithdrawalMonth: string | null;
+  affiliation: string | null;
   assignedUserId: number | null;
   assignedUser: { name: string } | null;
 }
@@ -32,8 +33,8 @@ export function RevenueChart({
     months.push(addMonths(startYM, i));
   }
 
-  // 본사 귀속 기간: 최초출금월부터 17개월 (무료기간 포함하여 총 17개월 본사)
-  // 본인 귀속: 18개월차부터
+  // 세이브택스: 무료기간 → 본사 귀속 17개월 → 18개월차부터 본인 귀속
+  // 세무회계태호 등 기타: 최초출금월부터 바로 본인 귀속
   const chartData = months.map((ym) => {
     let hqRevenue = 0;   // 본사 귀속
     let myRevenue = 0;   // 본인 귀속
@@ -43,6 +44,7 @@ export function RevenueChart({
 
       const fee = c.monthlyFee;
       const freeM = c.freeMonths ?? 0;
+      const isSavetax = c.affiliation === "세이브택스";
 
       // 수임 시작월 = 최초출금월에서 무료기간만큼 앞
       const startMonth = addMonths(c.firstWithdrawalMonth, -freeM);
@@ -58,11 +60,14 @@ export function RevenueChart({
       if (monthIdx < freeM) {
         // 무료 기간 — 매출 없음
         continue;
+      } else if (!isSavetax) {
+        // 세이브택스 외(세무회계태호 등): 바로 본인 귀속
+        myRevenue += fee;
       } else if (monthIdx < 17) {
-        // 유료 + 본사 귀속 (무료 후 ~ 17개월차 미만)
+        // 세이브택스: 유료 + 본사 귀속
         hqRevenue += fee;
       } else {
-        // 18개월차부터 본인 귀속
+        // 세이브택스: 18개월차부터 본인 귀속
         myRevenue += fee;
       }
     }

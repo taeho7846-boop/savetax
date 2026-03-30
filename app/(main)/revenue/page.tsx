@@ -7,11 +7,10 @@ export default async function RevenuePage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  // 세이브택스 소속 거래처 중 최초출금월 + 기장료가 있는 거래처
+  // 최초출금월 + 기장료가 있는 거래처 (소속 무관)
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      affiliation: "세이브택스",
       monthlyFee: { not: null },
       firstWithdrawalMonth: { not: null },
     },
@@ -20,6 +19,7 @@ export default async function RevenuePage() {
       monthlyFee: true,
       freeMonths: true,
       firstWithdrawalMonth: true,
+      affiliation: true,
       assignedUserId: true,
       assignedUser: { select: { name: true } },
     },
