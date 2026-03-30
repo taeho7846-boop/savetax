@@ -20,7 +20,8 @@ export default async function DashboardPage() {
   const prevYM = toYM(new Date(today.getFullYear(), today.getMonth() - 1, 1));
   const nextYM = toYM(new Date(today.getFullYear(), today.getMonth() + 1, 1));
 
-  const myClient = { assignedUserId: session.id };
+  const isReadonly = session.role === "readonly";
+  const myClient = isReadonly ? {} : { assignedUserId: session.id };
 
   const cmsWhere = (ym: string) => ({
     isDeleted: false,
