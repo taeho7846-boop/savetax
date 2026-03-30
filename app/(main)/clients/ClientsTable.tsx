@@ -40,6 +40,7 @@ type Client = {
   clientType: string;
   taxTypes: string | null;
   affiliation: string | null;
+  assignedUser?: { name: string } | null;
 };
 
 type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "affiliation";
@@ -52,7 +53,7 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
   { key: "residentNumber",  label: "주민등록번호" },
 ];
 
-export function ClientsTable({ clients }: { clients: Client[] }) {
+export function ClientsTable({ clients, readonly = false }: { clients: Client[]; readonly?: boolean }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [laborFilter, setLaborFilter] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -188,7 +189,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
         <ClientEditModal clientId={selectedId} onClose={() => setSelectedId(null)} />
       )}
 
-      {checkedIds.size > 0 && (
+      {!readonly && checkedIds.size > 0 && (
         <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg">
           <span className="text-sm text-red-700 font-medium">{checkedIds.size}개 선택됨</span>
           <button
@@ -211,15 +212,20 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
-              <th className="px-3 py-3 w-10">
-                <input
-                  type="checkbox"
-                  checked={rows.length > 0 && checkedIds.size === rows.length}
-                  onChange={toggleAll}
-                  className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
-                />
-              </th>
+              {!readonly && (
+                <th className="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={rows.length > 0 && checkedIds.size === rows.length}
+                    onChange={toggleAll}
+                    className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                  />
+                </th>
+              )}
               <th className="text-left px-4 py-3 text-gray-700 font-medium w-40">고객사명</th>
+              {readonly && (
+                <th className="text-center px-4 py-3 text-gray-700 font-medium">담당자</th>
+              )}
 
               {/* 인건비 필터 */}
               <th className="text-center px-4 py-3 text-gray-700 font-medium">
@@ -286,13 +292,15 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                   <SortIcon col={"affiliation"} />
                 </button>
               </th>
-              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
+              {!readonly && (
+                <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-12 text-gray-500">
+                <td colSpan={readonly ? 8 : 9} className="text-center py-12 text-gray-500">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -305,17 +313,19 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                 return (
                   <tr
                     key={client.id}
-                    className={`hover:bg-blue-50 transition-colors cursor-pointer ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}
-                    onClick={() => setSelectedId(client.id)}
+                    className={`hover:bg-blue-50 transition-colors ${readonly ? "" : "cursor-pointer"} ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}
+                    onClick={() => !readonly && setSelectedId(client.id)}
                   >
-                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={checkedIds.has(client.id)}
-                        onChange={() => toggleCheck(client.id)}
-                        className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
-                      />
-                    </td>
+                    {!readonly && (
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={checkedIds.has(client.id)}
+                          onChange={() => toggleCheck(client.id)}
+                          className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-left">
                       <div className="text-[#1a2e4a] font-medium">{client.name}</div>
                       <div className="text-xs text-gray-500 mt-0.5">
@@ -323,6 +333,11 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                         {client.taxTypes ? ` · ${client.taxTypes}` : ""}
                       </div>
                     </td>
+                    {readonly && (
+                      <td className="px-4 py-3 text-center text-gray-700 text-xs">
+                        {client.assignedUser?.name || <span className="text-gray-400">-</span>}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-center">
                       {laborList.length === 0 ? (
                         <span className="text-gray-300">-</span>
@@ -345,6 +360,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
+                    {!readonly && (
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const status = loginStatuses[client.id] ?? "idle";
@@ -395,6 +411,7 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                         );
                       })()}
                     </td>
+                    )}
                   </tr>
                 );
               })

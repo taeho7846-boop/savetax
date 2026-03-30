@@ -22,22 +22,28 @@ export default async function ClientsPage({
 
   const params = await searchParams;
   const q = params.q || "";
+  const isReadonly = session.role === "readonly";
+
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: session.id,
+      // readonly: 모든 사용자의 거래처 조회, 그 외: 본인 거래처만
+      ...(!isReadonly && { assignedUserId: session.id }),
       OR: [
         { taxTypes: null },
         { NOT: { taxTypes: { contains: "신고대리" } } },
       ],
       ...(q && {
-        OR: [
-          { name: { contains: q } },
-          { ceoName: { contains: q } },
-          { bizNumber: { contains: q } },
-        ],
+        AND: {
+          OR: [
+            { name: { contains: q } },
+            { ceoName: { contains: q } },
+            { bizNumber: { contains: q } },
+          ],
+        },
       }),
     },
+    include: isReadonly ? { assignedUser: { select: { name: true } } } : undefined,
     orderBy: { name: "asc" },
   });
 
@@ -67,9 +73,13 @@ export default async function ClientsPage({
           >
             알림톡
           </a>
-          <BulkUpdateButton />
-          <BulkUploadButton />
-          <ClientCreateButton />
+          {!isReadonly && (
+            <>
+              <BulkUpdateButton />
+              <BulkUploadButton />
+              <ClientCreateButton />
+            </>
+          )}
         </div>
       </div>
 
@@ -90,7 +100,7 @@ export default async function ClientsPage({
         </button>
       </form>
 
-      <ClientsTable clients={clients} />
+      <ClientsTable clients={clients} readonly={isReadonly} />
     </div>
   );
 }
