@@ -61,20 +61,19 @@ export async function addDistribution(
     if (counts[e.assignedUserId] !== undefined) counts[e.assignedUserId] = e._count;
   }
 
-  // 라운드 로빈: 가장 적은 사람부터 배정
+  // 가장 적은 사람에게 세트로 몰아서 배정
   const batchId = `${Date.now()}`;
 
-  for (const name of names) {
-    // 가장 적은 수를 가진 세무사 찾기 (동점이면 순서 유지)
-    let minCount = Infinity;
-    let minId = accountants[0].id;
-    for (const a of accountants) {
-      if (counts[a.id] < minCount) {
-        minCount = counts[a.id];
-        minId = a.id;
-      }
+  let minCount = Infinity;
+  let minId = accountants[0].id;
+  for (const a of accountants) {
+    if (counts[a.id] < minCount) {
+      minCount = counts[a.id];
+      minId = a.id;
     }
+  }
 
+  for (const name of names) {
     await prisma.distribution.create({
       data: {
         clientName: name.trim(),
@@ -83,8 +82,6 @@ export async function addDistribution(
         batchId,
       },
     });
-
-    counts[minId]++;
   }
 
   revalidatePath("/distribution");
