@@ -8,7 +8,7 @@ export default async function RevenuePage() {
   if (!session) redirect("/login");
 
   // 본인 거래처만 (관리자/readonly는 전체)
-  const isAll = session.role === "owner" || session.role === "admin" || session.role === "readonly";
+  const isAll = session.role === "readonly";
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
