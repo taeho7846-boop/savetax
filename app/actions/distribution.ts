@@ -23,7 +23,7 @@ export async function getDistributionData(clientType: string) {
 
   const [distributions, passes] = await Promise.all([
     prisma.distribution.findMany({
-      where: { clientType },
+      where: { clientType, isSkipped: false },
       include: { assignedUser: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     }),
@@ -79,32 +79,20 @@ export async function addDistribution(
   const passes = await prisma.distributionPass.findMany({ where: { clientType } });
   const passSet = new Set(passes.map(p => p.userId));
 
-  // 현재 세무사별 총 행 수 (스킵 포함) — 라운드 로빈 순서 결정용
+  // 현재 세무사별 실제 배분 수 (isSkipped 제외)
   const existing = await prisma.distribution.groupBy({
-    by: ["assignedUserId"],
-    where: { clientType },
-    _count: true,
-  });
-
-  const totalRows: Record<number, number> = {};
-  for (const a of accountants) totalRows[a.id] = 0;
-  for (const e of existing) {
-    if (totalRows[e.assignedUserId] !== undefined) totalRows[e.assignedUserId] = e._count;
-  }
-
-  // 실제 배분 수 (스킵 제외)
-  const realExisting = await prisma.distribution.groupBy({
     by: ["assignedUserId"],
     where: { clientType, isSkipped: false },
     _count: true,
   });
-  const realCounts: Record<number, number> = {};
-  for (const a of accountants) realCounts[a.id] = 0;
-  for (const e of realExisting) {
-    if (realCounts[e.assignedUserId] !== undefined) realCounts[e.assignedUserId] = e._count;
+
+  const counts: Record<number, number> = {};
+  for (const a of accountants) counts[a.id] = 0;
+  for (const e of existing) {
+    if (counts[e.assignedUserId] !== undefined) counts[e.assignedUserId] = e._count;
   }
 
-  // 가장 실제 배분이 적은 사람 찾기 (PASS인 사람 제외)
+  // PASS인 사람 제외하고 가장 적은 사람에게 배정
   const batchId = `${Date.now()}`;
   const activeAccountants = accountants.filter(a => !passSet.has(a.id));
 
@@ -113,13 +101,12 @@ export async function addDistribution(
   let minCount = Infinity;
   let minId = activeAccountants[0].id;
   for (const a of activeAccountants) {
-    if (realCounts[a.id] < minCount) {
-      minCount = realCounts[a.id];
+    if (counts[a.id] < minCount) {
+      minCount = counts[a.id];
       minId = a.id;
     }
   }
 
-  // 배정 대상에게 거래처 몰아서 배정
   for (const name of names) {
     await prisma.distribution.create({
       data: {
@@ -129,21 +116,6 @@ export async function addDistribution(
         batchId,
       },
     });
-  }
-
-  // PASS인 사람들에게 "-" 행 추가 (같은 라운드에 스킵 표시)
-  for (const a of accountants) {
-    if (passSet.has(a.id)) {
-      await prisma.distribution.create({
-        data: {
-          clientName: "-",
-          clientType,
-          assignedUserId: a.id,
-          isSkipped: true,
-          batchId,
-        },
-      });
-    }
   }
 
   revalidatePath("/distribution");
