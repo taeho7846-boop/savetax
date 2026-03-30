@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { DistributionTabs } from "./DistributionTabs";
+import { getDistributionData } from "@/app/actions/distribution";
+import { DistributionBoard } from "./DistributionBoard";
 
 export default async function DistributionPage({
   searchParams,
@@ -13,10 +14,17 @@ export default async function DistributionPage({
   const params = await searchParams;
   const tab = params.tab || "corporate";
 
+  const data = await getDistributionData(tab);
+
   return (
     <div className="flex flex-col h-full">
       <h1 className="text-xl font-bold text-gray-800 mb-6">세이브택스 배분</h1>
-      <DistributionTabs tab={tab} />
+      <DistributionBoard
+        tab={tab}
+        accountants={data.accountants}
+        distributions={data.distributions}
+        counts={data.counts}
+      />
     </div>
   );
 }

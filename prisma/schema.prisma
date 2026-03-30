@@ -24,11 +24,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clients   Client[]
-  tasks     Task[]
-  memos     Memo[]
-  schedules Schedule[]
-  settings  Settings?
+  clients       Client[]
+  tasks         Task[]
+  memos         Memo[]
+  schedules     Schedule[]
+  settings      Settings?
+  distributions Distribution[] @relation("distributions")
 }
 
 // 고객사
@@ -280,4 +281,15 @@ model Memo {
   memoType  String   @default("general") // general | handover | caution
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// 세이브택스 배분
+model Distribution {
+  id             Int      @id @default(autoincrement())
+  clientName     String   // 거래처명
+  clientType     String   // corporate | individual
+  assignedUserId Int      // 배정된 세무사
+  assignedUser   User     @relation("distributions", fields: [assignedUserId], references: [id])
+  batchId        String?  // 세트로 들어온 경우 같은 batchId
+  createdAt      DateTime @default(now())
 }
