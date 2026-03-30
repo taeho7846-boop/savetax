@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getClientById, updateClientInModal, deleteClient } from "@/app/actions/clients";
 import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
@@ -15,6 +15,7 @@ export function ClientEditModal({
   onClose: () => void;
 }) {
   const [data, setData] = useState<ClientData | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,7 +44,30 @@ export function ClientEditModal({
       <div className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-xl flex flex-col">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">고객사 수정</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-gray-900">고객사 수정</h2>
+            {data?.client && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const form = document.querySelector<HTMLFormElement>('[data-modal-form]');
+                    form?.requestSubmit();
+                  }}
+                  className="bg-[#1a2e4a] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#243d61] transition-colors"
+                >
+                  저장
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="border border-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+              </>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             {data?.client && (
               <form
@@ -61,12 +85,6 @@ export function ClientEditModal({
                 </button>
               </form>
             )}
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-            >
-              ×
-            </button>
           </div>
         </div>
 
@@ -86,6 +104,7 @@ export function ClientEditModal({
               currentUserRole={data.currentUserRole}
               affiliationOptions={data.affiliationOptions}
               onSuccess={handleSuccess}
+              hideButtons
             />
           )}
         </div>

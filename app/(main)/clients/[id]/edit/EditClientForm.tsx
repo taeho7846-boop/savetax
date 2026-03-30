@@ -36,7 +36,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-export function EditClientForm({ action, client, users, currentTaxTypes, currentLaborTypes, currentUserRole, affiliationOptions, onSuccess }: Props) {
+export function EditClientForm({ action, client, users, currentTaxTypes, currentLaborTypes, currentUserRole, affiliationOptions, onSuccess, hideButtons = false }: Props & { hideButtons?: boolean }) {
   const submitRef = useRef<HTMLButtonElement>(null);
   const [, startTransition] = useTransition();
 
@@ -63,6 +63,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
 
   return (
     <form
+      data-modal-form=""
       action={onSuccess ? undefined : action}
       onSubmit={onSuccess ? handleSubmit : undefined}
       className="space-y-5"
@@ -292,21 +293,24 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         />
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <button
-          type="submit"
-          className="bg-[#1a2e4a] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
-          ref={submitRef}
-        >
-          저장
-        </button>
-        <Link
-          href="/clients"
-          className="border border-gray-300 text-gray-700 text-sm px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          취소
-        </Link>
-      </div>
+      {/* 모달에서는 숨기고 헤더에 표시 */}
+      <button type="submit" ref={submitRef} className={hideButtons ? "hidden" : "hidden"} />
+      {!hideButtons && (
+        <div className="flex gap-3 pt-2">
+          <button
+            type="submit"
+            className="bg-[#1a2e4a] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+          >
+            저장
+          </button>
+          <Link
+            href="/clients"
+            className="border border-gray-300 text-gray-700 text-sm px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            취소
+          </Link>
+        </div>
+      )}
     </form>
   );
 }
