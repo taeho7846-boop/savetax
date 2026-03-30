@@ -78,55 +78,90 @@ export async function addDistribution(
   const passes = await prisma.distributionPass.findMany({ where: { clientType } });
   const passSet = new Set(passes.map(p => p.userId));
 
-  // 현재 세무사별 실제 배분 수 (PASS 행 제외)
-  const existing = await prisma.distribution.groupBy({
-    by: ["assignedUserId"],
-    where: { clientType, isSkipped: false },
-    _count: true,
+  // 현재 세무사별 총 행 수 (PASS 포함) → 라운드 로빈 순서 결정
+  const allExisting = await prisma.distribution.findMany({
+    where: { clientType },
+    select: { assignedUserId: true },
   });
 
-  const counts: Record<number, number> = {};
-  for (const a of accountants) counts[a.id] = 0;
-  for (const e of existing) {
-    if (counts[e.assignedUserId] !== undefined) counts[e.assignedUserId] = e._count;
+  const totalRows: Record<number, number> = {};
+  for (const a of accountants) totalRows[a.id] = 0;
+  for (const e of allExisting) {
+    if (totalRows[e.assignedUserId] !== undefined) totalRows[e.assignedUserId]++;
   }
 
-  // PASS인 사람 제외하고 가장 적은 사람에게 배정
+  // 다음 차례 찾기: 총 행 수가 가장 적은 사람
   const batchId = `${Date.now()}`;
-  const activeAccountants = accountants.filter(a => !passSet.has(a.id));
 
-  if (activeAccountants.length === 0) throw new Error("모든 세무사가 PASS 상태입니다");
-
-  let minCount = Infinity;
-  let minId = activeAccountants[0].id;
-  for (const a of activeAccountants) {
-    if (counts[a.id] < minCount) {
-      minCount = counts[a.id];
-      minId = a.id;
-    }
+  // 차례인 사람 찾기
+  let minRows = Infinity;
+  for (const a of accountants) {
+    if (totalRows[a.id] < minRows) minRows = totalRows[a.id];
   }
+  const nextPerson = accountants.find(a => totalRows[a.id] === minRows);
+  if (!nextPerson) throw new Error("배정 대상을 찾을 수 없습니다");
 
-  // 배정 대상에게 거래처 배정
-  for (const name of names) {
+  // 차례인 사람이 PASS ON이면 → PASS 기록하고, 다음 사람에게 배정
+  if (passSet.has(nextPerson.id)) {
+    // PASS 기록
     await prisma.distribution.create({
       data: {
-        clientName: name.trim(),
+        clientName: "PASS",
         clientType,
-        assignedUserId: minId,
+        assignedUserId: nextPerson.id,
+        isSkipped: true,
         batchId,
       },
     });
-  }
+    totalRows[nextPerson.id]++;
 
-  // PASS인 사람들은 이번 차례를 영구적으로 잃음 → "PASS" 기록
-  for (const a of accountants) {
-    if (passSet.has(a.id)) {
+    // 다시 다음 차례 찾기 (PASS인 사람 연속 건너뛰기)
+    let found = false;
+    for (let i = 0; i < accountants.length; i++) {
+      let newMin = Infinity;
+      for (const a of accountants) {
+        if (totalRows[a.id] < newMin) newMin = totalRows[a.id];
+      }
+      const candidate = accountants.find(a => totalRows[a.id] === newMin);
+      if (!candidate) break;
+
+      if (passSet.has(candidate.id)) {
+        await prisma.distribution.create({
+          data: {
+            clientName: "PASS",
+            clientType,
+            assignedUserId: candidate.id,
+            isSkipped: true,
+            batchId,
+          },
+        });
+        totalRows[candidate.id]++;
+      } else {
+        // 이 사람에게 배정
+        for (const name of names) {
+          await prisma.distribution.create({
+            data: {
+              clientName: name.trim(),
+              clientType,
+              assignedUserId: candidate.id,
+              batchId,
+            },
+          });
+        }
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) throw new Error("모든 세무사가 PASS 상태입니다");
+  } else {
+    // 차례인 사람에게 바로 배정
+    for (const name of names) {
       await prisma.distribution.create({
         data: {
-          clientName: "PASS",
+          clientName: name.trim(),
           clientType,
-          assignedUserId: a.id,
-          isSkipped: true,
+          assignedUserId: nextPerson.id,
           batchId,
         },
       });
