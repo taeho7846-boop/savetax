@@ -37,26 +37,27 @@ export async function GET() {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("알림톡 발송 목록");
 
-  // 헤더
+  // 헤더 (1행)
   ws.columns = [
-    { header: "대표자명", key: "ceoName", width: 15 },
-    { header: "전화번호", key: "phone", width: 18 },
+    { header: "휴대폰번호", key: "phone", width: 18 },
+    { header: "이름", key: "name", width: 12 },
+    { header: "[*1*]", key: "v1", width: 10 },
+    { header: "[*2*]", key: "v2", width: 10 },
+    { header: "[*3*]", key: "v3", width: 10 },
+    { header: "[*4*]", key: "v4", width: 25 },
+    { header: "수신거부", key: "reject", width: 10 },
   ];
 
-  // 헤더 스타일
-  ws.getRow(1).eachCell((cell) => {
-    cell.font = { bold: true };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
-    cell.border = {
-      bottom: { style: "thin", color: { argb: "FF94A3B8" } },
-    };
-  });
-
-  // 데이터
+  // 데이터 (2행부터)
   for (const c of unique) {
     ws.addRow({
-      ceoName: c.ceoName || "",
       phone: c.phone || "",
+      name: c.ceoName || "",
+      v1: "대표님",
+      v2: "",
+      v3: "",
+      v4: "세무법인 세이브택스 논현지점",
+      reject: "N",
     });
   }
 
