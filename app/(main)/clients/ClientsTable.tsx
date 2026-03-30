@@ -210,16 +210,23 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         <ClientEditModal clientId={selectedId} onClose={() => setSelectedId(null)} />
       )}
 
-      {!readonly && checkedIds.size > 0 && (
-        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg">
-          <span className="text-sm text-red-700 font-medium">{checkedIds.size}개 선택됨</span>
-          <button
-            onClick={handleBulkDelete}
-            disabled={isPending}
-            className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
-          >
-            {isPending ? "삭제 중..." : "일괄 삭제"}
-          </button>
+      {checkedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+          <span className="text-sm text-blue-700 font-medium">{checkedIds.size}개 선택</span>
+          <span className="text-sm text-blue-600">
+            월 기장료 합계: <strong>{rows.filter(c => checkedIds.has(c.id)).reduce((sum, c) => sum + (c.monthlyFee || 0), 0).toLocaleString()}원</strong>
+          </span>
+          {!readonly && (
+            <>
+              <button
+                onClick={handleBulkDelete}
+                disabled={isPending}
+                className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {isPending ? "삭제 중..." : "일괄 삭제"}
+              </button>
+            </>
+          )}
           <button
             onClick={() => setCheckedIds(new Set())}
             className="text-sm text-gray-500 hover:text-gray-700 ml-auto"
@@ -233,16 +240,14 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
-              {!readonly && (
-                <th className="px-3 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={rows.length > 0 && checkedIds.size === rows.length}
-                    onChange={toggleAll}
-                    className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
-                  />
-                </th>
-              )}
+              <th className="px-3 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={rows.length > 0 && checkedIds.size === rows.length}
+                  onChange={toggleAll}
+                  className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                />
+              </th>
               <th className="text-left px-4 py-3 text-gray-700 font-medium w-40">고객사명</th>
               {showAssignedUser && (
                 <th className="text-center px-4 py-3 text-gray-700 font-medium">담당자</th>
@@ -372,16 +377,14 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                     className={`hover:bg-blue-50 transition-colors ${readonly ? "" : "cursor-pointer"} ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}
                     onClick={() => !readonly && setSelectedId(client.id)}
                   >
-                    {!readonly && (
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={checkedIds.has(client.id)}
-                          onChange={() => toggleCheck(client.id)}
-                          className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
-                        />
-                      </td>
-                    )}
+                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={checkedIds.has(client.id)}
+                        onChange={() => toggleCheck(client.id)}
+                        className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-left">
                       <div className="text-[#1a2e4a] font-medium">{client.name}</div>
                       <div className="text-xs text-gray-500 mt-0.5">
