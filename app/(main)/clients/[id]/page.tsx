@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { STATUS_LABELS, STATUS_COLORS, TASK_TYPE_LABELS } from "@/lib/constants";
 import { deleteClient } from "@/app/actions/clients";
+import { ClientDeleteButton } from "./ClientDeleteButton";
 
 export default async function ClientDetailPage({
   params,
@@ -55,17 +56,7 @@ export default async function ClientDetailPage({
           >
             수정
           </Link>
-          <form action={deleteWithId}>
-            <button
-              type="submit"
-              className="border border-red-200 text-red-500 text-sm px-4 py-2 rounded-lg hover:bg-red-50"
-              onClick={(e) => {
-                if (!confirm("정말 삭제하시겠습니까?")) e.preventDefault();
-              }}
-            >
-              삭제
-            </button>
-          </form>
+          <ClientDeleteButton action={deleteWithId} />
         </div>
       </div>
 
