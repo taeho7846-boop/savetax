@@ -4,13 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-// 근로소득 있는데 EDI 미완료인 경우 — 완료처리 됐어도 진행중으로 올라오는 조건
-const ediPendingCondition = {
-  completedAt: { not: null },
-  client: { laborTypes: { contains: "근로소득" } },
-  OR: [{ nationalPensionDone: false }, { healthInsuranceDone: false }],
-};
-
 export async function getCommissions() {
   const session = await requireAuth();
   return prisma.commissionProcess.findMany({
@@ -18,7 +11,14 @@ export async function getCommissions() {
       client: { isDeleted: false, assignedUserId: session.id },
       OR: [
         { completedAt: null },
-        ediPendingCondition,
+        // 근로소득 있는데 EDI 미완료인 경우 — 완료처리 됐어도 진행중으로 올라옴
+        {
+          completedAt: { not: null },
+          client: { laborTypes: { contains: "근로소득" } },
+          AND: [
+            { OR: [{ nationalPensionDone: false }, { healthInsuranceDone: false }] },
+          ],
+        },
       ],
     },
     include: {
