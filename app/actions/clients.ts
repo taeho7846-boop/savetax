@@ -175,13 +175,40 @@ export async function getClientById(id: number) {
 }
 
 export async function getCreateClientData() {
-  await requireAuth();
-  const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
-  return { users };
+  const session = await requireAuth();
+  const [allUsers, currentUser] = await Promise.all([
+    prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, role: true, managerId: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.id },
+      select: { bizName1: true, bizName2: true, managerId: true },
+    }),
+  ]);
+
+  let users: { id: number; name: string }[];
+  if (session.role === "accountant" || session.role === "admin") {
+    users = allUsers.filter(u => u.id === session.id || u.managerId === session.id);
+  } else {
+    users = allUsers;
+  }
+
+  const affiliationSet = new Set<string>(["세이브택스"]);
+  if (session.role === "employee" && currentUser?.managerId) {
+    const mgr = await prisma.user.findUnique({
+      where: { id: currentUser.managerId },
+      select: { bizName1: true, bizName2: true },
+    });
+    if (mgr?.bizName1) affiliationSet.add(mgr.bizName1);
+    if (mgr?.bizName2) affiliationSet.add(mgr.bizName2);
+  } else {
+    if (currentUser?.bizName1) affiliationSet.add(currentUser.bizName1);
+    if (currentUser?.bizName2) affiliationSet.add(currentUser.bizName2);
+  }
+
+  return { users, currentUserRole: session.role, affiliationOptions: [...affiliationSet] };
 }
 
 export async function createClientInModal(formData: FormData) {

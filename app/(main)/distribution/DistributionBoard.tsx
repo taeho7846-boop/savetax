@@ -110,16 +110,6 @@ export function DistributionBoard({
       {/* 탭 */}
       <div className="flex gap-1 mb-5 border-b border-gray-200">
         <Link
-          href="/distribution?tab=corporate"
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            isCorporate
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          법인
-        </Link>
-        <Link
           href="/distribution?tab=individual"
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             tab === "individual"
@@ -128,6 +118,16 @@ export function DistributionBoard({
           }`}
         >
           개인
+        </Link>
+        <Link
+          href="/distribution?tab=corporate"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            isCorporate
+              ? "border-[#1a2e4a] text-[#1a2e4a]"
+              : "border-transparent text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          법인
         </Link>
         <Link
           href="/distribution?tab=excluded"

@@ -12,7 +12,7 @@ export default async function DistributionPage({
   if (!session) redirect("/login");
 
   const params = await searchParams;
-  const tab = params.tab || "corporate";
+  const tab = params.tab || "individual";
 
   if (tab === "excluded") {
     const data = await getExcludedData();
