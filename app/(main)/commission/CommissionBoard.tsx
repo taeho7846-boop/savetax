@@ -14,6 +14,7 @@ import {
   bulkImportAllClients,
   deleteIdCard,
 } from "@/app/actions/commission";
+import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 
 type HappyCallData = {
   id: number;
@@ -140,6 +141,7 @@ export default function CommissionBoard({
   const [autoLoading, setAutoLoading] = useState<string | null>(null);
   const [autoResult, setAutoResult] = useState<{ ok: boolean; msg: string; pdfPath?: string } | null>(null);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Happy call form
@@ -512,7 +514,7 @@ export default function CommissionBoard({
                     {/* 거래처 */}
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => { setAutoResult(null); setModal({ type: "idcard", id: c.id, clientId: c.client.id, clientName: c.client.name }); }}
+                        onClick={() => { setAutoResult(null); setModal({ type: "idcard", id: c.id, clientId: c.client.id, clientName: c.client.name }); setEditingClientId(c.client.id); }}
                         className="font-medium text-gray-800 hover:text-[#1a2e4a] hover:underline flex items-center gap-1 mx-auto"
                       >
                         {c.client.name}
@@ -1203,6 +1205,13 @@ export default function CommissionBoard({
             </button>
           </div>
         </div>
+      )}
+
+      {editingClientId && (
+        <ClientEditModal
+          clientId={editingClientId}
+          onClose={() => setEditingClientId(null)}
+        />
       )}
     </div>
   );
