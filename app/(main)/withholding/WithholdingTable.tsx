@@ -29,6 +29,9 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
   // 자료요청: 모든 거래처 매월
   tasks.push({ key: "자료요청", label: "자료요청" });
 
+  // 급여명세서전달: 모든 거래처 매월
+  tasks.push({ key: "급여명세서전달", label: "급여명세서전달" });
+
   // 6개월납: 1월(7월분), 7월(1월분)만 원천세 신고
   // 일반: 매월
   if (halfYearTax) {
@@ -76,6 +79,7 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
 function getAllColumns(month: number) {
   const cols: { key: string; label: string }[] = [
     { key: "자료요청", label: "자료요청" },
+    { key: "급여명세서전달", label: "급여명세서\n전달" },
     { key: "원천세신고", label: "원천세신고" },
   ];
   if (month === 1 || month === 7) {
