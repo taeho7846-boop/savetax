@@ -9,17 +9,7 @@ export async function getCommissions() {
   return prisma.commissionProcess.findMany({
     where: {
       client: { isDeleted: false, assignedUserId: session.id },
-      OR: [
-        { completedAt: null },
-        // 근로소득 있는데 EDI 미완료인 경우 — 완료처리 됐어도 진행중으로 올라옴
-        {
-          completedAt: { not: null },
-          client: { laborTypes: { contains: "근로소득" } },
-          AND: [
-            { OR: [{ nationalPensionDone: false }, { healthInsuranceDone: false }] },
-          ],
-        },
-      ],
+      completedAt: null,
     },
     include: {
       client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true } },
@@ -35,13 +25,6 @@ export async function getCompletedCommissions() {
     where: {
       client: { isDeleted: false, assignedUserId: session.id },
       completedAt: { not: null },
-      // 근로소득 없는 경우 → 항상 완료 테이블
-      // 근로소득 있는 경우 → 국민연금+건강보험 둘 다 완료돼야 완료 테이블
-      OR: [
-        { client: { laborTypes: null } },
-        { client: { laborTypes: { not: { contains: "근로소득" } } } },
-        { nationalPensionDone: true, healthInsuranceDone: true },
-      ],
     },
     include: {
       client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true } },
