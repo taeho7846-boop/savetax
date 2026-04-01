@@ -139,6 +139,7 @@ export default function CommissionBoard({
   const [localIdCards, setLocalIdCards] = useState<Record<number, string | null>>({});
   const [autoLoading, setAutoLoading] = useState<string | null>(null);
   const [autoResult, setAutoResult] = useState<{ ok: boolean; msg: string; pdfPath?: string } | null>(null);
+  const [stageFilter, setStageFilter] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Happy call form
@@ -395,21 +396,33 @@ export default function CommissionBoard({
       {/* 상단 통계 + 추가 버튼 */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex gap-2 flex-wrap">
-          <div className="bg-white rounded-lg px-4 py-2.5 border border-gray-100 shadow-sm flex items-baseline gap-1.5">
-            <span className="text-xs text-gray-500">진행 중</span>
-            <span className="text-xl font-bold text-[#1a2e4a]">
+          <button
+            onClick={() => setStageFilter(null)}
+            className={`rounded-lg px-4 py-2.5 border shadow-sm flex items-baseline gap-1.5 transition-colors cursor-pointer ${
+              stageFilter === null
+                ? "bg-[#1a2e4a] border-[#1a2e4a]"
+                : "bg-white border-gray-100 hover:border-gray-300"
+            }`}
+          >
+            <span className={`text-xs ${stageFilter === null ? "text-white/70" : "text-gray-500"}`}>전체</span>
+            <span className={`text-xl font-bold ${stageFilter === null ? "text-white" : "text-[#1a2e4a]"}`}>
               {commissions.length}
             </span>
-            <span className="text-xs text-gray-400">건</span>
-          </div>
+            <span className={`text-xs ${stageFilter === null ? "text-white/50" : "text-gray-400"}`}>건</span>
+          </button>
           {Object.entries(stageCounts).map(([label, count]) => (
-            <div
+            <button
               key={label}
-              className="bg-white rounded-lg px-3 py-2.5 border border-gray-100 shadow-sm flex items-baseline gap-1.5"
+              onClick={() => setStageFilter(stageFilter === label ? null : label)}
+              className={`rounded-lg px-3 py-2.5 border shadow-sm flex items-baseline gap-1.5 transition-colors cursor-pointer ${
+                stageFilter === label
+                  ? "bg-[#1a2e4a] border-[#1a2e4a]"
+                  : "bg-white border-gray-100 hover:border-gray-300"
+              }`}
             >
-              <span className="text-xs text-gray-500">{label}</span>
-              <span className="text-sm font-bold text-gray-700">{count}</span>
-            </div>
+              <span className={`text-xs ${stageFilter === label ? "text-white/70" : "text-gray-500"}`}>{label}</span>
+              <span className={`text-sm font-bold ${stageFilter === label ? "text-white" : "text-gray-700"}`}>{count}</span>
+            </button>
           ))}
         </div>
         <button
@@ -458,24 +471,32 @@ export default function CommissionBoard({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {commissions.length === 0 ? (
+            {(() => {
+              const filtered = stageFilter
+                ? commissions.filter((c) => getStage(c).label === stageFilter)
+                : commissions;
+              return filtered.length === 0 ? (
               <tr>
                 <td
                   colSpan={9}
                   className="px-4 py-14 text-center text-gray-400 text-sm"
                 >
-                  진행 중인 수임이 없습니다.{" "}
-                  <button
-                    onClick={() => setModal("add")}
-                    className="text-[#1a2e4a] underline"
-                  >
-                    수임 추가
-                  </button>
-                  를 눌러 시작하세요.
+                  {stageFilter
+                    ? `'${stageFilter}' 상태의 수임이 없습니다.`
+                    : <>진행 중인 수임이 없습니다.{" "}
+                        <button
+                          onClick={() => setModal("add")}
+                          className="text-[#1a2e4a] underline"
+                        >
+                          수임 추가
+                        </button>
+                        를 눌러 시작하세요.
+                      </>
+                  }
                 </td>
               </tr>
             ) : (
-              commissions.map((c) => {
+              filtered.map((c) => {
                 const stage = getStage(c);
                 const loading = loadingId === c.id;
                 const lastCall =
@@ -723,7 +744,8 @@ export default function CommissionBoard({
                   </tr>
                 );
               })
-            )}
+            );
+            })()}
           </tbody>
         </table>
       </div>
