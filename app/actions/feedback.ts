@@ -18,10 +18,13 @@ export async function createFeedback(formData: FormData) {
   const content = (formData.get("content") as string)?.trim();
   if (!content) throw new Error("내용을 입력하세요.");
 
+  const page = (formData.get("page") as string) || null;
+
   await prisma.feedback.create({
     data: {
       authorId: session.id,
       category,
+      page,
       content,
     },
   });
@@ -38,6 +41,7 @@ export async function updateFeedback(id: number, formData: FormData) {
     where: { id },
     data: {
       category: formData.get("category") as string,
+      page: (formData.get("page") as string) || null,
       content: (formData.get("content") as string)?.trim(),
     },
   });

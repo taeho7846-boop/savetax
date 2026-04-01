@@ -9,9 +9,32 @@ type FeedbackItem = {
   authorId: number;
   author: { id: number; name: string };
   category: string;
+  page: string | null;
   content: string;
   createdAt: Date | string;
 };
+
+const PAGE_OPTIONS = [
+  "대시보드", "고객사 관리", "신규수임", "신고대리", "원천세", "종합소득세",
+  "채권 관리", "자료수집", "세이브택스 배분", "수익추이", "스케쥴",
+  "업무 일정", "내부 메모", "직원 관리", "설정", "기타",
+];
+
+function PageSelect({ value, onChange, name }: { value?: string; onChange?: (v: string) => void; name?: string }) {
+  return (
+    <select
+      name={name}
+      value={value}
+      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+    >
+      <option value="">해당 탭 선택</option>
+      {PAGE_OPTIONS.map((p) => (
+        <option key={p} value={p}>{p}</option>
+      ))}
+    </select>
+  );
+}
 
 const CATEGORY_STYLES: Record<string, { label: string; bg: string; text: string }> = {
   suggestion: { label: "건의사항", bg: "bg-blue-100", text: "text-blue-700" },
@@ -38,6 +61,7 @@ export function FeedbackBoard({
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editCategory, setEditCategory] = useState("suggestion");
+  const [editPage, setEditPage] = useState("");
   const [editContent, setEditContent] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
 
@@ -53,12 +77,14 @@ export function FeedbackBoard({
   function startEdit(f: FeedbackItem) {
     setEditingId(f.id);
     setEditCategory(f.category);
+    setEditPage(f.page ?? "");
     setEditContent(f.content);
   }
 
   function handleUpdate(id: number) {
     const formData = new FormData();
     formData.set("category", editCategory);
+    formData.set("page", editPage);
     formData.set("content", editContent);
     startTransition(async () => {
       await updateFeedback(id, formData);
@@ -91,15 +117,18 @@ export function FeedbackBoard({
       {/* 등록 폼 */}
       {showForm && (
         <form action={handleCreate} className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="flex gap-2 mb-3">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="category" value="suggestion" defaultChecked className="accent-blue-600" />
-              <span className="text-xs font-medium text-blue-700">건의사항</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="category" value="bug" className="accent-red-600" />
-              <span className="text-xs font-medium text-red-700">오류수정</span>
-            </label>
+          <div className="flex gap-3 mb-3 items-center">
+            <div className="flex gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="category" value="suggestion" defaultChecked className="accent-blue-600" />
+                <span className="text-xs font-medium text-blue-700">건의사항</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="category" value="bug" className="accent-red-600" />
+                <span className="text-xs font-medium text-red-700">오류수정</span>
+              </label>
+            </div>
+            <PageSelect name="page" />
           </div>
           <textarea
             name="content"
@@ -160,25 +189,28 @@ export function FeedbackBoard({
                 {isEditing ? (
                   /* 수정 모드 */
                   <div>
-                    <div className="flex gap-2 mb-2">
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={editCategory === "suggestion"}
-                          onChange={() => setEditCategory("suggestion")}
-                          className="accent-blue-600"
-                        />
-                        <span className="text-xs font-medium text-blue-700">건의사항</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={editCategory === "bug"}
-                          onChange={() => setEditCategory("bug")}
-                          className="accent-red-600"
-                        />
-                        <span className="text-xs font-medium text-red-700">오류수정</span>
-                      </label>
+                    <div className="flex gap-3 mb-2 items-center">
+                      <div className="flex gap-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={editCategory === "suggestion"}
+                            onChange={() => setEditCategory("suggestion")}
+                            className="accent-blue-600"
+                          />
+                          <span className="text-xs font-medium text-blue-700">건의사항</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={editCategory === "bug"}
+                            onChange={() => setEditCategory("bug")}
+                            className="accent-red-600"
+                          />
+                          <span className="text-xs font-medium text-red-700">오류수정</span>
+                        </label>
+                      </div>
+                      <PageSelect value={editPage} onChange={setEditPage} />
                     </div>
                     <textarea
                       value={editContent}
@@ -209,6 +241,11 @@ export function FeedbackBoard({
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cat.bg} ${cat.text}`}>
                         {cat.label}
                       </span>
+                      {f.page && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                          {f.page}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-500">{f.author.name}</span>
                       <span className="text-[10px] text-gray-400 ml-auto font-mono">{daysAgo(f.createdAt)}</span>
                     </div>

@@ -318,6 +318,7 @@ model Feedback {
   authorId  Int
   author    User     @relation("feedbacks", fields: [authorId], references: [id])
   category  String   // suggestion | bug
+  page      String?  // 해당 탭 (대시보드, 고객사 관리 등)
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
