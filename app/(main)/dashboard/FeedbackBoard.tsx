@@ -20,10 +20,11 @@ const PAGE_OPTIONS = [
   "업무 일정", "내부 메모", "직원 관리", "설정", "기타",
 ];
 
-function PageSelect({ value, onChange, name }: { value?: string; onChange?: (v: string) => void; name?: string }) {
+function PageSelect({ value, onChange, name, required }: { value?: string; onChange?: (v: string) => void; name?: string; required?: boolean }) {
   return (
     <select
       name={name}
+      required={required}
       value={value}
       onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
@@ -128,7 +129,7 @@ export function FeedbackBoard({
                 <span className="text-xs font-medium text-red-700">오류수정</span>
               </label>
             </div>
-            <PageSelect name="page" />
+            <PageSelect name="page" required />
           </div>
           <textarea
             name="content"
