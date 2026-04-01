@@ -26,6 +26,9 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
   const has사업 = laborTypes.includes("사업소득");
   const has일용 = laborTypes.includes("일용직");
 
+  // 자료요청: 모든 거래처 매월
+  tasks.push({ key: "자료요청", label: "자료요청" });
+
   // 6개월납: 1월(7월분), 7월(1월분)만 원천세 신고
   // 일반: 매월
   if (halfYearTax) {
@@ -72,6 +75,7 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
 // 모든 가능한 업무 컬럼 (해당 월 기준)
 function getAllColumns(month: number) {
   const cols: { key: string; label: string }[] = [
+    { key: "자료요청", label: "자료요청" },
     { key: "원천세신고", label: "원천세신고" },
   ];
   if (month === 1 || month === 7) {
