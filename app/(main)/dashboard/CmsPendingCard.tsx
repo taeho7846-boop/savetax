@@ -83,7 +83,7 @@ function ClientGroup({ label, ym, clients, urgency, onEdit }: GroupProps) {
       <div className="flex items-center gap-2 mb-3">
         <span className={`w-2 h-2 rounded-full ${s.dot}`} />
         <span className="text-sm font-semibold text-gray-700">{label}</span>
-        <span className="text-xs text-gray-400">({fmtYM(ym)} 최초출금)</span>
+        <span className="text-xs text-gray-400">{label === "과거" ? "(당월 이전 최초출금)" : `(${fmtYM(ym)} 최초출금)`}</span>
         <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${s.badge}`}>
           {clients.length}건
         </span>
@@ -137,7 +137,7 @@ export function CmsPendingCard({
           <div className="flex gap-2 mt-2 flex-wrap">
             {prevClients.length > 0 && (
               <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
-                지난달 {prevClients.length}
+                과거 {prevClients.length}
               </span>
             )}
             {currentClients.length > 0 && (
@@ -191,7 +191,7 @@ export function CmsPendingCard({
                     고객사명을 클릭하면 바로 정보를 수정할 수 있습니다.
                   </p>
                   <ClientGroup
-                    label="지난달"
+                    label="과거"
                     ym={prevYM}
                     clients={prevClients}
                     urgency="high"

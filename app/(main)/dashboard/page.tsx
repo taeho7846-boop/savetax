@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   const isReadonly = session.role === "readonly";
   const myClient = isReadonly ? {} : { assignedUserId: session.id };
 
-  const cmsWhere = (ym: string) => ({
+  const cmsWhere = (ym: string | { lt: string }) => ({
     isDeleted: false,
     ...myClient,
     firstWithdrawalMonth: ym,
@@ -70,7 +70,7 @@ export default async function DashboardPage() {
         orderBy: { updatedAt: "desc" },
         take: 5,
       }),
-      prisma.client.findMany({ where: cmsWhere(prevYM),    select: cmsSelect, orderBy: { name: "asc" } }),
+      prisma.client.findMany({ where: cmsWhere({ lt: currentYM }), select: cmsSelect, orderBy: { name: "asc" } }),
       prisma.client.findMany({ where: cmsWhere(currentYM), select: cmsSelect, orderBy: { name: "asc" } }),
       prisma.client.findMany({ where: cmsWhere(nextYM),    select: cmsSelect, orderBy: { name: "asc" } }),
     ]);
