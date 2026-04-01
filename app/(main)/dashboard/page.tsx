@@ -26,6 +26,7 @@ export default async function DashboardPage() {
   const cmsWhere = (ym: string | { lt: string }) => ({
     isDeleted: false,
     ...myClient,
+    taxTypes: { contains: "기장대리" },
     firstWithdrawalMonth: ym,
     OR: [
       { bankName: null },
