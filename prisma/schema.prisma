@@ -32,6 +32,7 @@ model User {
   settings      Settings?
   distributions     Distribution[]     @relation("distributions")
   distributionPasses DistributionPass[] @relation("distributionPasses")
+  feedbacks          Feedback[]         @relation("feedbacks")
 }
 
 // 고객사
@@ -309,4 +310,15 @@ model DistributionPass {
   user       User   @relation("distributionPasses", fields: [userId], references: [id])
 
   @@unique([userId, clientType])
+}
+
+// 건의사항/오류제보
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  authorId  Int
+  author    User     @relation("feedbacks", fields: [authorId], references: [id])
+  category  String   // suggestion | bug
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 import Link from "next/link";
 import { CmsPendingCard } from "./CmsPendingCard";
+import { FeedbackBoard } from "./FeedbackBoard";
+import { getFeedbacks } from "@/app/actions/feedback";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -38,7 +40,7 @@ export default async function DashboardPage() {
   const cmsSelect = { id: true, name: true, phone: true, bankName: true, bankAccount: true };
 
   const [totalClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
-         cmsPrev, cmsCurrent, cmsNext] =
+         cmsPrev, cmsCurrent, cmsNext, feedbacks] =
     await Promise.all([
       prisma.client.count({
         where: {
@@ -74,6 +76,7 @@ export default async function DashboardPage() {
       prisma.client.findMany({ where: cmsWhere({ lt: currentYM }), select: cmsSelect, orderBy: { name: "asc" } }),
       prisma.client.findMany({ where: cmsWhere(currentYM), select: cmsSelect, orderBy: { name: "asc" } }),
       prisma.client.findMany({ where: cmsWhere(nextYM),    select: cmsSelect, orderBy: { name: "asc" } }),
+      getFeedbacks(),
     ]);
 
   return (
@@ -203,6 +206,15 @@ export default async function DashboardPage() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* 건의사항/오류제보 */}
+      <div className="mt-6">
+        <FeedbackBoard
+          feedbacks={feedbacks}
+          currentUserId={session.id}
+          currentUserRole={session.role}
+        />
       </div>
     </div>
   );
