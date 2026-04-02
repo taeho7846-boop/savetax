@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getTaehoDistributionData, getTaehoExcludedData } from "@/app/actions/distribution-taeho";
+import { getTaehoDistributionData, getTaehoExcludedData, getUnassignedFromSavetax } from "@/app/actions/distribution-taeho";
 import { TaehoDistributionBoard } from "./TaehoDistributionBoard";
 
 export default async function TaehoDistributionPage({
@@ -30,7 +30,10 @@ export default async function TaehoDistributionPage({
     );
   }
 
-  const data = await getTaehoDistributionData(tab);
+  const [data, unassigned] = await Promise.all([
+    getTaehoDistributionData(tab),
+    getUnassignedFromSavetax(tab),
+  ]);
 
   return (
     <div className="flex flex-col h-full">
@@ -41,6 +44,7 @@ export default async function TaehoDistributionPage({
         distributions={data.distributions}
         counts={data.counts}
         passUserIds={data.passUserIds}
+        unassignedFromSavetax={unassigned}
       />
     </div>
   );

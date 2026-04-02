@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addTaehoDistribution, deleteTaehoDistribution, toggleTaehoPass, permanentDeleteTaehoDistribution, restoreTaehoDistribution } from "@/app/actions/distribution-taeho";
+import { addTaehoDistribution, deleteTaehoDistribution, toggleTaehoPass, permanentDeleteTaehoDistribution, restoreTaehoDistribution, assignFromSavetax } from "@/app/actions/distribution-taeho";
 
 interface Accountant {
   id: number;
@@ -27,12 +27,14 @@ export function TaehoDistributionBoard({
   distributions,
   counts,
   passUserIds,
+  unassignedFromSavetax = [],
 }: {
   tab: string;
   accountants: Accountant[];
   distributions: Distribution[];
   counts: Record<number, number>;
   passUserIds: number[];
+  unassignedFromSavetax?: string[];
 }) {
   const isCorporate = tab === "corporate";
   const isExcluded = tab === "excluded";
@@ -40,6 +42,8 @@ export function TaehoDistributionBoard({
   const [indInputs, setIndInputs] = useState<string[]>(["", "", "", "", ""]);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const [dragItem, setDragItem] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<number | null>(null);
 
   const inputs = isCorporate ? corpInputs : indInputs;
   const setInputs = isCorporate ? setCorpInputs : setIndInputs;
@@ -61,6 +65,16 @@ export function TaehoDistributionBoard({
     startTransition(async () => {
       await addTaehoDistribution(names, tab, forceUserId ?? undefined);
       setInputs(["", "", "", "", ""]);
+      router.refresh();
+    });
+  }
+
+  function handleDrop(userId: number) {
+    if (!dragItem) return;
+    startTransition(async () => {
+      await assignFromSavetax(dragItem, tab, userId);
+      setDragItem(null);
+      setDropTarget(null);
       router.refresh();
     });
   }
@@ -194,6 +208,36 @@ export function TaehoDistributionBoard({
         </div>
       )}
 
+      {/* 세이브택스 미배정 거래처 */}
+      {!isExcluded && unassignedFromSavetax.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium text-amber-800">세이브택스에서 대기중</span>
+            <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-bold">
+              {unassignedFromSavetax.length}건
+            </span>
+            <span className="text-xs text-amber-600 ml-1">아래 거래처를 담당자 컬럼으로 끌어다 놓으세요</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {unassignedFromSavetax.map((name) => (
+              <div
+                key={name}
+                draggable
+                onDragStart={() => setDragItem(name)}
+                onDragEnd={() => { setDragItem(null); setDropTarget(null); }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium cursor-grab active:cursor-grabbing transition-all select-none ${
+                  dragItem === name
+                    ? "bg-[#1a2e4a] text-white shadow-lg scale-105"
+                    : "bg-white text-gray-800 border border-amber-300 hover:border-amber-500 hover:shadow-sm"
+                }`}
+              >
+                {name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 거래처 입력 */}
       {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 mb-5">
         <div className="flex items-center gap-3 mb-3">
@@ -244,12 +288,24 @@ export function TaehoDistributionBoard({
             <tr>
               {accountants.map((a) => {
                 const isPass = passSet.has(a.id);
+                const isDragOver = dragItem && dropTarget === a.id;
                 return (
-                  <th key={a.id} className={`text-center px-4 py-3 ${isPass ? "bg-red-50" : "bg-gray-50"}`}>
+                  <th
+                    key={a.id}
+                    className={`text-center px-4 py-3 transition-colors ${
+                      isDragOver ? "bg-blue-100 ring-2 ring-blue-400 ring-inset" : isPass ? "bg-red-50" : "bg-gray-50"
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); setDropTarget(a.id); }}
+                    onDragLeave={() => setDropTarget(null)}
+                    onDrop={(e) => { e.preventDefault(); handleDrop(a.id); }}
+                  >
                     <div className={`font-medium ${isPass ? "text-red-400 line-through" : "text-gray-700"}`}>{a.name}</div>
                     <div className="text-xs text-gray-400 font-normal mt-0.5">
                       {counts[a.id] || 0}건
                     </div>
+                    {isDragOver && (
+                      <div className="text-[10px] text-blue-600 font-bold mt-1 animate-pulse">여기에 놓기</div>
+                    )}
                     <button
                       onClick={() => handleTogglePass(a.id)}
                       disabled={isPending}

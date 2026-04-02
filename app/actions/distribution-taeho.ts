@@ -191,3 +191,42 @@ export async function restoreTaehoDistribution(id: number) {
   await prisma.distribution.update({ where: { id }, data: { clientType: originalType } });
   revalidatePath("/distribution-taeho");
 }
+
+// 세이브택스 배분에서 김태호에게 배분됐지만 세무회계태호에 아직 없는 거래처 조회
+export async function getUnassignedFromSavetax(clientType: string) {
+  await requireAuth();
+  const ct = prefixed(clientType);
+
+  // 김태호 ID
+  const taeho = await prisma.user.findFirst({ where: { name: "김태호", isActive: true } });
+  if (!taeho) return [];
+
+  // 세이브택스에서 김태호에게 배분된 거래처 (PASS/제외 제외)
+  const savetaxItems = await prisma.distribution.findMany({
+    where: { clientType, assignedUserId: taeho.id, isSkipped: false },
+    select: { clientName: true },
+  });
+
+  // 세무회계태호에 이미 있는 거래처
+  const taehoItems = await prisma.distribution.findMany({
+    where: { clientType: { in: [ct, `excluded_${ct}`] } },
+    select: { clientName: true },
+  });
+  const existing = new Set(taehoItems.map(d => d.clientName));
+
+  return savetaxItems
+    .filter(d => !existing.has(d.clientName))
+    .map(d => d.clientName);
+}
+
+// 드래그 배정: 세이브택스에서 온 거래처를 세무회계태호의 특정 담당자에게 배정
+export async function assignFromSavetax(clientName: string, clientType: string, userId: number) {
+  await requireAuth();
+  const ct = prefixed(clientType);
+
+  await prisma.distribution.create({
+    data: { clientName, clientType: ct, assignedUserId: userId, batchId: `drag_${Date.now()}` },
+  });
+
+  revalidatePath("/distribution-taeho");
+}
