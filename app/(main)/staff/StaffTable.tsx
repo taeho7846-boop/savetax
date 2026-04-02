@@ -27,6 +27,8 @@ const ALL_MENUS = [
   { key: "receivables", label: "채권 관리" },
   { key: "data-collect", label: "자료수집" },
   { key: "distribution", label: "세이브택스 배분" },
+  { key: "distribution-taeho", label: "세무회계태호 배분" },
+  { key: "revenue", label: "수익추이" },
   { key: "schedule", label: "스케쥴" },
   { key: "tasks", label: "업무 일정" },
   { key: "memos", label: "내부 메모" },
