@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ClientEditModal } from "./ClientEditModal";
-import { bulkDeleteClients } from "@/app/actions/clients";
+import { bulkDeleteClients, bulkChangeAssignedUser, getAssignableUsers } from "@/app/actions/clients";
 
 type LoginStatus = "idle" | "loading" | "success" | "error";
 
@@ -68,6 +68,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [vncOpen, setVncOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignUsers, setAssignUsers] = useState<{ id: number; name: string }[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const router = useRouter();
   const filterRef = useRef<HTMLDivElement>(null);
   const affFilterRef = useRef<HTMLDivElement>(null);
@@ -86,6 +89,25 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
     } else {
       setCheckedIds(new Set(rows.map((c) => c.id)));
     }
+  }
+
+  async function openAssignModal() {
+    const users = await getAssignableUsers();
+    setAssignUsers(users);
+    setSelectedUserId(null);
+    setShowAssignModal(true);
+  }
+
+  async function handleBulkAssign() {
+    if (!selectedUserId || checkedIds.size === 0) return;
+    const userName = assignUsers.find(u => u.id === selectedUserId)?.name;
+    if (!confirm(`선택한 ${checkedIds.size}개 거래처의 담당자를 '${userName}'(으)로 변경하시겠습니까?`)) return;
+    startTransition(async () => {
+      await bulkChangeAssignedUser([...checkedIds], selectedUserId);
+      setCheckedIds(new Set());
+      setShowAssignModal(false);
+      router.refresh();
+    });
   }
 
   async function handleBulkDelete() {
@@ -218,6 +240,13 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           </span>
           {!readonly && (
             <>
+              <button
+                onClick={openAssignModal}
+                disabled={isPending}
+                className="text-sm bg-[#1a2e4a] text-white px-3 py-1 rounded hover:bg-[#243d61] disabled:opacity-50 transition-colors"
+              >
+                담당자 변경
+              </button>
               <button
                 onClick={handleBulkDelete}
                 disabled={isPending}
@@ -482,6 +511,42 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         </table>
       </div>
 
+      {showAssignModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAssignModal(false); }}
+        >
+          <div className="bg-white rounded-xl shadow-xl p-6 w-80">
+            <h3 className="text-sm font-bold text-gray-800 mb-1">담당자 일괄 변경</h3>
+            <p className="text-xs text-gray-400 mb-4">{checkedIds.size}개 거래처 선택됨</p>
+            <select
+              value={selectedUserId ?? ""}
+              onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            >
+              <option value="">담당자 선택</option>
+              {assignUsers.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={handleBulkAssign}
+                disabled={!selectedUserId || isPending}
+                className="flex-1 bg-[#1a2e4a] text-white text-sm py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
+              >
+                {isPending ? "변경 중..." : "변경"}
+              </button>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="flex-1 border border-gray-300 text-gray-700 text-sm py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

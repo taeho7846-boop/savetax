@@ -283,6 +283,35 @@ export async function bulkDeleteClients(ids: number[]) {
   return { count: result.count };
 }
 
+export async function bulkChangeAssignedUser(ids: number[], newUserId: number) {
+  await requireAuth();
+  if (ids.length === 0) return { count: 0 };
+
+  const result = await prisma.client.updateMany({
+    where: { id: { in: ids }, isDeleted: false },
+    data: { assignedUserId: newUserId },
+  });
+
+  revalidatePath("/clients");
+  revalidatePath("/commission");
+  revalidatePath("/dashboard");
+  return { count: result.count };
+}
+
+export async function getAssignableUsers() {
+  const session = await requireAuth();
+  const allUsers = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, role: true, managerId: true },
+    orderBy: { name: "asc" },
+  });
+
+  if (session.role === "accountant" || session.role === "admin") {
+    return allUsers.filter(u => u.id === session.id || u.managerId === session.id);
+  }
+  return allUsers;
+}
+
 export async function toggleCmsRegistered(id: number) {
   await requireAuth();
   const client = await prisma.client.findUnique({ where: { id }, select: { cmsRegistered: true } });
