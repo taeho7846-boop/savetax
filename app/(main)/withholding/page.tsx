@@ -13,7 +13,11 @@ export default async function WithholdingPage({
 
   const params = await searchParams;
   const now = new Date();
-  const yearMonth = params.ym || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // 매월 10일까지는 전월 원천세 업무 기간이므로 전월을 기본 표시
+  const defaultMonth = now.getDate() <= 10
+    ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    : now;
+  const yearMonth = params.ym || `${defaultMonth.getFullYear()}-${String(defaultMonth.getMonth() + 1).padStart(2, "0")}`;
 
   const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
   let assignedFilter: any = { assignedUserId: session.id };
