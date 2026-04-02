@@ -33,6 +33,7 @@ type Client = {
   id: number;
   name: string;
   clientType: string;
+  assignedUserName?: string | null;
   incomeTaxRecords: ITRecord[];
 };
 
@@ -66,7 +67,7 @@ const GROUP_COLORS: Record<string, string> = {
   완료: "bg-green-50",
 };
 
-export function IncomeTaxTable({ clients, taxYear }: { clients: Client[]; taxYear: string }) {
+export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: { clients: Client[]; taxYear: string; showAssignedUser?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -135,6 +136,9 @@ export function IncomeTaxTable({ clients, taxYear }: { clients: Client[]; taxYea
             {/* 세부 헤더 */}
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="px-3 py-2 text-left text-gray-700 font-medium sticky left-0 bg-gray-50 z-20 min-w-[100px]">고객사명</th>
+              {showAssignedUser && (
+                <th className="px-2 py-2 text-center text-gray-600 font-medium">담당자</th>
+              )}
               <th className="px-2 py-2 text-center text-gray-600 font-medium">기장의무</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">신고유형</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">안내문<br/>발송</th>
@@ -176,6 +180,11 @@ export function IncomeTaxTable({ clients, taxYear }: { clients: Client[]; taxYea
                       {client.name}
                       <span className="ml-1 text-[10px] text-gray-400">{client.clientType === "corporate" ? "법인" : "개인"}</span>
                     </td>
+                    {showAssignedUser && (
+                      <td className="px-2 py-2 text-center text-xs text-gray-600">
+                        {client.assignedUserName ?? <span className="text-gray-300">-</span>}
+                      </td>
+                    )}
 
                     {/* 기장의무 */}
                     <td className="px-1 py-1 text-center">

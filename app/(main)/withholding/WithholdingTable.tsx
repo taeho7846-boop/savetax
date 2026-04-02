@@ -16,6 +16,7 @@ type Client = {
   name: string;
   laborTypes: string | null;
   halfYearTax: boolean;
+  assignedUser?: { name: string } | null;
   withholdingRecords: WHRecord[];
 };
 
@@ -97,7 +98,7 @@ function getAllColumns(month: number) {
 
 type SortKey = "laborTypes" | "halfYearTax" | string;
 
-export function WithholdingTable({ clients, yearMonth }: { clients: Client[]; yearMonth: string }) {
+export function WithholdingTable({ clients, yearMonth, showAssignedUser = false }: { clients: Client[]; yearMonth: string; showAssignedUser?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [sortCol, setSortCol] = useState<SortKey | null>(null);
@@ -199,6 +200,9 @@ export function WithholdingTable({ clients, yearMonth }: { clients: Client[]; ye
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
               <th className="text-left px-4 py-3 text-gray-700 font-medium">고객사명</th>
+              {showAssignedUser && (
+                <th className="text-center px-3 py-3 text-gray-700 font-medium">담당자</th>
+              )}
               <th className="text-center px-3 py-3 text-gray-700 font-medium">
                 <button onClick={() => handleSort("laborTypes")} className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]">
                   인건비{sortCol === "laborTypes" ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}
@@ -221,7 +225,7 @@ export function WithholdingTable({ clients, yearMonth }: { clients: Client[]; ye
           <tbody className="divide-y divide-gray-100">
             {sortedClients.length === 0 ? (
               <tr>
-                <td colSpan={3 + columns.length} className="text-center py-12 text-gray-500">
+                <td colSpan={3 + columns.length + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-gray-500">
                   해당하는 거래처가 없습니다
                 </td>
               </tr>
@@ -241,6 +245,11 @@ export function WithholdingTable({ clients, yearMonth }: { clients: Client[]; ye
                 return (
                   <tr key={client.id} className={`transition-colors ${allDone ? "bg-green-50/50" : "hover:bg-blue-50/50"}`}>
                     <td className="px-4 py-3 text-[#1a2e4a] font-medium">{client.name}</td>
+                    {showAssignedUser && (
+                      <td className="px-3 py-3 text-center text-xs text-gray-600">
+                        {client.assignedUser?.name ?? <span className="text-gray-300">-</span>}
+                      </td>
+                    )}
                     <td className="px-3 py-3 text-center">
                       <div className="flex items-center justify-center gap-1 flex-wrap">
                         {laborList.map((t) => {

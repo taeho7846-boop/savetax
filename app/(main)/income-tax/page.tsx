@@ -14,10 +14,21 @@ export default async function IncomeTaxPage({
   const params = await searchParams;
   const taxYear = params.year || String(new Date().getFullYear() - 1);
 
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+  let assignedFilter: any = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [session.id, ...employees.map(e => e.id)];
+    assignedFilter = { assignedUserId: { in: userIds } };
+  }
+
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: session.id,
+      ...assignedFilter,
       clientType: { not: "corporate" },
       OR: [
         { taxTypes: null },
@@ -28,6 +39,7 @@ export default async function IncomeTaxPage({
       id: true,
       name: true,
       clientType: true,
+      assignedUser: isManager ? { select: { name: true } } : undefined,
       incomeTaxRecords: {
         where: { taxYear },
       },
@@ -36,8 +48,9 @@ export default async function IncomeTaxPage({
   });
 
   // BigInt → string 변환 (JSON 직렬화용)
-  const serialized = clients.map(c => ({
+  const serialized = clients.map(({ assignedUser, ...c }) => ({
     ...c,
+    assignedUserName: assignedUser?.name ?? null,
     incomeTaxRecords: c.incomeTaxRecords.map(r => ({
       ...r,
       prevSales: r.prevSales?.toString() ?? null,
@@ -51,7 +64,7 @@ export default async function IncomeTaxPage({
 
   return (
     <div className="flex flex-col h-full">
-      <IncomeTaxTable clients={serialized} taxYear={taxYear} />
+      <IncomeTaxTable clients={serialized} taxYear={taxYear} showAssignedUser={isManager} />
     </div>
   );
 }

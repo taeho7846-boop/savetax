@@ -15,10 +15,21 @@ export default async function WithholdingPage({
   const now = new Date();
   const yearMonth = params.ym || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+  let assignedFilter: any = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [session.id, ...employees.map(e => e.id)];
+    assignedFilter = { assignedUserId: { in: userIds } };
+  }
+
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: session.id,
+      ...assignedFilter,
       OR: [
         { laborTypes: { contains: "근로소득" } },
         { laborTypes: { contains: "사업소득" } },
@@ -30,6 +41,7 @@ export default async function WithholdingPage({
       name: true,
       laborTypes: true,
       halfYearTax: true,
+      assignedUser: isManager ? { select: { name: true } } : undefined,
       withholdingRecords: {
         where: { yearMonth },
       },
@@ -39,7 +51,7 @@ export default async function WithholdingPage({
 
   return (
     <div className="flex flex-col h-full">
-      <WithholdingTable clients={clients} yearMonth={yearMonth} />
+      <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser={isManager} />
     </div>
   );
 }
