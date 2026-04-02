@@ -103,6 +103,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   const [isPending, startTransition] = useTransition();
   const [sortCol, setSortCol] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [search, setSearch] = useState("");
   const month = parseInt(yearMonth.split("-")[1]);
   const columns = getAllColumns(month);
 
@@ -137,8 +138,13 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
     return sum + c.withholdingRecords.filter(r => r.done).length;
   }, 0);
 
+  // 검색 필터
+  const filtered = search
+    ? clients.filter((c) => c.name.includes(search))
+    : clients;
+
   // 정렬 적용
-  const sortedClients = [...clients].sort((a, b) => {
+  const sortedClients = [...filtered].sort((a, b) => {
     if (!sortCol) return 0;
 
     let av: number | string = "";
@@ -171,6 +177,13 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-900">원천세</h1>
         <div className="flex items-center gap-4">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="고객사명 검색"
+            autoComplete="off"
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          />
           <div className="text-sm text-gray-500">
             진행: <span className="font-medium text-[#1a2e4a]">{doneTasks}</span> / {totalTasks}
           </div>
