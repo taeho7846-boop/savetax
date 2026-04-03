@@ -18,9 +18,25 @@ function CopyWrap({ children }: { children: React.ReactNode }) {
   function handleCopy() {
     const input = ref.current?.querySelector("input, textarea") as HTMLInputElement | HTMLTextAreaElement | null;
     if (!input?.value) return;
-    navigator.clipboard.writeText(input.value);
+    // HTTPS가 아닌 환경에서도 동작하도록 fallback
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(input.value).catch(() => fallbackCopy(input.value));
+    } else {
+      fallbackCopy(input.value);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  function fallbackCopy(text: string) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
   }
 
   return (
@@ -30,9 +46,18 @@ function CopyWrap({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={handleCopy}
-          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-[#1a2e4a] hover:text-white"
+          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100"
         >
-          {copied ? "✓" : "복사"}
+          {copied ? (
+            <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 text-gray-400 hover:text-[#1a2e4a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+          )}
         </button>
       )}
     </div>
