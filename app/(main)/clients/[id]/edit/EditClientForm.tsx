@@ -1,9 +1,43 @@
 "use client";
 
-import { useRef, useEffect, useTransition } from "react";
+import { useRef, useEffect, useTransition, useState } from "react";
 import Link from "next/link";
 import { BizNumberInput, PhoneInput, ResidentNumberInput } from "@/components/FormattedInputs";
 import { CheckboxGroup } from "@/components/CheckboxGroup";
+
+function CopyWrap({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+  const [hasValue, setHasValue] = useState(false);
+
+  function checkValue() {
+    const input = ref.current?.querySelector("input, textarea") as HTMLInputElement | HTMLTextAreaElement | null;
+    setHasValue(!!input?.value);
+  }
+
+  function handleCopy() {
+    const input = ref.current?.querySelector("input, textarea") as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!input?.value) return;
+    navigator.clipboard.writeText(input.value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div ref={ref} className="relative group" onMouseEnter={checkValue}>
+      {children}
+      {hasValue && (
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-[#1a2e4a] hover:text-white"
+        >
+          {copied ? "✓" : "복사"}
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   action: (formData: FormData) => Promise<void>;
@@ -75,16 +109,16 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           <label className="block text-sm font-medium text-gray-800 mb-1">
             고객사명 <span className="text-red-500">*</span>
           </label>
-          <input
+          <CopyWrap><input
             name="name"
             required
             defaultValue={client.name}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-          />
+          /></CopyWrap>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-800 mb-1">사업자등록번호</label>
-          <BizNumberInput defaultValue={client.bizNumber ?? ""} />
+          <CopyWrap><BizNumberInput defaultValue={client.bizNumber ?? ""} /></CopyWrap>
         </div>
       </div>
 
@@ -92,19 +126,19 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-800 mb-1">대표자명</label>
-          <input
+          <CopyWrap><input
             name="ceoName"
             defaultValue={client.ceoName ?? ""}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-          />
+          /></CopyWrap>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-800 mb-1">주민등록번호</label>
-          <ResidentNumberInput defaultValue={client.residentNumber ?? ""} />
+          <CopyWrap><ResidentNumberInput defaultValue={client.residentNumber ?? ""} /></CopyWrap>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-800 mb-1">연락처</label>
-          <PhoneInput defaultValue={client.phone ?? ""} />
+          <CopyWrap><PhoneInput defaultValue={client.phone ?? ""} /></CopyWrap>
         </div>
       </div>
 
@@ -208,19 +242,19 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-1">홈택스 ID</label>
-            <input
+            <CopyWrap><input
               name="hometaxId"
               defaultValue={client.hometaxId ?? ""}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-            />
+            /></CopyWrap>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-1">홈택스 PW</label>
-            <input
+            <CopyWrap><input
               name="hometaxPw"
               defaultValue={client.hometaxPw ?? ""}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-            />
+            /></CopyWrap>
           </div>
         </div>
       </div>
@@ -231,7 +265,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-1">월 기장료</label>
-            <div className="relative">
+            <CopyWrap><div className="relative">
               <input
                 name="monthlyFee"
                 type="number"
@@ -241,7 +275,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
-            </div>
+            </div></CopyWrap>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-1">무료 기장</label>
@@ -272,21 +306,21 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-1">출금 은행</label>
-            <input
+            <CopyWrap><input
               name="bankName"
               defaultValue={client.bankName ?? ""}
               placeholder="예) 국민은행"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-            />
+            /></CopyWrap>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-1">출금 계좌번호</label>
-            <input
+            <CopyWrap><input
               name="bankAccount"
               defaultValue={client.bankAccount ?? ""}
               placeholder="계좌번호 입력"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-            />
+            /></CopyWrap>
           </div>
         </div>
       </div>
@@ -294,20 +328,20 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 주소 / 특이사항 */}
       <div>
         <label className="block text-sm font-medium text-gray-800 mb-1">주소</label>
-        <input
+        <CopyWrap><input
           name="address"
           defaultValue={client.address ?? ""}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-        />
+        /></CopyWrap>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-800 mb-1">특이사항</label>
-        <textarea
+        <CopyWrap><textarea
           name="notes"
           rows={6}
           defaultValue={client.notes ?? ""}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-        />
+        /></CopyWrap>
       </div>
 
       {/* 모달에서는 숨기고 헤더에 표시 */}
