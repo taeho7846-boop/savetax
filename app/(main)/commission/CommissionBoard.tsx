@@ -118,6 +118,7 @@ type ModalState =
   | null
   | "add"
   | { type: "happycall"; id: number }
+  | { type: "happycall-history"; id: number; clientName: string; calls: HappyCallData[] }
   | { type: "notes"; id: number }
   | { type: "idcard"; id: number; clientId: number; clientName: string };
 
@@ -545,7 +546,11 @@ export default function CommissionBoard({
                     <td className="px-4 py-3 text-center">
                       <div className="flex flex-col gap-1.5 items-center">
                         {c.happyCalls.length > 0 ? (
-                          <div className="text-xs text-gray-500 leading-relaxed">
+                          <button
+                            type="button"
+                            onClick={() => setModal({ type: "happycall-history", id: c.id, clientName: c.client.name, calls: c.happyCalls })}
+                            className="text-xs text-gray-500 leading-relaxed text-left hover:bg-gray-50 rounded px-1.5 py-1 -mx-1.5 transition-colors"
+                          >
                             <span className="font-semibold text-gray-700">
                               {c.happyCalls.length}차
                             </span>
@@ -560,7 +565,7 @@ export default function CommissionBoard({
                                 {lastCall.notes}
                               </div>
                             )}
-                          </div>
+                          </button>
                         ) : (
                           <div className="text-xs text-gray-300">
                             기록 없음
@@ -840,6 +845,50 @@ export default function CommissionBoard({
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── 해피콜 이력 모달 ── */}
+      {modal && typeof modal === "object" && "type" in modal && modal.type === "happycall-history" && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-96 max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-gray-800">해피콜 이력</h3>
+                <p className="text-xs text-gray-400">{modal.clientName}</p>
+              </div>
+              <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {modal.calls.map((call, i) => (
+                <div key={call.id} className="border border-gray-100 rounded-lg px-4 py-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-[#1a2e4a]">{call.attemptNo}차</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      call.result === "connected" ? "bg-green-100 text-green-700" :
+                      call.result === "callback" ? "bg-amber-100 text-amber-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {RESULT_LABELS[call.result] ?? call.result}
+                    </span>
+                    <span className="text-[10px] text-gray-400 ml-auto">{fmtDate(call.calledAt)}</span>
+                  </div>
+                  {call.notes && (
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{call.notes}</p>
+                  )}
+                  {!call.notes && (
+                    <p className="text-xs text-gray-300">메모 없음</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setModal(null)}
+              className="mt-4 w-full py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200"
+            >
+              닫기
+            </button>
+          </div>
         </div>
       )}
 
