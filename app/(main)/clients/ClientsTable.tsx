@@ -45,7 +45,7 @@ type Client = {
   assignedUser?: { name: string } | null;
 };
 
-type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "monthlyFee" | "affiliation";
+type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "monthlyFee" | "affiliation" | "myboxLink";
 
 const LABOR_OPTIONS = ["1인사업자", "근로소득", "사업소득", "일용직"];
 const SORT_COLS: { key: SortCol; label: string }[] = [
@@ -383,7 +383,15 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   )}
                 </div>
               </th>
-              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">MyBox</th>
+              <th className="text-center px-4 py-3 text-gray-700 font-medium">
+                <button
+                  onClick={() => handleSort("myboxLink")}
+                  className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
+                >
+                  MyBox
+                  <SortIcon col="myboxLink" />
+                </button>
+              </th>
               {!readonly && (
                 <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
               )}
