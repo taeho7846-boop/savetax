@@ -33,6 +33,7 @@ model User {
   distributions     Distribution[]     @relation("distributions")
   distributionPasses DistributionPass[] @relation("distributionPasses")
   feedbacks          Feedback[]         @relation("feedbacks")
+  telegramUser       TelegramUser?
 }
 
 // 고객사
@@ -313,6 +314,25 @@ model DistributionPass {
   user       User   @relation("distributionPasses", fields: [userId], references: [id])
 
   @@unique([userId, clientType])
+}
+
+// 텔레그램 임시메모
+model TempMemo {
+  id          Int      @id @default(autoincrement())
+  telegramId  String   // 텔레그램 사용자 ID
+  senderName  String   // 보낸 사람 이름
+  content     String   // 메시지 내용
+  fileUrl     String?  // 사진/파일 URL
+  isProcessed Boolean  @default(false) // 정리 완료 여부
+  createdAt   DateTime @default(now())
+}
+
+// 텔레그램 사용자 매핑
+model TelegramUser {
+  id         Int    @id @default(autoincrement())
+  telegramId String @unique
+  userId     Int    @unique
+  user       User   @relation(fields: [userId], references: [id])
 }
 
 // 건의사항/오류제보

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { CmsPendingCard } from "./CmsPendingCard";
 import { FeedbackBoard } from "./FeedbackBoard";
 import { getFeedbacks } from "@/app/actions/feedback";
+import { TempMemoBox } from "./TempMemoBox";
+import { getTempMemos } from "@/app/actions/temp-memo";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -40,7 +42,7 @@ export default async function DashboardPage() {
   const cmsSelect = { id: true, name: true, phone: true, bankName: true, bankAccount: true };
 
   const [totalClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
-         cmsPrev, cmsCurrent, cmsNext, feedbacks] =
+         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients] =
     await Promise.all([
       prisma.client.count({
         where: {
@@ -77,11 +79,20 @@ export default async function DashboardPage() {
       prisma.client.findMany({ where: cmsWhere(currentYM), select: cmsSelect, orderBy: { name: "asc" } }),
       prisma.client.findMany({ where: cmsWhere(nextYM),    select: cmsSelect, orderBy: { name: "asc" } }),
       getFeedbacks(),
+      getTempMemos(),
+      prisma.client.findMany({
+        where: { isDeleted: false, assignedUserId: session.id },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
     ]);
 
   return (
     <div>
       <h1 className="text-xl font-bold text-gray-800 mb-6">대시보드</h1>
+
+      {/* 임시메모함 */}
+      <TempMemoBox memos={tempMemosData} clients={myClients} />
 
       {/* 요약 카드 */}
       <div className="grid grid-cols-5 gap-4 mb-6">
