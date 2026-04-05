@@ -459,9 +459,12 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                           href={client.myboxLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs bg-green-500 text-white px-2.5 py-1 rounded hover:bg-green-600 transition-colors whitespace-nowrap"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors group"
+                          title="MyBox 열기"
                         >
-                          📁 열기
+                          <svg className="w-4.5 h-4.5 text-blue-500 group-hover:text-blue-700" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L3 7v10l9 5 9-5V7l-9-5zm0 2.18L18.39 7.5 12 10.82 5.61 7.5 12 4.18zM5 16.12V9.06l6 3.31v7.06l-6-3.31zm8 3.31V12.37l6-3.31v7.06l-6 3.31z"/>
+                          </svg>
                         </a>
                       ) : (
                         <span className="text-gray-300">-</span>
