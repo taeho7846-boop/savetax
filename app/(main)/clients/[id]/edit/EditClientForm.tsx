@@ -198,14 +198,40 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-800 mb-1">신고 유형</label>
-          <CheckboxGroup name="taxType" options={["기장대리", "신고대리"]} defaultValues={currentTaxTypes} />
+          <div className="flex gap-2">
+            {[
+              { value: "기장대리", label: "기장" },
+              { value: "신고대리", label: "신고대리" },
+            ].map((opt) => (
+              <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name={`taxType_${opt.value}`}
+                  value={opt.value}
+                  defaultChecked={currentTaxTypes.includes(opt.value)}
+                  className="hidden peer"
+                />
+                <span className="peer-checked:bg-[#1a2e4a] peer-checked:text-white border border-gray-300 peer-checked:border-[#1a2e4a] rounded-md px-3 py-1.5 text-sm text-gray-700 select-none hover:border-[#1a2e4a] transition-colors">
+                  {opt.label}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* 회계프로그램 */}
       <div>
         <label className="block text-sm font-medium text-gray-800 mb-1">회계프로그램</label>
-        <CheckboxGroup name="accountingProgram" options={["위하고", "세무사랑"]} defaultValues={(client.accountingProgram ?? "위하고").split(",").map(s => s.trim()).filter(Boolean)} />
+        <CheckboxGroup
+          name="accountingProgram"
+          options={["위하고", "세무사랑"]}
+          defaultValues={
+            client.accountingProgram
+              ? client.accountingProgram.split(",").map(s => s.trim()).filter(Boolean)
+              : ["위하고"]
+          }
+        />
       </div>
 
       {/* 행4: 인건비 / 개업년월일 */}
