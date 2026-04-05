@@ -472,14 +472,10 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                           {client.taxTypes ? ` · ${client.taxTypes}` : ""}
                         </span>
                         {client.accountingProgram?.includes("위하고") && (
-                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500" title="위하고">
-                            <span className="text-white text-[7px] font-bold leading-none">W</span>
-                          </span>
+                          <img src="/wehago.svg" alt="위하고" title="위하고" className="w-4 h-4 rounded" />
                         )}
                         {client.accountingProgram?.includes("세무사랑") && (
-                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-purple-600" title="세무사랑">
-                            <span className="text-white text-[7px] font-bold leading-none">S</span>
-                          </span>
+                          <img src="/semusarang.svg" alt="세무사랑" title="세무사랑" className="w-4 h-4 rounded" />
                         )}
                       </div>
                     </td>
