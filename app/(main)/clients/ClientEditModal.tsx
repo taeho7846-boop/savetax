@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getClientById, updateClientInModal, deleteClient } from "@/app/actions/clients";
 import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
 
@@ -69,6 +70,14 @@ export function ClientEditModal({
             )}
           </div>
           <div className="flex items-center gap-3">
+            {data?.client && (
+              <Link
+                href={`/clients/${data.client.id}?tab=history`}
+                className="text-sm text-[#1a2e4a] hover:text-[#243d61] border border-[#1a2e4a] px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                히스토리
+              </Link>
+            )}
             {data?.client && (
               <form
                 action={deleteClient.bind(null, data.client.id)}
