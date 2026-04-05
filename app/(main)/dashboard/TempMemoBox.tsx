@@ -46,7 +46,11 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
     });
   }
 
-  if (memos.length === 0) return null;
+  if (memos.length === 0) return (
+    <div className="text-center py-16 text-gray-400 text-sm">
+      텔레그램에서 @TaehotaxBot 에게 메시지를 보내면 여기에 표시됩니다
+    </div>
+  );
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-purple-200 p-5 mb-6">
