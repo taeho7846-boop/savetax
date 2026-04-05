@@ -23,13 +23,28 @@ export default async function TasksPage({
 
   const isActiveTab = tab !== "done";
 
+  // 직원인 경우 소속 세무사가 공유한 업무도 볼 수 있음
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { managerId: true },
+  });
+
+  const visibilityFilter: any[] = [
+    { createdByUserId: session.id },
+    { assignedUserId: session.id },
+  ];
+  // 직원이면 소속 세무사가 공유한 업무도 표시
+  if (session.role === "employee" && user?.managerId) {
+    visibilityFilter.push({
+      createdByUserId: user.managerId,
+      sharedWithEmployees: true,
+    });
+  }
+
   const tasks = await prisma.task.findMany({
     where: {
       isDeleted: false,
-      OR: [
-        { createdByUserId: session.id },
-        { assignedUserId: session.id },
-      ],
+      OR: visibilityFilter,
       // 탭 필터: 진행중 탭이면 완료 제외, 완료 탭이면 완료만
       ...(isActiveTab
         ? { status: status || { not: "done" } }

@@ -108,6 +108,7 @@ model Task {
   dueDate     DateTime?
   completedAt DateTime?
   notes       String?
+  sharedWithEmployees Boolean @default(false) // 세무사가 소속 직원에게 공유 여부
   isDeleted   Boolean   @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

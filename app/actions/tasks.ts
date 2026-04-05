@@ -58,13 +58,14 @@ export async function getCreateTaskData() {
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
-  return { clients };
+  return { clients, currentUserRole: session.role };
 }
 
 export async function createTaskInModal(formData: FormData) {
   const session = await requireAuth();
 
   const dueDateStr = formData.get("dueDate") as string;
+  const isManager = ["owner", "admin", "accountant"].includes(session.role);
 
   await prisma.task.create({
     data: {
@@ -77,6 +78,7 @@ export async function createTaskInModal(formData: FormData) {
       priority: (formData.get("priority") as string) || "normal",
       dueDate: dueDateStr ? new Date(dueDateStr) : null,
       notes: (formData.get("notes") as string) || null,
+      sharedWithEmployees: isManager ? formData.get("sharedWithEmployees") === "true" : false,
     },
   });
 

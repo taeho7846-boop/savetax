@@ -150,6 +150,20 @@ function TaskCreateModal({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
 
+              {data.currentUserRole && ["owner", "admin", "accountant"].includes(data.currentUserRole) && (
+                <div className="col-span-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="sharedWithEmployees"
+                      value="true"
+                      className="accent-[#1a2e4a] w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">소속 직원에게 공유</span>
+                  </label>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
                 <textarea

@@ -220,6 +220,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
               {showAssignedUser && (
                 <th className="text-center px-3 py-3 text-gray-700 font-medium">담당자</th>
               )}
+              <th className="text-center px-2 py-3 text-gray-700 font-medium text-xs whitespace-pre-line leading-tight">
+                <button onClick={() => handleSort("신고없음")} className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]">
+                  신고없음{sortCol === "신고없음" ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}
+                </button>
+              </th>
               <th className="text-center px-3 py-3 text-gray-700 font-medium">
                 <button onClick={() => handleSort("laborTypes")} className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]">
                   인건비{sortCol === "laborTypes" ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}
@@ -242,7 +247,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
           <tbody className="divide-y divide-gray-100">
             {sortedClients.length === 0 ? (
               <tr>
-                <td colSpan={3 + columns.length + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-gray-500">
+                <td colSpan={4 + columns.length + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-gray-500">
                   해당하는 거래처가 없습니다
                 </td>
               </tr>
@@ -255,18 +260,28 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                 const doneMap = new Map(
                   client.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true])
                 );
+                const isSkipped = doneMap.has("신고없음");
 
                 // 이 거래처의 모든 업무 완료 여부
-                const allDone = requiredTasks.length > 0 && requiredTasks.every(t => doneMap.has(t.key));
+                const allDone = isSkipped || (requiredTasks.length > 0 && requiredTasks.every(t => doneMap.has(t.key)));
 
                 return (
-                  <tr key={client.id} className={`transition-colors ${allDone ? "bg-green-50/50" : "hover:bg-blue-50/50"}`}>
+                  <tr key={client.id} className={`transition-colors ${isSkipped ? "bg-gray-50 opacity-60" : allDone ? "bg-green-50/50" : "hover:bg-blue-50/50"}`}>
                     <td className="px-4 py-3 text-[#1a2e4a] font-medium">{client.name}</td>
                     {showAssignedUser && (
                       <td className="px-3 py-3 text-center text-xs text-gray-600">
                         {client.assignedUser?.name ?? <span className="text-gray-300">-</span>}
                       </td>
                     )}
+                    <td className="px-2 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isSkipped}
+                        onChange={() => handleToggle(client.id, "신고없음")}
+                        disabled={isPending}
+                        className="accent-gray-500 w-4 h-4 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-3 py-3 text-center">
                       <div className="flex items-center justify-center gap-1 flex-wrap">
                         {laborList.map((t) => {
@@ -290,7 +305,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                     </td>
                     {columns.map((col) => (
                       <td key={col.key} className="px-2 py-3 text-center">
-                        {requiredKeys.has(col.key) ? (
+                        {isSkipped ? (
+                          <span className="text-gray-200">-</span>
+                        ) : requiredKeys.has(col.key) ? (
                           <input
                             type="checkbox"
                             checked={doneMap.has(col.key)}
