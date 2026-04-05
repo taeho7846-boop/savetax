@@ -40,18 +40,25 @@ export async function createMemoInModal(formData: FormData) {
   const session = await requireAuth();
 
   const clientId = formData.get("clientId");
-  const taskId = formData.get("taskId");
 
   await prisma.memo.create({
     data: {
       clientId: clientId ? parseInt(clientId as string) : null,
-      taskId: taskId ? parseInt(taskId as string) : null,
       authorId: session.id,
+      title: (formData.get("title") as string)?.trim() || null,
       content: formData.get("content") as string,
       memoType: (formData.get("memoType") as string) || "general",
     },
   });
 
-  revalidatePath("/memos");
+  revalidatePath("/tasks");
   if (clientId) revalidatePath(`/clients/${clientId}`);
+}
+
+export async function deleteMemo(id: number) {
+  const session = await requireAuth();
+  const memo = await prisma.memo.findUnique({ where: { id } });
+  if (!memo || memo.authorId !== session.id) throw new Error("본인의 메모만 삭제할 수 있습니다.");
+  await prisma.memo.delete({ where: { id } });
+  revalidatePath("/tasks");
 }

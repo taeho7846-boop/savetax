@@ -86,6 +86,7 @@ interface Props {
     halfYearTax?: boolean;
     affiliation?: string | null;
     notes: string | null;
+    myboxLink?: string | null;
     assignedUserId: number | null;
   };
   users: { id: number; name: string }[];
@@ -365,6 +366,16 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           name="notes"
           rows={6}
           defaultValue={client.notes ?? ""}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+        /></CopyWrap>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-800 mb-1">마이박스 링크</label>
+        <CopyWrap><input
+          name="myboxLink"
+          type="url"
+          defaultValue={client.myboxLink ?? ""}
+          placeholder="https://mybox.naver.com/..."
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
         /></CopyWrap>
       </div>

@@ -27,6 +27,7 @@ const emptyClient = {
   halfYearTax: false,
   affiliation: null,
   notes: null,
+  myboxLink: null,
   assignedUserId: null,
 };
 

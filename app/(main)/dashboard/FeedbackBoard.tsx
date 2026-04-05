@@ -17,7 +17,7 @@ type FeedbackItem = {
 const PAGE_OPTIONS = [
   "대시보드", "고객사 관리", "신규수임", "신고대리", "원천세", "종합소득세",
   "채권 관리", "자료수집", "세이브택스 배분", "세무회계태호 배분", "수익추이", "스케쥴",
-  "업무 일정", "내부 메모", "직원 관리", "설정", "기타",
+  "업무/메모", "직원 관리", "설정", "기타",
 ];
 
 function PageSelect({ value, onChange, name, required }: { value?: string; onChange?: (v: string) => void; name?: string; required?: boolean }) {

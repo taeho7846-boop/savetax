@@ -18,8 +18,7 @@ const menus = [
   { href: "/distribution-taeho", label: "세무회계태호 배분", icon: "📊" },
   { href: "/revenue", label: "수익추이", icon: "📈" },
   { href: "/schedule", label: "스케쥴", icon: "📅" },
-  { href: "/tasks", label: "업무 일정", icon: "🗓️" },
-  { href: "/memos", label: "내부 메모", icon: "📝" },
+  { href: "/tasks", label: "업무/메모", icon: "🗓️" },
 ];
 
 type LoginStatus = "idle" | "loading" | "success" | "error";

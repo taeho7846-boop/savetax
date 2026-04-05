@@ -3,10 +3,11 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTaskInModal, getCreateTaskData } from "@/app/actions/tasks";
+import { createMemoInModal } from "@/app/actions/memos";
 
 type CreateData = Awaited<ReturnType<typeof getCreateTaskData>>;
 
-export function TaskCreateButton({ className }: { className?: string }) {
+export function UnifiedCreateButton({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -14,16 +15,22 @@ export function TaskCreateButton({ className }: { className?: string }) {
         onClick={() => setOpen(true)}
         className={className ?? "bg-[#1a2e4a] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors shrink-0"}
       >
-        + 업무 등록
+        + 등록
       </button>
-      {open && <TaskCreateModal onClose={() => setOpen(false)} />}
+      {open && <UnifiedCreateModal onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function TaskCreateModal({ onClose }: { onClose: () => void }) {
+// 하위호환: 기존 TaskCreateButton 유지
+export function TaskCreateButton({ className }: { className?: string }) {
+  return <UnifiedCreateButton className={className} />;
+}
+
+function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<CreateData | null>(null);
   const [, startTransition] = useTransition();
+  const [createType, setCreateType] = useState<"task" | "memo">("task");
   const router = useRouter();
 
   useEffect(() => {
@@ -42,11 +49,17 @@ function TaskCreateModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      await createTaskInModal(formData);
+      if (createType === "task") {
+        await createTaskInModal(formData);
+      } else {
+        await createMemoInModal(formData);
+      }
       router.refresh();
       onClose();
     });
   }
+
+  const isManager = data?.currentUserRole && ["owner", "admin", "accountant"].includes(data.currentUserRole);
 
   return (
     <div
@@ -56,7 +69,9 @@ function TaskCreateModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-xl flex flex-col">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">업무 등록</h2>
+          <h2 className="text-lg font-bold text-gray-900">
+            {createType === "task" ? "업무 등록" : "메모 등록"}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
@@ -71,6 +86,33 @@ function TaskCreateModal({ onClose }: { onClose: () => void }) {
             <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* 유형 선택 */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCreateType("task")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    createType === "task"
+                      ? "bg-[#1a2e4a] text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  업무
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateType("memo")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    createType === "memo"
+                      ? "bg-[#1a2e4a] text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  메모
+                </button>
+              </div>
+
+              {/* 공통: 고객사 + 제목 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">고객사</label>
@@ -78,97 +120,111 @@ function TaskCreateModal({ onClose }: { onClose: () => void }) {
                     name="clientId"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
                   >
-                    <option value="">고객사 없음 (직접 입력)</option>
+                    <option value="">고객사 없음</option>
                     {data.clients.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    업무명 <span className="text-red-500">*</span>
+                    제목 <span className="text-red-500">*</span>
                   </label>
                   <input
                     name="title"
                     required
-                    placeholder="예: 2025년 1기 부가세 신고"
+                    placeholder={createType === "task" ? "예: 2025년 1기 부가세 신고" : "메모 제목"}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">업무 유형</label>
-                  <select
-                    name="taskType"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  >
-                    <option value="">선택 안 함</option>
-                    <option value="vat">부가가치세</option>
-                    <option value="withholding">원천세</option>
-                    <option value="income">종합소득세</option>
-                    <option value="corporate">법인세</option>
-                    <option value="insurance">4대보험</option>
-                    <option value="settlement">결산</option>
-                    <option value="other">기타</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">마감일</label>
-                  <input
-                    name="dueDate"
-                    type="date"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">우선순위</label>
-                  <select
-                    name="priority"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  >
-                    <option value="normal">보통</option>
-                    <option value="high">높음</option>
-                    <option value="low">낮음</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
-                  <select
-                    name="status"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  >
-                    <option value="scheduled">예정</option>
-                    <option value="in_progress">진행중</option>
-                    <option value="done">완료</option>
-                    <option value="hold">보류</option>
-                    <option value="delayed">지연</option>
-                  </select>
                 </div>
               </div>
 
-              {data.currentUserRole && ["owner", "admin", "accountant"].includes(data.currentUserRole) && (
-                <div className="col-span-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
+              {/* 업무 전용 필드 */}
+              {createType === "task" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">업무 유형</label>
+                    <select
+                      name="taskType"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    >
+                      <option value="">선택 안 함</option>
+                      <option value="vat">부가가치세</option>
+                      <option value="withholding">원천세</option>
+                      <option value="income">종합소득세</option>
+                      <option value="corporate">법인세</option>
+                      <option value="insurance">4대보험</option>
+                      <option value="settlement">결산</option>
+                      <option value="other">기타</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">마감일</label>
                     <input
-                      type="checkbox"
-                      name="sharedWithEmployees"
-                      value="true"
-                      className="accent-[#1a2e4a] w-4 h-4"
+                      name="dueDate"
+                      type="date"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
                     />
-                    <span className="text-sm text-gray-700">소속 직원에게 공유</span>
-                  </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">우선순위</label>
+                    <select
+                      name="priority"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    >
+                      <option value="normal">보통</option>
+                      <option value="high">높음</option>
+                      <option value="low">낮음</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                    <select
+                      name="status"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    >
+                      <option value="scheduled">예정</option>
+                      <option value="in_progress">진행중</option>
+                      <option value="done">완료</option>
+                      <option value="hold">보류</option>
+                      <option value="delayed">지연</option>
+                    </select>
+                  </div>
+                  {isManager && (
+                    <div className="col-span-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="sharedWithEmployees" value="true" className="accent-[#1a2e4a] w-4 h-4" />
+                        <span className="text-sm text-gray-700">소속 직원에게 공유</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
 
+              {/* 메모 전용 필드 */}
+              {createType === "memo" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">메모 유형</label>
+                  <select
+                    name="memoType"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  >
+                    <option value="general">일반</option>
+                    <option value="handover">인수인계</option>
+                    <option value="caution">주의</option>
+                  </select>
+                </div>
+              )}
+
+              {/* 공통: 내용 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {createType === "task" ? "메모" : "내용"} {createType === "memo" && <span className="text-red-500">*</span>}
+                </label>
                 <textarea
-                  name="notes"
-                  rows={3}
+                  name={createType === "task" ? "notes" : "content"}
+                  rows={4}
+                  required={createType === "memo"}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none"
                 />
               </div>

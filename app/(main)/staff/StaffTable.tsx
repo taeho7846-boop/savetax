@@ -30,8 +30,7 @@ const ALL_MENUS = [
   { key: "distribution-taeho", label: "세무회계태호 배분" },
   { key: "revenue", label: "수익추이" },
   { key: "schedule", label: "스케쥴" },
-  { key: "tasks", label: "업무 일정" },
-  { key: "memos", label: "내부 메모" },
+  { key: "tasks", label: "업무/메모" },
 ];
 
 const roleLabels: Record<string, string> = {

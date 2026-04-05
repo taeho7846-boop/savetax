@@ -63,6 +63,7 @@ model Client {
   affiliation    String?  // 소속 (세이브택스, 그 외)
   corporateNumber String?  // 법인등록번호
   notes          String?  // 특이사항
+  myboxLink      String?  // 네이버 마이박스 폴더 링크
   cmsRegistered  Boolean  @default(false) // CMS 등록여부
   assignedUserId Int?
   assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
@@ -284,6 +285,7 @@ model Memo {
   task      Task?    @relation(fields: [taskId], references: [id])
   authorId  Int
   author    User     @relation(fields: [authorId], references: [id])
+  title     String?
   content   String
   memoType  String   @default("general") // general | handover | caution
   createdAt DateTime @default(now())

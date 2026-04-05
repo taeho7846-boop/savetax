@@ -45,6 +45,7 @@ export async function createClient(formData: FormData) {
       halfYearTax: formData.get("halfYearTax") === "true",
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
+      myboxLink: (formData.get("myboxLink") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,
@@ -85,6 +86,7 @@ export async function updateClient(id: number, formData: FormData) {
       halfYearTax: formData.get("halfYearTax") === "true",
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
+      myboxLink: (formData.get("myboxLink") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -122,6 +124,7 @@ export async function updateClientInModal(id: number, formData: FormData) {
       halfYearTax: formData.get("halfYearTax") === "true",
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
+      myboxLink: (formData.get("myboxLink") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -237,6 +240,7 @@ export async function createClientInModal(formData: FormData) {
       halfYearTax: formData.get("halfYearTax") === "true",
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
+      myboxLink: (formData.get("myboxLink") as string) || null,
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,
