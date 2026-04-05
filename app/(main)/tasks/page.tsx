@@ -218,7 +218,7 @@ export default async function TasksPage({
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {itemType === "all" && <th className="text-center px-2 py-3 text-gray-600 font-medium w-16">구분</th>}
+                {itemType === "all" && <th className="text-center px-3 py-3 text-gray-600 font-medium w-16">구분</th>}
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">고객사</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">업무</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">유형</th>
@@ -243,7 +243,7 @@ export default async function TasksPage({
                   >
                     {itemType === "all" && (
                       <td className="px-4 py-3">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">업무</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">업무</span>
                       </td>
                     )}
                     <td className="px-4 py-3">
@@ -297,7 +297,7 @@ export default async function TasksPage({
             <div key={`memo-${memo.id}`} className="bg-white rounded-lg shadow-sm border border-gray-100 px-5 py-4">
               <div className="flex items-center gap-2 mb-2">
                 {itemType === "all" && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">메모</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">메모</span>
                 )}
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${MEMO_TYPE_COLORS[memo.memoType] ?? MEMO_TYPE_COLORS.general}`}>
                   {MEMO_TYPE_LABELS[memo.memoType] ?? memo.memoType}
