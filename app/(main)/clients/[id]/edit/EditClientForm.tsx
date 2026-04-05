@@ -371,13 +371,27 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-800 mb-1">마이박스 링크</label>
-        <CopyWrap><input
-          name="myboxLink"
-          type="url"
-          defaultValue={client.myboxLink ?? ""}
-          placeholder="https://mybox.naver.com/..."
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-        /></CopyWrap>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <CopyWrap><input
+              name="myboxLink"
+              defaultValue={client.myboxLink ?? ""}
+              placeholder="마이박스 폴더 경로 또는 링크"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            /></CopyWrap>
+          </div>
+          {client.myboxLink && (
+            <a
+              href={client.myboxLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 bg-green-500 text-white text-sm px-3 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              📁 열기
+            </a>
+          )}
+        </div>
       </div>
 
       {/* 모달에서는 숨기고 헤더에 표시 */}
