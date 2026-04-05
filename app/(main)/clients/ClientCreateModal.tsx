@@ -24,7 +24,7 @@ const emptyClient = {
   bankName: null,
   bankAccount: null,
   openDate: null,
-  accountingProgram: "wehago",
+  accountingProgram: "위하고",
   halfYearTax: false,
   affiliation: null,
   notes: null,

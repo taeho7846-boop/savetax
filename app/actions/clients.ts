@@ -19,6 +19,13 @@ function getLaborTypes(formData: FormData) {
   return types.length > 0 ? types.join(", ") : null;
 }
 
+function getAccountingProgram(formData: FormData) {
+  const types = ["위하고", "세무사랑"].filter(
+    (t) => formData.get(`accountingProgram_${t}`) === t
+  );
+  return types.length > 0 ? types.join(",") : "위하고";
+}
+
 export async function createClient(formData: FormData) {
   const session = await requireAuth();
 
@@ -46,7 +53,7 @@ export async function createClient(formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
-      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
+      accountingProgram: getAccountingProgram(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,
@@ -88,7 +95,7 @@ export async function updateClient(id: number, formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
-      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
+      accountingProgram: getAccountingProgram(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -127,7 +134,7 @@ export async function updateClientInModal(id: number, formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
-      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
+      accountingProgram: getAccountingProgram(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -261,7 +268,7 @@ export async function createClientInModal(formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
-      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
+      accountingProgram: getAccountingProgram(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,

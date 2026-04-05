@@ -205,25 +205,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 회계프로그램 */}
       <div>
         <label className="block text-sm font-medium text-gray-800 mb-1">회계프로그램</label>
-        <div className="flex gap-2">
-          {[
-            { value: "wehago", label: "위하고" },
-            { value: "semusarang", label: "세무사랑" },
-          ].map((opt) => (
-            <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                name="accountingProgram"
-                value={opt.value}
-                defaultChecked={(client.accountingProgram ?? "wehago") === opt.value}
-                className="hidden peer"
-              />
-              <span className="peer-checked:bg-[#1a2e4a] peer-checked:text-white border border-gray-300 peer-checked:border-[#1a2e4a] rounded-md px-3 py-1.5 text-sm text-gray-700 select-none hover:border-[#1a2e4a] transition-colors">
-                {opt.label}
-              </span>
-            </label>
-          ))}
-        </div>
+        <CheckboxGroup name="accountingProgram" options={["위하고", "세무사랑"]} defaultValues={(client.accountingProgram ?? "위하고").split(",").map(s => s.trim()).filter(Boolean)} />
       </div>
 
       {/* 행4: 인건비 / 개업년월일 */}
