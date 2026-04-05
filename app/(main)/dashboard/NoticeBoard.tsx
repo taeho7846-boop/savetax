@@ -36,6 +36,24 @@ const SUB_CATEGORIES: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
+function Linkify({ text }: { text: string }) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        urlRegex.test(part) ? (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function timeAgo(date: Date | string) {
   const diff = Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
   if (diff === 0) return "오늘";
@@ -292,7 +310,7 @@ export function NoticeBoard({
                     {isExpanded && (
                       <div className="px-5 pb-4 border-t border-gray-100 pt-3">
                         <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap mb-3">
-                          {n.content}
+                          <Linkify text={n.content} />
                         </div>
                         <div className="flex items-center gap-2">
                           {/* 복사 버튼 */}
