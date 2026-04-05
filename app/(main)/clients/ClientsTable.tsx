@@ -383,7 +383,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   )}
                 </div>
               </th>
-              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">마이박스</th>
+              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">MyBox</th>
               {!readonly && (
                 <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
               )}
