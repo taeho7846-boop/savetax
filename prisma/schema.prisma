@@ -327,6 +327,7 @@ model Knowledge {
   category  String   // 4대보험 | 세율 | 기준 | 서식 | 절차 | 기타
   title     String
   content   String
+  files     String?  // 첨부파일 경로들 (콤마 구분)
   tags      String?  // 검색용 태그 (콤마 구분)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -11,6 +11,7 @@ type KnowledgeItem = {
   category: string;
   title: string;
   content: string;
+  files: string | null;
   tags: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -58,11 +59,15 @@ export function KnowledgeBoard({
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
+  const [uploadedFiles, setUploadedFiles] = useState<{ url: string; name: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
   // 수정 상태
   const [editCategory, setEditCategory] = useState("기타");
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editTags, setEditTags] = useState("");
+  const [editFiles, setEditFiles] = useState<{ url: string; name: string }[]>([]);
 
   const filtered = items.filter((item) => {
     if (filter && item.category !== filter) return false;
@@ -79,10 +84,36 @@ export function KnowledgeBoard({
 
   const canModify = (item: KnowledgeItem) => item.authorId === currentUserId || currentUserRole === "owner";
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>, target: "new" | "edit") {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/knowledge/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok) {
+        if (target === "new") {
+          setUploadedFiles(prev => [...prev, { url: data.url, name: data.name }]);
+        } else {
+          setEditFiles(prev => [...prev, { url: data.url, name: data.name }]);
+        }
+      }
+    } catch {} finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
   function handleCreate(formData: FormData) {
+    if (uploadedFiles.length > 0) {
+      formData.set("files", uploadedFiles.map(f => `${f.url}|${f.name}`).join(","));
+    }
     startTransition(async () => {
       await createKnowledge(formData);
       setShowForm(false);
+      setUploadedFiles([]);
     });
   }
 
@@ -92,6 +123,15 @@ export function KnowledgeBoard({
     setEditTitle(item.title);
     setEditContent(item.content);
     setEditTags(item.tags ?? "");
+    setEditFiles(parseFiles(item.files));
+  }
+
+  function parseFiles(files: string | null): { url: string; name: string }[] {
+    if (!files) return [];
+    return files.split(",").map(f => {
+      const [url, name] = f.split("|");
+      return { url, name: name || url.split("/").pop() || "파일" };
+    });
   }
 
   function handleUpdate(id: number) {
@@ -100,6 +140,7 @@ export function KnowledgeBoard({
     fd.set("title", editTitle);
     fd.set("content", editContent);
     fd.set("tags", editTags);
+    fd.set("files", editFiles.map(f => `${f.url}|${f.name}`).join(","));
     startTransition(async () => {
       await updateKnowledge(id, fd);
       setEditingId(null);
@@ -199,6 +240,26 @@ export function KnowledgeBoard({
             <label className="block text-xs text-gray-500 mb-1">내용</label>
             <textarea name="content" required rows={6} placeholder="지식 내용을 정리하세요" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none" />
           </div>
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1">첨부파일</label>
+            <div className="flex items-center gap-3">
+              <label className={`text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? "bg-gray-200 text-gray-400" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                {uploading ? "업로드 중..." : "📎 파일 추가"}
+                <input type="file" accept="image/*,.pdf,.xlsx,.xls,.doc,.docx,.hwp" className="hidden" onChange={(e) => handleFileUpload(e, "new")} disabled={uploading} />
+              </label>
+              <span className="text-[10px] text-gray-400">이미지, PDF, 엑셀, 한글 파일 지원</span>
+            </div>
+            {uploadedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {uploadedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 rounded-lg px-2.5 py-1 text-xs">
+                    {f.name.match(/\.(png|jpg|jpeg|gif|webp)$/i) ? "🖼️" : "📄"} {f.name}
+                    <button type="button" onClick={() => setUploadedFiles(prev => prev.filter((_, j) => j !== i))} className="text-blue-400 hover:text-red-500 ml-0.5">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="submit" disabled={isPending} className="bg-[#1a2e4a] text-white text-sm px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50">
             등록
           </button>
@@ -270,9 +331,31 @@ export function KnowledgeBoard({
 
                     {isExpanded && (
                       <div className="px-5 pb-4 border-t border-gray-100 pt-3">
+                        {/* 첨부 이미지 */}
+                        {item.files && parseFiles(item.files).some(f => f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)) && (
+                          <div className="flex flex-wrap gap-3 mb-3">
+                            {parseFiles(item.files).filter(f => f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)).map((f, i) => (
+                              <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img src={f.url} alt={f.name} className="max-h-60 rounded-lg border border-gray-200 hover:border-blue-400 transition-colors" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap mb-3 leading-relaxed">
                           <Linkify text={item.content} />
                         </div>
+
+                        {/* 첨부 파일 (이미지 외) */}
+                        {item.files && parseFiles(item.files).some(f => !f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)) && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {parseFiles(item.files).filter(f => !f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)).map((f, i) => (
+                              <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 transition-colors">
+                                📄 {f.name}
+                              </a>
+                            ))}
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-2">
                           <button

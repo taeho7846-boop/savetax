@@ -20,6 +20,7 @@ export async function createKnowledge(formData: FormData) {
       category: formData.get("category") as string,
       title: (formData.get("title") as string).trim(),
       content: (formData.get("content") as string).trim(),
+      files: (formData.get("files") as string)?.trim() || null,
       tags: (formData.get("tags") as string)?.trim() || null,
     },
   });
@@ -38,6 +39,7 @@ export async function updateKnowledge(id: number, formData: FormData) {
       category: formData.get("category") as string,
       title: (formData.get("title") as string).trim(),
       content: (formData.get("content") as string).trim(),
+      files: (formData.get("files") as string)?.trim() || null,
       tags: (formData.get("tags") as string)?.trim() || null,
     },
   });
