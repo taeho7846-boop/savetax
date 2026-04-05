@@ -1,5 +1,5 @@
-// 텔레그램 봇 폴링 스크립트
-// 실행: node scripts/telegram-bot.js
+// 텔레그램 봇 폴링 스크립트 (curl 기반)
+import { execSync } from "child_process";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!BOT_TOKEN) {
@@ -7,48 +7,45 @@ if (!BOT_TOKEN) {
   process.exit(1);
 }
 
-const API_BASE = `http://localhost:80/api/telegram`;
 const TG_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const API_BASE = `http://localhost:80/api/telegram`;
+
+function curlGet(url: string): any {
+  try {
+    const result = execSync(`curl -s --connect-timeout 10 --max-time 35 "${url}"`, { encoding: "utf-8" });
+    return JSON.parse(result);
+  } catch {
+    return null;
+  }
+}
+
+function curlPost(url: string, body: any): any {
+  try {
+    const json = JSON.stringify(body).replace(/'/g, "'\\''");
+    const result = execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${json}' "${url}"`, { encoding: "utf-8" });
+    return JSON.parse(result);
+  } catch {
+    return null;
+  }
+}
 
 let offset = 0;
 
-async function poll() {
-  try {
-    const res = await fetch(`${TG_BASE}/getUpdates?offset=${offset}&timeout=30`);
-    const data = await res.json();
+function poll() {
+  const data = curlGet(`${TG_BASE}/getUpdates?offset=${offset}&timeout=30`);
+  if (!data?.ok || !data.result) return;
 
-    if (!data.ok || !data.result) return;
-
-    for (const update of data.result) {
-      offset = update.update_id + 1;
-
-      if (update.message) {
-        // 내부 API로 전달
-        try {
-          await fetch(API_BASE, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: update.message }),
-          });
-        } catch (e: any) {
-          console.error("API 전달 실패:", e.message);
-        }
-      }
+  for (const update of data.result) {
+    offset = update.update_id + 1;
+    if (update.message) {
+      curlPost(API_BASE, { message: update.message });
+      console.log(`메시지 수신: ${update.message.from?.first_name} - ${(update.message.text || "(파일)").slice(0, 30)}`);
     }
-  } catch (e: any) {
-    console.error("폴링 오류:", e.message);
-    await new Promise(r => setTimeout(r, 5000));
   }
 }
 
-async function main() {
-  // 웹훅 해제
-  await fetch(`${TG_BASE}/deleteWebhook`);
-  console.log("텔레그램 봇 폴링 시작...");
+// 웹훅 해제
+curlGet(`${TG_BASE}/deleteWebhook`);
+console.log("텔레그램 봇 폴링 시작 (curl 기반)...");
 
-  while (true) {
-    await poll();
-  }
-}
-
-main();
+setInterval(poll, 1000);
