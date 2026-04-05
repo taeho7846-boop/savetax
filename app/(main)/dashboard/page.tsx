@@ -10,6 +10,8 @@ import { TempMemoBox } from "./TempMemoBox";
 import { getTempMemos } from "@/app/actions/temp-memo";
 import { NoticeBoard } from "./NoticeBoard";
 import { getNotices } from "@/app/actions/notice";
+import { KnowledgeBoard } from "./KnowledgeBoard";
+import { getKnowledges } from "@/app/actions/knowledge";
 import { DashboardTabs } from "./DashboardTabs";
 
 export default async function DashboardPage({
@@ -52,7 +54,7 @@ export default async function DashboardPage({
   const cmsSelect = { id: true, name: true, phone: true, bankName: true, bankAccount: true };
 
   const [totalClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
-         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices] =
+         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges] =
     await Promise.all([
       prisma.client.count({
         where: {
@@ -96,6 +98,7 @@ export default async function DashboardPage({
         orderBy: { name: "asc" },
       }),
       getNotices(),
+      getKnowledges(),
     ]);
 
   return (
@@ -209,6 +212,11 @@ export default async function DashboardPage({
       {/* 공지사항 탭 */}
       {activeTab === "notice" && (
         <NoticeBoard notices={notices} currentUserId={session.id} currentUserRole={session.role} />
+      )}
+
+      {/* 지식한입 탭 */}
+      {activeTab === "knowledge" && (
+        <KnowledgeBoard items={knowledges} currentUserId={session.id} currentUserRole={session.role} />
       )}
 
       {/* 임시메모함 탭 */}

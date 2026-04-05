@@ -5,6 +5,7 @@ import Link from "next/link";
 const TABS = [
   { key: "overview", label: "현황", icon: "📊" },
   { key: "notice", label: "공지사항", icon: "📋" },
+  { key: "knowledge", label: "지식한입", icon: "📖" },
   { key: "memo", label: "임시메모함", icon: "💬" },
 ];
 
