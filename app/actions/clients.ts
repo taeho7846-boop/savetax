@@ -177,6 +177,23 @@ export async function getClientById(id: number) {
   return { client, users, currentUserRole: session.role, affiliationOptions };
 }
 
+export async function getClientHistory(clientId: number) {
+  await requireAuth();
+  const [tasks, memos] = await Promise.all([
+    prisma.task.findMany({
+      where: { clientId, isDeleted: false },
+      include: { assignedUser: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.memo.findMany({
+      where: { clientId },
+      include: { author: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  return { tasks, memos };
+}
+
 export async function getCreateClientData() {
   const session = await requireAuth();
   const [allUsers, currentUser] = await Promise.all([
