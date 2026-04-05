@@ -63,6 +63,8 @@ export async function POST(req: NextRequest) {
     if (!name) continue;
 
     const bizNumber = String(row[1] ?? "").trim() || null;
+    const halfYearRaw = String(row[10] ?? "").trim().toUpperCase();
+    const freeMonthsRaw = String(row[14] ?? "").trim();
     const excelData = {
       name,
       bizNumber,
@@ -71,14 +73,21 @@ export async function POST(req: NextRequest) {
       phone: String(row[4] ?? "").trim() || null,
       clientType: String(row[5] ?? "").trim() === "법인" ? "corporate" : "individual",
       taxationType: String(row[6] ?? "").trim() || null,
-      hometaxId: String(row[7] ?? "").trim() || null,
-      hometaxPw: String(row[8] ?? "").trim() || null,
-      monthlyFee: row[9] ? parseInt(String(row[9])) || null : null,
-      firstWithdrawalMonth: normalizeYearMonth(row[10]) || null,
-      bankName: String(row[11] ?? "").trim() || null,
-      bankAccount: String(row[12] ?? "").trim() || null,
-      address: String(row[13] ?? "").trim() || null,
-      notes: String(row[14] ?? "").trim() || null,
+      taxTypes: String(row[7] ?? "").trim() || null,
+      laborTypes: String(row[8] ?? "").trim() || null,
+      openDate: String(row[9] ?? "").trim() || null,
+      halfYearTax: halfYearRaw === "Y" || halfYearRaw === "예",
+      hometaxId: String(row[11] ?? "").trim() || null,
+      hometaxPw: String(row[12] ?? "").trim() || null,
+      monthlyFee: row[13] ? parseInt(String(row[13])) || null : null,
+      freeMonths: freeMonthsRaw ? parseInt(freeMonthsRaw) : null,
+      firstWithdrawalMonth: normalizeYearMonth(row[15]) || null,
+      bankName: String(row[16] ?? "").trim() || null,
+      bankAccount: String(row[17] ?? "").trim() || null,
+      affiliation: String(row[18] ?? "").trim() || null,
+      address: String(row[19] ?? "").trim() || null,
+      notes: String(row[20] ?? "").trim() || null,
+      myboxLink: String(row[21] ?? "").trim() || null,
     };
 
     try {
@@ -97,14 +106,20 @@ export async function POST(req: NextRequest) {
         if (!existing.residentNumber && excelData.residentNumber) updateData.residentNumber = excelData.residentNumber;
         if (!existing.phone && excelData.phone) updateData.phone = excelData.phone;
         if (!existing.taxationType && excelData.taxationType) updateData.taxationType = excelData.taxationType;
+        if (!existing.taxTypes && excelData.taxTypes) updateData.taxTypes = excelData.taxTypes;
+        if (!existing.laborTypes && excelData.laborTypes) updateData.laborTypes = excelData.laborTypes;
+        if (!existing.openDate && excelData.openDate) updateData.openDate = excelData.openDate;
         if (!existing.hometaxId && excelData.hometaxId) updateData.hometaxId = excelData.hometaxId;
         if (!existing.hometaxPw && excelData.hometaxPw) updateData.hometaxPw = excelData.hometaxPw;
         if (existing.monthlyFee == null && excelData.monthlyFee != null) updateData.monthlyFee = excelData.monthlyFee;
+        if (existing.freeMonths == null && excelData.freeMonths != null) updateData.freeMonths = excelData.freeMonths;
         if (!existing.firstWithdrawalMonth && excelData.firstWithdrawalMonth) updateData.firstWithdrawalMonth = excelData.firstWithdrawalMonth;
         if (!existing.bankName && excelData.bankName) updateData.bankName = excelData.bankName;
         if (!existing.bankAccount && excelData.bankAccount) updateData.bankAccount = excelData.bankAccount;
+        if (!existing.affiliation && excelData.affiliation) updateData.affiliation = excelData.affiliation;
         if (!existing.address && excelData.address) updateData.address = excelData.address;
         if (!existing.notes && excelData.notes) updateData.notes = excelData.notes;
+        if (!existing.myboxLink && excelData.myboxLink) updateData.myboxLink = excelData.myboxLink;
 
         if (Object.keys(updateData).length > 0) {
           await prisma.client.update({
