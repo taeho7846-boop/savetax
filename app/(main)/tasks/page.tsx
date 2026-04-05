@@ -218,7 +218,7 @@ export default async function TasksPage({
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {itemType === "all" && <th className="text-left px-4 py-3 text-gray-600 font-medium w-14">유형</th>}
+                {itemType === "all" && <th className="text-center px-2 py-3 text-gray-600 font-medium w-16">구분</th>}
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">고객사</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">업무</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">유형</th>
