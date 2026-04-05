@@ -40,6 +40,7 @@ type Client = {
   clientType: string;
   taxTypes: string | null;
   affiliation: string | null;
+  myboxLink: string | null;
   monthlyFee: number | null;
   assignedUser?: { name: string } | null;
 };
@@ -382,6 +383,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   )}
                 </div>
               </th>
+              <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">마이박스</th>
               {!readonly && (
                 <th className="text-center px-4 py-3 text-gray-700 font-medium whitespace-nowrap">홈택스</th>
               )}
@@ -390,7 +392,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <tbody className="divide-y divide-gray-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={readonly ? 9 : 10} className="text-center py-12 text-gray-500">
+                <td colSpan={readonly ? 10 : 11} className="text-center py-12 text-gray-500">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -449,6 +451,20 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                         <span className="text-gray-800">{client.affiliation}</span>
                       ) : (
                         <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      {client.myboxLink ? (
+                        <a
+                          href={client.myboxLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs bg-green-500 text-white px-2.5 py-1 rounded hover:bg-green-600 transition-colors whitespace-nowrap"
+                        >
+                          📁 열기
+                        </a>
+                      ) : (
+                        <span className="text-gray-300">-</span>
                       )}
                     </td>
                     {!readonly && (
