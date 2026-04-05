@@ -51,6 +51,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "데이터가 없습니다 (헤더만 있음)" }, { status: 400 });
   }
 
+  // 담당직원 이름 → ID 매핑용
+  const allUsers = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+  });
+  const userNameMap = new Map(allUsers.map(u => [u.name, u.id]));
+
   let created = 0;
   let updated = 0;
   let errors: string[] = [];
@@ -85,9 +92,10 @@ export async function POST(req: NextRequest) {
       bankName: String(row[16] ?? "").trim() || null,
       bankAccount: String(row[17] ?? "").trim() || null,
       affiliation: String(row[18] ?? "").trim() || null,
-      address: String(row[19] ?? "").trim() || null,
-      notes: String(row[20] ?? "").trim() || null,
-      myboxLink: String(row[21] ?? "").trim() || null,
+      assignedUserName: String(row[19] ?? "").trim() || null,
+      address: String(row[20] ?? "").trim() || null,
+      notes: String(row[21] ?? "").trim() || null,
+      myboxLink: String(row[22] ?? "").trim() || null,
     };
 
     try {
@@ -120,6 +128,10 @@ export async function POST(req: NextRequest) {
         if (!existing.address && excelData.address) updateData.address = excelData.address;
         if (!existing.notes && excelData.notes) updateData.notes = excelData.notes;
         if (!existing.myboxLink && excelData.myboxLink) updateData.myboxLink = excelData.myboxLink;
+        if (!existing.assignedUserId && excelData.assignedUserName) {
+          const uid = userNameMap.get(excelData.assignedUserName);
+          if (uid) updateData.assignedUserId = uid;
+        }
 
         if (Object.keys(updateData).length > 0) {
           await prisma.client.update({
@@ -130,10 +142,12 @@ export async function POST(req: NextRequest) {
         }
       } else {
         // 새 거래처 등록
+        const { assignedUserName, ...createData } = excelData;
+        const assignedId = assignedUserName ? userNameMap.get(assignedUserName) ?? session.id : session.id;
         const client = await prisma.client.create({
           data: {
-            ...excelData,
-            assignedUserId: session.id,
+            ...createData,
+            assignedUserId: assignedId,
           },
         });
         await prisma.commissionProcess.create({ data: { clientId: client.id } });
