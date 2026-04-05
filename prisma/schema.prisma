@@ -50,6 +50,7 @@ model Client {
   contractStatus String   @default("active")     // active | inactive (deprecated)
   taxationType   String?                         // 과세 | 면세
   taxTypes       String?  // 신고유형 (콤마 구분)
+  accountingProgram String @default("wehago") // wehago | semusarang
   laborTypes     String?  // 인건비 (콤마 구분)
   residentNumber String?  // 주민등록번호
   hometaxId      String?  // 홈택스 ID

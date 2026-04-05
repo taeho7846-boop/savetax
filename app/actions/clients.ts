@@ -46,6 +46,7 @@ export async function createClient(formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
+      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,
@@ -87,6 +88,7 @@ export async function updateClient(id: number, formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
+      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -125,6 +127,7 @@ export async function updateClientInModal(id: number, formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
+      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -258,6 +261,7 @@ export async function createClientInModal(formData: FormData) {
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
+      accountingProgram: (formData.get("accountingProgram") as string) || "wehago",
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,

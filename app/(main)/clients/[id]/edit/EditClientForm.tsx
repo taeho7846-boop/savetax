@@ -75,6 +75,7 @@ interface Props {
     address: string | null;
     clientType: string;
     taxationType: string | null;
+    accountingProgram?: string;
     hometaxId: string | null;
     hometaxPw: string | null;
     monthlyFee: number | null;
@@ -168,8 +169,8 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
       </div>
 
-      {/* 행3: 구분 / 과세유형 / 신고유형 */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* 행3: 구분 / 과세유형 / 신고유형 / 회계프로그램 */}
+      <div className="grid grid-cols-4 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-800 mb-1">구분</label>
           <select
@@ -197,7 +198,31 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-800 mb-1">신고 유형</label>
-          <CheckboxGroup name="taxType" options={["기장대리", "신고대리"]} defaultValues={currentTaxTypes} />
+          <div className="flex gap-2">
+            <CheckboxGroup name="taxType" options={["기장대리", "신고대리"]} defaultValues={currentTaxTypes} />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">회계프로그램</label>
+          <div className="flex gap-2">
+            {[
+              { value: "wehago", label: "위하고" },
+              { value: "semusarang", label: "세무사랑" },
+            ].map((opt) => (
+              <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="accountingProgram"
+                  value={opt.value}
+                  defaultChecked={(client.accountingProgram ?? "wehago") === opt.value}
+                  className="hidden peer"
+                />
+                <span className="peer-checked:bg-[#1a2e4a] peer-checked:text-white border border-gray-300 peer-checked:border-[#1a2e4a] rounded-md px-3 py-1.5 text-sm text-gray-700 select-none hover:border-[#1a2e4a] transition-colors">
+                  {opt.label}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 

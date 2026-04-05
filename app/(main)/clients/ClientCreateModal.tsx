@@ -24,6 +24,7 @@ const emptyClient = {
   bankName: null,
   bankAccount: null,
   openDate: null,
+  accountingProgram: "wehago",
   halfYearTax: false,
   affiliation: null,
   notes: null,

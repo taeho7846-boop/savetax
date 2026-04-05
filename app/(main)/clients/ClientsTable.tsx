@@ -39,6 +39,7 @@ type Client = {
   hometaxPw: string | null;
   clientType: string;
   taxTypes: string | null;
+  accountingProgram: string;
   affiliation: string | null;
   myboxLink: string | null;
   monthlyFee: number | null;
@@ -64,6 +65,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [affiliationFilter, setAffiliationFilter] = useState<string[]>([]);
   const [affFilterOpen, setAffFilterOpen] = useState(false);
+  const [programFilter, setProgramFilter] = useState<string | null>(null);
+  const [programFilterOpen, setProgramFilterOpen] = useState(false);
   const [loginStatuses, setLoginStatuses] = useState<Record<number, LoginStatus>>({});
   const [loginErrors, setLoginErrors] = useState<Record<number, string>>({});
   const [vncOpen, setVncOpen] = useState(false);
@@ -75,6 +78,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const router = useRouter();
   const filterRef = useRef<HTMLDivElement>(null);
   const affFilterRef = useRef<HTMLDivElement>(null);
+  const programFilterRef = useRef<HTMLDivElement>(null);
 
   function toggleCheck(id: number) {
     setCheckedIds((prev) => {
@@ -168,6 +172,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) {
         setAffFilterOpen(false);
       }
+      if (programFilterRef.current && !programFilterRef.current.contains(e.target as Node)) {
+        setProgramFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -202,6 +209,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
     rows = rows.filter((c) =>
       affiliationFilter.includes(c.affiliation || "")
     );
+  }
+  if (programFilter) {
+    rows = rows.filter((c) => c.accountingProgram === programFilter);
   }
 
   // 정렬 적용
@@ -278,7 +288,37 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
                 />
               </th>
-              <th className="text-left px-4 py-3 text-gray-700 font-medium w-40">고객사명</th>
+              <th className="text-left px-4 py-3 text-gray-700 font-medium w-40">
+                <div className="relative inline-block" ref={programFilterRef}>
+                  <button
+                    onClick={() => setProgramFilterOpen((o) => !o)}
+                    className={`flex items-center gap-1 hover:text-[#1a2e4a] ${programFilter ? "text-[#1a2e4a] font-semibold" : ""}`}
+                  >
+                    고객사명
+                    {programFilter && (
+                      <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">!</span>
+                    )}
+                    <span className="text-gray-400 text-[10px]">▼</span>
+                  </button>
+                  {programFilterOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[120px]">
+                      {[
+                        { value: null, label: "전체" },
+                        { value: "wehago", label: "위하고" },
+                        { value: "semusarang", label: "세무사랑" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.label}
+                          onClick={() => { setProgramFilter(opt.value); setProgramFilterOpen(false); }}
+                          className={`block w-full text-left px-3 py-1.5 rounded text-sm hover:bg-gray-50 ${programFilter === opt.value ? "text-[#1a2e4a] font-medium" : "text-gray-700"}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </th>
               {showAssignedUser && (
                 <th className="text-center px-4 py-3 text-gray-700 font-medium">담당자</th>
               )}
@@ -426,9 +466,20 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                     </td>
                     <td className="px-4 py-3 text-left">
                       <div className="text-[#1a2e4a] font-medium">{client.name}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {client.clientType === "corporate" ? "법인" : "개인"}
-                        {client.taxTypes ? ` · ${client.taxTypes}` : ""}
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                        <span>
+                          {client.clientType === "corporate" ? "법인" : "개인"}
+                          {client.taxTypes ? ` · ${client.taxTypes}` : ""}
+                        </span>
+                        {client.accountingProgram === "wehago" ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-500" title="위하고">
+                            <span className="text-white text-[8px] font-bold leading-none">W</span>
+                          </span>
+                        ) : client.accountingProgram === "semusarang" ? (
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-indigo-600" title="세무사랑">
+                            <span className="text-white text-[8px] font-bold leading-none">S</span>
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     {showAssignedUser && (
