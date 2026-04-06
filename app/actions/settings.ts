@@ -17,8 +17,9 @@ export async function saveSettings(formData: FormData) {
     agentHometaxPw: (formData.get("agentHometaxPw") as string) || null,
     certName:       (formData.get("certName")       as string) || null,
     certPassword:   (formData.get("certPassword")   as string) || null,
-    tiSupplierName:   (formData.get("tiSupplierName")   as string) || null,
-    tiSupplierBizNum: (formData.get("tiSupplierBizNum") as string) || null,
+    tiSupplierName:    (formData.get("tiSupplierName")    as string) || null,
+    tiSupplierBizNum:  (formData.get("tiSupplierBizNum")  as string) || null,
+    tiSupplierCeoName: (formData.get("tiSupplierCeoName") as string) || null,
   };
 
   await prisma.settings.upsert({

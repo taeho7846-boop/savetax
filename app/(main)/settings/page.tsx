@@ -9,6 +9,9 @@ export default async function SettingsPage() {
       <h1 className="text-xl font-bold text-gray-800 mb-6">설정</h1>
 
       <form action={saveSettings} className="space-y-6">
+        <input type="hidden" name="tiSupplierName" value={settings?.tiSupplierName ?? ""} />
+        <input type="hidden" name="tiSupplierBizNum" value={settings?.tiSupplierBizNum ?? ""} />
+        <input type="hidden" name="tiSupplierCeoName" value={settings?.tiSupplierCeoName ?? ""} />
         {/* 세무대리인 홈택스 계정 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">
@@ -98,7 +101,8 @@ export default async function SettingsPage() {
           <input type="hidden" name="agentHometaxPw" value={settings?.agentHometaxPw ?? ""} />
           <input type="hidden" name="certName" value={settings?.certName ?? ""} />
           <input type="hidden" name="certPassword" value={settings?.certPassword ?? ""} />
-          <div className="grid grid-cols-2 gap-4">
+          <input type="hidden" name="tiSupplierCeoName" value={settings?.tiSupplierCeoName ?? ""} />
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1.5">공급자 상호</label>
               <input
@@ -106,6 +110,16 @@ export default async function SettingsPage() {
                 type="text"
                 defaultValue={settings?.tiSupplierName ?? ""}
                 placeholder="예: 세이브택스세무사사무소"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">공급자 대표자명</label>
+              <input
+                name="tiSupplierCeoName"
+                type="text"
+                defaultValue={settings?.tiSupplierCeoName ?? ""}
+                placeholder="예: 홍길동"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
               />
             </div>
