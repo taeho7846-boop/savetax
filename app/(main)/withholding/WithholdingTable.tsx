@@ -16,6 +16,7 @@ type Client = {
   name: string;
   laborTypes: string | null;
   halfYearTax: boolean;
+  accountingProgram: string;
   assignedUser?: { name: string } | null;
   withholdingRecords: WHRecord[];
 };
@@ -111,6 +112,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   const [sortCol, setSortCol] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [search, setSearch] = useState("");
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const month = parseInt(yearMonth.split("-")[1]);
   const columns = getAllColumns(month);
 
@@ -191,6 +193,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
             autoComplete="off"
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
           />
+          {checkedIds.size > 0 && (
+            <div className="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-lg">
+              {checkedIds.size}개 선택
+            </div>
+          )}
           <div className="text-sm text-gray-500">
             진행: <span className="font-medium text-[#1a2e4a]">{doneTasks}</span> / {totalTasks}
           </div>
@@ -219,6 +226,17 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
+              <th className="px-2 py-3 w-8">
+                <input
+                  type="checkbox"
+                  checked={sortedClients.length > 0 && checkedIds.size === sortedClients.length}
+                  onChange={() => {
+                    if (checkedIds.size === sortedClients.length) setCheckedIds(new Set());
+                    else setCheckedIds(new Set(sortedClients.map(c => c.id)));
+                  }}
+                  className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                />
+              </th>
               <th className="text-left px-4 py-3 text-gray-700 font-medium">고객사명</th>
               {showAssignedUser && (
                 <th className="text-center px-3 py-3 text-gray-700 font-medium">담당자</th>
@@ -250,7 +268,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
           <tbody className="divide-y divide-gray-100">
             {sortedClients.length === 0 ? (
               <tr>
-                <td colSpan={4 + columns.length + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-gray-500">
+                <td colSpan={5 + columns.length + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-gray-500">
                   해당하는 거래처가 없습니다
                 </td>
               </tr>
@@ -269,8 +287,27 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                 const allDone = isSkipped || (requiredTasks.length > 0 && requiredTasks.every(t => doneMap.has(t.key)));
 
                 return (
-                  <tr key={client.id} className={`transition-colors ${isSkipped ? "bg-gray-50 opacity-60" : allDone ? "bg-green-50/50" : "hover:bg-blue-50/50"}`}>
-                    <td className="px-4 py-3 text-[#1a2e4a] font-medium">{client.name}</td>
+                  <tr key={client.id} className={`transition-colors ${isSkipped ? "bg-gray-50 opacity-60" : allDone ? "bg-green-50/50" : "hover:bg-blue-50/50"} ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}>
+                    <td className="px-2 py-3">
+                      <input
+                        type="checkbox"
+                        checked={checkedIds.has(client.id)}
+                        onChange={() => setCheckedIds(prev => { const n = new Set(prev); if (n.has(client.id)) n.delete(client.id); else n.add(client.id); return n; })}
+                        className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-[#1a2e4a] font-medium">
+                      <div className="flex items-center gap-1">
+                        {client.name}
+                        {client.accountingProgram?.split(",").map(p => p.trim()).map(p => (
+                          p === "위하고" ? (
+                            <span key={p} title="위하고" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 text-white text-[8px] font-bold leading-none">W</span>
+                          ) : p === "세무사랑" ? (
+                            <span key={p} title="세무사랑" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-purple-500 text-white text-[8px] font-bold leading-none">S</span>
+                          ) : null
+                        ))}
+                      </div>
+                    </td>
                     {showAssignedUser && (
                       <td className="px-3 py-3 text-center text-xs text-gray-600">
                         {client.assignedUser?.name ?? <span className="text-gray-300">-</span>}
