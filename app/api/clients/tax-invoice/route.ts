@@ -22,11 +22,14 @@ function colIndex(key: string): number {
 async function loadTemplate(filePath: string | null | undefined): Promise<XLSX.WorkBook | null> {
   if (!filePath) return null;
   try {
-    const localPath = filePath.replace(/^\/api\/uploads\//, "/uploads/");
+    // /api/uploads/settings/file.xlsx → public/uploads/settings/file.xlsx
+    const localPath = filePath.replace(/^\/api\/uploads\//, "uploads/");
     const fullPath = join(process.cwd(), "public", localPath);
+    console.log("[T/I] 템플릿 로드:", fullPath);
     const buf = await readFile(fullPath);
     return XLSX.read(buf, { type: "buffer" });
-  } catch {
+  } catch (err) {
+    console.error("[T/I] 템플릿 로드 실패:", err);
     return null;
   }
 }
@@ -73,9 +76,10 @@ export async function POST(req: NextRequest) {
     wb = templateWb;
     ws = wb.Sheets[wb.SheetNames[0]];
   } else {
-    wb = XLSX.utils.book_new();
-    ws = XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.book_append_sheet(wb, ws, "세금계산서");
+    return NextResponse.json(
+      { error: `설정에서 ${isBulk ? "대량등록발행" : "일반발행"} 엑셀 템플릿을 먼저 업로드하세요` },
+      { status: 400 }
+    );
   }
 
   validClients.forEach((c, i) => {
