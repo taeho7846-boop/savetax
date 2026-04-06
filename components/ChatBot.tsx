@@ -40,6 +40,44 @@ export function ChatBot() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  // 이미지 압축 (Claude API 5MB 제한)
+  function compressImage(dataUrl: string, maxSizeKB = 3500): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+
+        // 긴 변 최대 1600px로 리사이즈
+        const maxDim = 1600;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // JPEG 퀄리티 조절하며 5MB 이하로 압축
+        let quality = 0.8;
+        let result = canvas.toDataURL("image/jpeg", quality);
+        while (result.length > maxSizeKB * 1024 && quality > 0.2) {
+          quality -= 0.1;
+          result = canvas.toDataURL("image/jpeg", quality);
+        }
+        resolve(result);
+      };
+      img.src = dataUrl;
+    });
+  }
+
   // 드래그 앤 드롭
   const [isDragging, setIsDragging] = useState(false);
 
@@ -115,13 +153,19 @@ export function ChatBot() {
     setLoading(true);
 
     try {
+      // 이미지가 있으면 압축 (Claude API 5MB 제한)
+      let sendImage = currentImage || undefined;
+      if (sendImage) {
+        sendImage = await compressImage(sendImage);
+      }
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMsg || "이 이미지를 분석해주세요.",
           history: messages.map(m => ({ role: m.role, content: m.content })),
-          image: currentImage || undefined,
+          image: sendImage,
         }),
       });
       const data = await res.json();
