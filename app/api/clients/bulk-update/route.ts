@@ -223,11 +223,11 @@ export async function POST(req: NextRequest) {
             if (converted && converted !== existingVal) updateData[field] = converted;
           }
         } else if (field === "halfYearTax") {
-          // boolean: false(기본값)이면 채우기
-          if (!existingVal) {
-            const isHalf = val.includes("6개월납");
-            if (isHalf) updateData[field] = true;
-          }
+          const v = val.trim().toUpperCase();
+          const isHalf = v === "Y" || v === "O" || v === "TRUE" || v.includes("6개월") || v === "1";
+          const isNotHalf = v === "N" || v === "X" || v === "FALSE" || v === "0";
+          if (isHalf && !existingVal) updateData[field] = true;
+          if (isNotHalf && existingVal) updateData[field] = false;
         } else if (field === "openDate") {
           if (!existingVal) {
             const converted = normalizeDate(val);
