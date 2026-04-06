@@ -58,6 +58,30 @@ const tools: Anthropic.Tool[] = [
     },
   },
   {
+    name: "create_client_with_commission",
+    description: "거래처를 신규 등록하고 신규수임 프로세스를 자동 생성합니다. 계약서/수임 텍스트를 파싱한 결과를 넘겨주세요. 반드시 사용자에게 파싱 결과를 보여주고 확인받은 후 호출하세요.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string", description: "거래처명 (상호)" },
+        ceoName: { type: "string", description: "대표자명" },
+        bizNumber: { type: "string", description: "사업자등록번호" },
+        phone: { type: "string", description: "대표자 연락처" },
+        clientType: { type: "string", enum: ["individual", "corporate"], description: "개인/법인" },
+        monthlyFee: { type: "number", description: "월기장료 (VAT 제외 금액)" },
+        firstWithdrawalMonth: { type: "string", description: "최초 출금월 (YYYY-MM)" },
+        openDate: { type: "string", description: "개업일 (YYYY-MM-DD)" },
+        residentNumber: { type: "string", description: "주민등록번호" },
+        address: { type: "string", description: "주소" },
+        email: { type: "string", description: "이메일" },
+        notes: { type: "string", description: "특이사항/특별요청사항" },
+        hometaxId: { type: "string", description: "홈택스 ID" },
+        hometaxPw: { type: "string", description: "홈택스 PW" },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "get_tasks",
     description: "업무/메모 목록을 조회합니다. 마감 임박, 지연, 진행중 등 필터 가능.",
     input_schema: {
@@ -254,6 +278,71 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       notes: "특이사항", contactMethod: "소통방법", email: "이메일",
     };
     return `✅ ${c.name}의 ${fieldNames[field] || field}을(를) "${value}"(으)로 수정했습니다.`;
+  }
+
+  if (name === "create_client_with_commission") {
+    const clientName = input.name as string;
+    if (!clientName) return "거래처명은 필수입니다.";
+
+    // 사업자번호 중복 체크
+    const bizNum = ((input.bizNumber as string) || "").replace(/[^0-9]/g, "");
+    if (bizNum.length >= 10) {
+      const bizFormatted = `${bizNum.slice(0, 3)}-${bizNum.slice(3, 5)}-${bizNum.slice(5, 10)}`;
+      const existing = await prisma.client.findFirst({
+        where: { isDeleted: false, OR: [{ bizNumber: bizNum }, { bizNumber: bizFormatted }] },
+      });
+      if (existing) return `⚠️ 사업자번호 ${bizFormatted}로 이미 등록된 거래처가 있습니다: "${existing.name}"`;
+    }
+
+    // 출금월 포맷 정리 (26-06 → 2026-06)
+    let firstMonth = (input.firstWithdrawalMonth as string) || null;
+    if (firstMonth) {
+      const m = firstMonth.match(/^(\d{2})-(\d{2})$/);
+      if (m) firstMonth = `20${m[1]}-${m[2]}`;
+    }
+
+    // 개업일 포맷 (20200624 → 2020-06-24)
+    let openDate = (input.openDate as string) || null;
+    if (openDate) {
+      const digits = openDate.replace(/[^0-9]/g, "");
+      if (digits.length === 8) openDate = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+    }
+
+    // 기장료 (VAT 제외이므로 1.1 곱함)
+    const rawFee = input.monthlyFee as number | undefined;
+    const monthlyFee = rawFee ? Math.round(rawFee * 1.1 / 10) * 10 : null;
+
+    const client = await prisma.client.create({
+      data: {
+        name: clientName,
+        ceoName: (input.ceoName as string) || null,
+        bizNumber: bizNum.length >= 10 ? `${bizNum.slice(0, 3)}-${bizNum.slice(3, 5)}-${bizNum.slice(5, 10)}` : null,
+        phone: (input.phone as string) || null,
+        clientType: (input.clientType as string) || "individual",
+        monthlyFee,
+        firstWithdrawalMonth: firstMonth,
+        openDate,
+        residentNumber: (input.residentNumber as string) || null,
+        address: (input.address as string) || null,
+        email: (input.email as string) || null,
+        notes: (input.notes as string) || null,
+        hometaxId: (input.hometaxId as string) || null,
+        hometaxPw: (input.hometaxPw as string) || null,
+        assignedUserId: sessionId,
+        taxTypes: "기장대리",
+        accountingProgram: "위하고",
+        contactMethod: "카톡",
+      },
+    });
+
+    // 신규수임 자동 생성
+    await prisma.commissionProcess.create({ data: { clientId: client.id } });
+
+    const parts = [`✅ 거래처 "${clientName}" 등록 완료 + 신규수임 자동 생성`];
+    if (monthlyFee) parts.push(`월기장료: ${monthlyFee.toLocaleString()}원 (VAT포함)`);
+    if (firstMonth) parts.push(`최초출금월: ${firstMonth}`);
+    if (input.notes) parts.push(`특이사항: ${(input.notes as string).slice(0, 50)}...`);
+    return parts.join("\n");
   }
 
   if (name === "get_client_summary") {
@@ -542,6 +631,14 @@ export async function POST(req: NextRequest) {
 - 사용자가 "응", "네", "ㅇㅇ", "맞아" 등으로 확인하면 실행하세요.
 - 여러 거래처가 검색되면 어떤 거래처인지 확인하세요.
 - 업무 생성 시에도 제목, 마감일 등을 확인 후 생성하세요.
+
+## 거래처 등록 (계약서/수임 텍스트)
+- 사용자가 수임 계약서나 거래처 정보 텍스트를 보내면, 자동으로 파싱하여 거래처명, 대표자, 사업자번호, 기장료, 개업일, 특이사항 등을 추출하세요.
+- 파싱 결과를 깔끔하게 정리해서 보여주고 "이대로 등록할까요?" 확인을 받으세요.
+- 월기장료가 VAT 제외 금액이면 VAT 포함 금액으로 변환합니다 (x1.1).
+- 출금연월이 "26-06" 같은 형식이면 "2026-06"으로 변환합니다.
+- 특별요청사항, 특이사항, 경정청구 내용 등은 특이사항 필드에 합쳐서 저장합니다.
+- 확인 후 create_client_with_commission 도구를 호출하세요.
 
 ## 답변 스타일
 - 간결하고 실무적으로 답변하세요.
