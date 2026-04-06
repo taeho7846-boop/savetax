@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { toggleCmsRegistered, bulkCmsRegister } from "@/app/actions/clients";
+import { cycleCmsStatus, bulkCmsRegister } from "@/app/actions/clients";
 
 type CmsClient = {
   id: number;
@@ -10,12 +10,12 @@ type CmsClient = {
   ceoName: string | null;
   monthlyFee: number | null;
   firstWithdrawalMonth: string | null;
-  cmsRegistered: boolean;
+  cmsStatus: string;
   bankName: string | null;
   bankAccount: string | null;
 };
 
-type SortCol = "name" | "ceoName" | "monthlyFee" | "cmsRegistered";
+type SortCol = "name" | "ceoName" | "monthlyFee" | "cmsStatus";
 
 export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
@@ -75,9 +75,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
     return <span className="text-[#1a2e4a] ml-0.5">{sortDir === "asc" ? "↑" : "↓"}</span>;
   }
 
-  function handleToggle(clientId: number) {
+  function handleCycle(clientId: number) {
     startTransition(async () => {
-      await toggleCmsRegistered(clientId);
+      await cycleCmsStatus(clientId);
       router.refresh();
     });
   }
@@ -229,11 +229,11 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
             <th className="text-center px-4 py-3 text-gray-700 font-medium">
               <button
-                onClick={() => handleSort("cmsRegistered")}
+                onClick={() => handleSort("cmsStatus")}
                 className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
               >
                 CMS 등록여부
-                <SortIcon col="cmsRegistered" />
+                <SortIcon col="cmsStatus" />
               </button>
             </th>
           </tr>
@@ -279,15 +279,17 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 <td className="px-4 py-3 text-center text-gray-800">{client.firstWithdrawalMonth || <span className="text-gray-400">-</span>}</td>
                 <td className="px-4 py-3 text-center">
                   <button
-                    onClick={() => handleToggle(client.id)}
+                    onClick={() => handleCycle(client.id)}
                     disabled={isPending}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      client.cmsRegistered
+                      client.cmsStatus === "done"
                         ? "bg-green-100 text-green-700 hover:bg-green-200"
+                        : client.cmsStatus === "pending"
+                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
                         : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                     }`}
                   >
-                    {client.cmsRegistered ? "등록" : "미등록"}
+                    {client.cmsStatus === "done" ? "등록" : client.cmsStatus === "pending" ? "등록요청중" : "미등록"}
                   </button>
                 </td>
               </tr>

@@ -68,7 +68,7 @@ model Client {
   corporateNumber String?  // 법인등록번호
   notes          String?  // 특이사항
   myboxLink      String?  // 네이버 마이박스 폴더 링크
-  cmsRegistered  Boolean  @default(false) // CMS 등록여부
+  cmsStatus      String   @default("none") // CMS 상태: none, pending, done
   assignedUserId Int?
   assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
   isDeleted      Boolean  @default(false)

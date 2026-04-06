@@ -212,7 +212,7 @@ async function CmsTab({ sessionId }: { sessionId: number }) {
       ceoName: true,
       monthlyFee: true,
       firstWithdrawalMonth: true,
-      cmsRegistered: true,
+      cmsStatus: true,
       bankName: true,
       bankAccount: true,
     },

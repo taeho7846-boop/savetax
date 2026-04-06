@@ -344,11 +344,13 @@ export async function getAssignableUsers() {
   return allUsers;
 }
 
-export async function toggleCmsRegistered(id: number) {
+export async function cycleCmsStatus(id: number) {
   await requireAuth();
-  const client = await prisma.client.findUnique({ where: { id }, select: { cmsRegistered: true } });
+  const client = await prisma.client.findUnique({ where: { id }, select: { cmsStatus: true } });
   if (!client) return;
-  await prisma.client.update({ where: { id }, data: { cmsRegistered: !client.cmsRegistered } });
+  // none → pending → done → none 순환
+  const next = client.cmsStatus === "none" ? "pending" : client.cmsStatus === "pending" ? "done" : "none";
+  await prisma.client.update({ where: { id }, data: { cmsStatus: next } });
   revalidatePath("/receivables");
 }
 
@@ -357,7 +359,7 @@ export async function bulkCmsRegister(ids: number[]) {
   if (ids.length === 0) return;
   await prisma.client.updateMany({
     where: { id: { in: ids }, assignedUserId: session.id },
-    data: { cmsRegistered: true },
+    data: { cmsStatus: "done" },
   });
   revalidatePath("/receivables");
 }
