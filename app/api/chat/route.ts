@@ -258,25 +258,27 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     const now = new Date();
     const threeDays = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
+    const notDone = { notIn: ["done"] };
     let where: any = { createdByUserId: sessionId };
-    if (filter === "urgent") where = { ...where, status: "pending", dueDate: { lte: threeDays, gte: now } };
-    else if (filter === "overdue") where = { ...where, status: "pending", dueDate: { lt: now } };
-    else if (filter === "pending") where = { ...where, status: "pending" };
-    else if (filter === "completed") where = { ...where, status: "completed" };
+    if (filter === "urgent") where = { ...where, status: notDone, dueDate: { lte: threeDays, gte: now } };
+    else if (filter === "overdue") where = { ...where, status: notDone, dueDate: { lt: now } };
+    else if (filter === "pending") where = { ...where, status: notDone };
+    else if (filter === "completed") where = { ...where, status: "done" };
 
     const tasks = await prisma.task.findMany({
       where,
-      select: { id: true, title: true, content: true, type: true, status: true, dueDate: true, client: { select: { name: true } } },
+      select: { id: true, title: true, notes: true, type: true, status: true, dueDate: true, client: { select: { name: true } } },
       orderBy: { dueDate: "asc" },
       take: limit,
     });
     if (tasks.length === 0) return "해당하는 업무가 없습니다.";
+    const statusMap: Record<string, string> = { scheduled: "예정", in_progress: "진행중", done: "완료", hold: "보류", delayed: "지연" };
     return JSON.stringify(tasks.map(t => ({
       id: t.id,
       유형: t.type === "task" ? "업무" : "메모",
       제목: t.title,
-      내용: t.content?.slice(0, 50),
-      상태: t.status === "completed" ? "완료" : "진행중",
+      메모: t.notes?.slice(0, 50) || "-",
+      상태: statusMap[t.status] || t.status,
       마감일: t.dueDate ? new Date(t.dueDate).toLocaleDateString("ko-KR") : "-",
       거래처: t.client?.name || "-",
     })), null, 2);
@@ -298,9 +300,9 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     await prisma.task.create({
       data: {
         title,
-        content,
+        notes: content || null,
         type,
-        status: "pending",
+        status: "scheduled",
         dueDate,
         clientId,
         createdByUserId: sessionId,
@@ -313,7 +315,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     const id = input.taskId as number;
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return "업무를 찾을 수 없습니다.";
-    await prisma.task.update({ where: { id }, data: { status: "completed" } });
+    await prisma.task.update({ where: { id }, data: { status: "done", completedAt: new Date() } });
     return `✅ "${task.title}" 완료 처리되었습니다.`;
   }
 
