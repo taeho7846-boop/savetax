@@ -169,12 +169,17 @@ export async function POST(req: NextRequest) {
 
   // 지식한입 DB
   const knowledges = await prisma.knowledge.findMany({
-    select: { category: true, title: true, content: true, tags: true },
+    select: { category: true, title: true, content: true, tags: true, files: true },
     orderBy: { updatedAt: "desc" },
     take: 50,
   });
   const knowledgeContext = knowledges
-    .map((k) => `[${k.category}] ${k.title}\n${k.content}${k.tags ? `\n태그: ${k.tags}` : ""}`)
+    .map((k) => {
+      let entry = `[${k.category}] ${k.title}\n${k.content}`;
+      if (k.tags) entry += `\n태그: ${k.tags}`;
+      if (k.files) entry += `\n첨부파일: ${k.files}`;
+      return entry;
+    })
     .join("\n\n---\n\n");
 
   // 공지사항
@@ -190,8 +195,9 @@ export async function POST(req: NextRequest) {
   const systemPrompt = `당신은 세무사 사무실의 내부 AI 어시스턴트입니다. 현재 사용자: ${session.name}
 
 ## 역할
-1. **세무/회계 지식 답변**: 아래 지식 데이터베이스에 등록된 내용을 기반으로 답변합니다. DB에 없는 세무 지식은 "지식한입에 등록해주세요"라고 안내하세요.
+1. **세무/회계 지식 답변**: 아래 지식 데이터베이스와 공지사항에 등록된 내용을 기반으로 답변합니다. 제목이라도 일치하는 항목이 있으면 해당 내용을 최대한 제공하세요. DB에 완전히 없는 주제만 "지식한입에 등록해주세요"라고 안내하세요.
 2. **거래처 정보 조회/수정**: 도구를 사용하여 거래처를 검색하고 정보를 조회/수정할 수 있습니다.
+3. **공지사항 안내**: 공지사항에 등록된 서식, 양식, 절차 등을 안내할 수 있습니다. 첨부파일 경로가 있으면 함께 안내하세요.
 
 ## 거래처 수정 규칙
 - 수정 요청 시 반드시 먼저 해당 거래처를 검색하여 정확한 거래처를 확인하세요.
