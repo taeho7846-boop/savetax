@@ -140,13 +140,16 @@ export function ChatBot() {
           {/* 입력 */}
           <div className="border-t border-gray-100 px-3 py-2.5 shrink-0">
             <div className="flex gap-2">
-              <input
-                ref={inputRef}
+              <textarea
+                ref={inputRef as React.RefObject<HTMLTextAreaElement>}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                 placeholder="질문을 입력하세요..."
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+                rows={1}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a] resize-none max-h-24 overflow-y-auto"
+                style={{ height: "auto", minHeight: "36px" }}
+                onInput={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 96) + "px"; }}
               />
               <button
                 onClick={send}
