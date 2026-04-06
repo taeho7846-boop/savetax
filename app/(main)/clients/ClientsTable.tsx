@@ -115,6 +115,25 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
     });
   }
 
+  async function handleExcelDownload() {
+    if (checkedIds.size === 0) return;
+    try {
+      const res = await fetch("/api/clients/bulk-download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientIds: [...checkedIds] }),
+      });
+      if (!res.ok) { alert("다운로드 실패"); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `고객사정보_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { alert("다운로드 실패"); }
+  }
+
   async function handleBulkDelete() {
     if (checkedIds.size === 0) return;
     if (!confirm(`선택한 ${checkedIds.size}개 거래처를 삭제하시겠습니까?`)) return;
@@ -249,6 +268,13 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <span className="text-sm text-blue-600">
             월 기장료 합계: <strong>{rows.filter(c => checkedIds.has(c.id)).reduce((sum, c) => sum + (c.monthlyFee || 0), 0).toLocaleString()}원</strong>
           </span>
+          <button
+            onClick={handleExcelDownload}
+            disabled={isPending}
+            className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            엑셀 다운로드
+          </button>
           {!readonly && (
             <>
               <button
