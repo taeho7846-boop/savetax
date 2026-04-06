@@ -1060,11 +1060,24 @@ export default function CommissionBoard({
                   const file = e.dataTransfer.files[0];
                   if (file) doUploadIdCard(modal.id, file);
                 }}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (const item of Array.from(items)) {
+                    if (item.type.startsWith("image/")) {
+                      e.preventDefault();
+                      const file = item.getAsFile();
+                      if (file) doUploadIdCard(modal.id, file);
+                      break;
+                    }
+                  }
+                }}
+                tabIndex={0}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors outline-none ${
                   dragOver
                     ? "border-[#1a2e4a] bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50 focus:border-blue-300 focus:bg-blue-50/30"
                 }`}
               >
                 {uploading ? (
@@ -1073,9 +1086,9 @@ export default function CommissionBoard({
                   <>
                     <div className="text-2xl mb-2">📎</div>
                     <div className="text-sm text-gray-500">
-                      {currentPath ? "새 파일로 교체하려면 끌어다 놓거나 클릭" : "파일을 끌어다 놓거나 클릭하여 선택"}
+                      {currentPath ? "새 파일로 교체" : "파일을 끌어다 놓거나 클릭"}
                     </div>
-                    <div className="text-xs text-gray-400 mt-1">이미지, PDF 지원</div>
+                    <div className="text-xs text-gray-400 mt-1">드래그 · 클릭 · Ctrl+V 붙여넣기</div>
                   </>
                 )}
               </div>
