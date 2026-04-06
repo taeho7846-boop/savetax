@@ -104,6 +104,11 @@ export default function Sidebar({
         })}
       </nav>
 
+      {/* AI 어시스턴트 */}
+      <div className="px-3 pb-1">
+        <ChatBot />
+      </div>
+
       {/* 세무대리인 홈택스 로그인 */}
       <div className="px-3 pb-1">
         <div className="border border-[#2d4a6e] rounded-lg p-3">
@@ -178,11 +183,6 @@ export default function Sidebar({
           <span>⚙️</span>
           <span>설정</span>
         </Link>
-      </div>
-
-      {/* AI 어시스턴트 */}
-      <div className="px-3 pb-1">
-        <ChatBot />
       </div>
 
       <div className="p-4 border-t border-[#243d61]">
