@@ -38,10 +38,26 @@ const HEADER_MAP: Record<string, string> = {
   개업년월일: "openDate",
   개업일: "openDate",
   원천세신고유형: "halfYearTax",
+  "6개월납": "halfYearTax",
   소속: "affiliation",
   특이사항: "notes",
   비고: "notes",
   메모: "notes",
+  // 추가 필드
+  신고유형: "taxTypes",
+  세금유형: "taxTypes",
+  인건비: "laborTypes",
+  인건비유형: "laborTypes",
+  회계프로그램: "accountingProgram",
+  소통방법: "contactMethod",
+  업무소통방법: "contactMethod",
+  마이박스: "myboxLink",
+  마이박스링크: "myboxLink",
+  법인등록번호: "corporateNumber",
+  이메일: "email",
+  무료기장: "freeMonths",
+  무료기장개월: "freeMonths",
+  담당직원: "_assignedUser",
 };
 
 // clientType 값 변환
@@ -217,16 +233,32 @@ export async function POST(req: NextRequest) {
             const converted = normalizeDate(val);
             if (converted) updateData[field] = converted;
           }
-        } else if (field === "monthlyFee") {
+        } else if (field === "monthlyFee" || field === "freeMonths") {
           if (existingVal == null) {
             const num = parseInt(val.replace(/[^0-9]/g, ""));
             if (!isNaN(num)) updateData[field] = num;
+          }
+        } else if (field === "taxTypes" || field === "laborTypes") {
+          // 콤마 구분 필드: 항상 덮어쓰기
+          if (val) updateData[field] = val;
+        } else if (field === "accountingProgram") {
+          if (val) updateData[field] = val;
+        } else if (field === "contactMethod") {
+          if (val) updateData[field] = val;
+        } else if (field === "_assignedUser") {
+          // 담당직원: username으로 조회 → assignedUserId 설정
+          if (!existing.assignedUserId) {
+            const user = await prisma.user.findFirst({ where: { OR: [{ name: val }, { username: val }] } });
+            if (user) updateData.assignedUserId = user.id;
           }
         } else {
           // 나머지 필드: 빈칸만 채우기
           if (!existingVal) updateData[field] = val;
         }
       }
+
+      // 가상 필드 제거
+      delete updateData._assignedUser;
 
       if (Object.keys(updateData).length > 0) {
         await prisma.client.update({

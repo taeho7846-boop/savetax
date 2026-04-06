@@ -94,7 +94,7 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
 
         <div className="bg-blue-50 rounded-lg p-3 mb-4">
           <p className="text-xs text-blue-700">
-            <span className="font-medium">지원하는 헤더:</span> 사업자등록번호, 고객사명, 대표자명, 주민등록번호, 연락처, 구분, 과세유형, 주소, 홈택스ID, 홈택스PW, 기장료, 은행, 계좌번호, 특이사항 등
+            <span className="font-medium">지원하는 헤더:</span> 사업자등록번호, 고객사명, 대표자명, 주민등록번호, 연락처, 구분, 과세유형, 신고유형, 인건비, 주소, 홈택스ID, 홈택스PW, 기장료, 무료기장, 최초출금월, 은행, 계좌번호, 회계프로그램, 소통방법, 소속, 담당직원, 마이박스링크, 법인등록번호, 이메일, 특이사항
           </p>
         </div>
 
