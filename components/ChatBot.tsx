@@ -56,7 +56,7 @@ export function ChatBot() {
     <>
       {/* 채팅창 */}
       {open && (
-        <div className="fixed bottom-4 left-[240px] w-[500px] h-[680px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden">
+        <div className="fixed bottom-4 left-[240px] w-[600px] h-[780px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden">
           {/* 헤더 */}
           <div className="bg-[#1a2e4a] text-white px-4 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
