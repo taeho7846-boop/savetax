@@ -128,7 +128,8 @@ export function ChatBot() {
       if (res.ok) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
       } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: "오류가 발생했습니다. 다시 시도해주세요." }]);
+        const errMsg = data.detail ? `오류: ${data.detail}` : "오류가 발생했습니다. 다시 시도해주세요.";
+        setMessages((prev) => [...prev, { role: "assistant", content: errMsg }]);
       }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "네트워크 오류가 발생했습니다." }]);

@@ -806,11 +806,15 @@ ${noticeContext || "(등록된 공지 없음)"}`;
   }
 
   // 이미지가 포함된 경우 멀티모달 메시지 구성
+  let hasImage = false;
   if (image && typeof image === "string" && image.startsWith("data:image/")) {
-    const match = image.match(/^data:(image\/\w+);base64,(.+)$/);
-    if (match) {
-      const mediaType = match[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-      const base64Data = match[2];
+    const commaIdx = image.indexOf(",");
+    if (commaIdx > 0) {
+      const meta = image.substring(0, commaIdx); // "data:image/jpeg;base64"
+      const base64Data = image.substring(commaIdx + 1);
+      const typeMatch = meta.match(/data:(image\/\w+)/);
+      const mediaType = (typeMatch?.[1] || "image/jpeg") as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      hasImage = true;
       messages.push({
         role: "user",
         content: [
@@ -830,8 +834,8 @@ ${noticeContext || "(등록된 공지 없음)"}`;
 
   try {
     // 이미지가 있으면 Sonnet (Vision 정확도↑), 없으면 Haiku (속도↑, 비용↓)
-    const model = image ? "claude-sonnet-4-20250514" : "claude-haiku-4-5-20251001";
-    const maxTokens = image ? 2048 : 1024;
+    const model = hasImage ? "claude-sonnet-4-20250514" : "claude-haiku-4-5-20251001";
+    const maxTokens = hasImage ? 2048 : 1024;
 
     // Tool use 루프 (최대 5번)
     let response = await anthropic.messages.create({
@@ -885,8 +889,9 @@ ${noticeContext || "(등록된 공지 없음)"}`;
       .join("");
 
     return NextResponse.json({ reply: text });
-  } catch (err) {
-    console.error("[Chat] API 오류:", err);
-    return NextResponse.json({ error: "AI 응답 실패" }, { status: 500 });
+  } catch (err: any) {
+    console.error("[Chat] API 오류:", err?.message || err, err?.status, JSON.stringify(err?.error || {}).slice(0, 500));
+    const detail = err?.message || "알 수 없는 오류";
+    return NextResponse.json({ error: "AI 응답 실패", detail }, { status: 500 });
   }
 }
