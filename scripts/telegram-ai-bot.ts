@@ -103,8 +103,14 @@ async function handleMessage(chatId: number, telegramId: string, text: string, s
       chatHistory.set(telegramId, history);
 
       const reply = data.reply
-        .replace(/\*\*(.*?)\*\*/g, "*$1*")
-        .replace(/#{1,3}\s/g, "")
+        // 마크다운 테이블 → 깔끔한 텍스트
+        .replace(/\|[-:]+\|[-:|\s]+\|/g, "")  // 테이블 구분선 제거
+        .replace(/\|\s*/g, "")                  // | 제거
+        .replace(/<br\s*\/?>/g, "\n")           // <br/> → 줄바꿈
+        .replace(/\*\*(.*?)\*\*/g, "*$1*")      // **bold** → *bold*
+        .replace(/#{1,3}\s/g, "📌 ")            // 헤더 → 📌
+        .replace(/\n{3,}/g, "\n\n")             // 연속 빈줄 정리
+        .trim()
         .slice(0, 4000);
       sendTelegram(chatId, reply);
     } else {
