@@ -46,14 +46,13 @@ export default async function WithholdingPage({
       laborTypes: true,
       halfYearTax: true,
       accountingProgram: true,
-      notes: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       withholdingRecords: {
         where: { yearMonth },
       },
       withholdingLaborOverrides: {
         where: { yearMonth },
-        select: { laborTypes: true },
+        select: { laborTypes: true, memo: true },
       },
     },
     orderBy: { name: "asc" },

@@ -36,16 +36,47 @@ export async function setLaborOverride(
 ) {
   await requireAuth();
 
-  if (!laborTypes) {
-    // 오버라이드 삭제 (기본값으로 복원)
+  const existing = await prisma.withholdingLaborOverride.findUnique({
+    where: { clientId_yearMonth: { clientId, yearMonth } },
+  });
+
+  if (!laborTypes && !existing?.memo) {
+    // 인건비 오버라이드도 없고 메모도 없으면 삭제
     await prisma.withholdingLaborOverride.deleteMany({
       where: { clientId, yearMonth },
     });
   } else {
     await prisma.withholdingLaborOverride.upsert({
       where: { clientId_yearMonth: { clientId, yearMonth } },
-      update: { laborTypes },
-      create: { clientId, yearMonth, laborTypes },
+      update: { laborTypes: laborTypes || null },
+      create: { clientId, yearMonth, laborTypes: laborTypes || null },
+    });
+  }
+
+  revalidatePath("/withholding");
+}
+
+export async function setWithholdingMemo(
+  clientId: number,
+  yearMonth: string,
+  memo: string
+) {
+  await requireAuth();
+
+  const existing = await prisma.withholdingLaborOverride.findUnique({
+    where: { clientId_yearMonth: { clientId, yearMonth } },
+  });
+
+  if (!memo && !existing?.laborTypes) {
+    // 메모도 없고 인건비 오버라이드도 없으면 삭제
+    await prisma.withholdingLaborOverride.deleteMany({
+      where: { clientId, yearMonth },
+    });
+  } else {
+    await prisma.withholdingLaborOverride.upsert({
+      where: { clientId_yearMonth: { clientId, yearMonth } },
+      update: { memo: memo || null },
+      create: { clientId, yearMonth, memo: memo || null },
     });
   }
 

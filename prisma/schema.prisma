@@ -209,11 +209,12 @@ model WithholdingRecord {
 
 // 원천세 월별 인건비 오버라이드
 model WithholdingLaborOverride {
-  id         Int    @id @default(autoincrement())
+  id         Int     @id @default(autoincrement())
   clientId   Int
-  client     Client @relation(fields: [clientId], references: [id])
-  yearMonth  String // "2026-03"
-  laborTypes String // 해당 월의 인건비 (콤마 구분)
+  client     Client  @relation(fields: [clientId], references: [id])
+  yearMonth  String  // "2026-03"
+  laborTypes String? // 해당 월의 인건비 오버라이드 (콤마 구분, null이면 기본값)
+  memo       String? // 이번달 특이사항
 
   @@unique([clientId, yearMonth])
 }

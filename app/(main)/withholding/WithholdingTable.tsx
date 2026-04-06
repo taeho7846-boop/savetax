@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleWithholdingTask, setLaborOverride } from "@/app/actions/withholding";
+import { toggleWithholdingTask, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
 
 const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "근로소득": { border: "border-red-400", text: "text-red-600", bg: "bg-red-50" },
@@ -17,10 +17,9 @@ type Client = {
   laborTypes: string | null;
   halfYearTax: boolean;
   accountingProgram: string;
-  notes: string | null;
   assignedUser?: { name: string } | null;
   withholdingRecords: WHRecord[];
-  withholdingLaborOverrides: { laborTypes: string }[];
+  withholdingLaborOverrides: { laborTypes: string | null; memo: string | null }[];
 };
 
 // 해당 월에 필요한 업무 판별
@@ -279,10 +278,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
               sortedClients.map((client) => {
                 const override = client.withholdingLaborOverrides?.[0];
                 const baseLaborTypes = client.laborTypes?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
-                const laborList = override
+                const laborList = override?.laborTypes
                   ? override.laborTypes.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자")
                   : baseLaborTypes;
-                const hasOverride = !!override;
+                const hasOverride = !!override?.laborTypes;
+                const monthMemo = override?.memo || "";
                 const requiredTasks = getRequiredTasks(laborList, client.halfYearTax, month);
                 const requiredKeys = new Set(requiredTasks.map(t => t.key));
                 const doneMap = new Map(
@@ -316,15 +316,24 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                       </div>
                     </td>
                     <td className="px-2 py-3 text-center">
-                      {client.notes ? (
-                        <span className="relative group cursor-default">
+                      {monthMemo ? (
+                        <span className="relative group cursor-pointer" onClick={() => {
+                          const val = prompt("이번달 특이사항:", monthMemo);
+                          if (val !== null) startTransition(() => setWithholdingMemo(client.id, yearMonth, val));
+                        }}>
                           <span className="text-amber-500 text-xs">📌</span>
                           <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-xs rounded-lg px-3 py-2 whitespace-pre-wrap max-w-[250px] z-30 shadow-lg">
-                            {client.notes}
+                            {monthMemo}
                           </span>
                         </span>
                       ) : (
-                        <span className="text-gray-200">-</span>
+                        <button
+                          onClick={() => {
+                            const val = prompt("이번달 특이사항:");
+                            if (val) startTransition(() => setWithholdingMemo(client.id, yearMonth, val));
+                          }}
+                          className="text-gray-200 hover:text-gray-400 text-xs"
+                        >+</button>
                       )}
                     </td>
                     {showAssignedUser && (
