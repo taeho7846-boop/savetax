@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleWithholdingTask } from "@/app/actions/withholding";
+import { toggleWithholdingTask, setLaborOverride } from "@/app/actions/withholding";
 
 const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "근로소득": { border: "border-red-400", text: "text-red-600", bg: "bg-red-50" },
@@ -17,8 +17,10 @@ type Client = {
   laborTypes: string | null;
   halfYearTax: boolean;
   accountingProgram: string;
+  notes: string | null;
   assignedUser?: { name: string } | null;
   withholdingRecords: WHRecord[];
+  withholdingLaborOverrides: { laborTypes: string }[];
 };
 
 // 해당 월에 필요한 업무 판별
@@ -238,6 +240,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                 />
               </th>
               <th className="text-left px-4 py-3 text-gray-700 font-medium">고객사명</th>
+              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs">특이</th>
               {showAssignedUser && (
                 <th className="text-center px-3 py-3 text-gray-700 font-medium">담당자</th>
               )}
@@ -268,14 +271,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
           <tbody className="divide-y divide-gray-100">
             {sortedClients.length === 0 ? (
               <tr>
-                <td colSpan={5 + columns.length + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-gray-500">
+                <td colSpan={6 + columns.length + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-gray-500">
                   해당하는 거래처가 없습니다
                 </td>
               </tr>
             ) : (
               sortedClients.map((client) => {
-                const laborList = client.laborTypes
-                  ?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
+                const override = client.withholdingLaborOverrides?.[0];
+                const baseLaborTypes = client.laborTypes?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
+                const laborList = override
+                  ? override.laborTypes.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자")
+                  : baseLaborTypes;
+                const hasOverride = !!override;
                 const requiredTasks = getRequiredTasks(laborList, client.halfYearTax, month);
                 const requiredKeys = new Set(requiredTasks.map(t => t.key));
                 const doneMap = new Map(
@@ -308,6 +315,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                         ))}
                       </div>
                     </td>
+                    <td className="px-2 py-3 text-center">
+                      {client.notes ? (
+                        <span className="relative group cursor-default">
+                          <span className="text-amber-500 text-xs">📌</span>
+                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-xs rounded-lg px-3 py-2 whitespace-pre-wrap max-w-[250px] z-30 shadow-lg">
+                            {client.notes}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-200">-</span>
+                      )}
+                    </td>
                     {showAssignedUser && (
                       <td className="px-3 py-3 text-center text-xs text-gray-600">
                         {client.assignedUser?.name ?? <span className="text-gray-300">-</span>}
@@ -324,14 +343,37 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                     </td>
                     <td className="px-3 py-3 text-center">
                       <div className="flex items-center justify-center gap-1 flex-wrap">
-                        {laborList.map((t) => {
+                        {["근로소득", "사업소득", "일용직"].map((t) => {
+                          const active = laborList.includes(t);
+                          const isBase = baseLaborTypes.includes(t);
                           const s = LABOR_STYLES[t] ?? { border: "border-gray-300", text: "text-gray-500", bg: "bg-gray-50" };
                           return (
-                            <span key={t} className={`inline-flex items-center border ${s.border} ${s.text} ${s.bg} rounded-md px-1.5 py-0.5 text-xs font-medium`}>
+                            <button
+                              key={t}
+                              onClick={() => {
+                                let newList: string[];
+                                if (active) {
+                                  newList = laborList.filter(l => l !== t);
+                                } else {
+                                  newList = [...laborList, t];
+                                }
+                                // 기본값과 같으면 오버라이드 삭제
+                                const isSame = newList.sort().join(",") === baseLaborTypes.sort().join(",");
+                                startTransition(() => setLaborOverride(client.id, yearMonth, isSame ? "" : newList.join(",")));
+                              }}
+                              disabled={isPending}
+                              className={`inline-flex items-center border rounded-md px-1.5 py-0.5 text-xs font-medium transition-all ${
+                                active
+                                  ? `${s.border} ${s.text} ${s.bg}`
+                                  : "border-dashed border-gray-300 text-gray-300 bg-white"
+                              } ${!isBase && active ? "ring-1 ring-offset-1 ring-blue-400" : ""} hover:opacity-80 cursor-pointer`}
+                              title={active ? `${t} 이번달 제외` : `${t} 이번달 추가`}
+                            >
                               {t}
-                            </span>
+                            </button>
                           );
                         })}
+                        {hasOverride && <span className="text-[9px] text-blue-500" title="이번달 인건비가 기본값과 다릅니다">✎</span>}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center">

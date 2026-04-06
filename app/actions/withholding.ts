@@ -28,3 +28,26 @@ export async function toggleWithholdingTask(
 
   revalidatePath("/withholding");
 }
+
+export async function setLaborOverride(
+  clientId: number,
+  yearMonth: string,
+  laborTypes: string
+) {
+  await requireAuth();
+
+  if (!laborTypes) {
+    // 오버라이드 삭제 (기본값으로 복원)
+    await prisma.withholdingLaborOverride.deleteMany({
+      where: { clientId, yearMonth },
+    });
+  } else {
+    await prisma.withholdingLaborOverride.upsert({
+      where: { clientId_yearMonth: { clientId, yearMonth } },
+      update: { laborTypes },
+      create: { clientId, yearMonth, laborTypes },
+    });
+  }
+
+  revalidatePath("/withholding");
+}

@@ -81,6 +81,7 @@ model Client {
   feeRecords FeeRecord[]
   commission CommissionProcess?
   withholdingRecords WithholdingRecord[]
+  withholdingLaborOverrides WithholdingLaborOverride[]
   incomeTaxRecords   IncomeTaxRecord[]
   dataCollections    DataCollection[]
 }
@@ -204,6 +205,17 @@ model WithholdingRecord {
   updatedAt DateTime  @updatedAt
 
   @@unique([clientId, yearMonth, taskType])
+}
+
+// 원천세 월별 인건비 오버라이드
+model WithholdingLaborOverride {
+  id         Int    @id @default(autoincrement())
+  clientId   Int
+  client     Client @relation(fields: [clientId], references: [id])
+  yearMonth  String // "2026-03"
+  laborTypes String // 해당 월의 인건비 (콤마 구분)
+
+  @@unique([clientId, yearMonth])
 }
 
 // 종합소득세 연도별 신고
