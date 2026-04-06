@@ -301,9 +301,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                         {client.name}
                         {client.accountingProgram?.split(",").map(p => p.trim()).map(p => (
                           p === "위하고" ? (
-                            <span key={p} title="위하고" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 text-white text-[8px] font-bold leading-none">W</span>
+                            <img key={p} src="/wehago.svg" alt="위하고" title="위하고" className="w-4 h-4 rounded" />
                           ) : p === "세무사랑" ? (
-                            <span key={p} title="세무사랑" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-purple-500 text-white text-[8px] font-bold leading-none">S</span>
+                            <img key={p} src="/semusarang.svg" alt="세무사랑" title="세무사랑" className="w-4 h-4 rounded" />
                           ) : null
                         ))}
                       </div>
