@@ -323,7 +323,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                           onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: monthMemo })}
                         >
                           <span className="text-amber-500 text-sm">📌</span>
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-[#1a2e4a] text-white text-sm rounded-xl px-4 py-3 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-30 shadow-xl">
+                          <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#1a2e4a] text-white text-sm rounded-xl px-4 py-3 whitespace-pre-wrap min-w-[250px] max-w-[400px] z-50 shadow-xl">
                             <div className="text-[10px] text-white/50 mb-1">{client.name} · 이번달 특이사항</div>
                             {monthMemo}
                           </div>
