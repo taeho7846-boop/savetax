@@ -68,7 +68,7 @@ const tools: Anthropic.Tool[] = [
         bizNumber: { type: "string", description: "사업자등록번호" },
         phone: { type: "string", description: "대표자 연락처" },
         clientType: { type: "string", enum: ["individual", "corporate"], description: "개인/법인" },
-        monthlyFee: { type: "number", description: "월기장료 (VAT 제외 금액)" },
+        monthlyFee: { type: "number", description: "월기장료 (VAT 제외 원본 금액을 그대로 전달. 코드에서 자동으로 VAT 포함 계산함)" },
         firstWithdrawalMonth: { type: "string", description: "최초 출금월 (YYYY-MM)" },
         openDate: { type: "string", description: "개업일 (YYYY-MM-DD)" },
         residentNumber: { type: "string", description: "주민등록번호" },
@@ -308,9 +308,10 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       if (digits.length === 8) openDate = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
     }
 
-    // 기장료 (VAT 제외이므로 1.1 곱함)
+    // 기장료 (VAT 제외이므로 1.1 곱하여 VAT 포함 금액으로 변환)
     const rawFee = input.monthlyFee as number | undefined;
-    const monthlyFee = rawFee ? Math.round(rawFee * 1.1 / 10) * 10 : null;
+    const monthlyFee = rawFee ? Math.round(rawFee * 1.1) : null;
+    console.log(`[거래처 등록] 기장료: VAT제외 ${rawFee} → VAT포함 ${monthlyFee}`);
 
     const client = await prisma.client.create({
       data: {
@@ -635,9 +636,10 @@ export async function POST(req: NextRequest) {
 ## 거래처 등록 (계약서/수임 텍스트)
 - 사용자가 수임 계약서나 거래처 정보 텍스트를 보내면, 자동으로 파싱하여 거래처명, 대표자, 사업자번호, 기장료, 개업일, 특이사항 등을 추출하세요.
 - 파싱 결과를 깔끔하게 정리해서 보여주고 "이대로 등록할까요?" 확인을 받으세요.
-- 월기장료가 VAT 제외 금액이면 VAT 포함 금액으로 변환합니다 (x1.1).
+- **월기장료**: monthlyFee에는 반드시 VAT 제외 원본 금액(숫자만)을 전달하세요. 코드가 자동으로 x1.1 해서 VAT 포함으로 저장합니다. 예: 80000 입력 → 88000원으로 저장됨.
 - 출금연월이 "26-06" 같은 형식이면 "2026-06"으로 변환합니다.
-- 특별요청사항, 특이사항, 경정청구 내용 등은 특이사항 필드에 합쳐서 저장합니다.
+- **주민등록번호**: 텍스트 어디에든 "NNNNNN-NNNNNNN" 형태의 주민번호가 있으면 반드시 residentNumber에 넣으세요. 특별요청사항, 특이사항 안에 포함되어 있을 수 있습니다.
+- 특별요청사항, 특이사항, 경정청구 내용 등은 특이사항 필드에 합쳐서 저장합니다 (주민번호는 제외).
 - 확인 후 create_client_with_commission 도구를 호출하세요.
 
 ## 답변 스타일
