@@ -8,7 +8,8 @@ import { join } from "path";
 const COL_KEYS = [
   "A","B","C","D","E","F","G","H","I","J","K","L","M","N","O",
   "P","Q","R","S","T","U","V","W","X","Y","Z",
-  "AA","AB","AC","AD","AE","AF","AG","AH","AI","AJ","AK","AL","AM","AN","AO","AP","AQ","AR","AS","AT","AU","AV","AW","AX","AY"
+  "AA","AB","AC","AD","AE","AF","AG","AH","AI","AJ","AK","AL","AM","AN","AO","AP","AQ","AR","AS","AT","AU","AV","AW","AX","AY","AZ",
+  "BA","BB","BC","BD","BE","BF","BG"
 ];
 
 function getLastDay(year: number, month: number): number {
@@ -89,8 +90,8 @@ export async function POST(req: NextRequest) {
     const vat = fee - supply;
     const clientBizNum = (c.bizNumber ?? "").replace(/-/g, "");
 
-    // 빈 행 배열 (A~AY = 51 columns)
-    const cells: (string | number)[] = new Array(51).fill("");
+    // 빈 행 배열 (A~BG = 59 columns)
+    const cells: (string | number)[] = new Array(COL_KEYS.length).fill("");
 
     if (isBulk) {
       // === 대량발행 (기존 형식, 7행부터) ===
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
       cells[colIndex("W")] = dayStr;                  // 일자 (2자리)
       cells[colIndex("AB")] = supply;                 // = T
       cells[colIndex("AC")] = vat;                    // = U
-      cells[colIndex("AY")] = "01";
+      cells[colIndex("BG")] = "01";
     }
 
     // 셀 쓰기
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
   const lastDataRow = START_ROW + validClients.length - 1;
   const existingRange = XLSX.utils.decode_range(ws["!ref"] || "A1");
   existingRange.e.r = Math.max(existingRange.e.r, lastDataRow);
-  existingRange.e.c = Math.max(existingRange.e.c, 50); // AY = 50
+  existingRange.e.c = Math.max(existingRange.e.c, COL_KEYS.length - 1);
   ws["!ref"] = XLSX.utils.encode_range(existingRange);
 
   const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
