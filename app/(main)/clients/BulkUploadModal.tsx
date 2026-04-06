@@ -79,7 +79,15 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="bg-gray-50 rounded-lg p-4 mb-4">
-          <div className="text-sm font-medium text-gray-700 mb-2">엑셀 파일 업로드</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium text-gray-700">엑셀 파일 업로드</div>
+            <a
+              href="/api/clients/bulk-update-template"
+              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              템플릿 다운로드 ↓
+            </a>
+          </div>
           <p className="text-xs text-gray-500 mb-3">
             사업자등록번호로 기존 거래처를 매칭하여 비어있는 항목만 채웁니다.<br />
             헤더 순서는 상관없으며, 매칭되지 않는 거래처는 무시됩니다.
