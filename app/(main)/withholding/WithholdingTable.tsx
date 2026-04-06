@@ -114,6 +114,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [search, setSearch] = useState("");
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
   const month = parseInt(yearMonth.split("-")[1]);
   const columns = getAllColumns(month);
 
@@ -239,7 +240,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                 />
               </th>
               <th className="text-left px-4 py-3 text-gray-700 font-medium">고객사명</th>
-              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs">특이</th>
+              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs">특이사항</th>
               {showAssignedUser && (
                 <th className="text-center px-3 py-3 text-gray-700 font-medium">담당자</th>
               )}
@@ -317,22 +318,20 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                     </td>
                     <td className="px-2 py-3 text-center">
                       {monthMemo ? (
-                        <span className="relative group cursor-pointer" onClick={() => {
-                          const val = prompt("이번달 특이사항:", monthMemo);
-                          if (val !== null) startTransition(() => setWithholdingMemo(client.id, yearMonth, val));
-                        }}>
-                          <span className="text-amber-500 text-xs">📌</span>
-                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-xs rounded-lg px-3 py-2 whitespace-pre-wrap max-w-[250px] z-30 shadow-lg">
+                        <span
+                          className="relative group cursor-pointer"
+                          onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: monthMemo })}
+                        >
+                          <span className="text-amber-500 text-sm">📌</span>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-[#1a2e4a] text-white text-sm rounded-xl px-4 py-3 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-30 shadow-xl">
+                            <div className="text-[10px] text-white/50 mb-1">{client.name} · 이번달 특이사항</div>
                             {monthMemo}
-                          </span>
+                          </div>
                         </span>
                       ) : (
                         <button
-                          onClick={() => {
-                            const val = prompt("이번달 특이사항:");
-                            if (val) startTransition(() => setWithholdingMemo(client.id, yearMonth, val));
-                          }}
-                          className="text-gray-200 hover:text-gray-400 text-xs"
+                          onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })}
+                          className="text-gray-300 hover:text-amber-500 text-sm transition-colors"
                         >+</button>
                       )}
                     </td>
@@ -418,6 +417,59 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
           </tbody>
         </table>
       </div>
+
+      {/* 특이사항 모달 */}
+      {memoModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setMemoModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">이번달 특이사항</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{memoModal.clientName}</p>
+              </div>
+              <button onClick={() => setMemoModal(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+            </div>
+            <textarea
+              defaultValue={memoModal.value}
+              placeholder="이번달 특이사항을 입력하세요..."
+              rows={4}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a] resize-none mb-4"
+              id="memo-textarea"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              {memoModal.value && (
+                <button
+                  onClick={() => {
+                    startTransition(() => setWithholdingMemo(memoModal.clientId, yearMonth, ""));
+                    setMemoModal(null);
+                  }}
+                  className="text-sm text-red-500 hover:text-red-700 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  삭제
+                </button>
+              )}
+              <button
+                onClick={() => setMemoModal(null)}
+                className="text-sm text-gray-500 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  const val = (document.getElementById("memo-textarea") as HTMLTextAreaElement)?.value ?? "";
+                  startTransition(() => setWithholdingMemo(memoModal.clientId, yearMonth, val));
+                  setMemoModal(null);
+                }}
+                disabled={isPending}
+                className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
