@@ -526,15 +526,13 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       <div className="flex items-center justify-center gap-1">
                         {client.ceoName || <span className="text-gray-400">-</span>}
                         {client.contactMethod?.split(",").map(m => m.trim()).map((m) => (
-                          <span key={m} title={m} className="inline-flex items-center justify-center w-4 h-4">
-                            {m === "카톡" ? (
-                              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.83 1.88 5.32 4.7 6.72-.15.55-.54 2-.62 2.3-.1.38.14.37.3.27.12-.08 1.92-1.3 2.7-1.82.6.09 1.24.13 1.92.13 5.52 0 10-3.58 10-8S17.52 3 12 3z" fill="#FEE500"/></svg>
-                            ) : m === "문자" ? (
-                              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5"><rect x="2" y="4" width="20" height="16" rx="4" fill="#34C759"/><path d="M7 9.5h10M7 13h6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                            ) : m === "메일" ? (
-                              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5"><path d="M2 7l10 6 10-6" fill="#2DB400"/><rect x="2" y="7" width="20" height="13" rx="2" fill="#2DB400" opacity="0.85"/><path d="M2 7l10 6 10-6" fill="none" stroke="#fff" strokeWidth="1.2"/><text x="12" y="17" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="bold">N</text></svg>
-                            ) : null}
-                          </span>
+                          <img
+                            key={m}
+                            src={m === "카톡" ? "/icon-kakaotalk.svg" : m === "문자" ? "/icon-message.svg" : m === "메일" ? "/icon-navermail.svg" : ""}
+                            alt={m}
+                            title={m}
+                            className="w-4 h-4 rounded-[3px]"
+                          />
                         ))}
                       </div>
                     </td>

@@ -1,0 +1,14 @@
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <rect width="24" height="24" rx="5" fill="white"/>
+  <!-- 봉투 뒷면 -->
+  <path d="M3 8l9 5.5L21 8v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" fill="#1EC800"/>
+  <!-- 봉투 앞면 (뚜껑) -->
+  <path d="M3 8l9-4 9 4" fill="#1EC800"/>
+  <path d="M3 8l9-4 9 4" fill="none" stroke="#17A600" stroke-width="0.3"/>
+  <!-- 편지지 -->
+  <rect x="6" y="5" width="12" height="10" rx="1" fill="white"/>
+  <!-- N 글자 -->
+  <text x="12" y="13" text-anchor="middle" font-size="8" font-weight="bold" fill="#1EC800" font-family="Arial,sans-serif">N</text>
+  <!-- 봉투 앞면 덮개 -->
+  <path d="M3 8l9 5.5L21 8" fill="none" stroke="white" stroke-width="0.3" opacity="0.5"/>
+</svg>
