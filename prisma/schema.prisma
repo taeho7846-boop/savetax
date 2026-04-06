@@ -137,6 +137,10 @@ model Settings {
   cmsBulkExcelPath   String? // CMS 일괄등록 엑셀 파일 경로
   pensionExcelPath   String? // 국민연금 엑셀 파일 경로
   healthExcelPath    String? // 건강보험 엑셀 파일 경로
+  tiNormalExcelPath  String? // 세금계산서 일반발행 엑셀 경로
+  tiBulkExcelPath    String? // 세금계산서 대량등록발행 엑셀 경로
+  tiSupplierName     String? // 세금계산서 공급자 상호
+  tiSupplierBizNum   String? // 세금계산서 공급자 사업자등록번호
 }
 
 // 신규수임 프로세스

@@ -88,6 +88,47 @@ export default async function SettingsPage() {
         </a>
       </div>
 
+      {/* 세금계산서 공급자 정보 */}
+      <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">세금계산서 공급자 정보</h2>
+        <p className="text-[10px] text-gray-400 mb-4">일반발행 시 공급자란에 자동 입력됩니다</p>
+        <form action={saveSettings} className="space-y-4">
+          {/* 기존 필드 hidden으로 유지 */}
+          <input type="hidden" name="agentHometaxId" value={settings?.agentHometaxId ?? ""} />
+          <input type="hidden" name="agentHometaxPw" value={settings?.agentHometaxPw ?? ""} />
+          <input type="hidden" name="certName" value={settings?.certName ?? ""} />
+          <input type="hidden" name="certPassword" value={settings?.certPassword ?? ""} />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">공급자 상호</label>
+              <input
+                name="tiSupplierName"
+                type="text"
+                defaultValue={settings?.tiSupplierName ?? ""}
+                placeholder="예: 세이브택스세무사사무소"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">공급자 사업자등록번호</label>
+              <input
+                name="tiSupplierBizNum"
+                type="text"
+                defaultValue={settings?.tiSupplierBizNum ?? ""}
+                placeholder="000-00-00000"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="bg-[#1a2e4a] text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-[#243d61] transition-colors"
+          >
+            저장
+          </button>
+        </form>
+      </div>
+
       <div className="mt-6">
         <SettingsUploads
           commissionFormPath={settings?.commissionFormPath ?? null}
@@ -96,6 +137,8 @@ export default async function SettingsPage() {
           cmsBulkExcelPath={settings?.cmsBulkExcelPath ?? null}
           pensionExcelPath={settings?.pensionExcelPath ?? null}
           healthExcelPath={settings?.healthExcelPath ?? null}
+          tiNormalExcelPath={settings?.tiNormalExcelPath ?? null}
+          tiBulkExcelPath={settings?.tiBulkExcelPath ?? null}
         />
       </div>
     </div>

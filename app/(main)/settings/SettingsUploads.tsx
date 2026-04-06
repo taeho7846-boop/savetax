@@ -9,6 +9,8 @@ interface Props {
   cmsBulkExcelPath: string | null;
   pensionExcelPath: string | null;
   healthExcelPath: string | null;
+  tiNormalExcelPath: string | null;
+  tiBulkExcelPath: string | null;
 }
 
 function UploadSection({
@@ -149,7 +151,7 @@ function UploadSection({
   );
 }
 
-export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath }: Props) {
+export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath }: Props) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6">
       <h2 className="text-sm font-semibold text-gray-700">파일</h2>
@@ -211,6 +213,28 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
             currentPath={healthExcelPath}
             uploadUrl="/api/settings/upload-health-excel"
             deleteUrl="/api/settings/upload-health-excel"
+            accept=".xlsx,.xls"
+            isImage={false}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-xs font-semibold text-gray-400 mb-4">세금계산서</h3>
+        <div className="grid grid-cols-2 gap-6">
+          <UploadSection
+            label="일반발행 엑셀"
+            currentPath={tiNormalExcelPath}
+            uploadUrl="/api/settings/upload-ti-normal"
+            deleteUrl="/api/settings/upload-ti-normal"
+            accept=".xlsx,.xls"
+            isImage={false}
+          />
+          <UploadSection
+            label="대량등록발행 엑셀"
+            currentPath={tiBulkExcelPath}
+            uploadUrl="/api/settings/upload-ti-bulk"
+            deleteUrl="/api/settings/upload-ti-bulk"
             accept=".xlsx,.xls"
             isImage={false}
           />
