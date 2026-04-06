@@ -531,7 +531,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                             src={m === "카톡" ? "/icon-kakaotalk.svg" : m === "문자" ? "/icon-message.svg" : m === "메일" ? "/icon-navermail.svg" : ""}
                             alt={m}
                             title={m}
-                            className="w-4 h-4 rounded-[3px]"
+                            className="w-4 h-4"
                           />
                         ))}
                       </div>
