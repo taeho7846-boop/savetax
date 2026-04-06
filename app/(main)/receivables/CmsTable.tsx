@@ -26,6 +26,10 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const filterRef = useRef<HTMLDivElement>(null);
+  const [tiMonth, setTiMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -104,6 +108,25 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
     );
   }
 
+  async function handleTaxInvoice() {
+    if (checkedIds.size === 0) return;
+    try {
+      const res = await fetch("/api/clients/tax-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientIds: [...checkedIds], yearMonth: tiMonth }),
+      });
+      if (!res.ok) { alert("다운로드 실패"); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `TI_${tiMonth}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { alert("다운로드 실패"); }
+  }
+
   async function handleBulkRegister() {
     if (checkedIds.size === 0) return;
     startTransition(async () => {
@@ -149,6 +172,26 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       >
         {isPending ? "처리 중..." : `일괄등록${checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}`}
       </button>
+
+      <div className="flex items-center gap-2 ml-auto">
+        <input
+          type="month"
+          value={tiMonth}
+          onChange={(e) => setTiMonth(e.target.value)}
+          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+        />
+        <button
+          onClick={handleTaxInvoice}
+          disabled={isPending || checkedIds.size === 0}
+          className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
+            checkedIds.size > 0
+              ? "bg-green-600 text-white hover:bg-green-700"
+              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+          } disabled:opacity-50`}
+        >
+          T/I 발행{checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}
+        </button>
+      </div>
     </div>
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <table className="w-full text-sm">
