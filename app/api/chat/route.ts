@@ -267,7 +267,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
 
     const tasks = await prisma.task.findMany({
       where,
-      select: { id: true, title: true, notes: true, type: true, status: true, dueDate: true, client: { select: { name: true } } },
+      select: { id: true, title: true, notes: true, taskType: true, status: true, dueDate: true, client: { select: { name: true } } },
       orderBy: { dueDate: "asc" },
       take: limit,
     });
@@ -275,7 +275,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     const statusMap: Record<string, string> = { scheduled: "예정", in_progress: "진행중", done: "완료", hold: "보류", delayed: "지연" };
     return JSON.stringify(tasks.map(t => ({
       id: t.id,
-      유형: t.type === "task" ? "업무" : "메모",
+      유형: t.taskType || "기타",
       제목: t.title,
       메모: t.notes?.slice(0, 50) || "-",
       상태: statusMap[t.status] || t.status,
@@ -301,7 +301,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       data: {
         title,
         notes: content || null,
-        type,
+        taskType: type === "memo" ? "기타" : (input.type as string) || "기타",
         status: "scheduled",
         dueDate,
         clientId,
