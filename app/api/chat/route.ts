@@ -450,7 +450,6 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     // DB 스케줄 조회
     const dbSchedules = await prisma.task.findMany({
       where: {
-        type: "task",
         dueDate: {
           gte: new Date(y, m - 1, 1),
           lt: new Date(y, m, 1),
