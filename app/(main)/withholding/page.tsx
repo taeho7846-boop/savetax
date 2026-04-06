@@ -45,6 +45,7 @@ export default async function WithholdingPage({
       name: true,
       laborTypes: true,
       halfYearTax: true,
+      accountingProgram: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       withholdingRecords: {
         where: { yearMonth },
