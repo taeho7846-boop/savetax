@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     .filter((c) => c.monthlyFee && c.monthlyFee > 0)
     .map((c) => {
       const fee = c.monthlyFee!;
-      const supply = Math.floor(fee / 1.1);
+      const supply = Math.round(fee / 1.1 / 10) * 10;
       const vat = fee - supply;
       const bizNum = (c.bizNumber ?? "").replace(/-/g, "");
 
