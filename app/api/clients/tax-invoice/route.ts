@@ -27,7 +27,7 @@ async function loadTemplate(filePath: string | null | undefined): Promise<XLSX.W
     const fullPath = join(process.cwd(), "public", localPath);
     console.log("[T/I] 템플릿 로드:", fullPath);
     const buf = await readFile(fullPath);
-    return XLSX.read(buf, { type: "buffer" });
+    return XLSX.read(buf, { type: "buffer", password: "" });
   } catch (err) {
     console.error("[T/I] 템플릿 로드 실패:", err);
     return null;
