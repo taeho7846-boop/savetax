@@ -1,0 +1,139 @@
+// 텔레그램 AI 봇 폴링 스크립트
+import { execSync } from "child_process";
+
+const BOT_TOKEN = process.env.TELEGRAM_AI_BOT_TOKEN;
+if (!BOT_TOKEN) {
+  console.error("TELEGRAM_AI_BOT_TOKEN 환경변수가 필요합니다.");
+  process.exit(1);
+}
+
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
+const TG_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+
+function curlGet(url: string): any {
+  try {
+    const result = execSync(`curl -s --connect-timeout 10 --max-time 35 "${url}"`, { encoding: "utf-8" });
+    return JSON.parse(result);
+  } catch {
+    return null;
+  }
+}
+
+function sendTelegram(chatId: number, text: string) {
+  try {
+    const body = JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }).replace(/'/g, "'\\''");
+    execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${body}' "${TG_BASE}/sendMessage"`, { encoding: "utf-8" });
+  } catch {
+    // 마크다운 실패 시 일반 텍스트
+    try {
+      const plain = text.replace(/[*_`\[\]]/g, "");
+      const body = JSON.stringify({ chat_id: chatId, text: plain }).replace(/'/g, "'\\''");
+      execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${body}' "${TG_BASE}/sendMessage"`, { encoding: "utf-8" });
+    } catch {}
+  }
+}
+
+// 사용자별 대화 히스토리 (메모리)
+const chatHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
+
+async function handleMessage(chatId: number, telegramId: string, text: string, senderName: string) {
+  // /start
+  if (text.startsWith("/start")) {
+    sendTelegram(chatId, `🤖 *세무 AI 어시스턴트*입니다.\n\n먼저 홈페이지 계정과 연동하세요:\n/연동 홈페이지아이디\n\n연동 후 바로 질문하면 됩니다.\n예: 피부양자 자격요건 알려줘\n예: 인텍 전화번호`);
+    return;
+  }
+
+  // /연동
+  if (text.startsWith("/연동")) {
+    const username = text.replace("/연동", "").trim();
+    if (!username) {
+      sendTelegram(chatId, "사용법: /연동 홈페이지아이디\n예시: /연동 taeho");
+      return;
+    }
+    try {
+      const body = JSON.stringify({ message: { from: { id: Number(telegramId) }, chat: { id: chatId }, text: `/연동 ${username}` } }).replace(/'/g, "'\\''");
+      execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${body}' "http://localhost:80/api/telegram"`, { encoding: "utf-8" });
+    } catch {}
+    return;
+  }
+
+  // /초기화
+  if (text.startsWith("/초기화")) {
+    chatHistory.delete(telegramId);
+    sendTelegram(chatId, "🔄 대화가 초기화되었습니다.");
+    return;
+  }
+
+  // AI 질문
+  sendTelegram(chatId, "🤖 답변 생성 중...");
+
+  // 연동 확인을 위해 DB 조회 (chat API 내부 인증으로)
+  try {
+    const internalKey = ANTHROPIC_KEY.slice(-10);
+    const history = chatHistory.get(telegramId) || [];
+
+    // userId 조회
+    const lookupBody = JSON.stringify({ telegramId }).replace(/'/g, "'\\''");
+    const lookupResult = execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${lookupBody}' "http://localhost:80/api/telegram/lookup"`, { encoding: "utf-8" });
+    const lookupData = JSON.parse(lookupResult);
+
+    if (!lookupData?.userId) {
+      sendTelegram(chatId, "❌ 먼저 /연동 명령어로 계정을 연동해주세요.");
+      return;
+    }
+
+    const chatBody = JSON.stringify({
+      message: text,
+      history,
+      _internalUserId: lookupData.userId,
+    }).replace(/'/g, "'\\''");
+
+    const result = execSync(
+      `curl -s --connect-timeout 30 --max-time 60 -X POST -H "Content-Type: application/json" -H "x-internal-key: ${internalKey}" -d '${chatBody}' "http://localhost:80/api/chat"`,
+      { encoding: "utf-8" }
+    );
+    const data = JSON.parse(result);
+
+    if (data.reply) {
+      // 히스토리 업데이트
+      history.push({ role: "user", content: text });
+      history.push({ role: "assistant", content: data.reply });
+      // 최근 10개만 유지
+      if (history.length > 20) history.splice(0, history.length - 20);
+      chatHistory.set(telegramId, history);
+
+      const reply = data.reply
+        .replace(/\*\*(.*?)\*\*/g, "*$1*")
+        .replace(/#{1,3}\s/g, "")
+        .slice(0, 4000);
+      sendTelegram(chatId, reply);
+    } else {
+      sendTelegram(chatId, "❌ 답변을 생성할 수 없습니다. 다시 시도해주세요.");
+    }
+  } catch (e) {
+    console.error("[AI Bot] 오류:", e);
+    sendTelegram(chatId, "❌ 오류가 발생했습니다. 다시 시도해주세요.");
+  }
+}
+
+let offset = 0;
+
+function poll() {
+  const data = curlGet(`${TG_BASE}/getUpdates?offset=${offset}&timeout=30`);
+  if (!data?.ok || !data.result) return;
+
+  for (const update of data.result) {
+    offset = update.update_id + 1;
+    if (update.message?.text) {
+      const msg = update.message;
+      console.log(`[AI] 메시지: ${msg.from?.first_name} - ${msg.text.slice(0, 30)}`);
+      handleMessage(msg.chat.id, String(msg.from.id), msg.text, msg.from.first_name || "");
+    }
+  }
+}
+
+// 웹훅 해제
+curlGet(`${TG_BASE}/deleteWebhook`);
+console.log("텔레그램 AI 봇 폴링 시작...");
+
+setInterval(poll, 1000);
