@@ -154,13 +154,26 @@ const tools: Anthropic.Tool[] = [
   },
 ];
 
+// 본인 + 소속직원 거래처 필터
+async function getMyClientFilter(sessionId: number) {
+  const employees = await prisma.user.findMany({
+    where: { managerId: sessionId, isActive: true },
+    select: { id: true },
+  });
+  const userIds = [sessionId, ...employees.map(e => e.id)];
+  return { assignedUserId: { in: userIds } };
+}
+
 // 도구 실행
 async function executeTool(name: string, input: Record<string, unknown>, sessionId: number) {
+  const myFilter = await getMyClientFilter(sessionId);
+
   if (name === "search_clients") {
     const q = input.query as string;
     const clients = await prisma.client.findMany({
       where: {
         isDeleted: false,
+        ...myFilter,
         OR: [
           { name: { contains: q } },
           { ceoName: { contains: q } },
@@ -245,9 +258,9 @@ async function executeTool(name: string, input: Record<string, unknown>, session
 
   if (name === "get_client_summary") {
     const [total, cmsNone, cmsPending] = await Promise.all([
-      prisma.client.count({ where: { isDeleted: false } }),
-      prisma.client.count({ where: { isDeleted: false, cmsStatus: "none" } }),
-      prisma.client.count({ where: { isDeleted: false, cmsStatus: "pending" } }),
+      prisma.client.count({ where: { isDeleted: false, ...myFilter } }),
+      prisma.client.count({ where: { isDeleted: false, ...myFilter, cmsStatus: "none" } }),
+      prisma.client.count({ where: { isDeleted: false, ...myFilter, cmsStatus: "pending" } }),
     ]);
     return JSON.stringify({ 전체거래처: total, CMS미등록: cmsNone, CMS등록요청중: cmsPending });
   }
@@ -324,7 +337,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     const ym = (input.yearMonth as string) || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
     const clients = await prisma.client.findMany({
-      where: { isDeleted: false, laborTypes: { not: null } },
+      where: { isDeleted: false, ...myFilter, laborTypes: { not: null } },
       select: { id: true, name: true, laborTypes: true, withholdingRecords: { where: { yearMonth: ym } } },
     });
 
@@ -367,7 +380,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
     const clients = await prisma.client.findMany({
-      where: { isDeleted: false, monthlyFee: { not: null }, firstWithdrawalMonth: { not: null } },
+      where: { isDeleted: false, ...myFilter, monthlyFee: { not: null }, firstWithdrawalMonth: { not: null } },
       include: { feeRecords: true },
     });
 
@@ -400,7 +413,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
 
   if (name === "get_cms_list") {
     const status = (input.status as string) || "none";
-    const where: any = { isDeleted: false };
+    const where: any = { isDeleted: false, ...myFilter };
     if (status !== "all") where.cmsStatus = status;
 
     const clients = await prisma.client.findMany({
