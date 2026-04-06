@@ -213,6 +213,8 @@ async function CmsTab({ sessionId }: { sessionId: number }) {
       monthlyFee: true,
       firstWithdrawalMonth: true,
       cmsRegistered: true,
+      bankName: true,
+      bankAccount: true,
     },
     orderBy: { name: "asc" },
   });

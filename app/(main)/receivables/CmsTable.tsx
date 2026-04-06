@@ -11,6 +11,8 @@ type CmsClient = {
   monthlyFee: number | null;
   firstWithdrawalMonth: string | null;
   cmsRegistered: boolean;
+  bankName: string | null;
+  bankAccount: string | null;
 };
 
 type SortCol = "name" | "ceoName" | "monthlyFee" | "cmsRegistered";
@@ -175,6 +177,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 </button>
               </th>
             ))}
+            <th className="text-center px-3 py-3 text-gray-500 font-medium text-xs">출금정보</th>
 
             {/* 최초출금월 필터 */}
             <th className="text-center px-4 py-3 text-gray-700 font-medium">
@@ -238,7 +241,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         <tbody className="divide-y divide-gray-100">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={6} className="text-center py-12 text-gray-500">
+              <td colSpan={7} className="text-center py-12 text-gray-500">
                 {monthFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
               </td>
             </tr>
@@ -260,6 +263,18 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 <td className="px-4 py-3 text-center text-gray-800">{client.ceoName || <span className="text-gray-400">-</span>}</td>
                 <td className="px-4 py-3 text-center text-gray-800">
                   {client.monthlyFee != null ? `${client.monthlyFee.toLocaleString()}원` : <span className="text-gray-400">-</span>}
+                </td>
+                <td className="px-3 py-3 text-center">
+                  {client.bankName || client.bankAccount ? (
+                    <div className="text-xs text-gray-500">
+                      <span>{client.bankName || "-"}</span>
+                      {client.bankAccount && (
+                        <div className="text-[10px] text-gray-400">{client.bankAccount}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-red-400">미입력</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-center text-gray-800">{client.firstWithdrawalMonth || <span className="text-gray-400">-</span>}</td>
                 <td className="px-4 py-3 text-center">
