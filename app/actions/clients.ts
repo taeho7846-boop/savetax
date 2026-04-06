@@ -105,9 +105,9 @@ export async function updateClient(id: number, formData: FormData) {
       myboxLink: (formData.get("myboxLink") as string) || null,
       accountingProgram: getAccountingProgram(formData),
       contactMethod: getContactMethod(formData),
-      assignedUserId: formData.get("assignedUserId")
-        ? parseInt(formData.get("assignedUserId") as string)
-        : null,
+      ...(formData.has("assignedUserId")
+        ? { assignedUserId: formData.get("assignedUserId") ? parseInt(formData.get("assignedUserId") as string) : null }
+        : {}),
     },
   });
 
@@ -145,9 +145,9 @@ export async function updateClientInModal(id: number, formData: FormData) {
       myboxLink: (formData.get("myboxLink") as string) || null,
       accountingProgram: getAccountingProgram(formData),
       contactMethod: getContactMethod(formData),
-      assignedUserId: formData.get("assignedUserId")
-        ? parseInt(formData.get("assignedUserId") as string)
-        : null,
+      ...(formData.has("assignedUserId")
+        ? { assignedUserId: formData.get("assignedUserId") ? parseInt(formData.get("assignedUserId") as string) : null }
+        : {}),
     },
   });
 
