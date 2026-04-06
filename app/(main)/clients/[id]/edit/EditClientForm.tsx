@@ -221,31 +221,32 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
       </div>
 
-      {/* 회계프로그램 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-800 mb-1">회계프로그램</label>
-        <CheckboxGroup
-          name="accountingProgram"
-          options={["위하고", "세무사랑"]}
-          defaultValues={
-            client.accountingProgram
-              ? client.accountingProgram.split(",").map(s => s.trim()).filter(Boolean)
-              : ["위하고"]
-          }
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-800 mb-1">업무소통방법</label>
-        <CheckboxGroup
-          name="contactMethod"
-          options={["메일", "카톡", "문자"]}
-          defaultValues={
-            client.contactMethod
-              ? client.contactMethod.split(",").map(s => s.trim()).filter(Boolean)
-              : ["카톡"]
-          }
-        />
+      {/* 회계프로그램 / 업무소통방법 */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">회계프로그램</label>
+          <CheckboxGroup
+            name="accountingProgram"
+            options={["위하고", "세무사랑"]}
+            defaultValues={
+              client.accountingProgram
+                ? client.accountingProgram.split(",").map(s => s.trim()).filter(Boolean)
+                : ["위하고"]
+            }
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">업무소통방법</label>
+          <CheckboxGroup
+            name="contactMethod"
+            options={["메일", "카톡", "문자"]}
+            defaultValues={
+              client.contactMethod
+                ? client.contactMethod.split(",").map(s => s.trim()).filter(Boolean)
+                : ["카톡"]
+            }
+          />
+        </div>
       </div>
 
       {/* 행4: 인건비 / 개업년월일 */}
