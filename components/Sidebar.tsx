@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/app/actions/auth";
+import { ChatBot } from "./ChatBot";
 
 const menus = [
   { href: "/dashboard", label: "대시보드", icon: "📊" },
@@ -177,6 +178,11 @@ export default function Sidebar({
           <span>⚙️</span>
           <span>설정</span>
         </Link>
+      </div>
+
+      {/* AI 어시스턴트 */}
+      <div className="px-3 pb-1">
+        <ChatBot />
       </div>
 
       <div className="p-4 border-t border-[#243d61]">
