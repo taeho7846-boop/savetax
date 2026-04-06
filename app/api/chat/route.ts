@@ -178,6 +178,18 @@ const tools: Anthropic.Tool[] = [
     },
   },
   {
+    name: "save_idcard_to_commission",
+    description: "현재 대화에 업로드된 이미지를 해당 거래처의 신규수임 대표자 신분증으로 저장합니다. 사용자가 이미지와 함께 거래처명을 알려주면, 거래처를 검색하고 이 도구를 호출하세요. 여러 거래처가 검색되면 어떤 거래처인지 확인하세요.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        clientName: { type: "string", description: "거래처명 (검색용)" },
+        clientId: { type: "number", description: "거래처 ID (이미 알고 있으면)" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "get_schedule",
     description: "세무 일정/스케줄을 조회합니다. 이번달, 다음달 주요 신고/납부 기한.",
     input_schema: {
@@ -201,7 +213,7 @@ async function getMyClientFilter(sessionId: number) {
 }
 
 // 도구 실행
-async function executeTool(name: string, input: Record<string, unknown>, sessionId: number) {
+async function executeTool(name: string, input: Record<string, unknown>, sessionId: number, imageBase64?: string) {
   const myFilter = await getMyClientFilter(sessionId);
 
   if (name === "search_clients") {
@@ -629,11 +641,83 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     }, null, 2);
   }
 
+  if (name === "save_idcard_to_commission") {
+    if (!imageBase64) return "⚠️ 이미지가 없습니다. 신분증 이미지를 함께 보내주세요.";
+
+    // 거래처 찾기
+    let clientId = input.clientId as number | undefined;
+    let clientName = "";
+
+    if (!clientId && input.clientName) {
+      const q = input.clientName as string;
+      const clients = await prisma.client.findMany({
+        where: {
+          isDeleted: false,
+          ...myFilter,
+          OR: [{ name: { contains: q } }, { ceoName: { contains: q } }],
+        },
+        select: { id: true, name: true, ceoName: true },
+        take: 5,
+      });
+      if (clients.length === 0) return `⚠️ "${q}" 거래처를 찾을 수 없습니다.`;
+      if (clients.length > 1) {
+        return `여러 거래처가 검색되었습니다. 어떤 거래처인가요?\n${clients.map(c => `- ${c.name} (대표: ${c.ceoName || "-"}, ID: ${c.id})`).join("\n")}`;
+      }
+      clientId = clients[0].id;
+      clientName = clients[0].name;
+    }
+
+    if (!clientId) return "⚠️ 거래처명을 알려주세요.";
+
+    // 신규수임 프로세스 확인
+    const commission = await prisma.commissionProcess.findUnique({
+      where: { clientId },
+      include: { client: { select: { name: true, ceoName: true } } },
+    });
+    if (!commission) return `⚠️ 해당 거래처의 신규수임 프로세스가 없습니다. 먼저 신규수임에 등록해주세요.`;
+    clientName = commission.client.name;
+
+    // base64 → 파일 저장
+    const { writeFile, mkdir } = await import("fs/promises");
+    const path = await import("path");
+
+    const match = imageBase64.match(/^data:(image\/(\w+));base64,(.+)$/);
+    if (!match) return "⚠️ 이미지 형식을 인식할 수 없습니다.";
+    const ext = match[2] === "jpeg" ? "jpg" : match[2];
+    const base64Data = match[3];
+    const buffer = Buffer.from(base64Data, "base64");
+
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "idcards");
+    await mkdir(uploadDir, { recursive: true });
+
+    // 기존 파일 삭제
+    if (commission.idCardPath) {
+      try {
+        const { unlink } = await import("fs/promises");
+        const oldPath = path.join(process.cwd(), "public", commission.idCardPath.replace("/api/uploads/", "uploads/"));
+        await unlink(oldPath).catch(() => {});
+      } catch {}
+    }
+
+    const filename = `${commission.id}.${ext}`;
+    const filePath = path.join(uploadDir, filename);
+    await writeFile(filePath, buffer);
+
+    // DB 업데이트
+    const dbPath = `/api/uploads/idcards/${filename}`;
+    await prisma.commissionProcess.update({
+      where: { id: commission.id },
+      data: { idCardPath: dbPath, hasIdCard: true },
+    });
+
+    return `✅ **${clientName}** 신규수임에 대표자 신분증이 등록되었습니다.\n📎 경로: ${dbPath}`;
+  }
+
   return "알 수 없는 도구입니다.";
 }
 
 export async function POST(req: NextRequest) {
-  const { message, history, _internalUserId } = await req.json();
+  const { message, history, _internalUserId, image } = await req.json();
 
   // 내부 호출 (텔레그램 등) 또는 일반 세션
   let session: { id: number; name: string; role: string } | null = null;
@@ -688,6 +772,11 @@ export async function POST(req: NextRequest) {
 - 여러 거래처가 검색되면 어떤 거래처인지 확인하세요.
 - 업무 생성 시에도 제목, 마감일 등을 확인 후 생성하세요.
 
+## 이미지 처리
+- **신분증 업로드**: 사용자가 이미지와 함께 거래처명을 말하면, save_idcard_to_commission 도구로 해당 거래처 신규수임에 신분증을 바로 첨부하세요. 예: "보스밀리 대표 신분증이야" → save_idcard_to_commission(clientName: "보스밀리") 호출.
+- **사업자등록증**: 상호, 대표자, 사업자번호, 개업일, 주소 등을 추출하여 정리하고, "이 정보로 거래처 등록할까요?" 확인을 받으세요.
+- **기타 서류**: 내용을 요약하고 필요한 조치를 안내하세요.
+
 ## 거래처 등록 (계약서/수임 텍스트)
 - 사용자가 수임 계약서나 거래처 정보 텍스트를 보내면, 자동으로 파싱하여 거래처명, 대표자, 사업자번호, 기장료, 개업일, 특이사항 등을 추출하세요.
 - 파싱 결과를 깔끔하게 정리해서 보여주고 "이대로 등록할까요?" 확인을 받으세요.
@@ -715,13 +804,39 @@ ${noticeContext || "(등록된 공지 없음)"}`;
       messages.push({ role: h.role, content: h.content });
     }
   }
-  messages.push({ role: "user", content: message });
+
+  // 이미지가 포함된 경우 멀티모달 메시지 구성
+  if (image && typeof image === "string" && image.startsWith("data:image/")) {
+    const match = image.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      const mediaType = match[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      const base64Data = match[2];
+      messages.push({
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data: base64Data },
+          },
+          { type: "text", text: message },
+        ],
+      });
+    } else {
+      messages.push({ role: "user", content: message });
+    }
+  } else {
+    messages.push({ role: "user", content: message });
+  }
 
   try {
+    // 이미지가 있으면 Sonnet (Vision 정확도↑), 없으면 Haiku (속도↑, 비용↓)
+    const model = image ? "claude-sonnet-4-20250514" : "claude-haiku-4-5-20251001";
+    const maxTokens = image ? 2048 : 1024;
+
     // Tool use 루프 (최대 5번)
     let response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
+      model,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages,
       tools,
@@ -745,7 +860,7 @@ ${noticeContext || "(등록된 공지 없음)"}`;
 
       // 각 도구 실행
       const results = await Promise.all(
-        toolBlocks.map((tb) => executeTool(tb.name, tb.input as Record<string, unknown>, session.id))
+        toolBlocks.map((tb) => executeTool(tb.name, tb.input as Record<string, unknown>, session.id, image))
       );
 
       (toolResults.content as Array<{ type: "tool_result"; tool_use_id: string; content: string }>).forEach(
@@ -756,8 +871,8 @@ ${noticeContext || "(등록된 공지 없음)"}`;
       messages.push(toolResults);
 
       response = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
+        model,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages,
         tools,
