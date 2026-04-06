@@ -68,6 +68,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [affFilterOpen, setAffFilterOpen] = useState(false);
   const [programFilter, setProgramFilter] = useState<string | null>(null);
   const [programFilterOpen, setProgramFilterOpen] = useState(false);
+  const [userFilter, setUserFilter] = useState<string[]>([]);
+  const [userFilterOpen, setUserFilterOpen] = useState(false);
   const [loginStatuses, setLoginStatuses] = useState<Record<number, LoginStatus>>({});
   const [loginErrors, setLoginErrors] = useState<Record<number, string>>({});
   const [vncOpen, setVncOpen] = useState(false);
@@ -80,6 +82,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const filterRef = useRef<HTMLDivElement>(null);
   const affFilterRef = useRef<HTMLDivElement>(null);
   const programFilterRef = useRef<HTMLDivElement>(null);
+  const userFilterRef = useRef<HTMLDivElement>(null);
 
   function toggleCheck(id: number) {
     setCheckedIds((prev) => {
@@ -195,6 +198,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       if (programFilterRef.current && !programFilterRef.current.contains(e.target as Node)) {
         setProgramFilterOpen(false);
       }
+      if (userFilterRef.current && !userFilterRef.current.contains(e.target as Node)) {
+        setUserFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -218,6 +224,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   // 필터 적용
   // 소속 옵션 목록 추출
   const affiliationOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
+  const userOptions = [...new Set(clients.map(c => c.assignedUser?.name).filter(Boolean))] as string[];
 
   let rows = clients;
   if (laborFilter.length > 0) {
@@ -232,6 +239,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   }
   if (programFilter) {
     rows = rows.filter((c) => c.accountingProgram?.includes(programFilter));
+  }
+  if (userFilter.length > 0) {
+    rows = rows.filter((c) => userFilter.includes(c.assignedUser?.name || ""));
   }
 
   // 정렬 적용
@@ -347,7 +357,52 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                 </div>
               </th>
               {showAssignedUser && (
-                <th className="text-center px-4 py-3 text-gray-700 font-medium">담당자</th>
+                <th className="text-center px-4 py-3 text-gray-700 font-medium">
+                  <div className="relative inline-block" ref={userFilterRef}>
+                    <button
+                      onClick={() => setUserFilterOpen((o) => !o)}
+                      className={`flex items-center gap-1 mx-auto hover:text-[#1a2e4a] ${userFilter.length > 0 ? "text-[#1a2e4a] font-semibold" : ""}`}
+                    >
+                      담당자
+                      {userFilter.length > 0 && (
+                        <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                          {userFilter.length}
+                        </span>
+                      )}
+                      <span className="text-gray-400 text-[10px]">▼</span>
+                    </button>
+                    {userFilterOpen && (
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[120px] max-h-60 overflow-y-auto">
+                        {userOptions.length === 0 ? (
+                          <p className="text-xs text-gray-400 px-2 py-1">데이터 없음</p>
+                        ) : (
+                          userOptions.map((name) => (
+                            <label
+                              key={name}
+                              className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-700 whitespace-nowrap"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={userFilter.includes(name)}
+                                onChange={() => setUserFilter((prev) => prev.includes(name) ? prev.filter((v) => v !== name) : [...prev, name])}
+                                className="accent-[#1a2e4a]"
+                              />
+                              {name}
+                            </label>
+                          ))
+                        )}
+                        {userFilter.length > 0 && (
+                          <button
+                            onClick={() => setUserFilter([])}
+                            className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1 pt-1 border-t border-gray-100"
+                          >
+                            초기화
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </th>
               )}
 
               {/* 인건비 필터 */}
