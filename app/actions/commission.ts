@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 
 // 세무사(manager)는 본인 + 소속 직원의 고객도 조회
 async function getVisibleUserIds(session: { id: number; role: string }) {
-  if (session.role === "owner") return undefined; // owner는 전체
   const employees = await prisma.user.findMany({
     where: { managerId: session.id, isActive: true },
     select: { id: true },
