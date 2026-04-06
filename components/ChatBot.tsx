@@ -12,7 +12,7 @@ export function ChatBot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -141,7 +141,7 @@ export function ChatBot() {
           <div className="border-t border-gray-100 px-3 py-2.5 shrink-0">
             <div className="flex gap-2">
               <textarea
-                ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
