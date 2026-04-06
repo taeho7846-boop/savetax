@@ -62,6 +62,45 @@ export async function POST(req: NextRequest) {
 
     const content = message.text || message.caption || (fileUrl ? "(파일)" : "(내용 없음)");
 
+    // /ai 명령어: AI 어시스턴트
+    if (message.text?.startsWith("/ai")) {
+      const query = message.text.replace("/ai", "").trim();
+      if (!query) {
+        sendTelegram(chatId, "사용법: /ai 질문내용\n예시: /ai 피부양자 자격요건\n예시: /ai 인텍 전화번호");
+        return NextResponse.json({ ok: true });
+      }
+      // 연동된 사용자 확인
+      const tgUser = await prisma.telegramUser.findUnique({ where: { telegramId } });
+      if (!tgUser) {
+        sendTelegram(chatId, "❌ 먼저 /연동 명령어로 계정을 연동해주세요.");
+        return NextResponse.json({ ok: true });
+      }
+      sendTelegram(chatId, "🤖 답변 생성 중...");
+      try {
+        const internalKey = (process.env.ANTHROPIC_API_KEY || "").slice(-10);
+        const res = await fetch(`http://localhost:80/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
+          body: JSON.stringify({ message: query, history: [], _internalUserId: tgUser.userId }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // 마크다운 → 텔레그램 형식으로 간소화
+          const reply = data.reply
+            ?.replace(/\*\*(.*?)\*\*/g, "*$1*")  // bold
+            ?.replace(/#{1,3}\s/g, "")             // 헤더 제거
+            ?.slice(0, 4000) || "답변을 생성할 수 없습니다.";
+          sendTelegramMarkdown(chatId, reply);
+        } else {
+          sendTelegram(chatId, "❌ AI 응답 실패. 다시 시도해주세요.");
+        }
+      } catch (e) {
+        console.error("[Telegram AI] 오류:", e);
+        sendTelegram(chatId, "❌ AI 응답 실패. 다시 시도해주세요.");
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     // DB에 임시메모 저장
     await prisma.tempMemo.create({
       data: {
@@ -86,6 +125,16 @@ function sendTelegram(chatId: number, text: string) {
     const body = JSON.stringify({ chat_id: chatId, text }).replace(/'/g, "'\\''");
     execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${body}' "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"`, { encoding: "utf-8" });
   } catch {}
+}
+
+function sendTelegramMarkdown(chatId: number, text: string) {
+  try {
+    const body = JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }).replace(/'/g, "'\\''");
+    execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${body}' "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"`, { encoding: "utf-8" });
+  } catch {
+    // 마크다운 파싱 실패 시 일반 텍스트로 재전송
+    sendTelegram(chatId, text.replace(/[*_`\[\]]/g, ""));
+  }
 }
 
 function curlGetTelegram(url: string): any {

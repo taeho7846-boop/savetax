@@ -161,10 +161,17 @@ async function executeTool(name: string, input: Record<string, unknown>, session
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { message, history, _internalUserId } = await req.json();
 
-  const { message, history } = await req.json();
+  // 내부 호출 (텔레그램 등) 또는 일반 세션
+  let session: { id: number; name: string; role: string } | null = null;
+  if (_internalUserId && req.headers.get("x-internal-key") === (process.env.ANTHROPIC_API_KEY || "").slice(-10)) {
+    const user = await prisma.user.findUnique({ where: { id: _internalUserId }, select: { id: true, name: true, role: true } });
+    if (user) session = user;
+  } else {
+    session = await getSession();
+  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!message) return NextResponse.json({ error: "메시지가 필요합니다" }, { status: 400 });
 
   // 지식한입 DB
