@@ -58,6 +58,18 @@ const tools: Anthropic.Tool[] = [
     },
   },
   {
+    name: "find_insurance_branch",
+    description: "4대보험 관할 지사를 찾습니다. 거래처명을 받으면 해당 거래처의 주소로 국민연금/건강보험/고용산재 관할 지사를 조회합니다.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        clientName: { type: "string", description: "거래처명 (주소를 조회할 거래처)" },
+        address: { type: "string", description: "직접 주소를 입력할 경우 (거래처명 대신)" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "create_client_with_commission",
     description: "거래처를 신규 등록하고 신규수임 프로세스를 자동 생성합니다. 계약서/수임 텍스트를 파싱한 결과를 넘겨주세요. 반드시 사용자에게 파싱 결과를 보여주고 확인받은 후 호출하세요.",
     input_schema: {
@@ -278,6 +290,49 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       notes: "특이사항", contactMethod: "소통방법", email: "이메일",
     };
     return `✅ ${c.name}의 ${fieldNames[field] || field}을(를) "${value}"(으)로 수정했습니다.`;
+  }
+
+  if (name === "find_insurance_branch") {
+    let address = input.address as string | undefined;
+
+    // 거래처명으로 주소 조회
+    if (!address && input.clientName) {
+      const client = await prisma.client.findFirst({
+        where: { isDeleted: false, ...myFilter, name: { contains: input.clientName as string } },
+        select: { name: true, address: true },
+      });
+      if (!client) return `"${input.clientName}" 거래처를 찾을 수 없습니다.`;
+      if (!client.address) return `"${client.name}" 거래처에 주소가 등록되어 있지 않습니다. 고객사 수정에서 주소를 입력해주세요.`;
+      address = client.address;
+    }
+
+    if (!address) return "거래처명 또는 주소를 알려주세요.";
+
+    try {
+      const { execSync } = await import("child_process");
+      const body = JSON.stringify({ address });
+      const result = execSync(
+        `curl -s --connect-timeout 10 -X POST -H "Content-Type: application/json" -d '${body.replace(/'/g, "'\\''")}' "http://localhost:80/api/insurance-branch"`,
+        { encoding: "utf-8" }
+      );
+      const data = JSON.parse(result);
+
+      if (data.error) return `조회 실패: ${data.error} (주소: ${address})`;
+      if (!data.branches || data.branches.length === 0) return `"${address}" 주소로 관할 지사를 찾을 수 없습니다. 주소를 확인해주세요.`;
+
+      return JSON.stringify({
+        주소: address,
+        시군구: data.sggNm,
+        관할지사: data.branches.map((b: any) => ({
+          기관: b.institution,
+          지사명: b.branch,
+          주소: b.addressInfo,
+          전화: b.phone,
+        })),
+      }, null, 2);
+    } catch (e) {
+      return "4대보험 지사 조회 중 오류가 발생했습니다.";
+    }
   }
 
   if (name === "create_client_with_commission") {
