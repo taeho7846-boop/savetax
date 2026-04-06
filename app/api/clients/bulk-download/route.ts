@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     "월 기장료": c.monthlyFee ?? "",
     "담당자": c.assignedUser?.name ?? "",
     "회계프로그램": c.accountingProgram ?? "",
+    "소통방법": c.contactMethod ?? "",
   }));
 
   const wb = XLSX.utils.book_new();

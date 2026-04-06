@@ -40,6 +40,7 @@ type Client = {
   clientType: string;
   taxTypes: string | null;
   accountingProgram: string;
+  contactMethod: string;
   affiliation: string | null;
   myboxLink: string | null;
   monthlyFee: number | null;
@@ -521,7 +522,20 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                     </td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.bizNumber || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.phone || <span className="text-gray-400">-</span>}</td>
-                    <td className="px-4 py-3 text-center text-gray-800">{client.ceoName || <span className="text-gray-400">-</span>}</td>
+                    <td className="px-4 py-3 text-center text-gray-800">
+                      <div className="flex items-center justify-center gap-1">
+                        {client.ceoName || <span className="text-gray-400">-</span>}
+                        {client.contactMethod?.split(",").map(m => m.trim()).map((m) => (
+                          <span key={m} className={`text-[10px] px-1 py-0.5 rounded ${
+                            m === "메일" ? "bg-blue-50 text-blue-500" :
+                            m === "카톡" ? "bg-yellow-50 text-yellow-600" :
+                            m === "문자" ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-400"
+                          }`} title={m}>
+                            {m === "메일" ? "📧" : m === "카톡" ? "💬" : m === "문자" ? "📱" : m}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.residentNumber || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">
                       {client.monthlyFee != null ? client.monthlyFee.toLocaleString() + "원" : <span className="text-gray-400">-</span>}

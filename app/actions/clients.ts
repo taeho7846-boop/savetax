@@ -26,6 +26,13 @@ function getAccountingProgram(formData: FormData) {
   return types.length > 0 ? types.join(",") : "위하고";
 }
 
+function getContactMethod(formData: FormData) {
+  const methods = ["메일", "카톡", "문자"].filter(
+    (t) => formData.get(`contactMethod_${t}`) === t
+  );
+  return methods.length > 0 ? methods.join(",") : "카톡";
+}
+
 export async function createClient(formData: FormData) {
   const session = await requireAuth();
 
@@ -54,6 +61,7 @@ export async function createClient(formData: FormData) {
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
       accountingProgram: getAccountingProgram(formData),
+      contactMethod: getContactMethod(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,
@@ -96,6 +104,7 @@ export async function updateClient(id: number, formData: FormData) {
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
       accountingProgram: getAccountingProgram(formData),
+      contactMethod: getContactMethod(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -135,6 +144,7 @@ export async function updateClientInModal(id: number, formData: FormData) {
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
       accountingProgram: getAccountingProgram(formData),
+      contactMethod: getContactMethod(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : null,
@@ -269,6 +279,7 @@ export async function createClientInModal(formData: FormData) {
       notes: (formData.get("notes") as string) || null,
       myboxLink: (formData.get("myboxLink") as string) || null,
       accountingProgram: getAccountingProgram(formData),
+      contactMethod: getContactMethod(formData),
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,

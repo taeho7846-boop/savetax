@@ -76,6 +76,7 @@ interface Props {
     clientType: string;
     taxationType: string | null;
     accountingProgram?: string;
+    contactMethod?: string;
     hometaxId: string | null;
     hometaxPw: string | null;
     monthlyFee: number | null;
@@ -230,6 +231,19 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
             client.accountingProgram
               ? client.accountingProgram.split(",").map(s => s.trim()).filter(Boolean)
               : ["위하고"]
+          }
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-800 mb-1">업무소통방법</label>
+        <CheckboxGroup
+          name="contactMethod"
+          options={["메일", "카톡", "문자"]}
+          defaultValues={
+            client.contactMethod
+              ? client.contactMethod.split(",").map(s => s.trim()).filter(Boolean)
+              : ["카톡"]
           }
         />
       </div>

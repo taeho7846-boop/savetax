@@ -66,6 +66,7 @@ model Client {
   halfYearTax    Boolean  @default(false) // 6개월납 여부
   affiliation    String?  // 소속 (세이브택스, 그 외)
   corporateNumber String?  // 법인등록번호
+  contactMethod  String   @default("카톡") // 업무소통방법: 메일,카톡,문자 (콤마 구분)
   notes          String?  // 특이사항
   myboxLink      String?  // 네이버 마이박스 폴더 링크
   cmsStatus      String   @default("none") // CMS 상태: none, pending, done
