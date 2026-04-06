@@ -4,15 +4,30 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+// 세무사(manager)는 본인 + 소속 직원의 고객도 조회
+async function getVisibleUserIds(session: { id: number; role: string }) {
+  if (session.role === "owner") return undefined; // owner는 전체
+  const employees = await prisma.user.findMany({
+    where: { managerId: session.id, isActive: true },
+    select: { id: true },
+  });
+  if (employees.length === 0) return { equals: session.id };
+  return { in: [session.id, ...employees.map((e) => e.id)] };
+}
+
 export async function getCommissions() {
   const session = await requireAuth();
+  const assignedFilter = await getVisibleUserIds(session);
   return prisma.commissionProcess.findMany({
     where: {
-      client: { isDeleted: false, assignedUserId: session.id },
+      client: {
+        isDeleted: false,
+        ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
+      },
       completedAt: null,
     },
     include: {
-      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true } },
+      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, assignedUser: { select: { name: true } } } },
       happyCalls: { orderBy: { calledAt: "asc" } },
     },
     orderBy: { createdAt: "desc" },
@@ -21,13 +36,17 @@ export async function getCommissions() {
 
 export async function getCompletedCommissions() {
   const session = await requireAuth();
+  const assignedFilter = await getVisibleUserIds(session);
   return prisma.commissionProcess.findMany({
     where: {
-      client: { isDeleted: false, assignedUserId: session.id },
+      client: {
+        isDeleted: false,
+        ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
+      },
       completedAt: { not: null },
     },
     include: {
-      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true } },
+      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, assignedUser: { select: { name: true } } } },
       happyCalls: { orderBy: { calledAt: "asc" } },
     },
     orderBy: { completedAt: "desc" },
@@ -36,6 +55,7 @@ export async function getCompletedCommissions() {
 
 export async function getClientsNotInCommission() {
   const session = await requireAuth();
+  const assignedFilter = await getVisibleUserIds(session);
   const inCommission = await prisma.commissionProcess.findMany({
     select: { clientId: true },
   });
@@ -43,7 +63,7 @@ export async function getClientsNotInCommission() {
   return prisma.client.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: session.id,
+      ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: { id: true, name: true, ceoName: true },

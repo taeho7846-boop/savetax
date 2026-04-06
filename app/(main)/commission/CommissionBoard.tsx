@@ -33,6 +33,7 @@ type CommissionData = {
     ceoName: string | null;
     phone: string | null;
     laborTypes?: string | null;
+    assignedUser?: { name: string } | null;
   };
   hasIdCard: boolean;
   hasHometaxCredentials: boolean;
@@ -531,6 +532,7 @@ export default function CommissionBoard({
                         </div>
                       )}
                       <div className="text-xs text-gray-300 mt-0.5">
+                        {c.client.assignedUser && <span className="text-blue-500 mr-1">{c.client.assignedUser.name}</span>}
                         {fmtDate(c.createdAt)} 등록
                       </div>
                     </td>
@@ -789,6 +791,9 @@ export default function CommissionBoard({
                         <div className="font-medium text-gray-600">{c.client.name}</div>
                         {c.client.ceoName && (
                           <div className="text-xs text-gray-400">{c.client.ceoName}</div>
+                        )}
+                        {c.client.assignedUser && (
+                          <div className="text-[10px] text-blue-500">{c.client.assignedUser.name}</div>
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-xs text-gray-500 text-center">

@@ -41,9 +41,11 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
   if (halfYearTax) {
     if (month === 1 || month === 7) {
       tasks.push({ key: "원천세신고", label: "원천세신고" });
+      tasks.push({ key: "납부서전달", label: "납부서전달" });
     }
   } else {
     tasks.push({ key: "원천세신고", label: "원천세신고" });
+    tasks.push({ key: "납부서전달", label: "납부서전달" });
   }
 
   // 간이지급명세서 - 근로소득: 반기 (1월, 7월)
@@ -86,6 +88,7 @@ function getAllColumns(month: number) {
     { key: "자료수취", label: "자료수취" },
     { key: "급여명세서전달", label: "급여명세서\n전달" },
     { key: "원천세신고", label: "원천세신고" },
+    { key: "납부서전달", label: "납부서전달" },
   ];
   if (month === 1 || month === 7) {
     cols.push({ key: "간이지급명세서_근로", label: "간이지급명세서\n(근로)" });

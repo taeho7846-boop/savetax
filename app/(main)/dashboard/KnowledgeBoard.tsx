@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { createKnowledge, updateKnowledge, deleteKnowledge } from "@/app/actions/knowledge";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type KnowledgeItem = {
   id: number;
@@ -26,21 +27,6 @@ const CATEGORIES = [
   { value: "기타", icon: "💡", color: "bg-gray-50 text-gray-700 border-gray-200" },
 ];
 
-function Linkify({ text }: { text: string }) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
-  return (
-    <>
-      {parts.map((part, i) =>
-        urlRegex.test(part) ? (
-          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{part}</a>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </>
-  );
-}
 
 export function KnowledgeBoard({
   items,
@@ -51,7 +37,6 @@ export function KnowledgeBoard({
   currentUserId: number;
   currentUserRole: string;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -129,7 +114,9 @@ export function KnowledgeBoard({
   function parseFiles(files: string | null): { url: string; name: string }[] {
     if (!files) return [];
     return files.split(",").map(f => {
-      const [url, name] = f.split("|");
+      const [rawUrl, name] = f.split("|");
+      // 기존 /uploads/ URL을 /api/uploads/로 변환
+      const url = rawUrl.startsWith("/uploads/") ? `/api${rawUrl}` : rawUrl;
       return { url, name: name || url.split("/").pop() || "파일" };
     });
   }
@@ -342,8 +329,8 @@ export function KnowledgeBoard({
                           </div>
                         )}
 
-                        <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap mb-3 leading-relaxed">
-                          <Linkify text={item.content} />
+                        <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700 mb-3 leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-table:border-collapse prose-th:bg-[#1a2e4a] prose-th:text-white prose-th:px-4 prose-th:py-2 prose-th:text-sm prose-th:font-medium prose-td:px-4 prose-td:py-2 prose-td:border prose-td:border-gray-200 prose-td:text-sm prose-tr:even:bg-gray-50 prose-strong:text-gray-800 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown>
                         </div>
 
                         {/* 첨부 파일 (이미지 외) */}

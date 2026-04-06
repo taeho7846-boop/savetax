@@ -7,9 +7,13 @@ const MIME_TYPES: Record<string, string> = {
   jpeg: "image/jpeg",
   png: "image/png",
   gif: "image/gif",
+  webp: "image/webp",
   pdf: "application/pdf",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   xls: "application/vnd.ms-excel",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  hwp: "application/x-hwp",
 };
 
 export async function GET(
@@ -27,8 +31,7 @@ export async function GET(
     return new NextResponse(data, {
       headers: {
         "Content-Type": contentType,
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch {
