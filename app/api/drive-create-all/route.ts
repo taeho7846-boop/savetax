@@ -4,24 +4,31 @@ import { prisma } from "@/lib/prisma";
 import { createClientFolder } from "@/lib/google-drive";
 
 // GET: 미연결 거래처 수 확인
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const count = await prisma.client.count({
-    where: { isDeleted: false, driveFolderId: null },
-  });
+  const userId = req.nextUrl.searchParams.get("userId");
+  const where: any = { isDeleted: false, driveFolderId: null };
+  if (userId) where.assignedUserId = parseInt(userId);
 
+  const count = await prisma.client.count({ where });
   return NextResponse.json({ unlinked: count });
 }
 
 // POST: 미연결 거래처 폴더 일괄 생성
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const body = await req.json().catch(() => ({}));
+  const userId = body.userId as number | undefined;
+
+  const where: any = { isDeleted: false, driveFolderId: null };
+  if (userId) where.assignedUserId = userId;
+
   const clients = await prisma.client.findMany({
-    where: { isDeleted: false, driveFolderId: null },
+    where,
     select: { id: true, name: true, clientType: true, assignedUserId: true },
   });
 
