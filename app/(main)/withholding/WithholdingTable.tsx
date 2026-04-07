@@ -173,10 +173,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
               <th className="w-8 px-2 py-2.5"></th>
-              <th className="w-[140px] text-left px-4 py-2.5 text-gray-700 font-medium text-xs">고객사명</th>
-              <th className="w-10 text-center px-1 py-2.5 text-gray-500 font-medium text-xs">특이사항</th>
-              {showAssignedUser && <th className="w-14 text-center px-1 py-2.5 text-gray-500 font-medium text-xs">담당</th>}
-              <th className="w-[120px] text-center px-1 py-2.5 text-gray-700 font-medium text-xs">인건비</th>
+              <th className="w-[160px] text-left px-4 py-2.5 text-gray-700 font-medium text-xs">고객사명</th>
+              <th className="w-12 text-center px-2 py-2.5 text-gray-500 font-medium text-xs">특이사항</th>
+              {showAssignedUser && <th className="w-16 text-center px-2 py-2.5 text-gray-500 font-medium text-xs">담당</th>}
+              <th className="w-[130px] text-center px-2 py-2.5 text-gray-700 font-medium text-xs">인건비</th>
               {ALL_PROCESS_STEPS.map(step => (
                 <th key={step} className="w-16 text-center px-1 py-2.5 text-gray-600 font-medium text-[10px] whitespace-pre-line leading-tight">
                   {STEP_ICONS[step]}<br/>{step}

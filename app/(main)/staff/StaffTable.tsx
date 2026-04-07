@@ -23,7 +23,6 @@ const ALL_MENUS = [
   { key: "commission", label: "신규수임" },
   { key: "tax-agency", label: "신고대리" },
   { key: "withholding", label: "원천세" },
-  { key: "withholding-process", label: "원천세 프로세스" },
   { key: "income-tax", label: "종합소득세" },
   { key: "receivables", label: "채권 관리" },
   { key: "data-collect", label: "자료수집" },

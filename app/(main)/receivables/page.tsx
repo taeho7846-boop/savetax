@@ -42,11 +42,23 @@ export default async function ReceivablesPage({
 
   const months12 = getMonthsOfYear(year); // 항상 1~12월
 
+  // 세무사/관리자: 본인 + 소속 직원 거래처
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+  let assignedFilter: any = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [session.id, ...employees.map(e => e.id)];
+    assignedFilter = { assignedUserId: { in: userIds } };
+  }
+
   // 최초 출금월 + 기장료가 설정된 고객사 + 모든 수납 기록
   const rawClients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: session.id,
+      ...assignedFilter,
       monthlyFee: { not: null },
       firstWithdrawalMonth: { not: null },
       OR: [
@@ -128,7 +140,7 @@ export default async function ReceivablesPage({
       </div>
 
       {tab === "cms" ? (
-        <CmsTab sessionId={session.id} />
+        <CmsTab sessionId={session.id} role={session.role} />
       ) : (
       <>
       {/* 연도 네비게이션 */}
@@ -196,11 +208,21 @@ export default async function ReceivablesPage({
   );
 }
 
-async function CmsTab({ sessionId }: { sessionId: number }) {
+async function CmsTab({ sessionId, role }: { sessionId: number; role: string }) {
+  const isManager = role === "accountant" || role === "admin" || role === "owner";
+  let assignedFilter: any = { assignedUserId: sessionId };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: sessionId, isActive: true },
+      select: { id: true },
+    });
+    assignedFilter = { assignedUserId: { in: [sessionId, ...employees.map(e => e.id)] } };
+  }
+
   const cmsClients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: sessionId,
+      ...assignedFilter,
       OR: [
         { taxTypes: null },
         { NOT: { taxTypes: { contains: "신고대리" } } },
