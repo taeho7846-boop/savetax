@@ -13,6 +13,7 @@ type CmsClient = {
   cmsStatus: string;
   bankName: string | null;
   bankAccount: string | null;
+  affiliation: string | null;
 };
 
 type SortCol = "name" | "ceoName" | "monthlyFee" | "cmsStatus";
@@ -26,6 +27,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const filterRef = useRef<HTMLDivElement>(null);
+  const [affFilter, setAffFilter] = useState<string[]>([]);
+  const [affFilterOpen, setAffFilterOpen] = useState(false);
+  const affFilterRef = useRef<HTMLDivElement>(null);
   const [tiMonth, setTiMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -35,6 +39,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
     function onMouseDown(e: MouseEvent) {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setFilterOpen(false);
+      }
+      if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) {
+        setAffFilterOpen(false);
       }
     }
     document.addEventListener("mousedown", onMouseDown);
@@ -53,10 +60,16 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   // 최초출금월 옵션 추출
   const allMonths = [...new Set(clients.map((c) => c.firstWithdrawalMonth).filter(Boolean) as string[])].sort();
 
+  // 소속 옵션
+  const affOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
+
   // 필터 적용
   let rows = [...clients];
   if (monthFilter.length > 0) {
     rows = rows.filter((c) => c.firstWithdrawalMonth && monthFilter.includes(c.firstWithdrawalMonth));
+  }
+  if (affFilter.length > 0) {
+    rows = rows.filter((c) => affFilter.includes(c.affiliation || ""));
   }
 
   // 정렬 적용
@@ -284,6 +297,44 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               </div>
             </th>
 
+            {/* 소속 필터 */}
+            <th className="text-center px-4 py-3 text-gray-700 font-medium">
+              <div className="relative inline-block" ref={affFilterRef}>
+                <button
+                  onClick={() => setAffFilterOpen(o => !o)}
+                  className={`flex items-center gap-1 mx-auto hover:text-[#1a2e4a] ${affFilter.length > 0 ? "text-[#1a2e4a] font-semibold" : ""}`}
+                >
+                  소속
+                  {affFilter.length > 0 && (
+                    <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{affFilter.length}</span>
+                  )}
+                  <span className="text-gray-400 text-[10px]">▼</span>
+                </button>
+                {affFilterOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[120px]">
+                    {affOptions.length === 0 ? (
+                      <p className="text-xs text-gray-400 px-2 py-1">데이터 없음</p>
+                    ) : (
+                      affOptions.map(aff => (
+                        <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-700 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={affFilter.includes(aff)}
+                            onChange={() => setAffFilter(prev => prev.includes(aff) ? prev.filter(v => v !== aff) : [...prev, aff])}
+                            className="accent-[#1a2e4a]"
+                          />
+                          {aff}
+                        </label>
+                      ))
+                    )}
+                    {affFilter.length > 0 && (
+                      <button onClick={() => setAffFilter([])} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1 pt-1 border-t border-gray-100">초기화</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </th>
+
             <th className="text-center px-4 py-3 text-gray-700 font-medium">
               <button
                 onClick={() => handleSort("cmsStatus")}
@@ -298,7 +349,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         <tbody className="divide-y divide-gray-100">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={7} className="text-center py-12 text-gray-500">
+              <td colSpan={8} className="text-center py-12 text-gray-500">
                 {monthFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
               </td>
             </tr>
@@ -335,6 +386,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                   )}
                 </td>
                 <td className="px-4 py-3 text-center text-gray-800">{client.firstWithdrawalMonth || <span className="text-gray-400">-</span>}</td>
+                <td className="px-4 py-3 text-center text-xs text-gray-600">{client.affiliation || <span className="text-gray-300">-</span>}</td>
                 <td className="px-4 py-3 text-center">
                   <button
                     onClick={() => handleCycle(client.id)}

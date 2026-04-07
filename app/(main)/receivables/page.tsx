@@ -237,6 +237,7 @@ async function CmsTab({ sessionId, role }: { sessionId: number; role: string }) 
       cmsStatus: true,
       bankName: true,
       bankAccount: true,
+      affiliation: true,
     },
     orderBy: { name: "asc" },
   });
