@@ -1,7 +1,6 @@
 import { GoogleAuth } from "google-auth-library";
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || "";
-const DRIVE_OWNER_EMAIL = process.env.GOOGLE_DRIVE_OWNER_EMAIL || "";
 const API = "https://www.googleapis.com/drive/v3";
 const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
@@ -26,35 +25,25 @@ async function getToken(): Promise<string> {
 
 async function driveGet(path: string, params?: Record<string, string>): Promise<any> {
   const token = await getToken();
-  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  // 공유 드라이브 지원
+  const allParams = { ...params, supportsAllDrives: "true", includeItemsFromAllDrives: "true" };
+  const qs = "?" + new URLSearchParams(allParams).toString();
   const res = await fetch(`${API}${path}${qs}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.json();
 }
 
-async function drivePost(path: string, body: any): Promise<any> {
+async function drivePost(path: string, body: any, params?: Record<string, string>): Promise<any> {
   const token = await getToken();
-  const res = await fetch(`${API}${path}`, {
+  const allParams = { ...params, supportsAllDrives: "true" };
+  const qs = "?" + new URLSearchParams(allParams).toString();
+  const res = await fetch(`${API}${path}${qs}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   return res.json();
-}
-
-// 소유권 이전 (서비스 계정 → 실제 사용자)
-async function transferOwnership(fileId: string, email: string) {
-  const token = await getToken();
-  await fetch(`${API}/files/${fileId}/permissions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "user",
-      role: "writer",
-      emailAddress: email,
-    }),
-  });
 }
 
 // 폴더 생성 (이미 있으면 기존 폴더 ID 반환)
@@ -66,6 +55,7 @@ export async function createFolder(name: string, parentId?: string): Promise<str
   const existing = await driveGet("/files", {
     q: `name='${safeName}' and '${parent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     fields: "files(id,name)",
+    corpora: "allDrives",
   });
 
   if (existing.files && existing.files.length > 0) {
@@ -74,7 +64,7 @@ export async function createFolder(name: string, parentId?: string): Promise<str
 
   // 새 폴더 생성
   if (!parent) {
-    console.error("[Google Drive] ROOT_FOLDER_ID가 비어있습니다! .env 확인 필요");
+    console.error("[Google Drive] ROOT_FOLDER_ID가 비어있습니다!");
     throw new Error("GOOGLE_DRIVE_FOLDER_ID not set");
   }
   console.log(`[Google Drive] 폴더 생성: "${name}" in parent: ${parent}`);
@@ -83,17 +73,12 @@ export async function createFolder(name: string, parentId?: string): Promise<str
     mimeType: "application/vnd.google-apps.folder",
     parents: [parent],
   });
-  console.log(`[Google Drive] 폴더 생성 완료: ${folder.id}`);
 
-  // 소유자에게 권한 부여
-  if (DRIVE_OWNER_EMAIL) {
-    try {
-      await transferOwnership(folder.id, DRIVE_OWNER_EMAIL);
-    } catch (e) {
-      console.error("[Google Drive] 소유권 이전 실패:", e);
-    }
+  if (folder.error) {
+    console.error(`[Google Drive] 폴더 생성 에러:`, folder.error.message);
+    throw new Error(folder.error.message);
   }
-
+  console.log(`[Google Drive] 폴더 생성 완료: ${folder.id}`);
   return folder.id;
 }
 
@@ -122,7 +107,7 @@ export async function createClientFolder(
   };
 }
 
-// 파일 업로드
+// 파일 업로드 (공유 드라이브 지원)
 export async function uploadFile(
   folderId: string,
   fileName: string,
@@ -131,7 +116,6 @@ export async function uploadFile(
 ): Promise<{ fileId: string; fileUrl: string }> {
   const token = await getToken();
 
-  // multipart upload
   const boundary = "----savetax_boundary";
   const metadata = JSON.stringify({ name: fileName, parents: [folderId] });
 
@@ -141,7 +125,7 @@ export async function uploadFile(
     Buffer.from(`\r\n--${boundary}--`),
   ]);
 
-  const res = await fetch(`${UPLOAD_API}/files?uploadType=multipart&fields=id,webViewLink`, {
+  const res = await fetch(`${UPLOAD_API}/files?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -151,17 +135,11 @@ export async function uploadFile(
   });
 
   const file = await res.json();
-  console.log(`[Google Drive] 파일 업로드 응답:`, JSON.stringify(file));
   if (file.error) {
     console.error(`[Google Drive] 업로드 에러:`, file.error.message);
     throw new Error(file.error.message);
   }
   console.log(`[Google Drive] 파일 업로드 성공: ${file.id}`);
-
-  // 소유자에게 권한 부여
-  if (DRIVE_OWNER_EMAIL) {
-    try { await transferOwnership(file.id, DRIVE_OWNER_EMAIL); } catch {}
-  }
 
   return {
     fileId: file.id,
@@ -176,6 +154,7 @@ export async function listFiles(folderId: string): Promise<Array<{ id: string; n
     fields: "files(id,name,mimeType,modifiedTime,webViewLink)",
     orderBy: "modifiedTime desc",
     pageSize: "50",
+    corpora: "allDrives",
   });
 
   return (data.files || []).map((f: any) => ({
