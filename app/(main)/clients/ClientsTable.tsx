@@ -44,6 +44,7 @@ type Client = {
   affiliation: string | null;
   myboxLink: string | null;
   driveFolderId: string | null;
+  withholdingType: string | null;
   monthlyFee: number | null;
   assignedUser?: { name: string } | null;
 };
@@ -586,8 +587,20 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       {laborList.length === 0 ? (
                         <span className="text-gray-300">-</span>
                       ) : (
-                        <div className="flex flex-col items-center gap-1">
-                          {laborList.map((t) => <LaborBadge key={t} type={t} />)}
+                        <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex flex-col items-center gap-1">
+                            {laborList.map((t) => <LaborBadge key={t} type={t} />)}
+                          </div>
+                          {client.withholdingType && (
+                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+                              client.withholdingType === "A" ? "bg-blue-100 text-blue-700" :
+                              client.withholdingType === "B" ? "bg-green-100 text-green-700" :
+                              client.withholdingType === "C" ? "bg-orange-100 text-orange-700" :
+                              "bg-gray-100 text-gray-500"
+                            }`} title={`원천세 ${client.withholdingType}유형`}>
+                              {client.withholdingType}
+                            </span>
+                          )}
                         </div>
                       )}
                     </td>
