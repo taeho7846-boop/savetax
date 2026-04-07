@@ -58,11 +58,17 @@ export async function createFolder(name: string, parentId?: string): Promise<str
   }
 
   // 새 폴더 생성
+  if (!parent) {
+    console.error("[Google Drive] ROOT_FOLDER_ID가 비어있습니다! .env 확인 필요");
+    throw new Error("GOOGLE_DRIVE_FOLDER_ID not set");
+  }
+  console.log(`[Google Drive] 폴더 생성: "${name}" in parent: ${parent}`);
   const folder = await drivePost("/files", {
     name,
     mimeType: "application/vnd.google-apps.folder",
     parents: [parent],
   });
+  console.log(`[Google Drive] 폴더 생성 완료: ${folder.id}`);
 
   return folder.id;
 }
