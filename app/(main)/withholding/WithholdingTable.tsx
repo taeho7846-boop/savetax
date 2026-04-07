@@ -114,6 +114,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [search, setSearch] = useState("");
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
   const month = parseInt(yearMonth.split("-")[1]);
   const columns = getAllColumns(month);
@@ -300,7 +301,23 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                       <input
                         type="checkbox"
                         checked={checkedIds.has(client.id)}
-                        onChange={() => setCheckedIds(prev => { const n = new Set(prev); if (n.has(client.id)) n.delete(client.id); else n.add(client.id); return n; })}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentIdx = sortedClients.findIndex((c) => c.id === client.id);
+                          if (e.shiftKey && lastCheckedIdx !== null && currentIdx !== -1) {
+                            const start = Math.min(lastCheckedIdx, currentIdx);
+                            const end = Math.max(lastCheckedIdx, currentIdx);
+                            setCheckedIds(prev => {
+                              const n = new Set(prev);
+                              for (let i = start; i <= end; i++) n.add(sortedClients[i].id);
+                              return n;
+                            });
+                          } else {
+                            setCheckedIds(prev => { const n = new Set(prev); if (n.has(client.id)) n.delete(client.id); else n.add(client.id); return n; });
+                          }
+                          setLastCheckedIdx(currentIdx);
+                        }}
+                        onChange={() => {}}
                         className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
                       />
                     </td>

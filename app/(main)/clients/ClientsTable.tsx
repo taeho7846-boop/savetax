@@ -84,12 +84,26 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const programFilterRef = useRef<HTMLDivElement>(null);
   const userFilterRef = useRef<HTMLDivElement>(null);
 
-  function toggleCheck(id: number) {
-    setCheckedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+  const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
+
+  function toggleCheck(id: number, e?: React.MouseEvent) {
+    const currentIdx = rows.findIndex((c) => c.id === id);
+    if (e?.shiftKey && lastCheckedIdx !== null && currentIdx !== -1) {
+      const start = Math.min(lastCheckedIdx, currentIdx);
+      const end = Math.max(lastCheckedIdx, currentIdx);
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        for (let i = start; i <= end; i++) next.add(rows[i].id);
+        return next;
+      });
+    } else {
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      });
+    }
+    setLastCheckedIdx(currentIdx);
   }
 
   function toggleAll() {
@@ -542,7 +556,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       <input
                         type="checkbox"
                         checked={checkedIds.has(client.id)}
-                        onChange={() => toggleCheck(client.id)}
+                        onClick={(e) => { e.stopPropagation(); toggleCheck(client.id, e as unknown as React.MouseEvent); }}
+                        onChange={() => {}}
                         className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
                       />
                     </td>
