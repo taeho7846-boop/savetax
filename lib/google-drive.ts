@@ -67,10 +67,25 @@ export async function createFolder(name: string, parentId?: string): Promise<str
   return folder.id;
 }
 
-// 세무사 폴더 → 거래처 폴더 생성
-export async function createClientFolder(managerName: string, clientName: string): Promise<{ folderId: string; folderUrl: string }> {
+// 세무사 폴더 → 거래처 폴더 생성 + 세부폴더
+export async function createClientFolder(
+  managerName: string,
+  clientName: string,
+  clientType: string = "individual"
+): Promise<{ folderId: string; folderUrl: string }> {
   const managerFolderId = await createFolder(managerName);
   const clientFolderId = await createFolder(clientName, managerFolderId);
+
+  // 세부폴더 자동 생성
+  const subFolders = [
+    "0. 기본정보",
+    "1. 원천세",
+    "2. 부가가치세",
+    clientType === "corporate" ? "3. 법인세" : "3. 종합소득세",
+    "4. 이관자료",
+  ];
+  await Promise.all(subFolders.map((name) => createFolder(name, clientFolderId)));
+
   return {
     folderId: clientFolderId,
     folderUrl: `https://drive.google.com/drive/folders/${clientFolderId}`,

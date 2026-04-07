@@ -412,7 +412,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       const { createClientFolder } = await import("@/lib/google-drive");
       const user = await prisma.user.findUnique({ where: { id: sessionId }, select: { name: true } });
       if (user) {
-        const { folderId, folderUrl } = await createClientFolder(user.name, clientName);
+        const { folderId, folderUrl } = await createClientFolder(user.name, clientName, (input.clientType as string) || "individual");
         await prisma.client.update({ where: { id: client.id }, data: { driveFolderId: folderId } });
         driveUrl = folderUrl;
       }

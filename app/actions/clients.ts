@@ -76,7 +76,7 @@ export async function createClient(formData: FormData) {
   try {
     const user = await prisma.user.findUnique({ where: { id: client.assignedUserId ?? session.id }, select: { name: true } });
     if (user) {
-      const { folderId } = await createClientFolder(user.name, client.name);
+      const { folderId } = await createClientFolder(user.name, client.name, client.clientType);
       await prisma.client.update({ where: { id: client.id }, data: { driveFolderId: folderId } });
     }
   } catch (e) {
