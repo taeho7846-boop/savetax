@@ -725,7 +725,21 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       data: { idCardPath: dbPath, hasIdCard: true },
     });
 
-    return `✅ **${clientName}** 신규수임에 대표자 신분증이 등록되었습니다.\n📎 경로: ${dbPath}`;
+    // 구글 드라이브 "0. 기본정보" 폴더에도 업로드
+    let driveMsg = "";
+    try {
+      const client = await prisma.client.findUnique({ where: { id: clientId }, select: { driveFolderId: true } });
+      if (client?.driveFolderId) {
+        const { uploadFile: driveUpload, createFolder: driveCreateFolder } = await import("@/lib/google-drive");
+        const basicFolderId = await driveCreateFolder("0. 기본정보", client.driveFolderId);
+        await driveUpload(basicFolderId, `대표자신분증.${ext}`, buffer, `image/${ext === "jpg" ? "jpeg" : ext}`);
+        driveMsg = "\n📁 구글 드라이브(0.기본정보)에도 저장 완료";
+      }
+    } catch (e) {
+      console.error("[Chat idcard] 구글 드라이브 업로드 실패:", e);
+    }
+
+    return `✅ **${clientName}** 신규수임에 대표자 신분증이 등록되었습니다.${driveMsg}`;
   }
 
   return "알 수 없는 도구입니다.";

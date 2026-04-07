@@ -52,21 +52,22 @@ export async function POST(req: NextRequest) {
       data: { idCardPath: filePath },
     });
 
-    // 구글 드라이브에도 업로드
+    // 구글 드라이브 "0. 기본정보" 폴더에 업로드
     try {
       const commission = await prisma.commissionProcess.findUnique({
         where: { id: commissionId },
         select: { client: { select: { driveFolderId: true } } },
       });
       if (commission?.client?.driveFolderId) {
-        const { uploadFile } = await import("@/lib/google-drive");
+        const { uploadFile, createFolder } = await import("@/lib/google-drive");
+        const basicFolderId = await createFolder("0. 기본정보", commission.client.driveFolderId);
         await uploadFile(
-          commission.client.driveFolderId,
-          `신분증_${file.name}`,
+          basicFolderId,
+          `대표자신분증_${file.name}`,
           Buffer.from(bytes),
           file.type || "application/octet-stream"
         );
-        console.log("[idcard] 구글 드라이브 업로드 완료");
+        console.log("[idcard] 구글 드라이브 0.기본정보 업로드 완료");
       }
     } catch (e) {
       console.error("[idcard] 구글 드라이브 업로드 실패:", e);
