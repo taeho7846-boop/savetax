@@ -41,7 +41,6 @@ export function TransferDocsCard() {
   }
 
   if (loading) return null;
-  if (files.length === 0) return null;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-orange-200 mb-6">
@@ -63,6 +62,9 @@ export function TransferDocsCard() {
         </a>
       </div>
       <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
+        {files.length === 0 && (
+          <div className="px-5 py-6 text-center text-sm text-gray-400">새로운 이관자료가 없습니다</div>
+        )}
         {files.map((file) => (
           <div key={file.id} className="px-5 py-3 flex items-center gap-3 hover:bg-orange-50/50 transition-colors">
             <span className="text-lg shrink-0">{file.isFolder ? "📁" : "📄"}</span>
