@@ -69,6 +69,7 @@ model Client {
   contactMethod  String   @default("카톡") // 업무소통방법: 메일,카톡,문자 (콤마 구분)
   notes          String?  // 특이사항
   myboxLink      String?  // 네이버 마이박스 폴더 링크
+  driveFolderId  String?  // 구글 드라이브 거래처 폴더 ID
   cmsStatus      String   @default("none") // CMS 상태: none, pending, done
   assignedUserId Int?
   assignedUser   User?    @relation(fields: [assignedUserId], references: [id])

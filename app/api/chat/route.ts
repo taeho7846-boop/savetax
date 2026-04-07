@@ -406,10 +406,25 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     // 신규수임 자동 생성
     await prisma.commissionProcess.create({ data: { clientId: client.id } });
 
+    // 구글 드라이브 폴더 생성
+    let driveUrl = "";
+    try {
+      const { createClientFolder } = await import("@/lib/google-drive");
+      const user = await prisma.user.findUnique({ where: { id: sessionId }, select: { name: true } });
+      if (user) {
+        const { folderId, folderUrl } = await createClientFolder(user.name, clientName);
+        await prisma.client.update({ where: { id: client.id }, data: { driveFolderId: folderId } });
+        driveUrl = folderUrl;
+      }
+    } catch (e) {
+      console.error("[Google Drive] 폴더 생성 실패:", e);
+    }
+
     const parts = [`✅ 거래처 "${clientName}" 등록 완료 + 신규수임 자동 생성`];
     if (monthlyFee) parts.push(`월기장료: ${monthlyFee.toLocaleString()}원 (VAT포함)`);
     if (firstMonth) parts.push(`최초출금월: ${firstMonth}`);
     if (input.notes) parts.push(`특이사항: ${(input.notes as string).slice(0, 50)}...`);
+    if (driveUrl) parts.push(`📁 구글 드라이브: ${driveUrl}`);
     return parts.join("\n");
   }
 

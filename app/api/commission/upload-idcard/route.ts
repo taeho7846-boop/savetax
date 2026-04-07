@@ -52,6 +52,26 @@ export async function POST(req: NextRequest) {
       data: { idCardPath: filePath },
     });
 
+    // 구글 드라이브에도 업로드
+    try {
+      const commission = await prisma.commissionProcess.findUnique({
+        where: { id: commissionId },
+        select: { client: { select: { driveFolderId: true } } },
+      });
+      if (commission?.client?.driveFolderId) {
+        const { uploadFile } = await import("@/lib/google-drive");
+        await uploadFile(
+          commission.client.driveFolderId,
+          `신분증_${file.name}`,
+          Buffer.from(bytes),
+          file.type || "application/octet-stream"
+        );
+        console.log("[idcard] 구글 드라이브 업로드 완료");
+      }
+    } catch (e) {
+      console.error("[idcard] 구글 드라이브 업로드 실패:", e);
+    }
+
     revalidatePath("/commission");
     console.log("[idcard] success:", filePath);
     return NextResponse.json({ path: filePath });

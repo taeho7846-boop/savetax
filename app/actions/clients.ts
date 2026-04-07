@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { createClientFolder } from "@/lib/google-drive";
 import { redirect } from "next/navigation";
 
 function getTaxTypes(formData: FormData) {
@@ -69,6 +70,17 @@ export async function createClient(formData: FormData) {
   });
 
   await prisma.commissionProcess.create({ data: { clientId: client.id } });
+
+  // 구글 드라이브 폴더 자동 생성
+  try {
+    const user = await prisma.user.findUnique({ where: { id: client.assignedUserId ?? session.id }, select: { name: true } });
+    if (user) {
+      const { folderId } = await createClientFolder(user.name, client.name);
+      await prisma.client.update({ where: { id: client.id }, data: { driveFolderId: folderId } });
+    }
+  } catch (e) {
+    console.error("[Google Drive] 폴더 생성 실패:", e);
+  }
 
   revalidatePath("/clients");
   revalidatePath("/commission");
