@@ -8,7 +8,20 @@ let authClient: GoogleAuth | null = null;
 
 function getAuth(): GoogleAuth {
   if (!authClient) {
-    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}");
+    let credentials: any = {};
+    // 파일에서 읽기 시도, 없으면 환경변수에서
+    try {
+      const fs = require("fs");
+      const path = require("path");
+      const keyPath = path.join(process.cwd(), "google-credentials.json");
+      if (fs.existsSync(keyPath)) {
+        credentials = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
+      } else {
+        credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}");
+      }
+    } catch {
+      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}");
+    }
     authClient = new GoogleAuth({
       credentials,
       scopes: ["https://www.googleapis.com/auth/drive"],
