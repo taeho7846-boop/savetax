@@ -1,6 +1,7 @@
 import { GoogleAuth } from "google-auth-library";
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || "";
+const DRIVE_OWNER_EMAIL = process.env.GOOGLE_DRIVE_OWNER_EMAIL || "";
 const API = "https://www.googleapis.com/drive/v3";
 const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
@@ -42,6 +43,20 @@ async function drivePost(path: string, body: any): Promise<any> {
   return res.json();
 }
 
+// 소유권 이전 (서비스 계정 → 실제 사용자)
+async function transferOwnership(fileId: string, email: string) {
+  const token = await getToken();
+  await fetch(`${API}/files/${fileId}/permissions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "user",
+      role: "writer",
+      emailAddress: email,
+    }),
+  });
+}
+
 // 폴더 생성 (이미 있으면 기존 폴더 ID 반환)
 export async function createFolder(name: string, parentId?: string): Promise<string> {
   const parent = parentId || ROOT_FOLDER_ID;
@@ -69,6 +84,15 @@ export async function createFolder(name: string, parentId?: string): Promise<str
     parents: [parent],
   });
   console.log(`[Google Drive] 폴더 생성 완료: ${folder.id}`);
+
+  // 소유자에게 권한 부여
+  if (DRIVE_OWNER_EMAIL) {
+    try {
+      await transferOwnership(folder.id, DRIVE_OWNER_EMAIL);
+    } catch (e) {
+      console.error("[Google Drive] 소유권 이전 실패:", e);
+    }
+  }
 
   return folder.id;
 }
@@ -132,6 +156,13 @@ export async function uploadFile(
     console.error(`[Google Drive] 업로드 에러:`, file.error.message);
     throw new Error(file.error.message);
   }
+  console.log(`[Google Drive] 파일 업로드 성공: ${file.id}`);
+
+  // 소유자에게 권한 부여
+  if (DRIVE_OWNER_EMAIL) {
+    try { await transferOwnership(file.id, DRIVE_OWNER_EMAIL); } catch {}
+  }
+
   return {
     fileId: file.id,
     fileUrl: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
