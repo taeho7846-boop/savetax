@@ -18,39 +18,47 @@ export async function POST(req: NextRequest) {
     orderBy: { name: "asc" },
   });
 
+  // 일괄수정 템플릿과 동일한 헤더 순서
   const rows = clients.map((c) => ({
+    "사업자등록번호": c.bizNumber ?? "",
     "고객사명": c.name,
     "대표자명": c.ceoName ?? "",
-    "사업자번호": c.bizNumber ?? "",
-    "전화번호": c.phone ?? "",
-    "구분": c.clientType === "corporate" ? "법인" : "개인",
-    "세금유형": c.taxTypes ?? "",
-    "신고유형": c.laborTypes ?? "",
+    "주민등록번호": c.residentNumber ?? "",
+    "연락처": c.phone ?? "",
+    "이메일": c.email ?? "",
+    "구분(개인/법인)": c.clientType === "corporate" ? "법인" : "개인",
+    "과세유형(과세/면세/간이)": c.taxationType ?? "",
+    "신고유형(기장대리/신고대리)": c.taxTypes ?? "",
+    "인건비(근로소득,사업소득,일용직)": c.laborTypes ?? "",
+    "6개월납(Y/N)": c.halfYearTax ? "Y" : "N",
+    "개업년월일(YYYY-MM-DD)": c.openDate ?? "",
+    "주소": c.address ?? "",
+    "홈택스ID": c.hometaxId ?? "",
+    "홈택스PW": c.hometaxPw ?? "",
+    "월기장료": c.monthlyFee ?? "",
+    "무료기장(개월)": c.freeMonths ?? "",
+    "최초출금월(YYYY-MM)": c.firstWithdrawalMonth ?? "",
     "출금은행": c.bankName ?? "",
-    "계좌번호": c.bankAccount ?? "",
-    "월 기장료": c.monthlyFee ?? "",
-    "담당자": c.assignedUser?.name ?? "",
-    "회계프로그램": c.accountingProgram ?? "",
-    "소통방법": c.contactMethod ?? "",
+    "출금계좌번호": c.bankAccount ?? "",
+    "회계프로그램(위하고/세무사랑)": c.accountingProgram ?? "",
+    "소통방법(메일/카톡/문자)": c.contactMethod ?? "",
+    "소속": c.affiliation ?? "",
+    "담당직원": c.assignedUser?.name ?? "",
+    "법인등록번호": c.corporateNumber ?? "",
+    "마이박스링크": c.myboxLink ?? "",
+    "특이사항": c.notes ?? "",
   }));
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
 
-  // 열 너비 설정
   ws["!cols"] = [
-    { wch: 20 }, // 고객사명
-    { wch: 12 }, // 대표자명
-    { wch: 15 }, // 사업자번호
-    { wch: 15 }, // 전화번호
-    { wch: 6 },  // 구분
-    { wch: 12 }, // 세금유형
-    { wch: 20 }, // 신고유형
-    { wch: 12 }, // 출금은행
-    { wch: 18 }, // 계좌번호
-    { wch: 12 }, // 월 기장료
-    { wch: 10 }, // 담당자
-    { wch: 12 }, // 회계프로그램
+    { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 16 }, { wch: 15 },
+    { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 18 }, { wch: 22 },
+    { wch: 10 }, { wch: 14 }, { wch: 30 }, { wch: 14 }, { wch: 14 },
+    { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 18 },
+    { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 16 },
+    { wch: 30 }, { wch: 25 },
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, "고객사정보");
