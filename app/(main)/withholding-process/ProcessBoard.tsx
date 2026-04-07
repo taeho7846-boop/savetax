@@ -5,9 +5,9 @@ import { useState, useTransition } from "react";
 import { toggleProcessStep, markDNotified, updateWithholdingType } from "@/app/actions/withholding-process";
 
 const STEPS_BY_TYPE: Record<string, string[]> = {
-  A: ["급여명세서전달", "원천세신고", "납부서전달"],
-  B: ["급여명세서전달", "원천세신고"],
-  C: ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"],
+  A: ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"],
+  B: ["급여명세서전달", "원천세신고", "납부서전달"],
+  C: ["급여명세서전달", "원천세신고"],
   D: ["최초안내발송"],
 };
 
@@ -40,28 +40,28 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; bo
     color: "text-blue-700",
     bg: "bg-blue-50",
     border: "border-blue-200",
-    description: "매월 동일, 납부서 필요",
+    description: "매월 변동",
   },
   B: {
     label: "유형 B",
     color: "text-emerald-700",
     bg: "bg-emerald-50",
     border: "border-emerald-200",
-    description: "매월 동일, 납부서 불필요",
+    description: "매월 동일, 납부서 필요",
   },
   C: {
     label: "유형 C",
     color: "text-amber-700",
     bg: "bg-amber-50",
     border: "border-amber-200",
-    description: "매월 변동",
+    description: "매월 동일, 납부서 불필요",
   },
   D: {
     label: "유형 D",
     color: "text-gray-600",
     bg: "bg-gray-50",
     border: "border-gray-200",
-    description: "1인사업자 (원천세 해당 없음)",
+    description: "1인사업자 (원천세 없음)",
   },
 };
 
