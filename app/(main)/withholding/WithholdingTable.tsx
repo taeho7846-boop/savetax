@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toggleWithholdingTask, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
-import { toggleProcessStep } from "@/app/actions/withholding-process";
+// 프로세스 단계도 withholdingRecords 테이블을 사용
 
 const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "근로소득": { border: "border-red-400", text: "text-red-600", bg: "bg-red-50" },
@@ -29,7 +29,6 @@ const STEP_ICONS: Record<string, string> = {
   급여확인요청: "📋", 급여명세서전달: "📄", 원천세신고: "🏛️", 납부서전달: "💳", 최초안내발송: "📮",
 };
 
-type ProcessRecord = { id: number; step: string; done: boolean };
 type WHRecord = { taskType: string; done: boolean };
 type Client = {
   id: number;
@@ -41,7 +40,6 @@ type Client = {
   assignedUser?: { name: string } | null;
   withholdingRecords: WHRecord[];
   withholdingLaborOverrides: { laborTypes: string | null; memo: string | null }[];
-  withholdingProcesses: ProcessRecord[];
 };
 
 function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: number) {
@@ -101,7 +99,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   }
 
   function handleProcessToggle(clientId: number, step: string) {
-    startTransition(async () => { await toggleProcessStep(clientId, yearMonth, step); });
+    startTransition(async () => { await toggleWithholdingTask(clientId, yearMonth, step); });
   }
 
   const filtered = search ? clients.filter((c) => c.name.includes(search)) : clients;
@@ -129,7 +127,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
     return sum + steps.length;
   }, 0);
   const doneProcess = allClients.reduce((sum, c) => {
-    return sum + c.withholdingProcesses.filter(p => p.done).length;
+    const steps = STEPS_BY_TYPE[c.withholdingType || ""] || [];
+    const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
+    return sum + steps.filter(s => doneMap.has(s)).length;
   }, 0);
 
   const [year, mon] = yearMonth.split("-");
@@ -225,14 +225,13 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                       ? override.laborTypes.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자")
                       : baseLaborTypes;
                     const monthMemo = override?.memo || "";
-                    const processMap = new Map(client.withholdingProcesses.map(p => [p.step, p.done]));
+                    const doneMap = new Map(client.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
                     const steps = STEPS_BY_TYPE[client.withholdingType || ""] || [];
-                    const allStepsDone = steps.length > 0 && steps.every(s => processMap.get(s));
+                    const allStepsDone = steps.length > 0 && steps.every(s => doneMap.has(s));
 
                     // 추가 체크리스트용
                     const requiredExtra = getRequiredTasks(laborList, client.halfYearTax, month);
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
-                    const doneMap = new Map(client.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
 
                     return (
                       <tr key={client.id} className={`transition-colors ${allStepsDone ? "bg-green-50/40" : "hover:bg-blue-50/30"} ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}>
@@ -292,19 +291,21 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                         </td>
                         {/* 프로세스 단계 */}
                         {group.type && steps.map(step => (
-                          <td key={step} className="px-2 py-2.5 text-center">
-                            <button
-                              onClick={() => handleProcessToggle(client.id, step)}
-                              disabled={isPending}
-                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all text-xs ${
-                                processMap.get(step)
-                                  ? `${cfg!.bg} ${cfg!.border} ${cfg!.color}`
-                                  : "border-gray-200 text-gray-300 hover:border-gray-400"
-                              }`}
-                              title={step}
-                            >
-                              {processMap.get(step) ? "✓" : ""}
-                            </button>
+                          <td key={step} className="px-2 py-2.5">
+                            <div className="flex justify-center">
+                              <button
+                                onClick={() => handleProcessToggle(client.id, step)}
+                                disabled={isPending}
+                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all text-xs ${
+                                  doneMap.has(step)
+                                    ? `${cfg!.bg} ${cfg!.border} ${cfg!.color}`
+                                    : "border-gray-200 text-gray-300 hover:border-gray-400"
+                                }`}
+                                title={step}
+                              >
+                                {doneMap.has(step) ? "✓" : ""}
+                              </button>
+                            </div>
                           </td>
                         ))}
                         {!group.type && <></>}

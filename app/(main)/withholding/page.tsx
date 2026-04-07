@@ -33,11 +33,21 @@ export default async function WithholdingPage({
     where: {
       isDeleted: false,
       ...assignedFilter,
-      OR: [
-        { laborTypes: { contains: "근로소득" } },
-        { laborTypes: { contains: "사업소득" } },
-        { laborTypes: { contains: "일용직" } },
-        { laborTypes: { contains: "1인사업자" } },
+      AND: [
+        {
+          OR: [
+            { laborTypes: { contains: "근로소득" } },
+            { laborTypes: { contains: "사업소득" } },
+            { laborTypes: { contains: "일용직" } },
+            { laborTypes: { contains: "1인사업자" } },
+          ],
+        },
+        {
+          OR: [
+            { taxTypes: null },
+            { NOT: { taxTypes: { contains: "신고대리" } } },
+          ],
+        },
       ],
     },
     select: {
@@ -54,9 +64,6 @@ export default async function WithholdingPage({
       withholdingLaborOverrides: {
         where: { yearMonth },
         select: { laborTypes: true, memo: true },
-      },
-      withholdingProcesses: {
-        where: { yearMonth },
       },
     },
     orderBy: [{ withholdingType: "asc" }, { name: "asc" }],
