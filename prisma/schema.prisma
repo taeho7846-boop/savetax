@@ -67,6 +67,8 @@ model Client {
   affiliation    String?  // 소속 (세이브택스, 그 외)
   corporateNumber String?  // 법인등록번호
   contactMethod  String   @default("카톡") // 업무소통방법: 메일,카톡,문자 (콤마 구분)
+  withholdingType     String?  // 원천세 유형: A | B | C | D
+  withholdingDNotified Boolean @default(false) // D유형 최초 안내 발송 여부
   notes          String?  // 특이사항
   myboxLink      String?  // 네이버 마이박스 폴더 링크
   driveFolderId  String?  // 구글 드라이브 거래처 폴더 ID
@@ -83,6 +85,7 @@ model Client {
   commission CommissionProcess?
   withholdingRecords WithholdingRecord[]
   withholdingLaborOverrides WithholdingLaborOverride[]
+  withholdingProcesses WithholdingProcess[]
   incomeTaxRecords   IncomeTaxRecord[]
   dataCollections    DataCollection[]
 }
@@ -206,6 +209,21 @@ model WithholdingRecord {
   updatedAt DateTime  @updatedAt
 
   @@unique([clientId, yearMonth, taskType])
+}
+
+// 원천세 프로세스 (유형별 월간 체크리스트)
+model WithholdingProcess {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  client    Client   @relation(fields: [clientId], references: [id])
+  yearMonth String   // "2026-04"
+  step      String   // 단계: 급여확인요청 | 급여명세서전달 | 원천세신고 | 납부서전달 | 최초안내발송
+  done      Boolean  @default(false)
+  doneAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, yearMonth, step])
 }
 
 // 원천세 월별 인건비 오버라이드

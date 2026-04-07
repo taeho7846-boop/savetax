@@ -12,6 +12,7 @@ const menus = [
   { href: "/commission", label: "신규수임", icon: "📋" },
   { href: "/tax-agency", label: "신고대리", icon: "📄" },
   { href: "/withholding", label: "원천세", icon: "🧾" },
+  { href: "/withholding-process", label: "원천세 프로세스", icon: "⚙️" },
   { href: "/income-tax", label: "종합소득세", icon: "📑" },
   { href: "/receivables", label: "채권 관리", icon: "💰" },
   { href: "/data-collect", label: "자료수집", icon: "📥" },

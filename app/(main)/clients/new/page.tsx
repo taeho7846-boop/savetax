@@ -91,10 +91,25 @@ export default async function NewClientPage() {
             </div>
           </div>
 
-          {/* 행4: 인건비 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-800 mb-2">인건비</label>
-            <CheckboxGroup name="laborType" options={["1인사업자", "근로소득", "사업소득", "일용직"]} />
+          {/* 행4: 인건비 / 원천세 유형 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">인건비</label>
+              <CheckboxGroup name="laborType" options={["1인사업자", "근로소득", "사업소득", "일용직"]} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-1">원천세 유형</label>
+              <select
+                name="withholdingType"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              >
+                <option value="">미지정</option>
+                <option value="A">A — 매월 동일, 납부서 필요</option>
+                <option value="B">B — 매월 동일, 납부서 불필요</option>
+                <option value="C">C — 매월 변동</option>
+                <option value="D">D — 1인사업자 (원천세 해당 없음)</option>
+              </select>
+            </div>
           </div>
 
           {/* 행5: 담당자 */}
