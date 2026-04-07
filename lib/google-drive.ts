@@ -1,46 +1,70 @@
-import { google } from "googleapis";
-import { Readable } from "stream";
+import { GoogleAuth } from "google-auth-library";
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || "";
+const API = "https://www.googleapis.com/drive/v3";
+const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
-function getAuth() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}");
-  return new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/drive"],
-  });
+let authClient: GoogleAuth | null = null;
+
+function getAuth(): GoogleAuth {
+  if (!authClient) {
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}");
+    authClient = new GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/drive"],
+    });
+  }
+  return authClient;
 }
 
-function getDrive() {
-  return google.drive({ version: "v3", auth: getAuth() });
+async function getToken(): Promise<string> {
+  const client = await getAuth().getClient();
+  const token = await client.getAccessToken();
+  return token.token || "";
+}
+
+async function driveGet(path: string, params?: Record<string, string>): Promise<any> {
+  const token = await getToken();
+  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  const res = await fetch(`${API}${path}${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json();
+}
+
+async function drivePost(path: string, body: any): Promise<any> {
+  const token = await getToken();
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
 }
 
 // 폴더 생성 (이미 있으면 기존 폴더 ID 반환)
 export async function createFolder(name: string, parentId?: string): Promise<string> {
-  const drive = getDrive();
   const parent = parentId || ROOT_FOLDER_ID;
+  const safeName = name.replace(/'/g, "\\'");
 
   // 기존 폴더 확인
-  const existing = await drive.files.list({
-    q: `name='${name.replace(/'/g, "\\'")}' and '${parent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: "files(id, name)",
+  const existing = await driveGet("/files", {
+    q: `name='${safeName}' and '${parent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: "files(id,name)",
   });
 
-  if (existing.data.files && existing.data.files.length > 0) {
-    return existing.data.files[0].id!;
+  if (existing.files && existing.files.length > 0) {
+    return existing.files[0].id;
   }
 
   // 새 폴더 생성
-  const folder = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parent],
-    },
-    fields: "id",
+  const folder = await drivePost("/files", {
+    name,
+    mimeType: "application/vnd.google-apps.folder",
+    parents: [parent],
   });
 
-  return folder.data.id!;
+  return folder.id;
 }
 
 // 세무사 폴더 → 거래처 폴더 생성
@@ -60,55 +84,50 @@ export async function uploadFile(
   fileBuffer: Buffer,
   mimeType: string
 ): Promise<{ fileId: string; fileUrl: string }> {
-  const drive = getDrive();
+  const token = await getToken();
 
-  const file = await drive.files.create({
-    requestBody: {
-      name: fileName,
-      parents: [folderId],
+  // multipart upload
+  const boundary = "----savetax_boundary";
+  const metadata = JSON.stringify({ name: fileName, parents: [folderId] });
+
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    fileBuffer,
+    Buffer.from(`\r\n--${boundary}--`),
+  ]);
+
+  const res = await fetch(`${UPLOAD_API}/files?uploadType=multipart&fields=id,webViewLink`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`,
     },
-    media: {
-      mimeType,
-      body: Readable.from(fileBuffer),
-    },
-    fields: "id, webViewLink",
+    body,
   });
 
+  const file = await res.json();
   return {
-    fileId: file.data.id!,
-    fileUrl: file.data.webViewLink || `https://drive.google.com/file/d/${file.data.id}/view`,
+    fileId: file.id,
+    fileUrl: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
   };
 }
 
 // 폴더 내 파일 목록
 export async function listFiles(folderId: string): Promise<Array<{ id: string; name: string; mimeType: string; modifiedTime: string; webViewLink: string }>> {
-  const drive = getDrive();
-
-  const res = await drive.files.list({
+  const data = await driveGet("/files", {
     q: `'${folderId}' in parents and trashed=false`,
-    fields: "files(id, name, mimeType, modifiedTime, webViewLink)",
+    fields: "files(id,name,mimeType,modifiedTime,webViewLink)",
     orderBy: "modifiedTime desc",
-    pageSize: 50,
+    pageSize: "50",
   });
 
-  return (res.data.files || []).map((f) => ({
-    id: f.id!,
-    name: f.name!,
-    mimeType: f.mimeType!,
-    modifiedTime: f.modifiedTime!,
+  return (data.files || []).map((f: any) => ({
+    id: f.id,
+    name: f.name,
+    mimeType: f.mimeType,
+    modifiedTime: f.modifiedTime,
     webViewLink: f.webViewLink || "",
   }));
-}
-
-// 폴더 존재 여부 확인
-export async function folderExists(folderId: string): Promise<boolean> {
-  try {
-    const drive = getDrive();
-    await drive.files.get({ fileId: folderId, fields: "id" });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export { ROOT_FOLDER_ID };
