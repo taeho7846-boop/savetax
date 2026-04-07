@@ -127,6 +127,11 @@ export async function uploadFile(
   });
 
   const file = await res.json();
+  console.log(`[Google Drive] 파일 업로드 응답:`, JSON.stringify(file));
+  if (file.error) {
+    console.error(`[Google Drive] 업로드 에러:`, file.error.message);
+    throw new Error(file.error.message);
+  }
   return {
     fileId: file.id,
     fileUrl: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
