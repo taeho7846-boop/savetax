@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toggleWithholdingTask, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
@@ -12,11 +13,14 @@ const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }>
 };
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; description: string }> = {
-  A: { label: "A", color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", description: "매월 변동" },
-  B: { label: "B", color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200", description: "매월 동일, 납부서 필요" },
-  C: { label: "C", color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200", description: "매월 동일, 납부서 불필요" },
+  A: { label: "A", color: "text-red-700", bg: "bg-red-50", border: "border-red-200", description: "매월 변동" },
+  B: { label: "B", color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", description: "매월 동일, 납부서 필요" },
+  C: { label: "C", color: "text-green-700", bg: "bg-green-50", border: "border-green-200", description: "매월 동일, 납부서 불필요" },
   D: { label: "D", color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200", description: "1인사업자 (원천세 없음)" },
 };
+
+// 모든 프로세스 단계 (A 기준 최대, 나머지는 비활성)
+const ALL_PROCESS_STEPS = ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"];
 
 const STEPS_BY_TYPE: Record<string, string[]> = {
   A: ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"],
@@ -163,61 +167,50 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
         </div>
       </div>
 
-      {/* 그룹별 테이블 */}
-      <div className="flex-1 overflow-y-auto space-y-4">
-        {groups.map((group) => {
-          const cfg = group.config;
-          return (
-            <div key={group.type || "unassigned"} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-              {/* 그룹 헤더 */}
-              <div className={`px-5 py-2.5 border-b flex items-center gap-2 ${cfg ? `${cfg.bg} ${cfg.border}` : "bg-gray-100 border-gray-200"}`}>
-                {cfg && (
-                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
-                    {group.type}
-                  </span>
-                )}
-                <span className={`text-sm font-semibold ${cfg ? cfg.color : "text-gray-600"}`}>{group.label}</span>
-                <span className="text-xs text-gray-400 ml-1">{group.clients.length}개</span>
-              </div>
-
-              {/* 테이블 */}
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50/50 border-b border-gray-50">
-                  <tr>
-                    <th className="px-2 py-2 w-8">
-                      <input
-                        type="checkbox"
-                        checked={group.clients.every(c => checkedIds.has(c.id))}
-                        onChange={() => {
-                          const ids = group.clients.map(c => c.id);
-                          const allChecked = ids.every(id => checkedIds.has(id));
-                          setCheckedIds(prev => {
-                            const n = new Set(prev);
-                            ids.forEach(id => allChecked ? n.delete(id) : n.add(id));
-                            return n;
-                          });
-                        }}
-                        className="accent-[#1a2e4a] w-3.5 h-3.5 cursor-pointer"
-                      />
-                    </th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium text-xs">고객사</th>
-                    <th className="text-center px-2 py-2 text-gray-500 font-medium text-xs">특이</th>
-                    {showAssignedUser && <th className="text-center px-2 py-2 text-gray-500 font-medium text-xs">담당</th>}
-                    <th className="text-center px-2 py-2 text-gray-500 font-medium text-xs">인건비</th>
-                    {/* 프로세스 단계 헤더 */}
-                    {group.type && group.type !== "D" && (STEPS_BY_TYPE[group.type] || []).map(step => (
-                      <th key={step} className="text-center px-2 py-2 text-gray-500 font-medium text-[10px]">
-                        {STEP_ICONS[step]} {step.replace("급여", "급여\n").replace("원천세", "원천세\n").replace("납부서", "납부서\n")}
-                      </th>
-                    ))}
-                    {group.type === "D" && <th className="text-center px-2 py-2 text-gray-500 font-medium text-[10px]">📮 최초안내</th>}
-                    {/* 추가 체크리스트 */}
-                    {group.type !== "D" && extraColumns.map(col => (
-                      <th key={col.key} className="text-center px-1 py-2 text-gray-400 font-medium whitespace-pre-line text-[10px] leading-tight">{col.label}</th>
-                    ))}
+      {/* 통합 테이블 */}
+      <div className="flex-1 overflow-y-auto bg-white rounded-lg shadow-sm border border-gray-100">
+        <table className="w-full text-sm table-fixed">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+            <tr>
+              <th className="w-8 px-2 py-2.5"></th>
+              <th className="w-[140px] text-left px-4 py-2.5 text-gray-700 font-medium text-xs">고객사명</th>
+              <th className="w-10 text-center px-1 py-2.5 text-gray-500 font-medium text-xs">특이사항</th>
+              {showAssignedUser && <th className="w-14 text-center px-1 py-2.5 text-gray-500 font-medium text-xs">담당</th>}
+              <th className="w-[120px] text-center px-1 py-2.5 text-gray-700 font-medium text-xs">인건비</th>
+              {ALL_PROCESS_STEPS.map(step => (
+                <th key={step} className="w-16 text-center px-1 py-2.5 text-gray-600 font-medium text-[10px] whitespace-pre-line leading-tight">
+                  {STEP_ICONS[step]}<br/>{step}
+                </th>
+              ))}
+              {extraColumns.map(col => (
+                <th key={col.key} className="text-center px-1 py-2.5 text-gray-400 font-medium whitespace-pre-line text-[10px] leading-tight">{col.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groups.length === 0 && (
+              <tr><td colSpan={99} className="text-center py-12 text-gray-400">해당하는 거래처가 없습니다</td></tr>
+            )}
+            {groups.map((group) => {
+              const cfg = group.config;
+              const totalCols = 5 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + extraColumns.length;
+              return (
+                <React.Fragment key={group.type || "unassigned"}>
+                  {/* 그룹 헤더 행 */}
+                  <tr className={`${cfg ? cfg.bg : "bg-gray-100"}`}>
+                    <td colSpan={totalCols} className="px-4 py-2 border-t border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        {cfg && (
+                          <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold border ${cfg.border} ${cfg.color}`}>
+                            {group.type}
+                          </span>
+                        )}
+                        <span className={`text-xs font-semibold ${cfg ? cfg.color : "text-gray-500"}`}>{group.label}</span>
+                        <span className="text-[10px] text-gray-400">{group.clients.length}개</span>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
+                  {/* 거래처 행 */}
                   {group.clients.map((client) => {
                     const override = client.withholdingLaborOverrides?.[0];
                     const baseLaborTypes = client.laborTypes?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
@@ -226,27 +219,24 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                       : baseLaborTypes;
                     const monthMemo = override?.memo || "";
                     const doneMap = new Map(client.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
-                    const steps = STEPS_BY_TYPE[client.withholdingType || ""] || [];
-                    const allStepsDone = steps.length > 0 && steps.every(s => doneMap.has(s));
-
-                    // 추가 체크리스트용
+                    const steps = new Set(STEPS_BY_TYPE[client.withholdingType || ""] || []);
+                    const allStepsDone = steps.size > 0 && [...steps].every(s => doneMap.has(s));
                     const requiredExtra = getRequiredTasks(laborList, client.halfYearTax, month);
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
 
                     return (
-                      <tr key={client.id} className={`transition-colors ${allStepsDone ? "bg-green-50/40" : "hover:bg-blue-50/30"} ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}>
-                        <td className="px-2 py-2.5">
+                      <tr key={client.id} className={`border-b border-gray-50 transition-colors ${allStepsDone ? "bg-green-50/40" : "hover:bg-blue-50/30"} ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}>
+                        <td className="px-2 py-2">
                           <input
                             type="checkbox"
                             checked={checkedIds.has(client.id)}
                             onClick={(e) => {
                               e.stopPropagation();
-                              const allList = filtered;
-                              const currentIdx = allList.findIndex(c => c.id === client.id);
+                              const currentIdx = filtered.findIndex(c => c.id === client.id);
                               if (e.shiftKey && lastCheckedIdx !== null && currentIdx !== -1) {
                                 const start = Math.min(lastCheckedIdx, currentIdx);
                                 const end = Math.max(lastCheckedIdx, currentIdx);
-                                setCheckedIds(prev => { const n = new Set(prev); for (let i = start; i <= end; i++) n.add(allList[i].id); return n; });
+                                setCheckedIds(prev => { const n = new Set(prev); for (let i = start; i <= end; i++) n.add(filtered[i].id); return n; });
                               } else {
                                 setCheckedIds(prev => { const n = new Set(prev); if (n.has(client.id)) n.delete(client.id); else n.add(client.id); return n; });
                               }
@@ -256,31 +246,29 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                             className="accent-[#1a2e4a] w-3.5 h-3.5 cursor-pointer"
                           />
                         </td>
-                        <td className="px-3 py-2.5 text-[#1a2e4a] font-medium">
-                          <div className="flex items-center gap-1">
+                        <td className="px-4 py-2 text-[#1a2e4a] font-medium">
+                          <div className="flex items-center gap-1 truncate">
                             {client.name}
                             {client.accountingProgram?.split(",").map(p => p.trim()).map(p => (
-                              p === "위하고" ? <img key={p} src="/wehago.svg" alt="위하고" title="위하고" className="w-3.5 h-3.5 rounded" /> :
-                              p === "세무사랑" ? <img key={p} src="/semusarang.svg" alt="세무사랑" title="세무사랑" className="w-3.5 h-3.5 rounded" /> : null
+                              p === "위하고" ? <img key={p} src="/wehago.svg" alt="위하고" className="w-3.5 h-3.5 rounded shrink-0" /> :
+                              p === "세무사랑" ? <img key={p} src="/semusarang.svg" alt="세무사랑" className="w-3.5 h-3.5 rounded shrink-0" /> : null
                             ))}
                           </div>
                         </td>
-                        <td className="px-2 py-2.5 text-center">
+                        <td className="px-1 py-2 text-center">
                           {monthMemo ? (
                             <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: monthMemo })}>
                               <span className="text-amber-500 text-xs">📌</span>
-                              <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#1a2e4a] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">
-                                {monthMemo}
-                              </div>
+                              <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#1a2e4a] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{monthMemo}</div>
                             </span>
                           ) : (
-                            <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-gray-200 hover:text-amber-500 text-xs transition-colors">+</button>
+                            <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-gray-200 hover:text-amber-500 text-xs">+</button>
                           )}
                         </td>
                         {showAssignedUser && (
-                          <td className="px-2 py-2.5 text-center text-[10px] text-gray-500">{client.assignedUser?.name ?? "-"}</td>
+                          <td className="px-1 py-2 text-center text-[10px] text-gray-500 truncate">{client.assignedUser?.name ?? "-"}</td>
                         )}
-                        <td className="px-2 py-2.5 text-center">
+                        <td className="px-1 py-2 text-center">
                           <div className="flex items-center justify-center gap-0.5 flex-wrap">
                             {laborList.map(t => {
                               const s = LABOR_STYLES[t];
@@ -289,30 +277,35 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                             {laborList.length === 0 && <span className="text-gray-300 text-[10px]">-</span>}
                           </div>
                         </td>
-                        {/* 프로세스 단계 */}
-                        {group.type && steps.map(step => (
-                          <td key={step} className="px-2 py-2.5">
-                            <div className="flex justify-center">
-                              <button
-                                onClick={() => handleProcessToggle(client.id, step)}
-                                disabled={isPending}
-                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all text-xs ${
-                                  doneMap.has(step)
-                                    ? `${cfg!.bg} ${cfg!.border} ${cfg!.color}`
-                                    : "border-gray-200 text-gray-300 hover:border-gray-400"
-                                }`}
-                                title={step}
-                              >
-                                {doneMap.has(step) ? "✓" : ""}
-                              </button>
-                            </div>
+                        {/* 프로세스 4열 (항상 표시) */}
+                        {ALL_PROCESS_STEPS.map(step => (
+                          <td key={step} className="px-1 py-2 text-center">
+                            {steps.has(step) ? (
+                              <div className="flex justify-center">
+                                <button
+                                  onClick={() => handleProcessToggle(client.id, step)}
+                                  disabled={isPending}
+                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all text-[10px] font-bold ${
+                                    doneMap.has(step)
+                                      ? `${cfg?.bg || "bg-gray-100"} ${cfg?.border || "border-gray-300"} ${cfg?.color || "text-gray-600"}`
+                                      : "border-gray-200 text-gray-300 hover:border-gray-400"
+                                  }`}
+                                  title={step}
+                                >
+                                  {doneMap.has(step) ? "✓" : ""}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-gray-200 text-[10px]">-</span>
+                            )}
                           </td>
                         ))}
-                        {!group.type && <></>}
                         {/* 추가 체크리스트 */}
-                        {group.type !== "D" && extraColumns.map(col => (
-                          <td key={col.key} className="px-1 py-2.5 text-center">
-                            {requiredExtraKeys.has(col.key) ? (
+                        {extraColumns.map(col => (
+                          <td key={col.key} className="px-1 py-2 text-center">
+                            {client.withholdingType === "D" ? (
+                              <span className="text-gray-200 text-[10px]">-</span>
+                            ) : requiredExtraKeys.has(col.key) ? (
                               <input
                                 type="checkbox"
                                 checked={doneMap.has(col.key)}
@@ -328,17 +321,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-          );
-        })}
-
-        {groups.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 py-16 text-center text-gray-400">
-            해당하는 거래처가 없습니다
-          </div>
-        )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* 특이사항 모달 */}

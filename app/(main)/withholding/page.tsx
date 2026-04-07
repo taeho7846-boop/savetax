@@ -33,21 +33,9 @@ export default async function WithholdingPage({
     where: {
       isDeleted: false,
       ...assignedFilter,
-      AND: [
-        {
-          OR: [
-            { laborTypes: { contains: "근로소득" } },
-            { laborTypes: { contains: "사업소득" } },
-            { laborTypes: { contains: "일용직" } },
-            { laborTypes: { contains: "1인사업자" } },
-          ],
-        },
-        {
-          OR: [
-            { taxTypes: null },
-            { NOT: { taxTypes: { contains: "신고대리" } } },
-          ],
-        },
+      OR: [
+        { taxTypes: null },
+        { NOT: { taxTypes: { contains: "신고대리" } } },
       ],
     },
     select: {
