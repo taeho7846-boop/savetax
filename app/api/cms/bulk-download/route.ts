@@ -82,10 +82,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "설정에서 CMS 일괄등록 엑셀을 먼저 업로드해주세요" }, { status: 400 });
   }
 
+  // 매니저는 소속 직원 거래처도 포함
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+  let userFilter: any = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [session.id, ...employees.map((e: { id: number }) => e.id)];
+    userFilter = { assignedUserId: { in: userIds } };
+  }
+
   const clients = await prisma.client.findMany({
     where: {
       id: { in: clientIds.map(Number) },
-      assignedUserId: session.id,
+      ...userFilter,
     },
     select: {
       name: true,

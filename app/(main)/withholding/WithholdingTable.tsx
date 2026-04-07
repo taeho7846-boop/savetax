@@ -169,21 +169,24 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
 
       {/* 통합 테이블 */}
       <div className="flex-1 overflow-y-auto bg-white rounded-lg shadow-sm border border-gray-100">
-        <table className="w-full text-sm table-fixed">
-          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
             <tr>
-              <th className="w-8 px-2 py-2.5"></th>
-              <th className="w-[180px] text-left px-4 py-2.5 text-gray-700 font-medium text-xs">고객사명</th>
-              <th className="w-12 text-center px-2 py-2.5 text-gray-500 font-medium text-xs">특이</th>
-              {showAssignedUser && <th className="w-16 text-center px-2 py-2.5 text-gray-500 font-medium text-xs">담당자</th>}
-              <th className="w-[130px] text-center px-2 py-2.5 text-gray-700 font-medium text-xs">인건비</th>
+              <th className="px-2 py-3 w-9"></th>
+              <th className="text-left px-4 py-3 text-gray-700 font-semibold text-xs whitespace-nowrap">고객사명</th>
+              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs w-10">메모</th>
+              {showAssignedUser && <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs whitespace-nowrap">담당자</th>}
+              <th className="text-center px-3 py-3 text-gray-700 font-semibold text-xs whitespace-nowrap">인건비</th>
               {ALL_PROCESS_STEPS.map(step => (
-                <th key={step} className="w-24 text-center px-2 py-2.5 text-gray-600 font-medium text-[10px]">
-                  {STEP_ICONS[step]} {step}
+                <th key={step} className="text-center px-3 py-3 whitespace-nowrap">
+                  <span className="text-[11px] font-semibold text-gray-600">{step}</span>
                 </th>
               ))}
+              {extraColumns.length > 0 && <th className="w-[1px] px-0 bg-gray-200"></th>}
               {extraColumns.map(col => (
-                <th key={col.key} className="text-center px-1 py-2.5 text-gray-400 font-medium whitespace-pre-line text-[10px] leading-tight">{col.label}</th>
+                <th key={col.key} className="text-center px-2 py-3">
+                  <span className="text-[10px] font-medium text-gray-400 leading-tight block whitespace-pre-line">{col.label}</span>
+                </th>
               ))}
             </tr>
           </thead>
@@ -193,7 +196,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
             )}
             {groups.map((group) => {
               const cfg = group.config;
-              const totalCols = 5 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + extraColumns.length;
+              const totalCols = 5 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + (extraColumns.length > 0 ? 1 : 0) + extraColumns.length;
               return (
                 <React.Fragment key={group.type || "unassigned"}>
                   {/* 그룹 헤더 행 */}
@@ -300,6 +303,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                             )}
                           </td>
                         ))}
+                        {/* 구분선 */}
+                        {extraColumns.length > 0 && <td className="w-[1px] px-0 bg-gray-100"></td>}
                         {/* 추가 체크리스트 */}
                         {extraColumns.map(col => (
                           <td key={col.key} className="px-1 py-2 text-center">
