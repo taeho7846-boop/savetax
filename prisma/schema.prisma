@@ -238,6 +238,15 @@ model WithholdingLaborOverride {
   @@unique([clientId, yearMonth])
 }
 
+// 이관자료 확인 기록
+model TransferConfirm {
+  id          Int      @id @default(autoincrement())
+  driveFileId String   @unique // 구글 드라이브 폴더/파일 ID
+  fileName    String
+  confirmedBy Int?
+  confirmedAt DateTime @default(now())
+}
+
 // 종합소득세 연도별 신고
 model IncomeTaxRecord {
   id        Int      @id @default(autoincrement())

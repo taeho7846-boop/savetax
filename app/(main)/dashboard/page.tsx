@@ -13,6 +13,7 @@ import { getNotices } from "@/app/actions/notice";
 import { KnowledgeBoard } from "./KnowledgeBoard";
 import { getKnowledges } from "@/app/actions/knowledge";
 import { DashboardTabs } from "./DashboardTabs";
+import { TransferDocsCard } from "./TransferDocsCard";
 
 export default async function DashboardPage({
   searchParams,
@@ -121,6 +122,9 @@ export default async function DashboardPage({
               </div>
             </Link>
           )}
+
+          {/* 이관자료 수신 */}
+          <TransferDocsCard />
 
           {/* 요약 카드 */}
           <div className="grid grid-cols-5 gap-4 mb-6">
