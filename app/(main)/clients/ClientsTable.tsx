@@ -584,13 +584,15 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       </td>
                     )}
                     <td className="px-4 py-3 text-center">
-                      {laborList.length === 0 ? (
+                      {laborList.length === 0 && !client.withholdingType ? (
                         <span className="text-gray-300">-</span>
                       ) : (
                         <div className="flex items-center justify-center gap-1.5">
-                          <div className="flex flex-col items-center gap-1">
-                            {laborList.map((t) => <LaborBadge key={t} type={t} />)}
-                          </div>
+                          {laborList.length > 0 && (
+                            <div className="flex flex-col items-center gap-1">
+                              {laborList.map((t) => <LaborBadge key={t} type={t} />)}
+                            </div>
+                          )}
                           {client.withholdingType && (
                             <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
                               client.withholdingType === "A" ? "bg-blue-100 text-blue-700" :
