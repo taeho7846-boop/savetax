@@ -190,6 +190,33 @@ const tools: Anthropic.Tool[] = [
     },
   },
   {
+    name: "upload_to_drive",
+    description: "파일(이미지/문서)을 거래처의 구글 드라이브 특정 폴더에 업로드합니다. 사용자가 파일과 함께 거래처명, 폴더명을 알려주면 호출하세요. 폴더명을 모르면 사용자에게 물어보세요 (0.기본정보 / 1.원천세 / 2.부가가치세 / 3.종합소득세 or 법인세 / 4.이관자료).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        clientName: { type: "string", description: "거래처명 (검색용)" },
+        clientId: { type: "number", description: "거래처 ID (이미 알고 있으면)" },
+        folderName: { type: "string", description: "저장할 하위폴더명 (예: 0. 기본정보, 1. 원천세, 2. 부가가치세, 3. 종합소득세, 4. 이관자료)" },
+        fileName: { type: "string", description: "저장할 파일명 (예: 부가세신고서_2026_1기.pdf)" },
+      },
+      required: ["folderName"],
+    },
+  },
+  {
+    name: "list_drive_files",
+    description: "거래처의 구글 드라이브 폴더 내 파일 목록을 조회합니다.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        clientName: { type: "string", description: "거래처명" },
+        clientId: { type: "number", description: "거래처 ID" },
+        folderName: { type: "string", description: "조회할 하위폴더명 (미입력시 거래처 폴더 전체)" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "get_schedule",
     description: "세무 일정/스케줄을 조회합니다. 이번달, 다음달 주요 신고/납부 기한.",
     input_schema: {
@@ -656,6 +683,85 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     }, null, 2);
   }
 
+  if (name === "upload_to_drive") {
+    if (!imageBase64) return "⚠️ 파일이 없습니다. 파일을 함께 보내주세요.";
+
+    // 거래처 찾기
+    let clientId = input.clientId as number | undefined;
+    let clientName = "";
+    if (!clientId && input.clientName) {
+      const q = input.clientName as string;
+      const clients = await prisma.client.findMany({
+        where: { isDeleted: false, ...myFilter, OR: [{ name: { contains: q } }, { ceoName: { contains: q } }] },
+        select: { id: true, name: true, driveFolderId: true },
+        take: 5,
+      });
+      if (clients.length === 0) return `⚠️ "${q}" 거래처를 찾을 수 없습니다.`;
+      if (clients.length > 1) {
+        return `여러 거래처가 검색되었습니다:\n${clients.map(c => `- ${c.name} (ID: ${c.id})`).join("\n")}`;
+      }
+      clientId = clients[0].id;
+      clientName = clients[0].name;
+    }
+    if (!clientId) return "⚠️ 거래처명을 알려주세요.";
+
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true, driveFolderId: true } });
+    if (!client) return "⚠️ 거래처를 찾을 수 없습니다.";
+    if (!client.driveFolderId) return `⚠️ "${client.name}" 거래처에 구글 드라이브 폴더가 없습니다. 거래처를 새로 등록하면 자동 생성됩니다.`;
+    clientName = client.name;
+
+    const folderName = input.folderName as string;
+    const fileName = (input.fileName as string) || `파일_${Date.now()}`;
+
+    // base64 → buffer
+    const match = imageBase64.match(/^data:(.*?);base64,(.+)$/);
+    if (!match) return "⚠️ 파일 형식을 인식할 수 없습니다.";
+    const mimeType = match[1];
+    const buffer = Buffer.from(match[2], "base64");
+    const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "bin";
+    const fullFileName = fileName.includes(".") ? fileName : `${fileName}.${ext}`;
+
+    try {
+      const { uploadFile: driveUpload, createFolder: driveCreateFolder } = await import("@/lib/google-drive");
+      const subFolderId = await driveCreateFolder(folderName, client.driveFolderId);
+      const { fileUrl } = await driveUpload(subFolderId, fullFileName, buffer, mimeType);
+      return `✅ **${clientName}** → **${folderName}** 폴더에 업로드 완료!\n📄 파일명: ${fullFileName}\n🔗 ${fileUrl}`;
+    } catch (e: any) {
+      console.error("[Chat upload_to_drive] 오류:", e);
+      return `❌ 업로드 실패: ${e.message || "알 수 없는 오류"}`;
+    }
+  }
+
+  if (name === "list_drive_files") {
+    let clientId = input.clientId as number | undefined;
+    if (!clientId && input.clientName) {
+      const q = input.clientName as string;
+      const c = await prisma.client.findFirst({
+        where: { isDeleted: false, ...myFilter, name: { contains: q } },
+        select: { id: true, name: true, driveFolderId: true },
+      });
+      if (!c) return `⚠️ "${q}" 거래처를 찾을 수 없습니다.`;
+      clientId = c.id;
+    }
+    if (!clientId) return "⚠️ 거래처명을 알려주세요.";
+
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true, driveFolderId: true } });
+    if (!client?.driveFolderId) return "⚠️ 구글 드라이브 폴더가 없습니다.";
+
+    try {
+      const { listFiles: driveList, createFolder: driveCreateFolder } = await import("@/lib/google-drive");
+      let folderId = client.driveFolderId;
+      if (input.folderName) {
+        folderId = await driveCreateFolder(input.folderName as string, client.driveFolderId);
+      }
+      const files = await driveList(folderId);
+      if (files.length === 0) return `📁 **${client.name}**${input.folderName ? ` → ${input.folderName}` : ""}: 파일 없음`;
+      return `📁 **${client.name}**${input.folderName ? ` → ${input.folderName}` : ""}\n\n${files.map(f => `- ${f.name} (${new Date(f.modifiedTime).toLocaleDateString("ko-KR")})`).join("\n")}`;
+    } catch (e: any) {
+      return `❌ 조회 실패: ${e.message || "알 수 없는 오류"}`;
+    }
+  }
+
   if (name === "save_idcard_to_commission") {
     if (!imageBase64) return "⚠️ 이미지가 없습니다. 신분증 이미지를 함께 보내주세요.";
 
@@ -802,7 +908,9 @@ export async function POST(req: NextRequest) {
 - 업무 생성 시에도 제목, 마감일 등을 확인 후 생성하세요.
 
 ## 이미지 처리
-- **신분증 업로드**: 사용자가 이미지와 함께 거래처명을 말하면, save_idcard_to_commission 도구로 해당 거래처 신규수임에 신분증을 바로 첨부하세요. 예: "보스밀리 대표 신분증이야" → save_idcard_to_commission(clientName: "보스밀리") 호출.
+- **신분증 업로드**: 사용자가 이미지와 함께 "대표 신분증" 또는 "신분증"이라고 말하면, save_idcard_to_commission 도구를 호출하세요.
+- **구글 드라이브 파일 업로드**: 사용자가 파일과 함께 거래처명을 말하면, 어떤 폴더에 넣을지 물어보세요 (0.기본정보 / 1.원천세 / 2.부가가치세 / 3.종합소득세 or 법인세 / 4.이관자료). 확인 후 upload_to_drive 도구를 호출하세요. 예: "인텍 부가세 자료야" → "인텍 → 2. 부가가치세 폴더에 넣을까요?" → 확인 후 업로드.
+- **구글 드라이브 파일 조회**: "인텍 드라이브 파일 보여줘" → list_drive_files 호출.
 - **사업자등록증**: 상호, 대표자, 사업자번호, 개업일, 주소 등을 추출하여 정리하고, "이 정보로 거래처 등록할까요?" 확인을 받으세요.
 - **기타 서류**: 내용을 요약하고 필요한 조치를 안내하세요.
 
