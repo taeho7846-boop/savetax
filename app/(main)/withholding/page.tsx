@@ -13,7 +13,6 @@ export default async function WithholdingPage({
 
   const params = await searchParams;
   const now = new Date();
-  // 매월 10일까지는 전월 원천세 업무 기간이므로 전월을 기본 표시
   const defaultMonth = now.getDate() <= 10
     ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
     : now;
@@ -38,6 +37,7 @@ export default async function WithholdingPage({
         { laborTypes: { contains: "근로소득" } },
         { laborTypes: { contains: "사업소득" } },
         { laborTypes: { contains: "일용직" } },
+        { laborTypes: { contains: "1인사업자" } },
       ],
     },
     select: {
@@ -46,6 +46,7 @@ export default async function WithholdingPage({
       laborTypes: true,
       halfYearTax: true,
       accountingProgram: true,
+      withholdingType: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       withholdingRecords: {
         where: { yearMonth },
@@ -54,8 +55,11 @@ export default async function WithholdingPage({
         where: { yearMonth },
         select: { laborTypes: true, memo: true },
       },
+      withholdingProcesses: {
+        where: { yearMonth },
+      },
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ withholdingType: "asc" }, { name: "asc" }],
   });
 
   return (
