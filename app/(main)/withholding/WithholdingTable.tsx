@@ -22,13 +22,19 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; bo
 // 프로세스 단계 (공통)
 const ALL_PROCESS_STEPS = ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"];
 
-const STEPS_BY_TYPE: Record<string, string[]> = {
-  "": ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"],
-  A: ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"],
-  B: ["급여명세서전달", "원천세신고", "납부서전달"],
-  C: ["급여명세서전달", "원천세신고"],
-  D: [],
-};
+function getStepsByType(type: string, month: number): string[] {
+  switch (type) {
+    case "A": return ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"];
+    case "B": return ["급여명세서전달", "원천세신고", "납부서전달"];
+    case "C":
+      // 6개월납: 1월/7월에만 원천세신고
+      return month === 1 || month === 7
+        ? ["급여명세서전달", "원천세신고"]
+        : ["급여명세서전달"];
+    case "D": return [];
+    default: return ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"]; // 미지정
+  }
+}
 
 const STEP_ICONS: Record<string, string> = {
   급여확인요청: "📋", 급여명세서전달: "📄", 원천세신고: "🏛️", 납부서전달: "💳", 최초안내발송: "📮",
@@ -127,11 +133,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   // 전체 진행률
   const allClients = filtered;
   const totalProcess = allClients.reduce((sum, c) => {
-    const steps = STEPS_BY_TYPE[c.withholdingType || ""] || [];
+    const steps = getStepsByType(c.withholdingType || "", month);
     return sum + steps.length;
   }, 0);
   const doneProcess = allClients.reduce((sum, c) => {
-    const steps = STEPS_BY_TYPE[c.withholdingType || ""] || [];
+    const steps = getStepsByType(c.withholdingType || "", month);
     const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
     return sum + steps.filter(s => doneMap.has(s)).length;
   }, 0);
@@ -234,7 +240,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                     const monthMemo = override?.memo || "";
                     const doneMap = new Map(client.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
                     const isSkipped = doneMap.has("신고없음");
-                    const steps = new Set(STEPS_BY_TYPE[client.withholdingType || ""] || []);
+                    const steps = new Set(getStepsByType(client.withholdingType || "", month));
                     const allStepsDone = isSkipped || (steps.size > 0 && [...steps].every(s => doneMap.has(s)));
                     const hasOverride = override?.laborTypes != null && override.laborTypes !== "";
                     const requiredExtra = getRequiredTasks(laborList, client.halfYearTax, month);
