@@ -142,18 +142,27 @@ export async function createWehagoClient(
       } catch { break; }
     }
 
-    // 방법 3: JavaScript로 모든 오버레이 제거
+    // 방법 3: JavaScript로 모든 오버레이/iframe 강제 제거
     await page.evaluate(() => {
-      document.querySelectorAll('[class*="modal"], [class*="popup"], [class*="layer"], [class*="dim"], [class*="overlay"]').forEach(el => {
-        (el as HTMLElement).style.display = 'none';
+      // 일반 오버레이
+      document.querySelectorAll('[class*="modal"], [class*="popup"], [class*="layer"], [class*="dim"], [class*="overlay"], [class*="banner"]').forEach(el => {
+        (el as HTMLElement).remove();
+      });
+      // iframe 제거
+      document.querySelectorAll('iframe').forEach(el => {
+        if (el.src && (el.src.includes('banner') || el.src.includes('popup') || el.src.includes('ad'))) {
+          el.remove();
+        }
+      });
+      // z-index 높은 fixed/absolute 요소 제거
+      document.querySelectorAll('*').forEach(el => {
+        const style = window.getComputedStyle(el);
+        const zIndex = parseInt(style.zIndex);
+        if ((style.position === 'fixed' || style.position === 'absolute') && zIndex > 999) {
+          (el as HTMLElement).remove();
+        }
       });
     });
-    await page.waitForTimeout(1000);
-
-    // 방법 4: 팝업 X 버튼 좌표 직접 클릭 (우측 상단)
-    await page.mouse.click(527, 55);
-    await page.waitForTimeout(1000);
-    await page.mouse.click(527, 55);
     await page.waitForTimeout(2000);
 
     // 디버깅: 팝업 닫기 후 스크린샷
