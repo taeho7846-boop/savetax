@@ -225,6 +225,17 @@ export async function markDataRequested(commissionId: number) {
   revalidatePath("/commission");
 }
 
+// 수동 관리제외요청
+export async function requestExclusion(commissionId: number) {
+  await requireAuth();
+  await prisma.commissionProcess.update({
+    where: { id: commissionId },
+    data: { excludeRequested: true },
+  });
+  revalidatePath("/dashboard");
+  revalidatePath("/commission");
+}
+
 // 오늘의 업무 미루기
 export async function postponeTask(commissionId: number, until: string, note: string) {
   await requireAuth();

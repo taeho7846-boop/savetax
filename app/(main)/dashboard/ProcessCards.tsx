@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { markDataRequested, confirmExclusion, postponeTask } from "@/app/actions/commission";
+import { markDataRequested, confirmExclusion, postponeTask, requestExclusion } from "@/app/actions/commission";
 
 type HappyCallItem = {
   commissionId: number;
@@ -149,6 +149,17 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
 
 // ============ 해피콜 카드 ============
 export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleExclude(commissionId: number, clientName: string) {
+    if (!confirm(`"${clientName}" 관리제외를 요청하시겠습니까?`)) return;
+    startTransition(async () => {
+      await requestExclusion(commissionId);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
@@ -179,6 +190,13 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
                 ))
               )}
               <span className="text-[10px] text-gray-400">D+{item.daysElapsed}</span>
+              <button
+                onClick={() => handleExclude(item.commissionId, item.clientName)}
+                disabled={isPending}
+                className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-50"
+              >
+                관리제외
+              </button>
             </div>
           </div>
         ))}
@@ -189,6 +207,17 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
 
 // ============ 자료수집 카드 ============
 export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleExclude(commissionId: number, clientName: string) {
+    if (!confirm(`"${clientName}" 관리제외를 요청하시겠습니까?`)) return;
+    startTransition(async () => {
+      await requestExclusion(commissionId);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
@@ -216,6 +245,13 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
                   </span>
                 )}
                 <span className="text-[10px] text-gray-400">D+{item.daysFromConnect}</span>
+                <button
+                  onClick={() => handleExclude(item.commissionId, item.clientName)}
+                  disabled={isPending}
+                  className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-50"
+                >
+                  관리제외
+                </button>
               </div>
             </div>
             {/* 미비 자료 표시 */}
