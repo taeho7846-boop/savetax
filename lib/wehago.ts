@@ -219,9 +219,17 @@ export async function createWehagoClient(
 
     await page.waitForTimeout(1000);
 
-    // 4. 수임처 생성 버튼
-    await page.getByRole("button", { name: "수임처 생성" }).click();
-    await page.waitForTimeout(3000);
+    // 4. 폼 입력 후 스크린샷
+    await page.screenshot({ path: "/tmp/wehago-debug4.png" });
+    console.log("[Wehago] 스크린샷4-폼입력후: /tmp/wehago-debug4.png");
+
+    // 수임처 생성 버튼
+    await page.locator('button.WSC_LUXButton:has-text("수임처 생성")').click({ force: true });
+    await page.waitForTimeout(5000);
+
+    // 생성 후 스크린샷
+    await page.screenshot({ path: "/tmp/wehago-debug5.png" });
+    console.log("[Wehago] 스크린샷5-생성클릭후: /tmp/wehago-debug5.png");
 
     await browser.close();
     return { success: true, message: `위하고 수임처 "${client.name}" 생성 완료` };
