@@ -95,18 +95,38 @@ export async function createWehagoClient(
       return { success: false, message: "위하고 로그인 실패. ID/PW를 확인해주세요." };
     }
 
-    // 2. 모든 팝업/오버레이 강제 닫기
-    for (let i = 0; i < 10; i++) {
+    // 2. 모든 팝업/오버레이 강제 닫기 (광고 포함)
+    for (let i = 0; i < 15; i++) {
       try {
-        const closeBtns = await page.locator('button:has-text("닫기"), button:has-text("확인"), .btn_close, .popup_close, [class*="close"]').all();
+        // "하루 동안 보지 않기" 체크
+        for (const txt of ["하루 동안 보지 않기", "오늘 하루 보지 않기", "다시 보지 않기"]) {
+          try {
+            const chk = page.getByText(txt).first();
+            if (await chk.isVisible({ timeout: 300 })) await chk.click({ force: true });
+          } catch {}
+        }
+        // X 버튼, 닫기, 확인 버튼 모두 시도
+        const closeSelectors = [
+          'button.btn_close', 'button[class*="close"]', '.popup_close',
+          'button:has-text("닫기")', 'button:has-text("확인")',
+          '.modal button:has-text("X")', 'button:has-text("×")',
+          '[class*="modal"] button[class*="close"]',
+          'div[class*="popup"] button', 'div[class*="layer"] button[class*="close"]',
+        ];
         let found = false;
-        for (const btn of closeBtns) {
-          if (await btn.isVisible({ timeout: 500 })) {
-            await btn.click({ force: true });
-            found = true;
-            await page.waitForTimeout(500);
-            break;
-          }
+        for (const sel of closeSelectors) {
+          try {
+            const btns = await page.locator(sel).all();
+            for (const btn of btns) {
+              if (await btn.isVisible({ timeout: 300 })) {
+                await btn.click({ force: true });
+                found = true;
+                await page.waitForTimeout(500);
+                break;
+              }
+            }
+            if (found) break;
+          } catch {}
         }
         if (!found) break;
       } catch { break; }
