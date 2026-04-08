@@ -77,6 +77,7 @@ export async function createOneoffSettlement(data: {
   clientName: string;
   ceoName?: string;
   assignedUserName?: string;
+  affiliation?: string;
   withdrawalAmount: number;
   fee: number;
   notes?: string;

@@ -440,6 +440,7 @@ model SettlementOneoff {
   clientName      String   // 거래처명
   ceoName         String?  // 대표자명
   assignedUserName String? // 담당자명
+  affiliation     String?  // 소속
   withdrawalAmount Int     @default(0) // 출금액
   fee             Int      @default(0) // 수수료
   withdrawn       Boolean  @default(false) // 출금여부
