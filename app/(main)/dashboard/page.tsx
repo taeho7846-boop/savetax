@@ -102,15 +102,20 @@ export default async function DashboardPage({
       }),
       getNotices(),
       getKnowledges(),
-      // 미확인 배분 (Savetax 배분만, 세무회계태호 배분 제외)
+      // 미확인 배분 (Savetax배분 + 세무회계태호배분 본인 건)
+      // - Savetax배분: clientType이 taeho_로 시작하지 않는 것
+      // - 세무회계태호배분: clientType이 taeho_로 시작하는 것
+      // 김태호: Savetax배분만 알림 (taeho_ 제외)
+      // 이휘언: 세무회계태호배분만 알림 (taeho_ 포함)
       prisma.distribution.findMany({
         where: {
           assignedUserId: session.id,
           isSkipped: false,
           confirmedAt: null,
           clientName: { not: "-" },
+          NOT: { clientType: { startsWith: "excluded_" } },
         },
-        select: { id: true },
+        select: { id: true, clientType: true },
         orderBy: { createdAt: "desc" },
       }),
       // 신규수임 프로세스 (해피콜/자료수집용)
@@ -258,7 +263,17 @@ export default async function DashboardPage({
       {activeTab === "overview" && (
         <>
           {/* 알림 행 (2분할) */}
-          {(tempMemosData.length > 0 || newDistributions.length > 0) && (
+          {/* 배분 알림 필터: taeho_ 건은 세무회계태호 배분 전용 → 김태호는 taeho_ 건 제외 */}
+          {(() => {
+            const userName = session.name || "";
+            // 세무회계태호 배분 대상: 김태호, 이휘언
+            // 김태호 → taeho_ 건 제외 (Savetax 배분 건만)
+            // 이휘언 → taeho_ 건만
+            // 그 외 → taeho_ 건 제외
+            const filteredDist = userName === "이휘언"
+              ? newDistributions.filter((d: any) => d.clientType?.startsWith("taeho_"))
+              : newDistributions.filter((d: any) => !d.clientType?.startsWith("taeho_"));
+            return (filteredDist.length > 0 || tempMemosData.length > 0) && (
             <div className="grid grid-cols-2 gap-4 mb-5">
               {tempMemosData.length > 0 ? (
                 <Link href="/dashboard?tab=memo" className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 hover:bg-purple-100 transition-colors">
@@ -269,11 +284,12 @@ export default async function DashboardPage({
                   </div>
                 </Link>
               ) : <div />}
-              {newDistributions.length > 0 ? (
-                <NewDistributionCard count={newDistributions.length} ids={newDistributions.map(d => d.id)} />
+              {filteredDist.length > 0 ? (
+                <NewDistributionCard count={filteredDist.length} ids={filteredDist.map((d: any) => d.id)} />
               ) : <div />}
             </div>
-          )}
+          );
+          })()}
 
           {/* 이관자료 수신 */}
           <TransferDocsCard />
