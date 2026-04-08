@@ -175,11 +175,21 @@ export async function setWihagoType(
   wihagoType: string | null
 ) {
   await requireAuth();
+  const data: any = { wihagoType };
+  // 이관으로 변경 시 이관자료요청 프로세스 시작
+  if (wihagoType === "transfer") {
+    data.transferRequested = true;
+  }
+  // 이관에서 다른 유형으로 변경 시 이관 해제
+  if (wihagoType !== "transfer") {
+    data.transferRequested = false;
+  }
   await prisma.commissionProcess.update({
     where: { id: commissionId },
-    data: { wihagoType },
+    data,
   });
   revalidatePath("/commission");
+  revalidatePath("/dashboard");
 }
 
 export async function saveNotes(commissionId: number, notes: string) {
