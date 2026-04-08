@@ -367,6 +367,7 @@ model Distribution {
   batchId        String?  // 세트로 들어온 경우 같은 batchId
   isSkipped      Boolean  @default(false) // PASS로 건너뛴 자리
   excludeReason  String?  // 관리제외 사유
+  confirmedAt    DateTime? // 배분 확인 시점 (null이면 미확인)
   createdAt      DateTime @default(now())
 }
 

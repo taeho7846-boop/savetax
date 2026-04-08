@@ -15,6 +15,7 @@ import { getKnowledges } from "@/app/actions/knowledge";
 import { DashboardTabs } from "./DashboardTabs";
 import { TransferDocsCard } from "./TransferDocsCard";
 import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard } from "./ProcessCards";
+import { NewDistributionCard } from "./NewDistributionCard";
 
 export default async function DashboardPage({
   searchParams,
@@ -56,7 +57,7 @@ export default async function DashboardPage({
   const cmsSelect = { id: true, name: true, phone: true, bankName: true, bankAccount: true };
 
   const [totalClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
-         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, commissions] =
+         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, newDistributions, commissions] =
     await Promise.all([
       prisma.client.count({
         where: {
@@ -101,6 +102,16 @@ export default async function DashboardPage({
       }),
       getNotices(),
       getKnowledges(),
+      // 미확인 배분
+      prisma.distribution.findMany({
+        where: {
+          assignedUserId: session.id,
+          isSkipped: false,
+          confirmedAt: null,
+        },
+        select: { id: true, clientName: true, clientType: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      }),
       // 신규수임 프로세스 (해피콜/자료수집용)
       prisma.commissionProcess.findMany({
         where: {
@@ -245,15 +256,22 @@ export default async function DashboardPage({
       {/* 현황 탭 */}
       {activeTab === "overview" && (
         <>
-          {/* 임시메모함 알림 */}
-          {tempMemosData.length > 0 && (
-            <Link href="/dashboard?tab=memo" className="block mb-5 bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 hover:bg-purple-100 transition-colors">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">💬</span>
-                <span className="text-sm font-medium text-purple-800">텔레그램 메모 {tempMemosData.length}건이 도착했습니다</span>
-                <span className="text-xs text-purple-500 ml-auto">정리하기 →</span>
-              </div>
-            </Link>
+          {/* 알림 행 (2분할) */}
+          {(tempMemosData.length > 0 || newDistributions.length > 0) && (
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              {tempMemosData.length > 0 ? (
+                <Link href="/dashboard?tab=memo" className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 hover:bg-purple-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">💬</span>
+                    <span className="text-sm font-medium text-purple-800">텔레그램 메모 {tempMemosData.length}건</span>
+                    <span className="text-xs text-purple-500 ml-auto">정리하기 →</span>
+                  </div>
+                </Link>
+              ) : <div />}
+              {newDistributions.length > 0 ? (
+                <NewDistributionCard items={newDistributions.map(d => ({ ...d, createdAt: d.createdAt.toISOString() }))} />
+              ) : <div />}
+            </div>
           )}
 
           {/* 이관자료 수신 */}
