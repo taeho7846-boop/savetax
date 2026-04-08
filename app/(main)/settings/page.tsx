@@ -65,6 +65,34 @@ export default async function SettingsPage() {
           </div>
         </div>
 
+        {/* 위하고 계정 */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">위하고 계정</h2>
+          <p className="text-[10px] text-gray-400 mb-4">위하고 수임처 자동 생성에 사용됩니다</p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">위하고 ID</label>
+              <input
+                name="wehagoId"
+                type="text"
+                defaultValue={settings?.wehagoId ?? ""}
+                placeholder="위하고 로그인 아이디"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">위하고 PW</label>
+              <input
+                name="wehagoPw"
+                type="password"
+                defaultValue={settings?.wehagoPw ?? ""}
+                placeholder="위하고 로그인 비밀번호"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* 세금계산서 공급자 정보 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">세금계산서 공급자 정보</h2>

@@ -651,14 +651,37 @@ export default function CommissionBoard({
                           <option value="new">신규</option>
                           <option value="transfer">이관</option>
                         </select>
-                        <Pill
-                          checked={c.wihagoDone}
-                          label="생성완료"
-                          onClick={() =>
-                            doToggle(c.id, "wihagoDone", !c.wihagoDone)
-                          }
-                          disabled={loading}
-                        />
+                        <div className="flex items-center gap-1">
+                          <Pill
+                            checked={c.wihagoDone}
+                            label="생성완료"
+                            onClick={() =>
+                              doToggle(c.id, "wihagoDone", !c.wihagoDone)
+                            }
+                            disabled={loading}
+                          />
+                          {!c.wihagoDone && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`"${c.client.name}" 위하고 수임처를 자동 생성하시겠습니까?`)) return;
+                                try {
+                                  const res = await fetch("/api/wehago/create-client", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ clientId: c.clientId }),
+                                  });
+                                  const data = await res.json();
+                                  alert(data.message || data.error);
+                                  if (data.success) doToggle(c.id, "wihagoDone", true);
+                                } catch { alert("위하고 자동생성 실패"); }
+                              }}
+                              disabled={loading}
+                              className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 disabled:opacity-50 whitespace-nowrap"
+                            >
+                              자동
+                            </button>
+                          )}
+                        </div>
                         {c.wihagoAt && (
                           <div className="text-xs text-gray-400">
                             {fmtDate(c.wihagoAt)}
