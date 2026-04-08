@@ -96,6 +96,14 @@ export async function createWehagoClient(
     }
 
     // 2. 모든 팝업/오버레이 강제 닫기 (광고 포함)
+    // 방법 1: ESC 키로 팝업 닫기 시도
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(500);
+    }
+    await page.waitForTimeout(1000);
+
+    // 방법 2: 체크박스 + 버튼 클릭
     for (let i = 0; i < 15; i++) {
       try {
         // "하루 동안 보지 않기" 체크
@@ -105,20 +113,22 @@ export async function createWehagoClient(
             if (await chk.isVisible({ timeout: 300 })) await chk.click({ force: true });
           } catch {}
         }
-        // X 버튼, 닫기, 확인 버튼 모두 시도
+        await page.waitForTimeout(300);
+
+        // 닫기 버튼 찾기
+        let found = false;
         const closeSelectors = [
           'button.btn_close', 'button[class*="close"]', '.popup_close',
           'button:has-text("닫기")', 'button:has-text("확인")',
-          '.modal button:has-text("X")', 'button:has-text("×")',
-          '[class*="modal"] button[class*="close"]',
-          'div[class*="popup"] button', 'div[class*="layer"] button[class*="close"]',
+          'button:has-text("×")', 'button:has-text("X")',
+          '[class*="modal"] button', '[class*="popup"] button',
+          '[class*="layer"] button', '[role="dialog"] button',
         ];
-        let found = false;
         for (const sel of closeSelectors) {
           try {
             const btns = await page.locator(sel).all();
             for (const btn of btns) {
-              if (await btn.isVisible({ timeout: 300 })) {
+              if (await btn.isVisible({ timeout: 200 })) {
                 await btn.click({ force: true });
                 found = true;
                 await page.waitForTimeout(500);
@@ -131,6 +141,13 @@ export async function createWehagoClient(
         if (!found) break;
       } catch { break; }
     }
+
+    // 방법 3: JavaScript로 모든 오버레이 제거
+    await page.evaluate(() => {
+      document.querySelectorAll('[class*="modal"], [class*="popup"], [class*="layer"], [class*="dim"], [class*="overlay"]').forEach(el => {
+        (el as HTMLElement).style.display = 'none';
+      });
+    });
     await page.waitForTimeout(2000);
 
     // 새 수임처 생성
