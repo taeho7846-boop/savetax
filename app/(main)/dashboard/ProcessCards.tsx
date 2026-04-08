@@ -201,6 +201,12 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
               )}
               <span className="text-[10px] text-gray-400">D+{item.daysElapsed}</span>
               <button
+                onClick={() => alert("솔라피 연동 후 활성화됩니다")}
+                className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500 disabled:opacity-50"
+              >
+                카카오톡안내
+              </button>
+              <button
                 onClick={() => handleExclude(item.commissionId, item.clientName)}
                 disabled={isPending}
                 className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-50"
@@ -255,6 +261,12 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
                   </span>
                 )}
                 <span className="text-[10px] text-gray-400">D+{item.daysFromConnect}</span>
+                <button
+                  onClick={() => alert("솔라피 연동 후 활성화됩니다")}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500 disabled:opacity-50"
+                >
+                  카카오톡독촉
+                </button>
                 <button
                   onClick={() => handleExclude(item.commissionId, item.clientName)}
                   disabled={isPending}
