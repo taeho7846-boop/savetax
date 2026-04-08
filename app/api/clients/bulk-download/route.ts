@@ -42,10 +42,12 @@ export async function POST(req: NextRequest) {
     "출금계좌번호": c.bankAccount ?? "",
     "회계프로그램(위하고/세무사랑)": c.accountingProgram ?? "",
     "소통방법(메일/카톡/문자)": c.contactMethod ?? "",
+    "원천세유형(A/B/C/D)": c.withholdingType ?? "",
+    "CMS상태": c.cmsStatus === "done" ? "등록" : c.cmsStatus === "pending" ? "등록요청중" : "미등록",
     "소속": c.affiliation ?? "",
     "담당직원": c.assignedUser?.name ?? "",
     "법인등록번호": c.corporateNumber ?? "",
-    "마이박스링크": c.myboxLink ?? "",
+    "구글드라이브": c.driveFolderId ? `https://drive.google.com/drive/folders/${c.driveFolderId}` : "",
     "특이사항": c.notes ?? "",
   }));
 
@@ -57,8 +59,8 @@ export async function POST(req: NextRequest) {
     { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 18 }, { wch: 22 },
     { wch: 10 }, { wch: 14 }, { wch: 30 }, { wch: 14 }, { wch: 14 },
     { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 18 },
-    { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 16 },
-    { wch: 30 }, { wch: 25 },
+    { wch: 15 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 10 },
+    { wch: 16 }, { wch: 40 }, { wch: 30 },
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, "고객사정보");
