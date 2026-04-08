@@ -135,7 +135,8 @@ export default async function DashboardPage({
   const happyCallItems: { commissionId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
   const dataCollectItems: { commissionId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
   const todayTasks: { type: "happycall" | "datacollect"; commissionId: number; clientName: string; label: string }[] = [];
-  const excludeItems: { commissionId: number; clientName: string; reason: string; daysElapsed: number }[] = [];
+  const excludeItems: { commissionId: number; clientName: string; reason: string; daysElapsed: number; requestDays: number }[] = [];
+  const postponedItems: { commissionId: number; clientName: string; until: string; note: string; type: string }[] = [];
 
   for (const cp of commissions) {
     const clientName = cp.client.name;
@@ -143,13 +144,27 @@ export default async function DashboardPage({
     const lastCall = cp.happyCalls[0]; // desc order, so [0] is latest
     const connected = cp.happyCalls.find((h: any) => h.result === "connected");
 
+    // 미루기 중인 항목 수집
+    if (isPostponed(cp)) {
+      const until = new Date(cp.postponedUntil!);
+      const type = cp.connectedAt ? "자료수집" : "해피콜";
+      postponedItems.push({
+        commissionId: cp.id,
+        clientName,
+        until: until.toLocaleDateString("ko-KR", { month: "long", day: "numeric" }),
+        note: cp.postponeNote || "",
+        type,
+      });
+    }
+
     // 관리제외요청 상태
     if (cp.excludeRequested && !cp.excludeConfirmed) {
       const noAnswerCount = noAnswerCalls.length;
       const reason = noAnswerCount >= 3 ? "해피콜 3회 부재중" : "자료수집 3회 미수령";
       const baseDate = cp.connectedAt || cp.createdAt;
       const daysElapsed = daysDiff(new Date(baseDate));
-      excludeItems.push({ commissionId: cp.id, clientName, reason, daysElapsed });
+      const requestDays = cp.excludeRequestedAt ? daysDiff(new Date(cp.excludeRequestedAt)) : daysElapsed;
+      excludeItems.push({ commissionId: cp.id, clientName, reason, daysElapsed, requestDays });
 
       // 관리제외요청이지만 자료수집 3회 미수령인 경우 자료수집 카드에도 유지
       if (cp.connectedAt && cp.dataRequestCount >= 3 && !(cp.hasIdCard && cp.hasHometaxCredentials)) {
@@ -277,6 +292,7 @@ export default async function DashboardPage({
           </div>
 
           {/* 프로세스 카드 */}
+          {/* 프로세스 카드 */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <TodayTasksCard items={todayTasks} />
             <HappyCallCard items={happyCallItems} />
@@ -285,30 +301,30 @@ export default async function DashboardPage({
           </div>
 
           <div className="grid grid-cols-2 gap-6">
+            {/* 미루기 카드 */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
-                <h2 className="font-medium text-gray-700">마감 임박 업무</h2>
-                <Link href="/tasks" className="text-xs text-blue-600 hover:underline">전체보기</Link>
+              <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+                <span className="text-base">⏰</span>
+                <h2 className="font-medium text-gray-700">미루기</h2>
+                {postponedItems.length > 0 && (
+                  <span className="bg-orange-400 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{postponedItems.length}</span>
+                )}
               </div>
               <div className="divide-y divide-gray-50">
-                {urgentTasks.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-gray-400 text-sm">임박한 업무가 없습니다</div>
-                ) : (
-                  urgentTasks.map((task) => (
-                    <div key={task.id} className="px-5 py-3 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 truncate">{task.client?.name ?? "고객사 없음"}</div>
-                        <div className="text-xs text-gray-500 truncate">{task.title}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[task.status]}`}>{STATUS_LABELS[task.status]}</span>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : "-"}
-                        </div>
-                      </div>
+                {postponedItems.length === 0 ? (
+                  <div className="px-5 py-8 text-center text-gray-400 text-sm">미룬 업무가 없습니다</div>
+                ) : postponedItems.map(item => (
+                  <div key={item.commissionId} className="px-5 py-3 flex items-center gap-3">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                      item.type === "해피콜" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
+                    }`}>{item.type}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-800 truncate">{item.clientName}</div>
+                      {item.note && <div className="text-[10px] text-gray-400 truncate">{item.note}</div>}
                     </div>
-                  ))
-                )}
+                    <span className="text-[10px] text-orange-500 font-medium whitespace-nowrap">{item.until}까지</span>
+                  </div>
+                ))}
               </div>
             </div>
 

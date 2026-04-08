@@ -34,8 +34,9 @@ type TodayTaskItem = {
 type ExcludeItem = {
   commissionId: number;
   clientName: string;
-  reason: string; // "해피콜 3회 부재중" | "자료수집 3회 미수령"
-  daysElapsed: number;
+  reason: string;
+  daysElapsed: number; // 등록/연결일 기준
+  requestDays: number; // 관리제외 요청일 기준
 };
 
 // ============ 오늘의 업무 카드 ============
@@ -300,7 +301,9 @@ export function ExcludeRequestCard({ items }: { items: ExcludeItem[] }) {
           <div key={item.commissionId} className="px-5 py-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-800 truncate">{item.clientName}</div>
-              <div className="text-[10px] text-gray-400">{item.reason} · D+{item.daysElapsed}</div>
+              <div className="text-[10px] text-gray-400">
+                {item.reason} · 전체 D+{item.daysElapsed} · <span className="text-red-500 font-medium">요청 후 D+{item.requestDays}</span>
+              </div>
             </div>
             <button
               onClick={() => handleConfirm(item.commissionId)}

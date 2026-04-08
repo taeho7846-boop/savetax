@@ -132,7 +132,7 @@ export async function addHappyCall(
     if (noAnswerCount >= 3) {
       await prisma.commissionProcess.update({
         where: { id: commissionId },
-        data: { excludeRequested: true },
+        data: { excludeRequested: true, excludeRequestedAt: new Date() },
       });
     }
   }
@@ -218,7 +218,7 @@ export async function markDataRequested(commissionId: number) {
       dataRequestCount: newCount,
       lastDataRequestAt: new Date(),
       // 3회 도달 시 관리제외요청
-      ...(newCount >= 3 ? { excludeRequested: true } : {}),
+      ...(newCount >= 3 ? { excludeRequested: true, excludeRequestedAt: new Date() } : {}),
     },
   });
   revalidatePath("/dashboard");
@@ -230,7 +230,7 @@ export async function requestExclusion(commissionId: number) {
   await requireAuth();
   await prisma.commissionProcess.update({
     where: { id: commissionId },
-    data: { excludeRequested: true },
+    data: { excludeRequested: true, excludeRequestedAt: new Date() },
   });
   revalidatePath("/dashboard");
   revalidatePath("/commission");

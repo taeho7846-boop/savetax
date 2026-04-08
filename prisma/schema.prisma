@@ -191,6 +191,7 @@ model CommissionProcess {
 
   // 관리제외
   excludeRequested   Boolean   @default(false) // 관리제외요청 상태
+  excludeRequestedAt DateTime? // 관리제외 요청일
   excludeConfirmed   Boolean   @default(false) // 관리제외 확정
 
   createdAt DateTime @default(now())
