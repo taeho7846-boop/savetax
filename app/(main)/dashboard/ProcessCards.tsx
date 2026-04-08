@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { markDataRequested, confirmExclusion, postponeTask, requestExclusion } from "@/app/actions/commission";
+import { markDataRequested, confirmExclusion, postponeTask, requestExclusion, markTransferRequested, markTransferReceived } from "@/app/actions/commission";
 
 type HappyCallItem = {
   commissionId: number;
@@ -25,10 +25,10 @@ type DataCollectItem = {
 };
 
 type TodayTaskItem = {
-  type: "happycall" | "datacollect";
+  type: "happycall" | "datacollect" | "transfer";
   commissionId: number;
   clientName: string;
-  label: string; // "해피콜 D+1", "자료수집 1차 요청"
+  label: string;
 };
 
 type ExcludeItem = {
@@ -80,9 +80,9 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
         ) : items.map((item, i) => (
           <div key={`${item.type}-${item.commissionId}-${i}`} className="px-5 py-3 flex items-center gap-3">
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
-              item.type === "happycall" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
+              item.type === "happycall" ? "bg-blue-100 text-blue-700" : item.type === "transfer" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"
             }`}>
-              {item.type === "happycall" ? "해피콜" : "자료수집"}
+              {item.type === "happycall" ? "해피콜" : item.type === "transfer" ? "이관자료" : "자료수집"}
             </span>
             <div className="flex-1 min-w-0">
               <Link href="/commission" className="text-sm font-medium text-gray-800 hover:text-[#1a2e4a] hover:underline truncate block">
@@ -103,6 +103,15 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
                   onClick={() => handleDataRequest(item.commissionId)}
                   disabled={isPending}
                   className="text-[10px] px-2.5 py-1 rounded-lg bg-[#1a2e4a] text-white hover:bg-[#243d61] disabled:opacity-50 whitespace-nowrap"
+                >
+                  요청완료
+                </button>
+              )}
+              {item.type === "transfer" && (
+                <button
+                  onClick={() => { startTransition(async () => { await markTransferRequested(item.commissionId); router.refresh(); }); }}
+                  disabled={isPending}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 whitespace-nowrap"
                 >
                   요청완료
                 </button>
@@ -312,6 +321,64 @@ export function ExcludeRequestCard({ items }: { items: ExcludeItem[] }) {
             >
               제외 확정
             </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============ 이관자료요청 카드 ============
+export type TransferItem = {
+  commissionId: number;
+  clientName: string;
+  daysElapsed: number; // 등록일 기준
+  isOverdue: boolean; // D+3 이상
+};
+
+export function TransferRequestCard({ items }: { items: TransferItem[] }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleReceived(commissionId: number) {
+    startTransition(async () => {
+      await markTransferReceived(commissionId);
+      router.refresh();
+    });
+  }
+
+  // D+3 이상(지연)을 맨 위로
+  const sorted = [...items].sort((a, b) => b.daysElapsed - a.daysElapsed);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+        <span className="text-base">📦</span>
+        <h2 className="font-medium text-gray-700">이관자료요청</h2>
+        {items.length > 0 && (
+          <span className="bg-orange-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
+        )}
+      </div>
+      <div className="divide-y divide-gray-50">
+        {sorted.length === 0 ? (
+          <div className="px-5 py-8 text-center text-gray-400 text-sm">이관 대기 중인 거래처가 없습니다</div>
+        ) : sorted.map(item => (
+          <div key={item.commissionId} className={`px-5 py-3 flex items-center gap-3 ${item.isOverdue ? "bg-red-50/50" : ""}`}>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-800 truncate">{item.clientName}</div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-[10px] font-medium ${item.isOverdue ? "text-red-500" : "text-gray-400"}`}>
+                D+{item.daysElapsed}{item.isOverdue ? " 지연!" : ""}
+              </span>
+              <button
+                onClick={() => handleReceived(item.commissionId)}
+                disabled={isPending}
+                className="text-[10px] px-2.5 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 disabled:opacity-50 whitespace-nowrap"
+              >
+                수령완료
+              </button>
+            </div>
           </div>
         ))}
       </div>

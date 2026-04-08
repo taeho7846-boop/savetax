@@ -225,6 +225,27 @@ export async function markDataRequested(commissionId: number) {
   revalidatePath("/commission");
 }
 
+// 이관자료 요청 완료 (매일 요청)
+export async function markTransferRequested(commissionId: number) {
+  await requireAuth();
+  await prisma.commissionProcess.update({
+    where: { id: commissionId },
+    data: { lastTransferRequestAt: new Date() },
+  });
+  revalidatePath("/dashboard");
+}
+
+// 이관자료 수령 완료
+export async function markTransferReceived(commissionId: number) {
+  await requireAuth();
+  await prisma.commissionProcess.update({
+    where: { id: commissionId },
+    data: { transferReceivedAt: new Date() },
+  });
+  revalidatePath("/dashboard");
+  revalidatePath("/commission");
+}
+
 // 수동 관리제외요청
 export async function requestExclusion(commissionId: number) {
   await requireAuth();

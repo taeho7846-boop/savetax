@@ -180,6 +180,11 @@ model CommissionProcess {
   notes       String?
   completedAt DateTime?
 
+  // 이관자료 프로세스
+  transferRequested  Boolean   @default(false) // 이관 거래처 여부 (wihagoType=transfer)
+  lastTransferRequestAt DateTime? // 마지막 이관자료 요청일
+  transferReceivedAt DateTime? // 이관자료 수령 완료일
+
   // 자료수집 프로세스
   connectedAt        DateTime? // 해피콜 연결 날짜 (D+0 기준)
   dataRequestCount   Int       @default(0) // 자료 요청 횟수

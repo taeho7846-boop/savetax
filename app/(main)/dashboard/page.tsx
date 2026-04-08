@@ -14,7 +14,8 @@ import { KnowledgeBoard } from "./KnowledgeBoard";
 import { getKnowledges } from "@/app/actions/knowledge";
 import { DashboardTabs } from "./DashboardTabs";
 import { TransferDocsCard } from "./TransferDocsCard";
-import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard } from "./ProcessCards";
+import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard, TransferRequestCard } from "./ProcessCards";
+import type { TransferItem } from "./ProcessCards";
 import { NewDistributionCard } from "./NewDistributionCard";
 
 export default async function DashboardPage({
@@ -151,15 +152,32 @@ export default async function DashboardPage({
 
   const happyCallItems: { commissionId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
   const dataCollectItems: { commissionId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
-  const todayTasks: { type: "happycall" | "datacollect"; commissionId: number; clientName: string; label: string }[] = [];
+  const todayTasks: { type: "happycall" | "datacollect" | "transfer"; commissionId: number; clientName: string; label: string }[] = [];
   const excludeItems: { commissionId: number; clientName: string; reason: string; daysElapsed: number; requestDays: number }[] = [];
   const postponedItems: { commissionId: number; clientName: string; until: string; note: string; type: string }[] = [];
+  const transferItems: TransferItem[] = [];
 
   for (const cp of commissions) {
     const clientName = cp.client.name;
     const noAnswerCalls = cp.happyCalls.filter((h: any) => h.result === "no_answer");
     const lastCall = cp.happyCalls[0]; // desc order, so [0] is latest
     const connected = cp.happyCalls.find((h: any) => h.result === "connected");
+
+    // 이관자료 대기: 이관 거래처이고 아직 수령 안 함
+    if (cp.transferRequested && !cp.transferReceivedAt) {
+      const daysEl = daysDiff(new Date(cp.createdAt));
+      const isOverdue = daysEl >= 3;
+      transferItems.push({ commissionId: cp.id, clientName, daysElapsed: daysEl, isOverdue });
+
+      // D+3 이상이면 오늘의 업무에 이관자료 요청 (매일)
+      if (isOverdue && !isPostponed(cp)) {
+        const daysSinceReq = cp.lastTransferRequestAt ? daysDiff(new Date(cp.lastTransferRequestAt)) : null;
+        // 오늘 아직 요청 안 했으면 (요청 기록 없거나 마지막 요청이 오늘이 아니면)
+        if (daysSinceReq === null || daysSinceReq >= 1) {
+          todayTasks.push({ type: "transfer", commissionId: cp.id, clientName, label: `이관자료 요청 (D+${daysEl})` });
+        }
+      }
+    }
 
     // 미루기 중인 항목 수집
     if (isPostponed(cp)) {
@@ -332,6 +350,7 @@ export default async function DashboardPage({
             <TodayTasksCard items={todayTasks} />
             <HappyCallCard items={happyCallItems} />
             <DataCollectCard items={dataCollectItems} />
+            <TransferRequestCard items={transferItems} />
             <ExcludeRequestCard items={excludeItems} />
           </div>
 

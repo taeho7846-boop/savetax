@@ -89,6 +89,7 @@ const tools: Anthropic.Tool[] = [
         notes: { type: "string", description: "특이사항/특별요청사항" },
         hometaxId: { type: "string", description: "홈택스 ID" },
         hometaxPw: { type: "string", description: "홈택스 PW" },
+        commissionType: { type: "string", enum: ["new", "transfer"], description: "수임 유형. '신규' 또는 '신고대리'이면 'new', '세무기장이용' 또는 '기존'이면 'transfer' (이관)" },
       },
       required: ["name"],
     },
@@ -431,8 +432,16 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       },
     });
 
-    // 신규수임 자동 생성
-    await prisma.commissionProcess.create({ data: { clientId: client.id } });
+    // 신규수임 자동 생성 (이관/신규 자동 설정)
+    const commType = (input.commissionType as string) || "new";
+    const isTransfer = commType === "transfer";
+    await prisma.commissionProcess.create({
+      data: {
+        clientId: client.id,
+        wihagoType: isTransfer ? "transfer" : "new",
+        transferRequested: isTransfer,
+      },
+    });
 
     // 구글 드라이브 폴더 생성
     let driveUrl = "";
@@ -448,7 +457,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       console.error("[Google Drive] 폴더 생성 실패:", e);
     }
 
-    const parts = [`✅ 거래처 "${clientName}" 등록 완료 + 신규수임 자동 생성`];
+    const parts = [`✅ 거래처 "${clientName}" 등록 완료 + 신규수임 자동 생성 (${isTransfer ? "이관" : "신규"})`];
     if (monthlyFee) parts.push(`월기장료: ${monthlyFee.toLocaleString()}원 (VAT포함)`);
     if (firstMonth) parts.push(`최초출금월: ${firstMonth}`);
     if (input.notes) parts.push(`특이사항: ${(input.notes as string).slice(0, 50)}...`);
@@ -921,6 +930,7 @@ export async function POST(req: NextRequest) {
 - **월기장료**: monthlyFee에는 반드시 VAT 제외 원본 금액(숫자만)을 전달하세요. 코드가 자동으로 x1.1 해서 VAT 포함으로 저장합니다. 예: 80000 입력 → 88,000원으로 저장됨.
 - **파싱 결과 표시 시** 월기장료는 반드시 "월기장료: 88,000원 (VAT포함)" 형태로 VAT 포함 금액을 보여주세요. 사용자가 VAT 제외 금액만 보면 혼동합니다.
 - **소속**: 거래처 등록 시 소속은 자동으로 "세이브택스"로 설정됩니다.
+- **수임 유형 (commissionType)**: "2. 신규/기존" 필드를 파싱하여: "세무기장이용" 또는 "기존" → "transfer" (이관), "신규" 또는 "신고대리" → "new" (신규). 이관이면 위하고 유형이 자동으로 "이관"으로 설정되고 이관자료요청 프로세스가 시작됩니다.
 - 출금연월이 "26-06" 같은 형식이면 "2026-06"으로 변환합니다.
 - **주민등록번호**: 텍스트 어디에든 "NNNNNN-NNNNNNN" 형태의 주민번호가 있으면 반드시 residentNumber에 넣으세요. 특별요청사항, 특이사항 안에 포함되어 있을 수 있습니다.
 - 특별요청사항, 특이사항, 경정청구 내용 등은 특이사항 필드에 합쳐서 저장합니다 (주민번호는 제외).
