@@ -115,7 +115,30 @@ export async function addHappyCall(
       notes: notes || null,
     },
   });
+
+  // 연결 시 connectedAt 세팅 (자료수집 D+0 시작)
+  if (result === "connected") {
+    await prisma.commissionProcess.update({
+      where: { id: commissionId },
+      data: { connectedAt: new Date() },
+    });
+  }
+
+  // 부재중 3회 도달 시 관리제외요청
+  if (result === "no_answer") {
+    const noAnswerCount = await prisma.happyCall.count({
+      where: { commissionId, result: "no_answer" },
+    });
+    if (noAnswerCount >= 3) {
+      await prisma.commissionProcess.update({
+        where: { id: commissionId },
+        data: { excludeRequested: true },
+      });
+    }
+  }
+
   revalidatePath("/commission");
+  revalidatePath("/dashboard");
 }
 
 export async function toggleField(
@@ -180,6 +203,36 @@ export async function markComplete(commissionId: number) {
 export async function removeFromCommission(commissionId: number) {
   await requireAuth();
   await prisma.commissionProcess.delete({ where: { id: commissionId } });
+  revalidatePath("/commission");
+}
+
+// 자료 요청 완료 (대시보드 오늘의 업무에서 호출)
+export async function markDataRequested(commissionId: number) {
+  await requireAuth();
+  const cp = await prisma.commissionProcess.findUnique({ where: { id: commissionId } });
+  if (!cp) return;
+  const newCount = cp.dataRequestCount + 1;
+  await prisma.commissionProcess.update({
+    where: { id: commissionId },
+    data: {
+      dataRequestCount: newCount,
+      lastDataRequestAt: new Date(),
+      // 3회 도달 시 관리제외요청
+      ...(newCount >= 3 ? { excludeRequested: true } : {}),
+    },
+  });
+  revalidatePath("/dashboard");
+  revalidatePath("/commission");
+}
+
+// 관리제외 확정
+export async function confirmExclusion(commissionId: number) {
+  await requireAuth();
+  await prisma.commissionProcess.update({
+    where: { id: commissionId },
+    data: { excludeConfirmed: true },
+  });
+  revalidatePath("/dashboard");
   revalidatePath("/commission");
 }
 

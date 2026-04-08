@@ -14,6 +14,7 @@ import { KnowledgeBoard } from "./KnowledgeBoard";
 import { getKnowledges } from "@/app/actions/knowledge";
 import { DashboardTabs } from "./DashboardTabs";
 import { TransferDocsCard } from "./TransferDocsCard";
+import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard } from "./ProcessCards";
 
 export default async function DashboardPage({
   searchParams,
@@ -55,7 +56,7 @@ export default async function DashboardPage({
   const cmsSelect = { id: true, name: true, phone: true, bankName: true, bankAccount: true };
 
   const [totalClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
-         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges] =
+         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, commissions] =
     await Promise.all([
       prisma.client.count({
         where: {
@@ -100,7 +101,104 @@ export default async function DashboardPage({
       }),
       getNotices(),
       getKnowledges(),
+      // 신규수임 프로세스 (해피콜/자료수집용)
+      prisma.commissionProcess.findMany({
+        where: {
+          completedAt: null,
+          excludeConfirmed: false,
+          client: { isDeleted: false, ...myClient },
+        },
+        include: {
+          client: { select: { name: true } },
+          happyCalls: { orderBy: { calledAt: "desc" } },
+        },
+      }),
     ]);
+
+  // === 프로세스 카드 데이터 가공 ===
+  const todayTs = today.getTime();
+  const dayMs = 86400000;
+
+  const happyCallItems: { commissionId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
+  const dataCollectItems: { commissionId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
+  const todayTasks: { type: "happycall" | "datacollect"; commissionId: number; clientName: string; label: string }[] = [];
+  const excludeItems: { commissionId: number; clientName: string; reason: string; daysElapsed: number }[] = [];
+
+  for (const cp of commissions) {
+    const clientName = cp.client.name;
+    const noAnswerCalls = cp.happyCalls.filter((h: any) => h.result === "no_answer");
+    const lastCall = cp.happyCalls[0]; // desc order, so [0] is latest
+    const connected = cp.happyCalls.find((h: any) => h.result === "connected");
+
+    // 관리제외요청 상태
+    if (cp.excludeRequested && !cp.excludeConfirmed) {
+      const noAnswerCount = noAnswerCalls.length;
+      const reason = noAnswerCount >= 3 ? "해피콜 3회 부재중" : "자료수집 3회 미수령";
+      const baseDate = cp.connectedAt || cp.createdAt;
+      const daysElapsed = Math.floor((todayTs - new Date(baseDate).getTime()) / dayMs);
+      excludeItems.push({ commissionId: cp.id, clientName, reason, daysElapsed });
+
+      // 관리제외요청이지만 자료수집 3회 미수령인 경우 자료수집 카드에도 유지
+      if (cp.connectedAt && cp.dataRequestCount >= 3 && !(cp.hasIdCard && cp.hasHometaxCredentials)) {
+        const dfc = Math.floor((todayTs - new Date(cp.connectedAt).getTime()) / dayMs);
+        const missingDocs: string[] = [];
+        if (!cp.hasIdCard) missingDocs.push("신분증");
+        if (!cp.hasHometaxCredentials) missingDocs.push("홈택스 ID/PW");
+        dataCollectItems.push({
+          commissionId: cp.id, clientName, connectedAt: cp.connectedAt.toISOString(),
+          daysFromConnect: dfc, requestCount: cp.dataRequestCount,
+          lastRequestAt: cp.lastDataRequestAt?.toISOString() || null,
+          daysSinceRequest: cp.lastDataRequestAt ? Math.floor((todayTs - new Date(cp.lastDataRequestAt).getTime()) / dayMs) : null,
+          missingDocs,
+        });
+      }
+      continue;
+    }
+
+    // 자료수집 단계: 연결됨 + 아직 자료 미완료
+    if (cp.connectedAt && !(cp.hasIdCard && cp.hasHometaxCredentials)) {
+      const dfc = Math.floor((todayTs - new Date(cp.connectedAt).getTime()) / dayMs);
+      const missingDocs: string[] = [];
+      if (!cp.hasIdCard) missingDocs.push("신분증");
+      if (!cp.hasHometaxCredentials) missingDocs.push("홈택스 ID/PW");
+      const daysSinceReq = cp.lastDataRequestAt ? Math.floor((todayTs - new Date(cp.lastDataRequestAt).getTime()) / dayMs) : null;
+
+      dataCollectItems.push({
+        commissionId: cp.id, clientName, connectedAt: cp.connectedAt.toISOString(),
+        daysFromConnect: dfc, requestCount: cp.dataRequestCount,
+        lastRequestAt: cp.lastDataRequestAt?.toISOString() || null,
+        daysSinceRequest: daysSinceReq, missingDocs,
+      });
+
+      // 오늘의 업무: 요청 0회이면 D+2, 이후에는 마지막 요청으로부터 2일 경과
+      if (cp.dataRequestCount === 0 && dfc >= 2) {
+        todayTasks.push({ type: "datacollect", commissionId: cp.id, clientName, label: `1차 자료 요청 (D+${dfc})` });
+      } else if (cp.dataRequestCount > 0 && daysSinceReq !== null && daysSinceReq >= 2) {
+        todayTasks.push({ type: "datacollect", commissionId: cp.id, clientName, label: `${cp.dataRequestCount + 1}차 자료 요청 (D+${dfc})` });
+      }
+      continue;
+    }
+
+    // 자료수집 완료 → 카드에서 제외
+    if (cp.connectedAt && cp.hasIdCard && cp.hasHometaxCredentials) continue;
+
+    // 해피콜 단계: 아직 연결 안 됨
+    if (!connected && noAnswerCalls.length > 0 && noAnswerCalls.length < 3) {
+      const lastCallDate = lastCall ? new Date(lastCall.calledAt) : cp.createdAt;
+      const daysElapsed = Math.floor((todayTs - new Date(lastCallDate).getTime()) / dayMs);
+      happyCallItems.push({
+        commissionId: cp.id, clientName,
+        noAnswerCount: noAnswerCalls.length,
+        lastCallAt: lastCallDate.toISOString(),
+        daysElapsed,
+      });
+
+      // 오늘의 업무: 마지막 부재중 다음날부터
+      if (daysElapsed >= 1) {
+        todayTasks.push({ type: "happycall", commissionId: cp.id, clientName, label: `${noAnswerCalls.length + 1}차 해피콜 (D+${daysElapsed})` });
+      }
+    }
+  }
 
   return (
     <div>
@@ -156,6 +254,14 @@ export default async function DashboardPage({
               currentYM={currentYM}
               nextYM={nextYM}
             />
+          </div>
+
+          {/* 프로세스 카드 */}
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <TodayTasksCard items={todayTasks} />
+            <HappyCallCard items={happyCallItems} />
+            <DataCollectCard items={dataCollectItems} />
+            <ExcludeRequestCard items={excludeItems} />
           </div>
 
           <div className="grid grid-cols-2 gap-6">

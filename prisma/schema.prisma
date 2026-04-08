@@ -180,6 +180,15 @@ model CommissionProcess {
   notes       String?
   completedAt DateTime?
 
+  // 자료수집 프로세스
+  connectedAt        DateTime? // 해피콜 연결 날짜 (D+0 기준)
+  dataRequestCount   Int       @default(0) // 자료 요청 횟수
+  lastDataRequestAt  DateTime? // 마지막 자료 요청일
+
+  // 관리제외
+  excludeRequested   Boolean   @default(false) // 관리제외요청 상태
+  excludeConfirmed   Boolean   @default(false) // 관리제외 확정
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
