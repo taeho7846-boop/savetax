@@ -57,12 +57,13 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data);
 }
 
-// POST: 번호 제거 실행
+// POST: 폴더 이름 일괄 변경
+// mode: "remove-numbers" (기본) | "replace"
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { parentId } = await req.json();
+  const { parentId, mode, find, replace } = await req.json();
   const folderId = parentId || ROOT_FOLDER_ID;
 
   const data = await listFolders(folderId);
@@ -71,10 +72,22 @@ export async function POST(req: NextRequest) {
   const results: { old: string; new: string; id: string }[] = [];
 
   for (const folder of data.files) {
-    // "33. 인텍" → "인텍", "0. 표본" → "표본"
-    const match = folder.name.match(/^\d+\.\s*(.+)$/);
-    if (match) {
-      const newName = match[1].trim();
+    let newName: string | null = null;
+
+    if (mode === "replace" && find) {
+      // 문자열 치환 모드
+      if (folder.name.includes(find)) {
+        newName = folder.name.replace(find, replace || "").trim();
+      }
+    } else {
+      // 기본: 번호 제거 모드 "33. 인텍" → "인텍"
+      const match = folder.name.match(/^\d+\.\s*(.+)$/);
+      if (match) {
+        newName = match[1].trim();
+      }
+    }
+
+    if (newName && newName !== folder.name) {
       await renameFile(folder.id, newName);
       results.push({ old: folder.name, new: newName, id: folder.id });
     }

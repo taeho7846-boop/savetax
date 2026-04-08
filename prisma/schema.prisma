@@ -72,6 +72,7 @@ model Client {
   notes          String?  // 특이사항
   myboxLink      String?  // 네이버 마이박스 폴더 링크
   driveFolderId  String?  // 구글 드라이브 거래처 폴더 ID
+  settlementStartMonth String? // 정산 출금시작월 (YYYY-MM)
   cmsStatus      String   @default("none") // CMS 상태: none, pending, done
   assignedUserId Int?
   assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
@@ -88,6 +89,7 @@ model Client {
   withholdingProcesses WithholdingProcess[]
   incomeTaxRecords   IncomeTaxRecord[]
   dataCollections    DataCollection[]
+  settlementBookkeepings SettlementBookkeeping[]
 }
 
 // 기장료 수납 기록
@@ -411,6 +413,41 @@ model TelegramUser {
   telegramId String @unique
   userId     Int    @unique
   user       User   @relation(fields: [userId], references: [id])
+}
+
+// Savetax 정산 - 기장
+model SettlementBookkeeping {
+  id              Int      @id @default(autoincrement())
+  clientId        Int
+  client          Client   @relation(fields: [clientId], references: [id])
+  yearMonth       String   // "2026-04"
+  headquarterFee  Int      @default(0) // 본점지급액
+  withdrawn       Boolean  @default(false) // 출금여부
+  remitted        Boolean  @default(false) // 송금여부
+  tiIssued        Boolean  @default(false) // T/I 발급여부
+  notes           String?  // 비고
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([clientId, yearMonth])
+}
+
+// Savetax 정산 - 단건
+model SettlementOneoff {
+  id              Int      @id @default(autoincrement())
+  yearMonth       String   // "2026-04"
+  clientName      String   // 거래처명
+  ceoName         String?  // 대표자명
+  assignedUserName String? // 담당자명
+  withdrawalAmount Int     @default(0) // 출금액
+  fee             Int      @default(0) // 수수료
+  withdrawn       Boolean  @default(false) // 출금여부
+  remitted        Boolean  @default(false) // 송금여부
+  tiIssued        Boolean  @default(false) // T/I 발급여부
+  notes           String?  // 비고
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // 건의사항/오류제보
