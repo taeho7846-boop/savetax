@@ -102,14 +102,15 @@ export default async function DashboardPage({
       }),
       getNotices(),
       getKnowledges(),
-      // 미확인 배분
+      // 미확인 배분 (Savetax 배분만, 세무회계태호 배분 제외)
       prisma.distribution.findMany({
         where: {
           assignedUserId: session.id,
           isSkipped: false,
           confirmedAt: null,
+          clientName: { not: "-" },
         },
-        select: { id: true, clientName: true, clientType: true, createdAt: true },
+        select: { id: true },
         orderBy: { createdAt: "desc" },
       }),
       // 신규수임 프로세스 (해피콜/자료수집용)
@@ -269,7 +270,7 @@ export default async function DashboardPage({
                 </Link>
               ) : <div />}
               {newDistributions.length > 0 ? (
-                <NewDistributionCard items={newDistributions.map(d => ({ ...d, createdAt: d.createdAt.toISOString() }))} />
+                <NewDistributionCard count={newDistributions.length} ids={newDistributions.map(d => d.id)} />
               ) : <div />}
             </div>
           )}
