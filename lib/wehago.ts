@@ -227,11 +227,29 @@ export async function createWehagoClient(
 
     // 수임처 생성 버튼
     await page.locator('button.WSC_LUXButton:has-text("수임처 생성")').click({ force: true });
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(3000);
 
     // 생성 후 스크린샷
     await page.screenshot({ path: "/tmp/wehago-debug5.png" });
     console.log("[Wehago] 스크린샷5-생성클릭후: /tmp/wehago-debug5.png");
+
+    // 확인/알림 팝업 처리
+    for (let i = 0; i < 5; i++) {
+      try {
+        const okBtn = page.locator('button.WSC_LUXButton:has-text("확인"), button:has-text("확인"), button:has-text("예"), button:has-text("OK")');
+        if (await okBtn.first().isVisible({ timeout: 1500 })) {
+          await okBtn.first().click({ force: true });
+          await page.waitForTimeout(1000);
+        } else {
+          break;
+        }
+      } catch { break; }
+    }
+    await page.waitForTimeout(3000);
+
+    // 최종 스크린샷
+    await page.screenshot({ path: "/tmp/wehago-debug6.png" });
+    console.log("[Wehago] 스크린샷6-최종: /tmp/wehago-debug6.png");
 
     await browser.close();
     return { success: true, message: `위하고 수임처 "${client.name}" 생성 완료` };
