@@ -148,19 +148,30 @@ export async function createWehagoClient(
         (el as HTMLElement).style.display = 'none';
       });
     });
+    await page.waitForTimeout(1000);
+
+    // 방법 4: 팝업 X 버튼 좌표 직접 클릭 (우측 상단)
+    await page.mouse.click(527, 55);
+    await page.waitForTimeout(1000);
+    await page.mouse.click(527, 55);
     await page.waitForTimeout(2000);
+
+    // 디버깅: 팝업 닫기 후 스크린샷
+    await page.screenshot({ path: "/tmp/wehago-debug.png" });
+    console.log("[Wehago] 스크린샷1-팝업닫기후: /tmp/wehago-debug.png");
 
     // 새 수임처 생성
     await page.getByRole("button", { name: "전체" }).click({ force: true });
     await page.waitForTimeout(2000);
+    await page.screenshot({ path: "/tmp/wehago-debug2.png" });
+    console.log("[Wehago] 스크린샷2-전체클릭후: /tmp/wehago-debug2.png");
+
     await page.getByRole("button", { name: "새 수임처" }).click({ force: true });
     await page.waitForTimeout(3000);
+    await page.screenshot({ path: "/tmp/wehago-debug3.png" });
+    console.log("[Wehago] 스크린샷3-새수임처클릭후: /tmp/wehago-debug3.png");
 
-    // 디버깅: 현재 페이지 스크린샷 저장
-    await page.screenshot({ path: "/tmp/wehago-debug.png" });
-    console.log("[Wehago] 스크린샷 저장: /tmp/wehago-debug.png");
-
-    // "신규 회사로 생성" 버튼 찾기 (여러 방법 시도)
+    // "신규 회사로 생성" 버튼 찾기
     const newCompanyBtn = page.getByRole("button", { name: /신규 회사로 생성/ })
       .or(page.locator("button:has-text('신규 회사로 생성')"))
       .or(page.locator(".btn:has-text('신규')"))
