@@ -118,11 +118,15 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
               </Link>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {Array.from({ length: item.noAnswerCount }, (_, i) => (
-                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">
-                  {i + 1}차 부재중
-                </span>
-              ))}
+              {item.noAnswerCount === 0 ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium">1차 대기</span>
+              ) : (
+                Array.from({ length: item.noAnswerCount }, (_, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">
+                    {i + 1}차 부재중
+                  </span>
+                ))
+              )}
               <span className="text-[10px] text-gray-400">D+{item.daysElapsed}</span>
             </div>
           </div>

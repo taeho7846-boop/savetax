@@ -182,20 +182,25 @@ export default async function DashboardPage({
     // 자료수집 완료 → 카드에서 제외
     if (cp.connectedAt && cp.hasIdCard && cp.hasHometaxCredentials) continue;
 
-    // 해피콜 단계: 아직 연결 안 됨
-    if (!connected && noAnswerCalls.length > 0 && noAnswerCalls.length < 3) {
-      const lastCallDate = lastCall ? new Date(lastCall.calledAt) : cp.createdAt;
-      const daysElapsed = Math.floor((todayTs - new Date(lastCallDate).getTime()) / dayMs);
+    // 해피콜 단계: 아직 연결 안 됨 (0회 포함)
+    if (!connected && noAnswerCalls.length < 3) {
+      // 기준일: 마지막 통화일 또는 등록일
+      const baseDate = lastCall ? new Date(lastCall.calledAt) : new Date(cp.createdAt);
+      const daysElapsed = Math.floor((todayTs - baseDate.getTime()) / dayMs);
+
       happyCallItems.push({
         commissionId: cp.id, clientName,
         noAnswerCount: noAnswerCalls.length,
-        lastCallAt: lastCallDate.toISOString(),
+        lastCallAt: baseDate.toISOString(),
         daysElapsed,
       });
 
-      // 오늘의 업무: 마지막 부재중 다음날부터
+      // 오늘의 업무:
+      // - 0회(신규): 등록일 다음날(D+1)부터
+      // - 부재중 후: 마지막 부재중 다음날(D+1)부터
       if (daysElapsed >= 1) {
-        todayTasks.push({ type: "happycall", commissionId: cp.id, clientName, label: `${noAnswerCalls.length + 1}차 해피콜 (D+${daysElapsed})` });
+        const nextAttempt = noAnswerCalls.length + 1;
+        todayTasks.push({ type: "happycall", commissionId: cp.id, clientName, label: `${nextAttempt}차 해피콜 (D+${daysElapsed})` });
       }
     }
   }
