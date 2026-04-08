@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createTaskInModal, getCreateTaskData } from "@/app/actions/tasks";
 import { createMemoInModal } from "@/app/actions/memos";
@@ -114,18 +114,7 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
 
               {/* 공통: 고객사 + 제목 */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">고객사</label>
-                  <select
-                    name="clientId"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  >
-                    <option value="">고객사 없음</option>
-                    {data.clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <ClientSearchSelect clients={data.clients} />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     제목 <span className="text-red-500">*</span>
@@ -248,6 +237,65 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ClientSearchSelect({ clients }: { clients: { id: number; name: string }[] }) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<{ id: number; name: string } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  const filtered = search
+    ? clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    : clients;
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="block text-sm font-medium text-gray-700 mb-1">고객사</label>
+      <input type="hidden" name="clientId" value={selected?.id ?? ""} />
+      <input
+        type="text"
+        value={open ? search : (selected?.name ?? "")}
+        onChange={e => { setSearch(e.target.value); setOpen(true); }}
+        onFocus={() => { setOpen(true); setSearch(""); }}
+        placeholder="검색 또는 선택"
+        autoComplete="off"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+      />
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 max-h-52 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => { setSelected(null); setSearch(""); setOpen(false); }}
+            className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${!selected ? "bg-blue-100 text-blue-700 font-medium" : "text-gray-500"}`}
+          >
+            고객사 없음
+          </button>
+          {filtered.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => { setSelected(c); setSearch(""); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${selected?.id === c.id ? "bg-blue-100 text-blue-700 font-medium" : "text-gray-800"}`}
+            >
+              {c.name}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <div className="px-3 py-2 text-sm text-gray-400">검색 결과 없음</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
