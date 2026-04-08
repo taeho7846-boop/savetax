@@ -249,15 +249,27 @@ export async function postponeTask(commissionId: number, until: string, note: st
   revalidatePath("/dashboard");
 }
 
-// 관리제외 확정
+// 관리제외 확정 → 고객사 삭제(휴지통)
 export async function confirmExclusion(commissionId: number) {
   await requireAuth();
+  const cp = await prisma.commissionProcess.findUnique({
+    where: { id: commissionId },
+    select: { clientId: true },
+  });
   await prisma.commissionProcess.update({
     where: { id: commissionId },
     data: { excludeConfirmed: true },
   });
+  // 고객사 소프트 삭제 (휴지통으로)
+  if (cp?.clientId) {
+    await prisma.client.update({
+      where: { id: cp.clientId },
+      data: { isDeleted: true },
+    });
+  }
   revalidatePath("/dashboard");
   revalidatePath("/commission");
+  revalidatePath("/clients");
 }
 
 export async function deleteIdCard(commissionId: number) {
