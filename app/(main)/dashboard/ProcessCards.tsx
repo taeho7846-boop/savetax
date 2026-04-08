@@ -1,9 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { markDataRequested, confirmExclusion } from "@/app/actions/commission";
+import { markDataRequested, confirmExclusion, postponeTask } from "@/app/actions/commission";
 
 type HappyCallItem = {
   commissionId: number;
@@ -42,6 +42,7 @@ type ExcludeItem = {
 export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const [postponeTarget, setPostponeTarget] = useState<{ commissionId: number; clientName: string } | null>(null);
 
   function handleDataRequest(commissionId: number) {
     startTransition(async () => {
@@ -50,7 +51,20 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
     });
   }
 
+  function handlePostpone() {
+    if (!postponeTarget) return;
+    const dateVal = (document.getElementById("postpone-date") as HTMLInputElement)?.value;
+    if (!dateVal) { alert("날짜를 선택하세요"); return; }
+    const note = (document.getElementById("postpone-note") as HTMLInputElement)?.value || "";
+    startTransition(async () => {
+      await postponeTask(postponeTarget.commissionId, dateVal, note);
+      setPostponeTarget(null);
+      router.refresh();
+    });
+  }
+
   return (
+    <>
     <div className="bg-white rounded-xl shadow-sm border border-gray-100">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
         <span className="text-base">📋</span>
@@ -61,7 +75,7 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
       </div>
       <div className="divide-y divide-gray-50">
         {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">오늘 할 업무가 없습니다</div>
+          <div className="px-5 py-8 text-center text-gray-400 text-sm">오늘 할 업무가 없습니다 &#x1F389;</div>
         ) : items.map((item, i) => (
           <div key={`${item.type}-${item.commissionId}-${i}`} className="px-5 py-3 flex items-center gap-3">
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
@@ -75,24 +89,61 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
               </Link>
               <div className="text-[10px] text-gray-400">{item.label}</div>
             </div>
-            {item.type === "datacollect" && (
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
-                onClick={() => handleDataRequest(item.commissionId)}
-                disabled={isPending}
-                className="text-[10px] px-2.5 py-1 rounded-lg bg-[#1a2e4a] text-white hover:bg-[#243d61] disabled:opacity-50 whitespace-nowrap"
+                onClick={() => setPostponeTarget({ commissionId: item.commissionId, clientName: item.clientName })}
+                className="text-[10px] px-2 py-1 rounded-lg bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 whitespace-nowrap"
+                title="미루기"
               >
-                요청완료
+                ⏰ 미루기
               </button>
-            )}
-            {item.type === "happycall" && (
-              <Link href="/commission" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">
-                신규수임 →
-              </Link>
-            )}
+              {item.type === "datacollect" && (
+                <button
+                  onClick={() => handleDataRequest(item.commissionId)}
+                  disabled={isPending}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-[#1a2e4a] text-white hover:bg-[#243d61] disabled:opacity-50 whitespace-nowrap"
+                >
+                  요청완료
+                </button>
+              )}
+              {item.type === "happycall" && (
+                <Link href="/commission" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">
+                  신규수임 →
+                </Link>
+              )}
+            </div>
           </div>
         ))}
       </div>
     </div>
+
+    {/* 미루기 모달 */}
+    {postponeTarget && (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setPostponeTarget(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-gray-900">업무 미루기</h3>
+            <button onClick={() => setPostponeTarget(null)} className="text-gray-400 hover:text-gray-700 text-lg">✕</button>
+          </div>
+          <div className="text-sm text-[#1a2e4a] font-medium mb-3">{postponeTarget.clientName}</div>
+          <div className="space-y-3 mb-4">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">언제까지 미룰까요?</label>
+              <input id="postpone-date" type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">사유 (선택)</label>
+              <input id="postpone-note" type="text" placeholder="예: 다음주 월요일 전화 요청" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setPostponeTarget(null)} className="text-sm text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100">취소</button>
+            <button onClick={handlePostpone} disabled={isPending} className="text-sm bg-[#1a2e4a] text-white px-4 py-1.5 rounded-lg hover:bg-[#243d61] disabled:opacity-50">미루기</button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

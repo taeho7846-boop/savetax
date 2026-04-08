@@ -124,6 +124,13 @@ export default async function DashboardPage({
     d.setHours(0, 0, 0, 0);
     return Math.floor((todayTs - d.getTime()) / dayMs);
   }
+  // 미루기 체크: postponedUntil이 오늘 이후면 오늘의 업무에서 숨김
+  function isPostponed(cp: any) {
+    if (!cp.postponedUntil) return false;
+    const until = new Date(cp.postponedUntil);
+    until.setHours(0, 0, 0, 0);
+    return until.getTime() > todayTs;
+  }
 
   const happyCallItems: { commissionId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
   const dataCollectItems: { commissionId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
@@ -176,11 +183,13 @@ export default async function DashboardPage({
         daysSinceRequest: daysSinceReq, missingDocs,
       });
 
-      // 오늘의 업무: 요청 0회이면 D+2, 이후에는 마지막 요청으로부터 2일 경과
-      if (cp.dataRequestCount === 0 && dfc >= 2) {
-        todayTasks.push({ type: "datacollect", commissionId: cp.id, clientName, label: `1차 자료 요청 (D+${dfc})` });
-      } else if (cp.dataRequestCount > 0 && daysSinceReq !== null && daysSinceReq >= 2) {
-        todayTasks.push({ type: "datacollect", commissionId: cp.id, clientName, label: `${cp.dataRequestCount + 1}차 자료 요청 (D+${dfc})` });
+      // 오늘의 업무: 요청 0회이면 D+2, 이후에는 마지막 요청으로부터 2일 경과 (미루기 체크)
+      if (!isPostponed(cp)) {
+        if (cp.dataRequestCount === 0 && dfc >= 2) {
+          todayTasks.push({ type: "datacollect", commissionId: cp.id, clientName, label: `1차 자료 요청 (D+${dfc})` });
+        } else if (cp.dataRequestCount > 0 && daysSinceReq !== null && daysSinceReq >= 2) {
+          todayTasks.push({ type: "datacollect", commissionId: cp.id, clientName, label: `${cp.dataRequestCount + 1}차 자료 요청 (D+${dfc})` });
+        }
       }
       continue;
     }
@@ -201,10 +210,10 @@ export default async function DashboardPage({
         daysElapsed,
       });
 
-      // 오늘의 업무:
+      // 오늘의 업무 (미루기 체크):
       // - 0회(신규): 등록일 다음날(D+1)부터
       // - 부재중 후: 마지막 부재중 다음날(D+1)부터
-      if (daysElapsed >= 1) {
+      if (daysElapsed >= 1 && !isPostponed(cp)) {
         const nextAttempt = noAnswerCalls.length + 1;
         todayTasks.push({ type: "happycall", commissionId: cp.id, clientName, label: `${nextAttempt}차 해피콜 (D+${daysElapsed})` });
       }

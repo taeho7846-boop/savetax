@@ -185,6 +185,10 @@ model CommissionProcess {
   dataRequestCount   Int       @default(0) // 자료 요청 횟수
   lastDataRequestAt  DateTime? // 마지막 자료 요청일
 
+  // 미루기
+  postponedUntil     DateTime? // 이 날짜까지 오늘의 업무에서 숨김
+  postponeNote       String?   // 미루기 사유
+
   // 관리제외
   excludeRequested   Boolean   @default(false) // 관리제외요청 상태
   excludeConfirmed   Boolean   @default(false) // 관리제외 확정
