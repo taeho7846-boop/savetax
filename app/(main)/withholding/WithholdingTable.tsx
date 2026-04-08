@@ -87,6 +87,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["D"]));
   const month = parseInt(yearMonth.split("-")[1]);
   const extraColumns = getAllExtraColumns();
 
@@ -201,9 +202,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
               return (
                 <React.Fragment key={group.type || "unassigned"}>
                   {/* 그룹 헤더 행 */}
-                  <tr className={`${cfg ? cfg.bg : "bg-gray-100"}`}>
+                  <tr
+                    className={`${cfg ? cfg.bg : "bg-gray-100"} cursor-pointer select-none`}
+                    onClick={() => setCollapsedGroups(prev => {
+                      const next = new Set(prev);
+                      const key = group.type || "unassigned";
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                  >
                     <td colSpan={totalCols} className="px-4 py-2 border-t border-b border-gray-200">
                       <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-400 w-3">{collapsedGroups.has(group.type || "unassigned") ? "▶" : "▼"}</span>
                         {cfg && (
                           <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold border ${cfg.border} ${cfg.color}`}>
                             {group.type}
@@ -215,7 +225,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                     </td>
                   </tr>
                   {/* 거래처 행 */}
-                  {group.clients.map((client) => {
+                  {!collapsedGroups.has(group.type || "unassigned") && group.clients.map((client) => {
                     const override = client.withholdingLaborOverrides?.[0];
                     const baseLaborTypes = client.laborTypes?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
                     const laborList = override?.laborTypes
