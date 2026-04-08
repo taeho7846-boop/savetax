@@ -255,7 +255,12 @@ export default async function TasksPage({
                         <span className="text-gray-500">고객사 없음</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-800">{task.title}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-gray-800">{task.title}</div>
+                      {task.notes && (
+                        <div className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap line-clamp-2">{task.notes}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500">
                       {task.taskType ? TASK_TYPE_LABELS[task.taskType] || task.taskType : "-"}
                     </td>
