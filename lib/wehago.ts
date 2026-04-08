@@ -34,13 +34,28 @@ export async function createWehagoClient(
     });
     const page = await context.newPage();
 
-    // 1. 위하고 로그인
-    await page.goto("https://www.wehago.com/landing/ko/home/", { waitUntil: "networkidle", timeout: 30000 });
-    await page.getByRole("link", { name: "로그인" }).click();
+    // 1. 위하고 로그인 (직접 로그인 페이지)
+    await page.goto("https://www.wehago.com/#/login", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(3000);
+
+    // 로그인 페이지가 아니면 홈에서 로그인 링크 클릭
+    try {
+      const idInput = await page.getByRole("textbox", { name: "아이디를 입력하세요" });
+      if (!(await idInput.isVisible({ timeout: 3000 }))) {
+        await page.getByRole("link", { name: "로그인" }).click();
+        await page.waitForTimeout(2000);
+      }
+    } catch {
+      try {
+        await page.getByRole("link", { name: "로그인" }).click();
+        await page.waitForTimeout(2000);
+      } catch {}
+    }
+
     await page.getByRole("textbox", { name: "아이디를 입력하세요" }).fill(wehagoId);
     await page.getByRole("textbox", { name: "비밀번호를 입력하세요" }).fill(wehagoPw);
     await page.getByRole("button", { name: "로그인" }).click();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
 
     // 팝업/공지 닫기 (최대 5번 시도)
     for (let i = 0; i < 5; i++) {
