@@ -19,15 +19,15 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; bo
   D: { label: "D", color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200", description: "1인사업자 (원천세 없음)" },
 };
 
-// 모든 프로세스 단계 (A 기준 최대, 나머지는 비활성)
-const ALL_PROCESS_STEPS = ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"];
+// 프로세스 단계 (공통)
+const ALL_PROCESS_STEPS = ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"];
 
 const STEPS_BY_TYPE: Record<string, string[]> = {
-  "": ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"], // 미지정도 전체 활성
-  A: ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"],
+  "": ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"],
+  A: ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"],
   B: ["급여명세서전달", "원천세신고", "납부서전달"],
   C: ["급여명세서전달", "원천세신고"],
-  D: ["최초안내발송"],
+  D: [],
 };
 
 const STEP_ICONS: Record<string, string> = {
@@ -175,7 +175,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
               <th className="text-left px-4 py-3 text-gray-700 font-semibold text-xs whitespace-nowrap">고객사명</th>
               <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs w-10">메모</th>
               {showAssignedUser && <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs whitespace-nowrap">담당자</th>}
+              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs whitespace-nowrap">신고없음</th>
               <th className="text-center px-3 py-3 text-gray-700 font-semibold text-xs whitespace-nowrap">인건비</th>
+              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs whitespace-nowrap">6개월납</th>
               {ALL_PROCESS_STEPS.map(step => (
                 <th key={step} className="text-center px-3 py-3 whitespace-nowrap">
                   <span className="text-[11px] font-semibold text-gray-600">{step}</span>
@@ -195,7 +197,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
             )}
             {groups.map((group) => {
               const cfg = group.config;
-              const totalCols = 5 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + (extraColumns.length > 0 ? 1 : 0) + extraColumns.length;
+              const totalCols = 7 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + (extraColumns.length > 0 ? 1 : 0) + extraColumns.length;
               return (
                 <React.Fragment key={group.type || "unassigned"}>
                   {/* 그룹 헤더 행 */}
@@ -221,8 +223,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                       : baseLaborTypes;
                     const monthMemo = override?.memo || "";
                     const doneMap = new Map(client.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
+                    const isSkipped = doneMap.has("신고없음");
                     const steps = new Set(STEPS_BY_TYPE[client.withholdingType || ""] || []);
-                    const allStepsDone = steps.size > 0 && [...steps].every(s => doneMap.has(s));
+                    const allStepsDone = isSkipped || (steps.size > 0 && [...steps].every(s => doneMap.has(s)));
+                    const hasOverride = override?.laborTypes != null && override.laborTypes !== "";
                     const requiredExtra = getRequiredTasks(laborList, client.halfYearTax, month);
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
 
@@ -270,12 +274,23 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                         {showAssignedUser && (
                           <td className="px-1 py-2 text-center text-[10px] text-gray-500 truncate">{client.assignedUser?.name ?? "-"}</td>
                         )}
+                        {/* 신고없음 */}
+                        <td className="px-2 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSkipped}
+                            onChange={() => handleToggle(client.id, "신고없음")}
+                            disabled={isPending}
+                            className="accent-gray-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                        </td>
+                        {/* 인건비 (3개 소득 전부 표시, 클릭으로 해당 월 토글) */}
                         <td className="px-1 py-2 text-center">
                           <div className="flex items-center justify-center gap-0.5 flex-wrap">
-                            {baseLaborTypes.map(t => {
+                            {(["근로소득", "사업소득", "일용직"] as const).map(t => {
                               const s = LABOR_STYLES[t];
-                              if (!s) return null;
                               const isActive = laborList.includes(t);
+                              const isBase = baseLaborTypes.includes(t);
                               return (
                                 <button
                                   key={t}
@@ -286,29 +301,38 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                                     } else {
                                       newList = [...laborList, t];
                                     }
-                                    // baseLaborTypes와 동일하면 override 해제, 다르면 override 저장
-                                    const same = baseLaborTypes.length === newList.length && baseLaborTypes.every(b => newList.includes(b));
-                                    startTransition(() => setLaborOverride(client.id, yearMonth, same ? "" : newList.join(",")));
+                                    const isSame = newList.sort().join(",") === [...baseLaborTypes].sort().join(",");
+                                    startTransition(() => setLaborOverride(client.id, yearMonth, isSame ? "" : newList.join(",")));
                                   }}
                                   disabled={isPending}
                                   className={`border rounded px-1 py-0.5 text-[9px] font-medium transition-all ${
                                     isActive
                                       ? `${s.border} ${s.text} ${s.bg}`
-                                      : "border-gray-200 text-gray-300 bg-gray-50 line-through"
-                                  }`}
-                                  title={isActive ? `${t} 이번달 제외` : `${t} 이번달 포함`}
+                                      : "border-dashed border-gray-300 text-gray-300 bg-white"
+                                  } ${!isBase && isActive ? "ring-1 ring-offset-1 ring-blue-400" : ""} hover:opacity-80 cursor-pointer`}
+                                  title={isActive ? `${t} 이번달 제외` : `${t} 이번달 추가`}
                                 >
                                   {t}
                                 </button>
                               );
                             })}
-                            {baseLaborTypes.length === 0 && <span className="text-gray-300 text-[10px]">-</span>}
+                            {hasOverride && <span className="text-[9px] text-blue-500" title="이번달 인건비가 기본값과 다릅니다">✎</span>}
                           </div>
                         </td>
-                        {/* 프로세스 4열 (항상 표시) */}
+                        {/* 6개월납 */}
+                        <td className="px-2 py-2 text-center">
+                          {client.halfYearTax ? (
+                            <span className="bg-orange-50 text-orange-600 border border-orange-300 rounded px-1.5 py-0.5 text-[9px] font-medium">6개월</span>
+                          ) : (
+                            <span className="text-gray-200 text-[10px]">-</span>
+                          )}
+                        </td>
+                        {/* 프로세스 단계 */}
                         {ALL_PROCESS_STEPS.map(step => (
                           <td key={step} className="px-2 py-2 text-center">
-                            {steps.has(step) ? (
+                            {isSkipped ? (
+                              <span className="text-gray-200 text-[10px]">-</span>
+                            ) : steps.has(step) ? (
                               <div className="flex justify-center">
                                 <button
                                   onClick={() => handleProcessToggle(client.id, step)}
@@ -333,7 +357,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                         {/* 추가 체크리스트 */}
                         {extraColumns.map(col => (
                           <td key={col.key} className="px-1 py-2 text-center">
-                            {client.withholdingType === "D" ? (
+                            {isSkipped || client.withholdingType === "D" ? (
                               <span className="text-gray-200 text-[10px]">-</span>
                             ) : requiredExtraKeys.has(col.key) ? (
                               <input
