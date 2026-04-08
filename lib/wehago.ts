@@ -180,13 +180,10 @@ export async function createWehagoClient(
     await page.screenshot({ path: "/tmp/wehago-debug3.png" });
     console.log("[Wehago] 스크린샷3-새수임처클릭후: /tmp/wehago-debug3.png");
 
-    // "신규 회사로 생성" 버튼 찾기
-    const newCompanyBtn = page.getByRole("button", { name: /신규 회사로 생성/ })
-      .or(page.locator("button:has-text('신규 회사로 생성')"))
-      .or(page.locator(".btn:has-text('신규')"))
-      .or(page.locator("[class*='create']:has-text('신규')"));
-    await newCompanyBtn.first().click({ force: true, timeout: 10000 });
-    await page.waitForTimeout(2000);
+    // "신규 회사로 생성" 카드/링크 클릭
+    const newCompanyBtn = page.getByText("신규 회사로 생성").first();
+    await newCompanyBtn.click({ force: true, timeout: 10000 });
+    await page.waitForTimeout(3000);
 
     // 3. 폼 입력
     // 회사명
