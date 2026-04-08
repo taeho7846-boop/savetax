@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ClientsTable } from "./ClientsTable";
 import { ClientCreateButton } from "./ClientCreateModal";
 import { BulkUploadButton, BulkUpdateButton } from "./BulkUploadModal";
+import { TrashBinButton } from "./TrashBin";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "1인사업자": { border: "border-purple-400", text: "text-purple-600", bg: "bg-purple-50" },
@@ -60,6 +61,10 @@ export default async function ClientsPage({
     orderBy: { name: "asc" },
   });
 
+  const trashCount = isReadonly ? 0 : await prisma.client.count({
+    where: { isDeleted: true, assignedUserId: session.id },
+  });
+
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
@@ -88,6 +93,7 @@ export default async function ClientsPage({
           </a>
           {!isReadonly && (
             <>
+              <TrashBinButton count={trashCount} />
               <BulkUpdateButton />
               <BulkUploadButton />
               <ClientCreateButton />

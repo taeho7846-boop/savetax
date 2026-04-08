@@ -341,6 +341,32 @@ export async function bulkDeleteClients(ids: number[]) {
   return { count: result.count };
 }
 
+export async function restoreClient(id: number) {
+  await requireAuth();
+  await prisma.client.update({ where: { id }, data: { isDeleted: false } });
+  revalidatePath("/clients");
+}
+
+export async function permanentDeleteClient(id: number) {
+  await requireAuth();
+  // 관련 데이터 삭제 후 클라이언트 삭제
+  await prisma.feeRecord.deleteMany({ where: { clientId: id } });
+  await prisma.withholdingRecord.deleteMany({ where: { clientId: id } });
+  await prisma.withholdingLaborOverride.deleteMany({ where: { clientId: id } });
+  await prisma.withholdingProcess.deleteMany({ where: { clientId: id } });
+  await prisma.incomeTaxRecord.deleteMany({ where: { clientId: id } });
+  await prisma.dataCollection.deleteMany({ where: { clientId: id } });
+  const cp = await prisma.commissionProcess.findUnique({ where: { clientId: id } });
+  if (cp) {
+    await prisma.happyCall.deleteMany({ where: { commissionId: cp.id } });
+    await prisma.commissionProcess.delete({ where: { id: cp.id } });
+  }
+  await prisma.memo.deleteMany({ where: { clientId: id } });
+  await prisma.task.deleteMany({ where: { clientId: id } });
+  await prisma.client.delete({ where: { id } });
+  revalidatePath("/clients");
+}
+
 export async function bulkChangeAssignedUser(ids: number[], newUserId: number) {
   await requireAuth();
   if (ids.length === 0) return { count: 0 };
