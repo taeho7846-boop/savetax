@@ -95,6 +95,7 @@ export async function updateOneoffSettlement(
     clientName?: string;
     ceoName?: string;
     assignedUserName?: string;
+    affiliation?: string;
     withdrawalAmount?: number;
     fee?: number;
     notes?: string;

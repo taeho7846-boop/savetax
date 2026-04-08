@@ -158,7 +158,7 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
                     const remit = row.monthlyFee - row.headquarterFee;
                     return (
                       <tr key={row.id} className="hover:bg-blue-50/30 transition-colors border-b border-gray-50">
-                        <td className="px-4 py-2.5 text-[#1a2e4a] font-medium">{row.clientName}</td>
+                        <td className="px-4 py-2.5 text-[#1a2e4a] font-medium cursor-pointer hover:underline" onClick={() => setModal(row)}>{row.clientName}</td>
                         <td className="px-3 py-2.5 text-center text-gray-700">{row.ceoName || <span className="text-gray-300">-</span>}</td>
                         <td className="px-3 py-2.5 text-center text-gray-600 text-xs">{row.assignedUserName || <span className="text-gray-300">-</span>}</td>
                         <td className="px-3 py-2.5 text-center text-gray-800">{row.monthlyFee.toLocaleString()}</td>

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useState, useTransition } from "react";
-import { createOneoffSettlement, toggleOneoffField, deleteOneoffSettlement } from "@/app/actions/settlement";
+import { createOneoffSettlement, updateOneoffSettlement, toggleOneoffField, deleteOneoffSettlement } from "@/app/actions/settlement";
 
 const AFF_ORDER = ["도율세무회계", "세무회계세웅", "예강세무회계", "세무회계태호"];
 const AFF_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -28,7 +28,7 @@ type Item = {
 
 export function OneoffTable({ items, yearMonth }: { items: Item[]; yearMonth: string }) {
   const [isPending, startTransition] = useTransition();
-  const [modal, setModal] = useState(false);
+  const [modal, setModal] = useState<"create" | Item | null>(null);
 
   // 합계
   const totalWithdrawal = items.reduce((s, r) => s + r.withdrawalAmount, 0);
@@ -44,7 +44,7 @@ export function OneoffTable({ items, yearMonth }: { items: Item[]; yearMonth: st
     startTransition(() => deleteOneoffSettlement(id));
   }
 
-  function handleCreate() {
+  function handleSave() {
     const clientName = (document.getElementById("oneoff-name") as HTMLInputElement)?.value?.trim();
     if (!clientName) { alert("거래처명을 입력하세요"); return; }
     const ceoName = (document.getElementById("oneoff-ceo") as HTMLInputElement)?.value?.trim() || undefined;
@@ -54,11 +54,20 @@ export function OneoffTable({ items, yearMonth }: { items: Item[]; yearMonth: st
     const fee = parseInt((document.getElementById("oneoff-fee") as HTMLInputElement)?.value || "0") || 0;
     const notes = (document.getElementById("oneoff-notes") as HTMLInputElement)?.value?.trim() || undefined;
 
-    startTransition(async () => {
-      await createOneoffSettlement({ yearMonth, clientName, ceoName, assignedUserName, affiliation, withdrawalAmount, fee, notes });
-      setModal(false);
-    });
+    if (modal === "create") {
+      startTransition(async () => {
+        await createOneoffSettlement({ yearMonth, clientName, ceoName, assignedUserName, affiliation, withdrawalAmount, fee, notes });
+        setModal(null);
+      });
+    } else if (modal && typeof modal === "object") {
+      startTransition(async () => {
+        await updateOneoffSettlement(modal.id, { clientName, ceoName, assignedUserName, affiliation, withdrawalAmount, fee, notes });
+        setModal(null);
+      });
+    }
   }
+
+  const editRow = modal !== null && modal !== "create" ? (modal as Item) : null;
 
   // 그룹핑
   const groups: { aff: string; rows: Item[] }[] = [];
@@ -73,7 +82,7 @@ export function OneoffTable({ items, yearMonth }: { items: Item[]; yearMonth: st
     <>
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => setModal(true)}
+          onClick={() => setModal("create")}
           className="text-sm px-4 py-2 rounded-lg font-medium bg-[#1a2e4a] text-white hover:bg-[#243d61] transition-colors"
         >
           + 단건 추가
@@ -126,7 +135,7 @@ export function OneoffTable({ items, yearMonth }: { items: Item[]; yearMonth: st
                     const remit = item.withdrawalAmount - item.fee;
                     return (
                       <tr key={item.id} className="hover:bg-blue-50/30 transition-colors border-b border-gray-50">
-                        <td className="px-4 py-2.5 text-[#1a2e4a] font-medium">{item.clientName}</td>
+                        <td className="px-4 py-2.5 text-[#1a2e4a] font-medium cursor-pointer hover:underline" onClick={() => setModal(item)}>{item.clientName}</td>
                         <td className="px-3 py-2.5 text-center text-gray-700">{item.ceoName || <span className="text-gray-300">-</span>}</td>
                         <td className="px-3 py-2.5 text-center text-gray-600 text-xs">{item.assignedUserName || <span className="text-gray-300">-</span>}</td>
                         <td className="px-3 py-2.5 text-center text-gray-800">{item.withdrawalAmount.toLocaleString()}</td>
@@ -155,32 +164,32 @@ export function OneoffTable({ items, yearMonth }: { items: Item[]; yearMonth: st
         </table>
       </div>
 
-      {/* 추가 모달 */}
-      {modal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setModal(false)}>
+      {/* 추가/수정 모달 */}
+      {modal !== null && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setModal(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-bold text-gray-900">단건 정산 추가</h3>
-              <button onClick={() => setModal(false)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+              <h3 className="text-base font-bold text-gray-900">{modal === "create" ? "단건 정산 추가" : "단건 정산 수정"}</h3>
+              <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
             </div>
             <div className="space-y-3 mb-5">
               <div>
                 <label className="text-sm text-gray-500 block mb-1">거래처명 <span className="text-red-400">*</span></label>
-                <input id="oneoff-name" type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="거래처명" autoFocus />
+                <input id="oneoff-name" type="text" defaultValue={editRow?.clientName || ""} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="거래처명" autoFocus />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm text-gray-500 block mb-1">대표자명</label>
-                  <input id="oneoff-ceo" type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
+                  <input id="oneoff-ceo" type="text" defaultValue={editRow?.ceoName || ""} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
                 </div>
                 <div>
                   <label className="text-sm text-gray-500 block mb-1">담당자</label>
-                  <input id="oneoff-assigned" type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
+                  <input id="oneoff-assigned" type="text" defaultValue={editRow?.assignedUserName || ""} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
                 </div>
               </div>
               <div>
                 <label className="text-sm text-gray-500 block mb-1">소속</label>
-                <select id="oneoff-aff" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20">
+                <select id="oneoff-aff" defaultValue={editRow?.affiliation || ""} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20">
                   <option value="">선택</option>
                   {AFF_ORDER.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
@@ -188,21 +197,23 @@ export function OneoffTable({ items, yearMonth }: { items: Item[]; yearMonth: st
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm text-gray-500 block mb-1">출금액</label>
-                  <input id="oneoff-amount" type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="0" />
+                  <input id="oneoff-amount" type="number" defaultValue={editRow?.withdrawalAmount || 0} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="0" />
                 </div>
                 <div>
                   <label className="text-sm text-gray-500 block mb-1">수수료</label>
-                  <input id="oneoff-fee" type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="0" />
+                  <input id="oneoff-fee" type="number" defaultValue={editRow?.fee || 0} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="0" />
                 </div>
               </div>
               <div>
                 <label className="text-sm text-gray-500 block mb-1">비고 (내용설명)</label>
-                <input id="oneoff-notes" type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="내용 입력" />
+                <input id="oneoff-notes" type="text" defaultValue={editRow?.notes || ""} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" placeholder="내용 입력" />
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setModal(false)} className="text-sm text-gray-500 px-4 py-2 rounded-lg hover:bg-gray-100">취소</button>
-              <button onClick={handleCreate} disabled={isPending} className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50">추가</button>
+              <button onClick={() => setModal(null)} className="text-sm text-gray-500 px-4 py-2 rounded-lg hover:bg-gray-100">취소</button>
+              <button onClick={handleSave} disabled={isPending} className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50">
+                {modal === "create" ? "추가" : "저장"}
+              </button>
             </div>
           </div>
         </div>
