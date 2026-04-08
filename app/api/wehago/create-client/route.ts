@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   // 거래처 정보 가져오기
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { name: true, clientType: true, ceoName: true, bizNumber: true },
+    select: { name: true, clientType: true, ceoName: true, bizNumber: true, residentNumber: true },
   });
 
   if (!client) return NextResponse.json({ error: "거래처를 찾을 수 없습니다" }, { status: 404 });
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       clientType: client.clientType,
       ceoName: client.ceoName,
       bizNumber: client.bizNumber,
+      residentNumber: client.residentNumber || undefined,
     });
 
     return NextResponse.json(result);
