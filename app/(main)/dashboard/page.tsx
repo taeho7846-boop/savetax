@@ -309,8 +309,11 @@ export default async function DashboardPage({
           );
           })()}
 
-          {/* 이관자료 수신 */}
-          <TransferDocsCard />
+          {/* 이관자료: 수신 + 요청 2분할 */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <TransferDocsCard />
+            <TransferRequestCard items={transferItems} />
+          </div>
 
           {/* 요약 카드 */}
           <div className="grid grid-cols-5 gap-4 mb-6">
@@ -350,7 +353,6 @@ export default async function DashboardPage({
             <TodayTasksCard items={todayTasks} />
             <HappyCallCard items={happyCallItems} />
             <DataCollectCard items={dataCollectItems} />
-            <TransferRequestCard items={transferItems} />
             <ExcludeRequestCard items={excludeItems} />
           </div>
 
