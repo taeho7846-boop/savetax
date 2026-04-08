@@ -40,10 +40,8 @@ export function TransferDocsCard() {
     }
   }
 
-  if (loading) return null;
-
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-orange-200 mb-6">
+    <div className="bg-white rounded-xl shadow-sm border border-orange-200">
       <div className="px-5 py-3 border-b border-orange-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">📦</span>
@@ -62,7 +60,10 @@ export function TransferDocsCard() {
         </a>
       </div>
       <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
-        {files.length === 0 && (
+        {loading && (
+          <div className="px-5 py-6 text-center text-sm text-gray-400">확인 중...</div>
+        )}
+        {!loading && files.length === 0 && (
           <div className="px-5 py-6 text-center text-sm text-gray-400">새로운 이관자료가 없습니다</div>
         )}
         {files.map((file) => (
