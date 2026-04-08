@@ -22,12 +22,13 @@ export async function POST(req: NextRequest) {
   // 거래처 정보 가져오기
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { name: true, clientType: true, ceoName: true, bizNumber: true, residentNumber: true },
+    select: { name: true, clientType: true, ceoName: true, bizNumber: true, residentNumber: true, openDate: true },
   });
 
   if (!client) return NextResponse.json({ error: "거래처를 찾을 수 없습니다" }, { status: 404 });
-  if (!client.bizNumber) return NextResponse.json({ error: "사업자등록번호가 없습니다" }, { status: 400 });
-  if (!client.ceoName) return NextResponse.json({ error: "대표자명이 없습니다" }, { status: 400 });
+  if (!client.bizNumber) return NextResponse.json({ error: "사업자등록번호가 없습니다. 고객사 정보를 먼저 입력해주세요." }, { status: 400 });
+  if (!client.ceoName) return NextResponse.json({ error: "대표자명이 없습니다. 고객사 정보를 먼저 입력해주세요." }, { status: 400 });
+  if (!client.openDate) return NextResponse.json({ error: "개업년월일이 없습니다. 고객사 정보를 먼저 입력해주세요." }, { status: 400 });
 
   try {
     const { createWehagoClient } = await import("@/lib/wehago");
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
       ceoName: client.ceoName,
       bizNumber: client.bizNumber,
       residentNumber: client.residentNumber || undefined,
+      openDate: client.openDate || undefined,
     });
 
     return NextResponse.json(result);

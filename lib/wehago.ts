@@ -6,6 +6,7 @@ type WehagoClientInput = {
   ceoName: string;        // 대표자명
   bizNumber: string;      // 사업자등록번호
   residentNumber?: string; // 주민등록번호
+  openDate?: string;       // 개업년월일 (YYYY-MM-DD)
 };
 
 type WehagoResult = {
@@ -55,7 +56,18 @@ export async function createWehagoClient(
     await page.getByRole("textbox", { name: "아이디를 입력하세요" }).fill(wehagoId);
     await page.getByRole("textbox", { name: "비밀번호를 입력하세요" }).fill(wehagoPw);
     await page.getByRole("button", { name: "로그인" }).click();
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(3000);
+
+    // 중복 로그인 "확인" 팝업 처리
+    try {
+      const confirmBtn = page.getByRole("button", { name: "확인" });
+      if (await confirmBtn.isVisible({ timeout: 3000 })) {
+        await confirmBtn.click();
+        await page.waitForTimeout(2000);
+      }
+    } catch {}
+
+    await page.waitForTimeout(3000);
 
     // 팝업/공지 닫기 (최대 5번 시도)
     for (let i = 0; i < 5; i++) {
@@ -219,15 +231,33 @@ export async function createWehagoClient(
       } catch {}
     }
 
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
-    // 4. 폼 입력 후 스크린샷
-    await page.screenshot({ path: "/tmp/wehago-debug4.png" });
-    console.log("[Wehago] 스크린샷4-폼입력후: /tmp/wehago-debug4.png");
-
-    // 수임처 생성 버튼
-    await page.locator('button.WSC_LUXButton:has-text("수임처 생성")').click({ force: true });
-    await page.waitForTimeout(3000);
+    // 개업년월일 (있으면)
+    if (client.openDate) {
+      try {
+        const dateClean = client.openDate.replace(/[^0-9]/g, "");
+        await page.locator('#openDate').click();
+        await page.waitForTimeout(500);
+        await page.keyboard.type(dateClean);
+        await page.waitForTimeout(500);
+        // 엔터 → 탭탭탭 → 엔터(수임처 생성)
+        await page.keyboard.press("Enter");
+        await page.waitForTimeout(500);
+        await page.keyboard.press("Tab");
+        await page.waitForTimeout(300);
+        await page.keyboard.press("Tab");
+        await page.waitForTimeout(300);
+        await page.keyboard.press("Tab");
+        await page.waitForTimeout(300);
+        await page.keyboard.press("Enter");
+        await page.waitForTimeout(3000);
+      } catch {}
+    } else {
+      // 개업년월일 없으면 수임처 생성 버튼 직접 클릭
+      await page.locator('button.WSC_LUXButton:has-text("수임처 생성")').click({ force: true });
+      await page.waitForTimeout(3000);
+    }
 
     // 생성 후 스크린샷
     await page.screenshot({ path: "/tmp/wehago-debug5.png" });
