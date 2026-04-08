@@ -116,8 +116,14 @@ export default async function DashboardPage({
     ]);
 
   // === 프로세스 카드 데이터 가공 ===
-  const todayTs = today.getTime();
+  const todayTs = today.getTime(); // 오늘 자정 기준
   const dayMs = 86400000;
+  // 날짜 차이 계산: 상대 날짜도 자정으로 맞춰서 비교
+  function daysDiff(from: Date) {
+    const d = new Date(from);
+    d.setHours(0, 0, 0, 0);
+    return Math.floor((todayTs - d.getTime()) / dayMs);
+  }
 
   const happyCallItems: { commissionId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
   const dataCollectItems: { commissionId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
@@ -135,12 +141,12 @@ export default async function DashboardPage({
       const noAnswerCount = noAnswerCalls.length;
       const reason = noAnswerCount >= 3 ? "해피콜 3회 부재중" : "자료수집 3회 미수령";
       const baseDate = cp.connectedAt || cp.createdAt;
-      const daysElapsed = Math.floor((todayTs - new Date(baseDate).getTime()) / dayMs);
+      const daysElapsed = daysDiff(new Date(baseDate));
       excludeItems.push({ commissionId: cp.id, clientName, reason, daysElapsed });
 
       // 관리제외요청이지만 자료수집 3회 미수령인 경우 자료수집 카드에도 유지
       if (cp.connectedAt && cp.dataRequestCount >= 3 && !(cp.hasIdCard && cp.hasHometaxCredentials)) {
-        const dfc = Math.floor((todayTs - new Date(cp.connectedAt).getTime()) / dayMs);
+        const dfc = daysDiff(new Date(cp.connectedAt));
         const missingDocs: string[] = [];
         if (!cp.hasIdCard) missingDocs.push("신분증");
         if (!cp.hasHometaxCredentials) missingDocs.push("홈택스 ID/PW");
@@ -148,7 +154,7 @@ export default async function DashboardPage({
           commissionId: cp.id, clientName, connectedAt: cp.connectedAt.toISOString(),
           daysFromConnect: dfc, requestCount: cp.dataRequestCount,
           lastRequestAt: cp.lastDataRequestAt?.toISOString() || null,
-          daysSinceRequest: cp.lastDataRequestAt ? Math.floor((todayTs - new Date(cp.lastDataRequestAt).getTime()) / dayMs) : null,
+          daysSinceRequest: cp.lastDataRequestAt ? daysDiff(new Date(cp.lastDataRequestAt)) : null,
           missingDocs,
         });
       }
@@ -157,11 +163,11 @@ export default async function DashboardPage({
 
     // 자료수집 단계: 연결됨 + 아직 자료 미완료
     if (cp.connectedAt && !(cp.hasIdCard && cp.hasHometaxCredentials)) {
-      const dfc = Math.floor((todayTs - new Date(cp.connectedAt).getTime()) / dayMs);
+      const dfc = daysDiff(new Date(cp.connectedAt));
       const missingDocs: string[] = [];
       if (!cp.hasIdCard) missingDocs.push("신분증");
       if (!cp.hasHometaxCredentials) missingDocs.push("홈택스 ID/PW");
-      const daysSinceReq = cp.lastDataRequestAt ? Math.floor((todayTs - new Date(cp.lastDataRequestAt).getTime()) / dayMs) : null;
+      const daysSinceReq = cp.lastDataRequestAt ? daysDiff(new Date(cp.lastDataRequestAt)) : null;
 
       dataCollectItems.push({
         commissionId: cp.id, clientName, connectedAt: cp.connectedAt.toISOString(),
@@ -186,7 +192,7 @@ export default async function DashboardPage({
     if (!connected && noAnswerCalls.length < 3) {
       // 기준일: 마지막 통화일 또는 등록일
       const baseDate = lastCall ? new Date(lastCall.calledAt) : new Date(cp.createdAt);
-      const daysElapsed = Math.floor((todayTs - baseDate.getTime()) / dayMs);
+      const daysElapsed = daysDiff(baseDate);
 
       happyCallItems.push({
         commissionId: cp.id, clientName,
