@@ -95,12 +95,30 @@ export async function createWehagoClient(
       return { success: false, message: "위하고 로그인 실패. ID/PW를 확인해주세요." };
     }
 
-    // 2. 새 수임처 생성
-    await page.getByRole("button", { name: "전체" }).click();
+    // 2. 모든 팝업/오버레이 강제 닫기
+    for (let i = 0; i < 10; i++) {
+      try {
+        const closeBtns = await page.locator('button:has-text("닫기"), button:has-text("확인"), .btn_close, .popup_close, [class*="close"]').all();
+        let found = false;
+        for (const btn of closeBtns) {
+          if (await btn.isVisible({ timeout: 500 })) {
+            await btn.click({ force: true });
+            found = true;
+            await page.waitForTimeout(500);
+            break;
+          }
+        }
+        if (!found) break;
+      } catch { break; }
+    }
+    await page.waitForTimeout(2000);
+
+    // 새 수임처 생성
+    await page.getByRole("button", { name: "전체" }).click({ force: true });
     await page.waitForTimeout(1500);
-    await page.getByRole("button", { name: "새 수임처" }).click();
+    await page.getByRole("button", { name: "새 수임처" }).click({ force: true });
     await page.waitForTimeout(1500);
-    await page.getByRole("button", { name: /신규 회사로 생성/ }).click();
+    await page.getByRole("button", { name: /신규 회사로 생성/ }).click({ force: true });
     await page.waitForTimeout(2000);
 
     // 3. 폼 입력
