@@ -184,36 +184,38 @@ export async function createWehagoClient(
     await page.locator('button.cl139_selectboxItem__btnItem:has(.icon_company.new)').click({ force: true, timeout: 10000 });
     await page.waitForTimeout(3000);
 
-    // 3. 폼 입력
+    // 3. 폼 입력 (id 기반 셀렉터)
     // 회사명
-    await page.getByRole("textbox", { name: "회사명을 입력하세요" }).fill(client.name);
+    await page.locator('#companyNameKr').fill(client.name);
+    await page.waitForTimeout(500);
 
-    // 회사구분 (법인/개인)
-    if (client.clientType === "corporate") {
-      await page.getByText("법인사업자").click();
-    } else {
-      // 기본이 법인사업자일 수 있으므로 개인사업자 클릭
+    // 회사구분 (법인/개인) - 드롭다운 클릭 후 선택
+    if (client.clientType !== "corporate") {
       try {
-        await page.locator("a").filter({ hasText: "개인사업자" }).click();
+        await page.locator('#companyCategory').click();
         await page.waitForTimeout(500);
-        await page.locator("a").filter({ hasText: /40\.사업/ }).click();
-      } catch {
-        // 이미 개인사업자인 경우
-      }
+        await page.locator('a').filter({ hasText: '개인사업자' }).click();
+        await page.waitForTimeout(500);
+        // 세부 유형 선택
+        await page.locator('a').filter({ hasText: /40\.사업/ }).click();
+        await page.waitForTimeout(500);
+      } catch {}
     }
 
     // 사업자등록번호
     const bizClean = client.bizNumber.replace(/[^0-9]/g, "");
-    await page.getByRole("textbox", { name: "사업자등록번호를 입력하세요" }).fill(bizClean);
+    await page.locator('#companyRegNoField').fill(bizClean);
+    await page.waitForTimeout(500);
 
     // 대표자명
-    await page.getByRole("textbox", { name: "대표자명을 입력하세요" }).fill(client.ceoName);
+    await page.locator('#ceoNmKr').fill(client.ceoName);
+    await page.waitForTimeout(500);
 
     // 주민등록번호 (있으면)
     if (client.residentNumber) {
       const resClean = client.residentNumber.replace(/[^0-9]/g, "");
       try {
-        await page.getByRole("textbox", { name: "주민등록번호를 입력하세요" }).fill(resClean);
+        await page.getByPlaceholder('주민등록번호를 입력하세요').fill(resClean);
       } catch {}
     }
 
