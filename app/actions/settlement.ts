@@ -12,47 +12,61 @@ async function requireAuth() {
 
 // === 기장 정산 ===
 
-export async function upsertBookkeepingSettlement(
-  clientId: number,
-  yearMonth: string,
-  data: { headquarterFee?: number; notes?: string; settlementStartMonth?: string }
-) {
-  await requireAuth();
-  const { settlementStartMonth, ...bookkeepingData } = data;
-  // 출금시작월은 Client 모델에 저장
-  if (settlementStartMonth !== undefined) {
-    await prisma.client.update({
-      where: { id: clientId },
-      data: { settlementStartMonth: settlementStartMonth || null },
-    });
-  }
-  await prisma.settlementBookkeeping.upsert({
-    where: { clientId_yearMonth: { clientId, yearMonth } },
-    update: bookkeepingData,
-    create: { clientId, yearMonth, ...bookkeepingData },
+export async function createBookkeepingSettlement(data: {
+  clientName: string;
+  ceoName?: string;
+  assignedUserName?: string;
+  affiliation?: string;
+  monthlyFee: number;
+  headquarterFee: number;
+  startMonth?: string;
+  notes?: string;
+}) {
+  const session = await requireAuth();
+  await prisma.settlementBookkeeping.create({
+    data: { ...data, yearMonth: "", createdByUserId: session.id },
   });
   revalidatePath("/settlement");
 }
 
+export async function updateBookkeepingSettlement(
+  id: number,
+  data: {
+    clientName?: string;
+    ceoName?: string;
+    assignedUserName?: string;
+    affiliation?: string;
+    monthlyFee?: number;
+    headquarterFee?: number;
+    startMonth?: string;
+    notes?: string;
+  }
+) {
+  await requireAuth();
+  await prisma.settlementBookkeeping.update({ where: { id }, data });
+  revalidatePath("/settlement");
+}
+
 export async function toggleBookkeepingField(
-  clientId: number,
+  id: number,
   yearMonth: string,
   field: "withdrawn" | "remitted" | "tiIssued"
 ) {
   await requireAuth();
-  const existing = await prisma.settlementBookkeeping.findUnique({
-    where: { clientId_yearMonth: { clientId, yearMonth } },
+  // 월별 체크 상태는 별도 JSON이 아닌 레코드 자체에 저장
+  // 같은 거래처의 해당 월 레코드를 찾거나 생성
+  const existing = await prisma.settlementBookkeeping.findUnique({ where: { id } });
+  if (!existing) return;
+  await prisma.settlementBookkeeping.update({
+    where: { id },
+    data: { [field]: !existing[field] },
   });
-  if (existing) {
-    await prisma.settlementBookkeeping.update({
-      where: { id: existing.id },
-      data: { [field]: !existing[field] },
-    });
-  } else {
-    await prisma.settlementBookkeeping.create({
-      data: { clientId, yearMonth, [field]: true },
-    });
-  }
+  revalidatePath("/settlement");
+}
+
+export async function deleteBookkeepingSettlement(id: number) {
+  await requireAuth();
+  await prisma.settlementBookkeeping.delete({ where: { id } });
   revalidatePath("/settlement");
 }
 

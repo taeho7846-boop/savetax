@@ -40,56 +40,15 @@ export default async function SettlementPage({
     );
   }
 
-  // 기장 탭: 전체 세무사 거래처 + 소속별 그룹핑
-  const clients = await prisma.client.findMany({
-    where: {
-      isDeleted: false,
-      monthlyFee: { not: null },
-      OR: [
-        { taxTypes: null },
-        { NOT: { taxTypes: { contains: "신고대리" } } },
-      ],
-    },
-    select: {
-      id: true,
-      name: true,
-      ceoName: true,
-      monthlyFee: true,
-      affiliation: true,
-      settlementStartMonth: true,
-      assignedUser: { select: { name: true } },
-      settlementBookkeepings: {
-        where: { yearMonth },
-      },
-    },
-    orderBy: { name: "asc" },
+  // 기장 탭: 독립형 레코드 조회
+  const bookkeepings = await prisma.settlementBookkeeping.findMany({
+    orderBy: { clientName: "asc" },
   });
-
-  // 출금시작월 이후 거래처만 표시
-  const rows = clients
-    .filter(c => !c.settlementStartMonth || c.settlementStartMonth <= yearMonth)
-    .map(c => {
-      const s = c.settlementBookkeepings[0];
-      return {
-        clientId: c.id,
-        clientName: c.name,
-        ceoName: c.ceoName,
-        assignedUserName: c.assignedUser?.name ?? null,
-        affiliation: c.affiliation ?? "미지정",
-        monthlyFee: c.monthlyFee ?? 0,
-        settlementStartMonth: c.settlementStartMonth,
-        headquarterFee: s?.headquarterFee ?? 0,
-        withdrawn: s?.withdrawn ?? false,
-        remitted: s?.remitted ?? false,
-        tiIssued: s?.tiIssued ?? false,
-        notes: s?.notes ?? "",
-      };
-    });
 
   return (
     <div>
       <Header year={year} mon={mon} yearMonth={yearMonth} tab={tab} prevYM={changeMonth(-1)} nextYM={changeMonth(1)} />
-      <BookkeepingTable rows={rows} yearMonth={yearMonth} />
+      <BookkeepingTable rows={bookkeepings} yearMonth={yearMonth} />
     </div>
   );
 }
