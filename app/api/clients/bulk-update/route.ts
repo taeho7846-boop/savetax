@@ -51,12 +51,13 @@ const HEADER_MAP: Record<string, string> = {
   회계프로그램: "accountingProgram",
   소통방법: "contactMethod",
   업무소통방법: "contactMethod",
-  마이박스: "myboxLink",
-  마이박스링크: "myboxLink",
   법인등록번호: "corporateNumber",
   이메일: "email",
   무료기장: "freeMonths",
   무료기장개월: "freeMonths",
+  원천세유형: "withholdingType",
+  cms상태: "cmsStatus",
+  구글드라이브: "_skip",
   담당직원: "_assignedUser",
 };
 
@@ -245,6 +246,14 @@ export async function POST(req: NextRequest) {
           if (val) updateData[field] = val;
         } else if (field === "contactMethod") {
           if (val) updateData[field] = val;
+        } else if (field === "withholdingType") {
+          if (["A", "B", "C", "D"].includes(val.toUpperCase())) updateData[field] = val.toUpperCase();
+        } else if (field === "cmsStatus") {
+          if (val === "등록") updateData[field] = "done";
+          else if (val === "등록요청중") updateData[field] = "pending";
+          else if (val === "미등록") updateData[field] = "none";
+        } else if (field === "_skip") {
+          // 구글드라이브 등 읽기전용 필드 무시
         } else if (field === "_assignedUser") {
           // 담당직원: username으로 조회 → assignedUserId 설정
           if (!existing.assignedUserId) {
