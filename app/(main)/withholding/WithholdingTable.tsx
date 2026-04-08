@@ -23,6 +23,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; bo
 const ALL_PROCESS_STEPS = ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"];
 
 const STEPS_BY_TYPE: Record<string, string[]> = {
+  "": ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"], // 미지정도 전체 활성
   A: ["급여확인요청", "급여명세서전달", "원천세신고", "납부서전달"],
   B: ["급여명세서전달", "원천세신고", "납부서전달"],
   C: ["급여명세서전달", "원천세신고"],
@@ -68,17 +69,15 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
   return tasks;
 }
 
-function getAllExtraColumns(month: number) {
-  const cols: { key: string; label: string }[] = [];
-  if (month === 1 || month === 7) cols.push({ key: "간이지급명세서_근로", label: "간이지급명세서\n(근로)" });
-  cols.push({ key: "간이지급명세서_사업", label: "간이지급명세서\n(사업)" });
-  cols.push({ key: "근로내용확인신고서", label: "근로내용\n확인신고서" });
-  if (month === 2) {
-    cols.push({ key: "지급명세서_근로", label: "지급명세서\n(근로)" });
-    cols.push({ key: "지급명세서_사업", label: "지급명세서\n(사업)" });
-  }
-  cols.push({ key: "지급명세서_일용", label: "지급명세서\n(일용)" });
-  return cols;
+function getAllExtraColumns() {
+  return [
+    { key: "간이지급명세서_근로", label: "간이지급명세서\n(근로)" },
+    { key: "간이지급명세서_사업", label: "간이지급명세서\n(사업)" },
+    { key: "근로내용확인신고서", label: "근로내용\n확인신고서" },
+    { key: "지급명세서_근로", label: "지급명세서\n(근로)" },
+    { key: "지급명세서_사업", label: "지급명세서\n(사업)" },
+    { key: "지급명세서_일용", label: "지급명세서\n(일용)" },
+  ];
 }
 
 export function WithholdingTable({ clients, yearMonth, showAssignedUser = false }: { clients: Client[]; yearMonth: string; showAssignedUser?: boolean }) {
@@ -89,7 +88,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
   const month = parseInt(yearMonth.split("-")[1]);
-  const extraColumns = getAllExtraColumns(month);
+  const extraColumns = getAllExtraColumns();
 
   function handleMonthChange(delta: number) {
     const [y, m] = yearMonth.split("-").map(Number);
@@ -273,11 +272,37 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                         )}
                         <td className="px-1 py-2 text-center">
                           <div className="flex items-center justify-center gap-0.5 flex-wrap">
-                            {laborList.map(t => {
+                            {baseLaborTypes.map(t => {
                               const s = LABOR_STYLES[t];
-                              return s ? <span key={t} className={`border ${s.border} ${s.text} ${s.bg} rounded px-1 py-0.5 text-[9px] font-medium`}>{t}</span> : null;
+                              if (!s) return null;
+                              const isActive = laborList.includes(t);
+                              return (
+                                <button
+                                  key={t}
+                                  onClick={() => {
+                                    let newList: string[];
+                                    if (isActive) {
+                                      newList = laborList.filter(x => x !== t);
+                                    } else {
+                                      newList = [...laborList, t];
+                                    }
+                                    // baseLaborTypes와 동일하면 override 해제, 다르면 override 저장
+                                    const same = baseLaborTypes.length === newList.length && baseLaborTypes.every(b => newList.includes(b));
+                                    startTransition(() => setLaborOverride(client.id, yearMonth, same ? "" : newList.join(",")));
+                                  }}
+                                  disabled={isPending}
+                                  className={`border rounded px-1 py-0.5 text-[9px] font-medium transition-all ${
+                                    isActive
+                                      ? `${s.border} ${s.text} ${s.bg}`
+                                      : "border-gray-200 text-gray-300 bg-gray-50 line-through"
+                                  }`}
+                                  title={isActive ? `${t} 이번달 제외` : `${t} 이번달 포함`}
+                                >
+                                  {t}
+                                </button>
+                              );
                             })}
-                            {laborList.length === 0 && <span className="text-gray-300 text-[10px]">-</span>}
+                            {baseLaborTypes.length === 0 && <span className="text-gray-300 text-[10px]">-</span>}
                           </div>
                         </td>
                         {/* 프로세스 4열 (항상 표시) */}
