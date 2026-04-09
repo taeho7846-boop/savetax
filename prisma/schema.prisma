@@ -73,6 +73,8 @@ model Client {
   myboxLink      String?  // 네이버 마이박스 폴더 링크
   driveFolderId  String?  // 구글 드라이브 거래처 폴더 ID
   cmsStatus      String   @default("none") // CMS 상태: none, pending, done
+  wehagoCno      String?  // 위하고 거래처번호 (cNum)
+  wehagoCdCom    String?  // 위하고 회사코드 (cd_com)
   assignedUserId Int?
   assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
   isDeleted      Boolean  @default(false)
