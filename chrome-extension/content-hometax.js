@@ -1,10 +1,20 @@
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
 (async function () {
-  const storage = await chrome.storage.local.get("savetax_corp_cert");
-  if (!storage.savetax_corp_cert) return;
+  // 팝업 페이지에서만 실행 (popup.html)
+  if (!window.location.href.includes("popup.html") && !window.location.href.includes("UTECMABA")) return;
 
-  const creds = storage.savetax_corp_cert;
-  chrome.storage.local.remove("savetax_corp_cert");
+  // chrome.storage에서 데이터 폴링 (원래 페이지가 저장할 때까지 대기)
+  let creds = null;
+  for (let i = 0; i < 15; i++) {
+    const storage = await chrome.storage.local.get("savetax_corp_cert");
+    if (storage.savetax_corp_cert) {
+      creds = storage.savetax_corp_cert;
+      chrome.storage.local.remove("savetax_corp_cert");
+      break;
+    }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  if (!creds) return;
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   function setInput(el, value) {
@@ -458,14 +468,8 @@
     try {
       if (await checkLogout()) return;
 
-      // 1. 아이디/비밀번호 로그인
-      await doLogin(creds.id, creds.pw);
-      await sleep(2000);
-
-      // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
-      // suppress-alert.js (MAIN world)가 자동으로 확인 클릭
-      // 3. 새 창이 열리면 거기서 인증서 처리 (savetax_corp_cert로 전달)
-      chrome.storage.local.set({
+      // 먼저 chrome.storage에 인증 정보 저장 (팝업이 열리기 전에!)
+      await chrome.storage.local.set({
         savetax_corp_cert: {
           certName: creds.certName,
           certPw: creds.certPw,
@@ -473,7 +477,12 @@
           agentPw: creds.agentPw || creds.pw,
         }
       });
-      console.log("SaveTax: corp_login - 인증 정보 chrome.storage에 저장, 새 창 대기");
+      console.log("SaveTax: corp_login - 인증 정보 chrome.storage에 저장 완료");
+
+      // 1. 아이디/비밀번호 로그인
+      await doLogin(creds.id, creds.pw);
+      console.log("SaveTax: corp_login - 로그인 후 팝업 대기");
+      // 2. suppress-alert.js가 관리번호 팝업 확인 → 새 창 열림 → 새 창에서 인증서 처리
 
     } catch (e) {
       console.error("SaveTax 법인 로그인 실패:", e);
