@@ -79,11 +79,16 @@
           }
 
           setTimeout(function() {
-            // DOM에서 인증 정보 읽기 대기
+            // DOM에서 인증 정보 읽기 대기 (content script가 심을 때까지)
+            console.log("SaveTax: [MAIN] DOM에서 인증 정보 대기중...");
             var credsWait = setInterval(function() {
               var credsEl = document.getElementById("savetax-corp-creds");
-              if (!credsEl) return;
+              if (!credsEl) {
+                console.log("SaveTax: [MAIN] savetax-corp-creds 아직 없음...");
+                return;
+              }
               clearInterval(credsWait);
+              console.log("SaveTax: [MAIN] 인증 정보 발견! certName:", credsEl.dataset.certName);
 
               var cd = {
                 certName: credsEl.dataset.certName || "",
@@ -163,8 +168,8 @@
                 }, 500);
               }, 500);
             }, 500);
-            // 15초 타임아웃
-            setTimeout(function() { clearInterval(credsWait); }, 15000);
+            // 30초 타임아웃
+            setTimeout(function() { clearInterval(credsWait); console.log("SaveTax: [MAIN] 인증 정보 대기 타임아웃"); }, 30000);
           }, 1500);
         }, 500);
         // 30초 타임아웃
