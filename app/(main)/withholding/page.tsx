@@ -51,7 +51,7 @@ export default async function WithholdingPage({
       },
       wehagoCno: true,
       wehagoCdCom: true,
-      wehagoColor: true,
+      wehagoColors: true,
       withholdingLaborOverrides: {
         where: { yearMonth },
         select: { laborTypes: true, memo: true },

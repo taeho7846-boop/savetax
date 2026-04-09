@@ -1,26 +1,31 @@
-// wehago-clients.csv를 읽어서 DB에 반영
+// wehago-clients-result.json을 읽어서 DB에 반영
 // 실행: npx tsx scripts/import-wehago-to-db.ts
-// npm run dev가 실행 중이어야 함
+// npm run dev 또는 프로덕션 서버가 실행 중이어야 함
 
 import * as fs from "fs";
 
 const API_URL = "http://localhost:3000/api/import-wehago-info";
+// VPS에서는: const API_URL = "http://localhost/api/import-wehago-info";
+
+type Result = { id: number; name: string; bizNumber: string; cno: string; cdCom: string; colors: Record<string, string> };
 
 async function main() {
-  const csv = fs.readFileSync("scripts/wehago-clients.csv", "utf-8");
-  const lines = csv.split("\n").slice(1).filter(Boolean); // 헤더 제외
+  const results: Result[] = JSON.parse(fs.readFileSync("scripts/wehago-clients-result.json", "utf-8"));
 
-  const data = lines.map((line) => {
-    // BOM 제거 후 파싱
-    const clean = line.replace(/^\uFEFF/, "");
-    const parts = clean.split(",").map((s) => s.replace(/"/g, "").trim());
-    return {
-      id: parseInt(parts[0]),
-      bizNumber: parts[2],
-      cno: parts[3],
-      cdCom: parts[4],
-    };
-  });
+  // 실패한 3개 수동 추가 (color)
+  for (const r of results) {
+    if (r.name.includes("쿨텍코리아") && !r.colors["2026"]) r.colors["2026"] = "#1C90FB";
+    if (r.name.includes("소스트") && !r.colors["2026"]) r.colors["2026"] = "#1C90FB";
+    if (r.name.includes("위더스메디케어") && !r.colors["2026"]) r.colors["2026"] = "#1C90FB";
+  }
+
+  const data = results.map((r) => ({
+    id: r.id,
+    bizNumber: r.bizNumber,
+    cno: r.cno,
+    cdCom: r.cdCom,
+    colors: JSON.stringify(r.colors),
+  }));
 
   console.log(`${data.length}개 거래처 DB 반영 시작...`);
 

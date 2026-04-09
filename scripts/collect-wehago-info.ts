@@ -1,20 +1,19 @@
-// 위하고 거래처 cno/cd_com 수집 스크립트 (근로소득 거래처만, 검색 방식)
-//
-// 사전 준비: 로컬에서 npm run dev 실행 중이어야 함 (DB 조회용 API)
+// 위하고 거래처 cno/cd_com/color 수집 스크립트 (년도별 color)
 // 실행: npx tsx scripts/collect-wehago-info.ts
+// dev 서버 실행 필요 (npm run dev) — 또는 labor-clients.json 파일 사용
 
 import { chromium } from "playwright";
 import * as fs from "fs";
 
 const WEHAGO_ID = "taehotax";
 const WEHAGO_PW = "Taeho9311!";
+const YEARS_TO_COLLECT = ["2025", "2026"];
 
-// JSON 파일 또는 API에서 근로소득 거래처 목록 가져오기
 const JSON_FILE = "scripts/labor-clients.json";
 const API_URL = "http://localhost:3000/api/export-labor-clients";
 
 async function main() {
-  // 1. 근로소득 거래처 목록 가져오기 (JSON 파일 우선)
+  // 1. 근로소득 거래처 목록
   console.log("1. 근로소득 거래처 목록 조회...");
   let targetClients: { id: number; name: string; bizNumber: string }[];
   if (fs.existsSync(JSON_FILE)) {
@@ -30,22 +29,7 @@ async function main() {
     }
   }
 
-  // 이미 수집된 거래처 스킵 (CSV에서 사업자번호 확인)
-  const alreadyCollected = new Set<string>();
-  if (fs.existsSync("scripts/wehago-clients.csv")) {
-    const csv = fs.readFileSync("scripts/wehago-clients.csv", "utf-8");
-    csv.split("\n").slice(1).filter(Boolean).forEach((line) => {
-      const biz = line.split(",")[2]?.replace(/"/g, "").replace(/[^0-9]/g, "");
-      if (biz) alreadyCollected.add(biz);
-    });
-    console.log(`  이미 수집된 거래처: ${alreadyCollected.size}개 → 스킵`);
-  }
-
-  const targets = targetClients.filter((c) => {
-    if (!c.bizNumber) return false;
-    const bizClean = c.bizNumber.replace(/[^0-9]/g, "");
-    return !alreadyCollected.has(bizClean);
-  });
+  const targets = targetClients.filter((c) => c.bizNumber);
   console.log(`  수집 대상: ${targets.length}개\n`);
 
   const browser = await chromium.launch({
@@ -68,7 +52,6 @@ async function main() {
   await page.getByRole("button", { name: "로그인" }).click();
   await page.waitForTimeout(3000);
 
-  // 중복 로그인 확인
   try {
     const confirmBtn = page.getByRole("button", { name: "확인" });
     if (await confirmBtn.isVisible({ timeout: 3000 })) {
@@ -96,17 +79,17 @@ async function main() {
   });
   await page.waitForTimeout(2000);
 
-  // 4. "전체" 버튼 클릭 → 검색창 표시
+  // 4. 전체 버튼
   console.log("4. 전체 버튼 클릭...");
   await page.getByRole("button", { name: "전체" }).click({ force: true });
   await page.waitForTimeout(2000);
 
-  // 검색창 찾기
   const searchInput = page.locator('input[placeholder*="사업자등록번호"]');
 
-  // 5. 각 거래처 검색 → 급여 → 급여자료입력 → cno/cd_com 추출
-  console.log("\n5. cno/cd_com 수집 시작...\n");
-  const results: { id: number; name: string; bizNumber: string; cno: string; cdCom: string }[] = [];
+  // 5. 수집
+  console.log("\n5. cno/cd_com/color 수집 시작...\n");
+  type Result = { id: number; name: string; bizNumber: string; cno: string; cdCom: string; colors: Record<string, string> };
+  const results: Result[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
 
@@ -116,7 +99,7 @@ async function main() {
     console.log(`[${i + 1}/${targets.length}] ${client.name} (${client.bizNumber})`);
 
     try {
-      // 검색창 클릭 → 기존 텍스트 지우기 → 사업자번호 입력 → 엔터
+      // 검색
       await searchInput.click();
       await searchInput.fill("");
       await page.waitForTimeout(300);
@@ -124,7 +107,6 @@ async function main() {
       await page.keyboard.press("Enter");
       await page.waitForTimeout(2000);
 
-      // 검색 결과 확인
       const resultCount = await page.locator("div.item.cl_company").count();
       if (resultCount === 0) {
         console.log("  - 검색 결과 없음 → 스킵");
@@ -132,72 +114,98 @@ async function main() {
         continue;
       }
 
-      // 급여 버튼 클릭 (텍스트 "급여")
+      // 급여 버튼 클릭 → 새 탭
       const li = page.locator("ul.inner_list > li").first();
       const salaryBtn = li.locator("button").filter({ hasText: /^급여$/ }).first();
-
       if (!(await salaryBtn.isVisible({ timeout: 2000 }))) {
         console.log("  - 급여 버튼 없음 → 스킵");
         skipped.push(`${client.name}: 급여 버튼 없음`);
         continue;
       }
 
-      // 급여 버튼 클릭 → 새 탭
       const salaryPopup = context.waitForEvent("page", { timeout: 15000 });
       await salaryBtn.click({ force: true });
       const salaryPage = await salaryPopup;
       await salaryPage.waitForLoadState("domcontentloaded");
       await salaryPage.waitForTimeout(2000);
 
-      // 급여자료입력 클릭 (같은 탭에서 이동)
-      await salaryPage.getByText("급여자료입력").first().click({ timeout: 5000 });
-      await salaryPage.waitForTimeout(3000);
+      // cno는 URL에서 추출
+      const salaryUrl = salaryPage.url();
+      const cno = extractParam(salaryUrl, "cNum") || extractParam(salaryUrl, "cno");
+      const cdCom = extractParam(salaryUrl, "cd_com") || "";
 
-      // ESC 3번 (팝업 닫기)
-      for (let j = 0; j < 3; j++) {
-        await salaryPage.keyboard.press("Escape");
-        await salaryPage.waitForTimeout(500);
+      // 년도별 color 수집 (hidden input에서 읽기)
+      const colors: Record<string, string> = {};
+
+      for (const yr of YEARS_TO_COLLECT) {
+        try {
+          // 년도 드롭다운 열기
+          const yearBtn = salaryPage.locator("button.ls_roundselect_btn, button.LS_btn.ls_roundselect_btn").first();
+          await yearBtn.click({ force: true });
+          await salaryPage.waitForTimeout(800);
+
+          // 해당 년도 선택: li 안의 button.ls_space_btnlist 클릭
+          const yearItem = salaryPage.locator('#scrollElement button.ls_space_btnlist').filter({ hasText: yr });
+          await yearItem.click({ force: true, timeout: 3000 });
+          await salaryPage.waitForTimeout(1500);
+
+          // hidden input에서 color 읽기
+          const color = await salaryPage.locator('#h_selected_SmartA_color').getAttribute("value");
+          const actualYear = await salaryPage.locator('#h_selected_SmartA_Text').getAttribute("value");
+
+          if (color && actualYear) {
+            colors[actualYear] = color;
+            console.log(`  ✓ ${actualYear}년: color=${color}`);
+          }
+        } catch {
+          console.log(`  - ${yr}년 color 수집 실패`);
+        }
       }
 
-      // URL에서 cno, cd_com, color 추출
-      const url = salaryPage.url();
-      const cno = extractParam(url, "cno");
-      const cdCom = extractParam(url, "cd_com");
-      const color = extractParam(url, "color");
+      // cd_com이 없으면 급여자료입력에서 추출
+      let finalCdCom = cdCom;
+      if (!finalCdCom) {
+        try {
+          await salaryPage.getByText("급여자료입력").first().click({ timeout: 5000 });
+          await salaryPage.waitForTimeout(3000);
+          for (let j = 0; j < 3; j++) {
+            await salaryPage.keyboard.press("Escape");
+            await salaryPage.waitForTimeout(500);
+          }
+          finalCdCom = extractParam(salaryPage.url(), "cd_com");
+        } catch {}
+      }
 
-      if (cno && cdCom) {
-        results.push({ id: client.id, name: client.name, bizNumber: client.bizNumber, cno, cdCom, color });
-        console.log(`  ✓ cno=${cno}, cd_com=${cdCom}, color=${color}`);
+      if (cno) {
+        results.push({ id: client.id, name: client.name, bizNumber: client.bizNumber, cno, cdCom: finalCdCom, colors });
+        console.log(`  ✓ cno=${cno}, cd_com=${finalCdCom}, colors=${JSON.stringify(colors)}`);
       } else {
-        console.log(`  ✗ URL 파싱 실패: ${url}`);
-        errors.push(`${client.name}: URL 파싱 실패`);
+        errors.push(`${client.name}: cno 추출 실패`);
       }
 
-      // 탭 닫기
       await salaryPage.close();
 
     } catch (err: any) {
       console.log(`  ✗ 오류: ${err.message}`);
       errors.push(`${client.name}: ${err.message}`);
-      // 열린 탭 닫기
       const pages = context.pages();
       for (let p = pages.length - 1; p > 0; p--) {
         await pages[p].close();
       }
     }
 
-    // 중간 저장 (5개마다)
+    // 중간 저장
     if (results.length > 0 && results.length % 5 === 0) {
-      saveCsv(results);
+      saveJson(results);
       console.log(`  📁 중간 저장: ${results.length}개`);
     }
 
     await page.waitForTimeout(500);
   }
 
-  // 6. 최종 저장
-  saveCsv(results);
-  console.log(`\n✅ 완료! ${results.length}개 수집 → scripts/wehago-clients.csv`);
+  // 6. 저장
+  saveJson(results);
+  console.log(`\n✅ 완료! ${results.length}개 수집 → scripts/wehago-clients-result.json`);
   if (skipped.length > 0) {
     console.log(`⏭ ${skipped.length}개 스킵:`);
     skipped.forEach((s) => console.log(`  - ${s}`));
@@ -218,10 +226,10 @@ function extractParam(url: string, key: string): string {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-function saveCsv(results: { id: number; name: string; bizNumber: string; cno: string; cdCom: string; color: string }[]) {
-  const header = "id,거래처명,사업자번호,cno,cd_com,color\n";
-  const rows = results.map((r) => `${r.id},"${r.name}","${r.bizNumber}","${r.cno}","${r.cdCom}","${r.color}"`).join("\n");
-  fs.writeFileSync("scripts/wehago-clients.csv", "\uFEFF" + header + rows, "utf-8");
+function saveJson(results: Result[]) {
+  fs.writeFileSync("scripts/wehago-clients-result.json", JSON.stringify(results, null, 2), "utf-8");
 }
+
+type Result = { id: number; name: string; bizNumber: string; cno: string; cdCom: string; colors: Record<string, string> };
 
 main().catch(console.error);

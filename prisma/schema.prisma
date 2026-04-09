@@ -75,7 +75,7 @@ model Client {
   cmsStatus      String   @default("none") // CMS 상태: none, pending, done
   wehagoCno      String?  // 위하고 거래처번호 (cNum)
   wehagoCdCom    String?  // 위하고 회사코드 (cd_com)
-  wehagoColor    String?  // 위하고 거래처 색상코드
+  wehagoColors   String?  // 위하고 년도별 색상코드 JSON {"2025":"#92B81E","2026":"#D0BA00"}
   assignedUserId Int?
   assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
   isDeleted      Boolean  @default(false)
