@@ -278,18 +278,33 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                               p === "위하고" ? <img key={p} src="/wehago.svg" alt="위하고" className="w-3.5 h-3.5 rounded shrink-0" /> :
                               p === "세무사랑" ? <img key={p} src="/semusarang.svg" alt="세무사랑" className="w-3.5 h-3.5 rounded shrink-0" /> : null
                             ))}
-                            {client.wehagoCno && client.wehagoCdCom && laborList.includes("근로소득") && (
-                              <button
-                                onClick={() => window.open(
-                                  `https://smarta.wehago.com/#/smarta/humanresource/SWSA0101?sao&cno=${client.wehagoCno}&cd_com=${client.wehagoCdCom}&gisu=1&yminsa=${year}&searchData=2021010120211231&color=${encodeURIComponent((() => { try { const c = JSON.parse(client.wehagoColors || "{}"); return c[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })())}&companyName=${encodeURIComponent(client.name)}&companyID=taehotax&taxNum=8024471&yn_private=1&wehagoT`,
-                                  "_blank"
-                                )}
-                                className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
-                                title="위하고 급여자료입력 바로가기"
-                              >
-                                급여
-                              </button>
-                            )}
+                            {client.wehagoCno && client.wehagoCdCom && (() => {
+                              const wehagoColor = (() => { try { const c = JSON.parse(client.wehagoColors || "{}"); return c[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })();
+                              const baseUrl = `https://smarta.wehago.com/#/smarta/humanresource`;
+                              const params = `sao&cno=${client.wehagoCno}&cd_com=${client.wehagoCdCom}&gisu=1&yminsa=${year}&searchData=2021010120211231&color=${encodeURIComponent(wehagoColor)}&companyName=${encodeURIComponent(client.name)}&companyID=taehotax&taxNum=8024471&yn_private=1&wehagoT`;
+                              return (
+                                <>
+                                  {laborList.includes("근로소득") && (
+                                    <button
+                                      onClick={() => window.open(`${baseUrl}/SWSA0101?${params}`, "_blank")}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
+                                      title="위하고 급여자료입력"
+                                    >
+                                      급여
+                                    </button>
+                                  )}
+                                  {laborList.includes("사업소득") && (
+                                    <button
+                                      onClick={() => window.open(`${baseUrl}/SWBU0102?${params}`, "_blank")}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 whitespace-nowrap shrink-0"
+                                      title="위하고 사업소득자료입력"
+                                    >
+                                      사업
+                                    </button>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="px-1 py-2 text-center">
