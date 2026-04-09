@@ -6,6 +6,31 @@ import { getSession } from "@/lib/auth";
 export async function GET(req: NextRequest) {
   const session = await getSession();
 
+  // userId 파라미터로 특정 사용자 거래처 조회
+  const userIdParam = req.nextUrl.searchParams.get("userId");
+  if (userIdParam) {
+    const userId = parseInt(userIdParam);
+    const employees = await prisma.user.findMany({
+      where: { managerId: userId, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [userId, ...employees.map((e) => e.id)];
+    const clients = await prisma.client.findMany({
+      where: {
+        isDeleted: false,
+        assignedUserId: { in: userIds },
+        OR: [
+          { laborTypes: { contains: "근로소득" } },
+          { laborTypes: { contains: "사업소득" } },
+          { withholdingLaborOverrides: { some: { laborTypes: { contains: "근로소득" } } } },
+          { withholdingLaborOverrides: { some: { laborTypes: { contains: "사업소득" } } } },
+        ],
+      },
+      select: { id: true, name: true, bizNumber: true, laborTypes: true, wehagoCno: true },
+    });
+    return NextResponse.json(clients);
+  }
+
   const search = req.nextUrl.searchParams.get("search");
 
   if (search) {
