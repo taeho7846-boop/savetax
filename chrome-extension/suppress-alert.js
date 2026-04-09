@@ -136,7 +136,7 @@
     try {
       var decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
       console.log("SaveTax: [MAIN] decoded mode:", decoded.mode, "certName:", decoded.certName);
-      if (decoded.mode === "corp_login" && decoded.certName) {
+      if (decoded.certName && decoded.agentNumber) {
         document.cookie = "savetax_corp=" + encodeURIComponent(JSON.stringify({
           certName: decoded.certName,
           certPw: decoded.certPw,
