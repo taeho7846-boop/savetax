@@ -473,21 +473,31 @@
     try {
       if (await checkLogout()) return;
 
-      // 먼저 chrome.storage에 인증 정보 저장 (팝업이 열리기 전에!)
-      await chrome.storage.local.set({
-        savetax_corp_cert: {
-          certName: creds.certName,
-          certPw: creds.certPw,
-          agentNumber: creds.agentNumber,
-          agentPw: creds.agentPw || creds.pw,
-        }
-      });
-      console.log("SaveTax: corp_login - 인증 정보 chrome.storage에 저장 완료");
-
       // 1. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);
-      console.log("SaveTax: corp_login - 로그인 후 팝업 대기");
-      // 2. suppress-alert.js가 관리번호 팝업 확인 → 새 창 열림 → 새 창에서 인증서 처리
+      console.log("SaveTax: corp_login - 로그인 완료, 팝업 대기");
+
+      // 2. suppress-alert.js가 관리번호 팝업 확인 → 새 창 열림
+      await sleep(8000);
+
+      // 3. background에 인증서 처리 요청 (팝업 탭에서 MAIN world로 실행)
+      console.log("SaveTax: corp_login - background에 인증서 처리 요청");
+      chrome.runtime.sendMessage({
+        type: "exec-corp-cert",
+        certName: creds.certName,
+        certPw: creds.certPw,
+      });
+
+      // 4. 인증서 처리 완료 대기 (관리번호 필드가 비어있으면 아직 처리중)
+      await sleep(15000);
+
+      // 5. background에 관리번호 입력 요청
+      console.log("SaveTax: corp_login - background에 관리번호 입력 요청");
+      chrome.runtime.sendMessage({
+        type: "exec-corp-agent",
+        agentNumber: creds.agentNumber,
+        agentPw: creds.agentPw || creds.pw,
+      });
 
     } catch (e) {
       console.error("SaveTax 법인 로그인 실패:", e);

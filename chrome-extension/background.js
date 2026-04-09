@@ -106,6 +106,144 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // 법인 로그인: 팝업 탭에서 MAIN world 코드 실행
+  if (msg.type === "exec-corp-cert") {
+    (async () => {
+      try {
+        // 팝업 탭 찾기 (hometax popup.html)
+        const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
+        const popupTab = tabs.find(t => t.url && t.url.includes("popup.html"));
+        if (!popupTab) { sendResponse({ ok: false, error: "팝업 탭 없음" }); return; }
+
+        // MAIN world에서 인증서 처리 코드 실행
+        await chrome.scripting.executeScript({
+          target: { tabId: popupTab.id },
+          world: "MAIN",
+          func: (certName, certPw) => {
+            function doCorpCert() {
+              // 공동금융인증 버튼 클릭
+              var btn = document.getElementById("mf_btnPkcCert_type01");
+              if (btn) {
+                btn.click();
+                console.log("SaveTax: [BG] 공동금융인증 클릭");
+              }
+
+              // dscert iframe 대기
+              var interval = setInterval(function() {
+                var f = document.querySelector("iframe[name='dscert']");
+                if (!f) return;
+                var d;
+                try { d = f.contentDocument || f.contentWindow.document; } catch(e) { return; }
+                if (!d) return;
+                var pw = d.getElementById("input_cert_pw") || d.querySelector("input[type='password']");
+                if (!pw) return;
+
+                clearInterval(interval);
+                console.log("SaveTax: [BG] dscert iframe 발견");
+
+                // 하드디스크 탭
+                d.querySelectorAll("a").forEach(function(a) {
+                  if ((a.textContent || "").indexOf("하드디스크") !== -1) a.click();
+                });
+
+                setTimeout(function() {
+                  // 인증서 선택
+                  if (certName) {
+                    d.querySelectorAll("a").forEach(function(a) {
+                      if ((a.textContent || "").indexOf(certName) !== -1) {
+                        a.click();
+                        console.log("SaveTax: [BG] 인증서 선택: " + certName);
+                      }
+                    });
+                  }
+
+                  setTimeout(function() {
+                    // 비밀번호 입력
+                    var pw2 = d.getElementById("input_cert_pw") || d.querySelector("input[type='password']");
+                    if (pw2) {
+                      pw2.focus();
+                      pw2.value = certPw;
+                      pw2.dispatchEvent(new Event("input", { bubbles: true }));
+                      console.log("SaveTax: [BG] 비밀번호 입력");
+                    }
+
+                    setTimeout(function() {
+                      var confirmBtn = d.getElementById("btn_confirm_iframe");
+                      if (confirmBtn) {
+                        confirmBtn.click();
+                        console.log("SaveTax: [BG] 확인 클릭");
+                      }
+                    }, 500);
+                  }, 500);
+                }, 1000);
+              }, 500);
+              setTimeout(function() { clearInterval(interval); }, 30000);
+            }
+            doCorpCert();
+          },
+          args: [msg.certName, msg.certPw],
+        });
+
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
+  // 법인 로그인: 원래 탭에서 관리번호 입력
+  if (msg.type === "exec-corp-agent") {
+    (async () => {
+      try {
+        const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
+        const mainTab = tabs.find(t => t.url && !t.url.includes("popup.html"));
+        if (!mainTab) { sendResponse({ ok: false, error: "메인 탭 없음" }); return; }
+
+        await chrome.scripting.executeScript({
+          target: { tabId: mainTab.id },
+          world: "MAIN",
+          func: (agentNumber, agentPw) => {
+            var inputs = document.querySelectorAll("input");
+            for (var i = 0; i < inputs.length; i++) {
+              if ((inputs[i].title || "").indexOf("관리번호") !== -1) {
+                inputs[i].focus(); inputs[i].value = agentNumber;
+                inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
+                console.log("SaveTax: [BG] 관리번호 입력");
+                break;
+              }
+            }
+            // 비밀번호
+            var pwInputs = document.querySelectorAll("input[type='password']");
+            if (pwInputs.length > 0) {
+              var lastPw = pwInputs[pwInputs.length - 1];
+              lastPw.focus(); lastPw.value = agentPw;
+              lastPw.dispatchEvent(new Event("input", { bubbles: true }));
+              console.log("SaveTax: [BG] 비밀번호 입력");
+            }
+            // 로그인 클릭
+            setTimeout(function() {
+              var btns = document.querySelectorAll("button, input[type='button']");
+              for (var j = 0; j < btns.length; j++) {
+                if ((btns[j].textContent || btns[j].value || "").trim() === "로그인" && btns[j].offsetParent) {
+                  btns[j].click();
+                  console.log("SaveTax: [BG] 로그인 클릭");
+                  break;
+                }
+              }
+            }, 300);
+          },
+          args: [msg.agentNumber, msg.agentPw],
+        });
+
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
   if (msg.type === "download-files") {
     (async () => {
       try {
