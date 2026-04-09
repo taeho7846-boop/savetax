@@ -179,13 +179,11 @@
       setTimeout(function() {
         var loginBtn = document.getElementById("mf_txppWframe_trigger41");
         if (loginBtn) {
+          // 로그인 완료 시그널을 먼저 설정 (페이지 이동 전에!)
+          document.cookie = "savetax_login_done=true; path=/; max-age=120";
+          console.log("SaveTax: [MAIN] 로그인 완료 시그널 설정");
           loginBtn.click();
           console.log("SaveTax: [MAIN] 로그인 클릭");
-          // 로그인 완료 시그널
-          setTimeout(function() {
-            document.cookie = "savetax_login_done=true; path=/; max-age=120";
-            console.log("SaveTax: [MAIN] 로그인 완료 시그널 설정");
-          }, 3000);
         }
       }, 300);
     }, 2000);
