@@ -153,6 +153,7 @@ model Settings {
   wehagoId           String? // 위하고 로그인 ID
   wehagoPw           String? // 위하고 로그인 PW
   wehagoTaxNum       String? // 위하고 taxNum (세무사 관리번호)
+  agentNumber        String? // 세무대리인 관리번호 (홈택스 법인로그인용)
 }
 
 // 신규수임 프로세스

@@ -293,6 +293,141 @@
   }
 
   // ============================================================
+  // MODE: corp_login (법인 아이디 로그인 - 인증서 + 관리번호)
+  // ============================================================
+  if (mode === "corp_login") {
+    try {
+      if (await checkLogout()) return;
+
+      // 1. 아이디/비밀번호 로그인
+      await doLogin(creds.id, creds.pw);
+      await sleep(2000);
+
+      // 2. 확인 팝업 처리
+      try {
+        const confirmBtn = await waitForXPath("//*[normalize-space(text())='확인']", 3000);
+        if (confirmBtn) confirmBtn.click();
+      } catch (e) {}
+      await sleep(2000);
+
+      // 3. 공동∙금융 인증 버튼 클릭
+      try {
+        const certBtn = await waitForXPath("//button[contains(text(),'공동') and contains(text(),'인증')]", 5000);
+        if (certBtn) certBtn.click();
+      } catch (e) {
+        // 다른 셀렉터 시도
+        try {
+          const certBtn2 = document.evaluate("//button[contains(text(),'금융 인증')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+          if (certBtn2) certBtn2.click();
+        } catch (e2) {}
+      }
+      await sleep(2000);
+
+      // 4. 인증서 선택 + 비밀번호 (iframe 내부)
+      if (creds.certPw) {
+        try {
+          const iframes = document.querySelectorAll("iframe");
+          let certDoc = null;
+          for (const iframe of iframes) {
+            try {
+              const doc = iframe.contentDocument;
+              if (doc && (doc.querySelector("input[type='password']") || doc.getElementById("input_cert_pw"))) {
+                certDoc = doc;
+                break;
+              }
+            } catch (e) {}
+          }
+
+          if (!certDoc) {
+            // dscert iframe 직접 찾기
+            const dscertFrame = document.querySelector("iframe[name='dscert']");
+            if (dscertFrame) certDoc = dscertFrame.contentDocument;
+          }
+
+          if (certDoc) {
+            await sleep(1000);
+            // 하드디스크 탭 클릭
+            try {
+              const hdLink = certDoc.evaluate("//a[contains(text(),'하드디스크')]", certDoc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+              if (hdLink) { hdLink.click(); await sleep(500); }
+            } catch (e) {}
+
+            // 인증서 선택 (certName으로)
+            if (creds.certName) {
+              try {
+                const certEl = certDoc.evaluate(`//a[contains(text(),'${creds.certName}')] | //span[contains(text(),'${creds.certName}')]`, certDoc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                if (certEl) { certEl.click(); await sleep(300); }
+              } catch (e) {}
+            }
+
+            // 비밀번호 입력
+            const pwField = certDoc.getElementById("input_cert_pw") || certDoc.querySelector("input[type='password']");
+            if (pwField) {
+              pwField.focus();
+              pwField.value = creds.certPw;
+              pwField.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            await sleep(300);
+
+            // 확인 버튼
+            const certConfirm = certDoc.getElementById("btn_confirm_iframe") || certDoc.querySelector("button[id*='confirm']");
+            if (certConfirm) certConfirm.click();
+            await sleep(2000);
+          }
+        } catch (e) {
+          console.error("SaveTax: 인증서 처리 실패:", e);
+        }
+      }
+
+      // 5. 세무대리인 관리번호 + 비밀번호 입력
+      if (creds.agentNumber) {
+        await sleep(2000);
+        try {
+          // 관리번호 입력
+          let agentInput = document.evaluate("//input[@title='세무대리인 관리번호' or contains(@placeholder,'관리번호')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+          if (!agentInput) {
+            // role로 찾기
+            const inputs = document.querySelectorAll("input[type='text'], input[type='password']");
+            for (const inp of inputs) {
+              if (inp.getAttribute("aria-label")?.includes("관리번호") || inp.getAttribute("title")?.includes("관리번호")) {
+                agentInput = inp;
+                break;
+              }
+            }
+          }
+          if (agentInput) {
+            setInput(agentInput, creds.agentNumber);
+          }
+          await sleep(300);
+
+          // 비밀번호 입력 (관리번호 다음의 password 필드)
+          const pwInputs = document.querySelectorAll("input[type='password']");
+          const lastPw = pwInputs[pwInputs.length - 1];
+          if (lastPw) {
+            setInput(lastPw, creds.agentPw || creds.pw);
+          }
+          await sleep(300);
+
+          // 로그인 버튼 클릭
+          const loginBtns = document.querySelectorAll("button");
+          for (const btn of loginBtns) {
+            if (btn.textContent?.trim() === "로그인" && btn.offsetParent !== null) {
+              btn.click();
+              break;
+            }
+          }
+        } catch (e) {
+          console.error("SaveTax: 관리번호 입력 실패:", e);
+        }
+      }
+
+      console.log("SaveTax: 법인 로그인 완료");
+    } catch (e) {
+      console.error("SaveTax 법인 로그인 실패:", e);
+    }
+  }
+
+  // ============================================================
   // MODE: register (기장대리 수임납세자 등록)
   // ============================================================
   if (mode === "register") {

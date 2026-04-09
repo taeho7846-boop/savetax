@@ -184,11 +184,20 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       }
 
       // 2. 홈택스를 새 탭으로 열기 (자격증명을 URL hash에 포함)
-      const creds = btoa(JSON.stringify({
+      const isCorp = !!data.agentNumber;
+      const credData: Record<string, string> = {
+        mode: isCorp ? "corp_login" : "login",
         id: data.hometaxId,
         pw: data.hometaxPw,
         rn: data.residentNumber,
-      }));
+      };
+      if (isCorp) {
+        credData.certName = data.certName;
+        credData.certPw = data.certPw;
+        credData.agentNumber = data.agentNumber;
+        credData.agentPw = data.hometaxPw;
+      }
+      const creds = btoa(unescape(encodeURIComponent(JSON.stringify(credData))));
       window.open(
         `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
         "_blank"

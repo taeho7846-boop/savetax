@@ -32,10 +32,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 사용자 설정에서 인증서/관리번호 정보 가져오기
+  const settings = await prisma.settings.findUnique({
+    where: { userId: session.id },
+    select: { certName: true, certPassword: true, agentNumber: true },
+  });
+
   return NextResponse.json({
     hometaxId: client.hometaxId,
     hometaxPw: client.hometaxPw,
     residentNumber: client.residentNumber ?? "",
     bizNumber: client.bizNumber ?? "",
+    certName: settings?.certName ?? "",
+    certPw: settings?.certPassword ?? "",
+    agentNumber: settings?.agentNumber ?? "",
   });
 }
