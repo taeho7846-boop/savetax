@@ -134,13 +134,20 @@
 
 // 법인 로그인: 관리번호 입력 (인증 후 원래 페이지에서)
 (async function () {
-  const agentStorage = await chrome.storage.local.get("savetax_corp_agent");
-  if (!agentStorage.savetax_corp_agent) return;
+  // 관리번호 필드가 나타날 때까지 폴링 (60초)
+  let agentCreds = null;
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    const s = await chrome.storage.local.get("savetax_corp_agent");
+    if (!s.savetax_corp_agent) continue;
+    const field = document.getElementById("mf_txppWframe_input1");
+    if (!field) continue;
+    agentCreds = s.savetax_corp_agent;
+    chrome.storage.local.remove("savetax_corp_agent");
+    break;
+  }
+  if (!agentCreds) return;
 
-  const creds = agentStorage.savetax_corp_agent;
-  chrome.storage.local.remove("savetax_corp_agent");
-
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   function setInput(el, value) {
     el.focus(); el.value = value;
     el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -148,37 +155,23 @@
   }
 
   try {
-    console.log("SaveTax: [법인] 관리번호 입력 시작");
-    await sleep(2000);
+    console.log("SaveTax: [법인] 관리번호 입력 시작:", agentCreds.agentNumber);
 
-    // 관리번호 입력
-    const inputs = document.querySelectorAll("input[type='text']");
-    for (const inp of inputs) {
-      if (inp.getAttribute("title")?.includes("관리번호") || inp.getAttribute("aria-label")?.includes("관리번호")) {
-        setInput(inp, creds.agentNumber);
-        console.log("SaveTax: [법인] 관리번호 입력 완료");
-        break;
-      }
-    }
-    await sleep(300);
+    const agentInput = document.getElementById("mf_txppWframe_input1");
+    if (agentInput) setInput(agentInput, agentCreds.agentNumber);
 
-    // 비밀번호 입력
-    const pwInputs = document.querySelectorAll("input[type='password']");
-    if (pwInputs.length > 0) {
-      setInput(pwInputs[pwInputs.length - 1], creds.agentPw);
-      console.log("SaveTax: [법인] 비밀번호 입력 완료");
-    }
-    await sleep(300);
+    await new Promise(r => setTimeout(r, 300));
+
+    const pwInput = document.getElementById("mf_txppWframe_input2");
+    if (pwInput) setInput(pwInput, agentCreds.agentPw);
+
+    await new Promise(r => setTimeout(r, 300));
 
     // 로그인 버튼
-    const btns = document.querySelectorAll("button, input[type='button']");
-    for (const btn of btns) {
-      const text = (btn.textContent || btn.value || "").trim();
-      if (text === "로그인" && btn.offsetParent !== null) {
-        btn.click();
-        console.log("SaveTax: [법인] 로그인 클릭");
-        break;
-      }
+    const loginBtn = document.getElementById("mf_txppWframe_trigger41");
+    if (loginBtn) {
+      loginBtn.click();
+      console.log("SaveTax: [법인] 로그인 클릭");
     }
   } catch (e) {
     console.error("SaveTax: [법인] 관리번호 입력 실패:", e);
@@ -488,10 +481,18 @@
       if (await checkLogout()) return;
 
       // 1. suppress-alert.js(MAIN, document_start)가 hash에서 이미 cookie 설정 완료
+      // chrome.storage에 관리번호 저장 (인증 후 사용)
+      await chrome.storage.local.set({
+        savetax_corp_agent: {
+          agentNumber: creds.agentNumber,
+          agentPw: creds.agentPw || creds.pw,
+        }
+      });
+      console.log("SaveTax: corp_login - agent 정보 storage 저장:", creds.agentNumber);
+
       // 2. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);
-      console.log("SaveTax: corp_login - 로그인 완료, background가 나머지 처리");
-      // 이후: suppress-alert이 팝업 확인 → background가 팝업 탭 감지 → 인증서 + 관리번호 자동
+      console.log("SaveTax: corp_login - 로그인 완료");
 
     } catch (e) {
       console.error("SaveTax 법인 로그인 실패:", e);
