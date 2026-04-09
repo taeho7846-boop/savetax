@@ -197,7 +197,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         credData.agentNumber = data.agentNumber;
         credData.agentPw = data.hometaxPw;
       }
-      const creds = btoa(unescape(encodeURIComponent(JSON.stringify(credData))));
+      const creds = btoa(unescape(encodeURIComponent(JSON.stringify(credData)))).replace(/=/g, "");
       window.open(
         `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
         "_blank"

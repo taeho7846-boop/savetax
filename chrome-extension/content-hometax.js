@@ -288,8 +288,9 @@
   // 인증서 처리 후 페이지 새로고침에 대비
   sessionStorage.setItem("savetax_pending", "true");
 
-  const encoded = hash.split("savetax=")[1];
+  let encoded = hash.substring(hash.indexOf("savetax=") + 8);
   if (!encoded) return;
+  while (encoded.length % 4 !== 0) encoded += "=";
 
   let creds;
   try {

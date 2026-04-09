@@ -132,6 +132,8 @@
   console.log("SaveTax: [MAIN] hash 확인:", hash ? hash.substring(0, 40) + "..." : "(비어있음)", "길이:", hash.length);
   if (hash && hash.indexOf("savetax=") !== -1) {
     var encoded = hash.substring(hash.indexOf("savetax=") + 8);
+    // base64 패딩 복원
+    while (encoded.length % 4 !== 0) encoded += "=";
     console.log("SaveTax: [MAIN] encoded 길이:", encoded.length);
     try {
       var decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
