@@ -14,18 +14,14 @@
   }
 
   try {
-    // 4. 공동∙금융 인증 버튼 클릭
-    console.log("SaveTax: [법인] 새 창 - 공동∙금융 인증 버튼 찾는중...");
-    for (let attempt = 0; attempt < 20; attempt++) {
-      await sleep(1000);
-      const btn = document.getElementById("mf_btnPkcCert_type01");
-      if (btn) {
-        btn.click();
-        console.log("SaveTax: [법인] 공동∙금융 인증 클릭");
-        break;
-      }
-    }
+    // 4. 공동∙금융 인증 버튼 - 탭+엔터로 선택
+    console.log("SaveTax: [법인] 새 창 - 공동∙금융 인증 선택...");
     await sleep(2000);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", keyCode: 9, bubbles: true }));
+    await sleep(300);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
+    console.log("SaveTax: [법인] Tab+Enter 전송");
+    await sleep(3000);
 
     // 5. 인증서 선택 + 비밀번호 (dscert iframe)
     if (creds.certPw) {
