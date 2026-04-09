@@ -303,22 +303,12 @@
       await doLogin(creds.id, creds.pw);
       await sleep(2000);
 
-      // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
-      for (let attempt = 0; attempt < 20; attempt++) {
-        await sleep(500);
-        pageExec(`
-          (function() {
-            var els = document.querySelectorAll("input[type='button']");
-            for (var i = 0; i < els.length; i++) {
-              if (els[i].value === "확인" && els[i].id.indexOf("btn_confirm") !== -1 && els[i].style.display !== "none") {
-                els[i].click();
-                console.log("SaveTax: 확인 클릭 성공 - " + els[i].id);
-                return;
-              }
-            }
-          })();
-        `);
-      }
+      // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 → 엔터로 확인
+      await sleep(2000);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", keyCode: 13, bubbles: true }));
+      pageExec(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));`);
+      console.log("SaveTax: 팝업 엔터 전송");
       await sleep(3000);
 
       // 3. 공동∙금융 인증 버튼 클릭
