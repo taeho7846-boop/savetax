@@ -1,7 +1,5 @@
 // suppress-alert 로더 (MAIN world)
-// 기본 코드 내장 + 서버에서 최신 버전 시도
 (function() {
-  // 기본 내장 코드 (서버 연결 실패 시에도 작동)
   var origAlert = window.alert;
   var origConfirm = window.confirm;
 
@@ -27,96 +25,74 @@
     return origConfirm.call(window, msg);
   };
 
-  // 법인 로그인: 사용자인증 선택 팝업에서 공동·금융 인증 + 인증서 처리 (popup.html)
+  // === 법인 로그인: 팝업에서 공동금융인증 + 인증서 처리 ===
   if (window.location.href.indexOf("popup.html") !== -1 || window.location.href.indexOf("UTECMABA") !== -1) {
 
-    // 인증서 정보를 content script에서 받기 위해 커스텀 이벤트 리스너
-    var corpCertCreds = null;
-    window.addEventListener("savetax_corp_creds", function(e) {
-      corpCertCreds = e.detail;
-      console.log("SaveTax: [MAIN] 인증 정보 수신:", corpCertCreds.certName);
-    });
-
-    // 공동·금융 인증 버튼 찾기
-    var certCheckInterval = setInterval(function() {
+    // 1. 공동금융인증 버튼 찾아서 클릭
+    var certBtnInterval = setInterval(function() {
       var btn = document.getElementById("mf_btnPkcCert_type01");
       if (!btn) {
-        // 텍스트로 찾기
         var allInputs = document.querySelectorAll("input[type='button']");
         for (var i = 0; i < allInputs.length; i++) {
           if (allInputs[i].value && allInputs[i].value.indexOf("공동") !== -1) { btn = allInputs[i]; break; }
         }
       }
       if (!btn) return;
+      clearInterval(certBtnInterval);
 
-      clearInterval(certCheckInterval);
       setTimeout(function() {
         btn.click();
         console.log("SaveTax: [MAIN] 공동·금융 인증 클릭");
 
-        // 인증서 iframe 대기 후 처리
-        var certIframeInterval = setInterval(function() {
-          var dscertFrame = document.querySelector("iframe[name='dscert']");
-          if (!dscertFrame) return;
-          var certDoc;
-          try { certDoc = dscertFrame.contentDocument || dscertFrame.contentWindow.document; } catch(e) { return; }
-          if (!certDoc) return;
-
-          var pwField = certDoc.getElementById("input_cert_pw") || certDoc.querySelector("input[type='password']");
+        // 2. dscert iframe 대기
+        var iframeInterval = setInterval(function() {
+          var frame = document.querySelector("iframe[name='dscert']");
+          if (!frame) return;
+          var doc;
+          try { doc = frame.contentDocument || frame.contentWindow.document; } catch(e) { return; }
+          if (!doc) return;
+          var pwField = doc.getElementById("input_cert_pw") || doc.querySelector("input[type='password']");
           if (!pwField) return;
-
-          clearInterval(certIframeInterval);
+          clearInterval(iframeInterval);
           console.log("SaveTax: [MAIN] dscert iframe + 비밀번호 필드 발견!");
 
           // 하드디스크 탭 클릭
-          var hdLinks = certDoc.querySelectorAll("a");
-          for (var h = 0; h < hdLinks.length; h++) {
-            if ((hdLinks[h].textContent || "").indexOf("하드디스크") !== -1) {
-              hdLinks[h].click();
+          doc.querySelectorAll("a").forEach(function(a) {
+            if ((a.textContent || "").indexOf("하드디스크") !== -1) {
+              a.click();
               console.log("SaveTax: [MAIN] 하드디스크 탭 클릭");
-              break;
             }
-          }
+          });
 
+          // 3. cookie에서 인증 정보 읽기 대기
           setTimeout(function() {
-            // cookie에서 인증 정보 읽기
-            console.log("SaveTax: [MAIN] cookie에서 인증 정보 읽기...");
-            var cd = null;
-            var credsWait = setInterval(function() {
+            console.log("SaveTax: [MAIN] cookie에서 인증 정보 대기...");
+            var cookieInterval = setInterval(function() {
               var match = document.cookie.match(/savetax_corp=([^;]+)/);
-              if (!match) {
-                console.log("SaveTax: [MAIN] cookie 아직 없음...");
-                return;
-              }
-              clearInterval(credsWait);
+              if (!match) return;
+              clearInterval(cookieInterval);
+
+              var cd;
               try { cd = JSON.parse(decodeURIComponent(match[1])); } catch(e) { return; }
-              // cookie 삭제
               document.cookie = "savetax_corp=; path=/; max-age=0";
               console.log("SaveTax: [MAIN] 인증 정보 발견! certName:", cd.certName);
-              doCertProcess(cd);
-            }, 500);
-            // 30초 타임아웃
-            setTimeout(function() { clearInterval(credsWait); console.log("SaveTax: [MAIN] 인증 정보 대기 타임아웃"); }, 30000);
 
-            function doCertProcess(cd) {
-              var certDoc2;
-              try { certDoc2 = dscertFrame.contentDocument || dscertFrame.contentWindow.document; } catch(e) { return; }
+              // 4. 인증서 선택
+              var doc2;
+              try { doc2 = frame.contentDocument || frame.contentWindow.document; } catch(e) { return; }
 
-              // 인증서 선택
               if (cd.certName) {
-                var links = certDoc2.querySelectorAll("a");
-                for (var k = 0; k < links.length; k++) {
-                  if ((links[k].textContent || "").indexOf(cd.certName) !== -1) {
-                    links[k].click();
+                doc2.querySelectorAll("a").forEach(function(a) {
+                  if ((a.textContent || "").indexOf(cd.certName) !== -1) {
+                    a.click();
                     console.log("SaveTax: [MAIN] 인증서 선택: " + cd.certName);
-                    break;
                   }
-                }
+                });
               }
 
+              // 5. 비밀번호 입력 + 확인
               setTimeout(function() {
-                // 비밀번호 입력
-                var pw2 = certDoc2.getElementById("input_cert_pw") || certDoc2.querySelector("input[type='password']");
+                var pw2 = doc2.getElementById("input_cert_pw") || doc2.querySelector("input[type='password']");
                 if (pw2 && cd.certPw) {
                   pw2.focus();
                   pw2.value = cd.certPw;
@@ -125,33 +101,30 @@
                 }
 
                 setTimeout(function() {
-                  // 확인 클릭
-                  var confirmBtn = certDoc2.getElementById("btn_confirm_iframe");
+                  var confirmBtn = doc2.getElementById("btn_confirm_iframe");
                   if (confirmBtn) {
                     confirmBtn.click();
                     console.log("SaveTax: [MAIN] 인증서 확인 클릭");
                   }
 
-                  // 인증 후 원래 창에서 관리번호 입력
-                  var agentNumber = cd.agentNumber;
-                  var agentPw = cd.agentPw;
-                  if (agentNumber && window.opener) {
+                  // 6. 원래 창에서 관리번호 입력
+                  if (cd.agentNumber && window.opener) {
                     setTimeout(function() {
                       try {
                         var opDoc = window.opener.document;
                         var inputs = opDoc.querySelectorAll("input");
                         for (var m = 0; m < inputs.length; m++) {
                           if ((inputs[m].title || "").indexOf("관리번호") !== -1) {
-                            inputs[m].focus(); inputs[m].value = agentNumber;
+                            inputs[m].focus(); inputs[m].value = cd.agentNumber;
                             inputs[m].dispatchEvent(new Event("input", { bubbles: true }));
-                            console.log("SaveTax: [MAIN] 관리번호 입력: " + agentNumber);
+                            console.log("SaveTax: [MAIN] 관리번호 입력: " + cd.agentNumber);
                             break;
                           }
                         }
                         var pwInputs = opDoc.querySelectorAll("input[type='password']");
                         if (pwInputs.length > 0) {
                           var lastPw = pwInputs[pwInputs.length - 1];
-                          lastPw.focus(); lastPw.value = agentPw;
+                          lastPw.focus(); lastPw.value = cd.agentPw;
                           lastPw.dispatchEvent(new Event("input", { bubbles: true }));
                           console.log("SaveTax: [MAIN] 비밀번호 입력");
                         }
@@ -173,22 +146,16 @@
                 }, 500);
               }, 500);
             }, 500);
-            // 30초 타임아웃
-            setTimeout(function() { clearInterval(credsWait); console.log("SaveTax: [MAIN] 인증 정보 대기 타임아웃"); }, 30000);
+            setTimeout(function() { clearInterval(cookieInterval); }, 30000);
           }, 1500);
         }, 500);
-        // 30초 타임아웃
-        setTimeout(function() { clearInterval(certIframeInterval); }, 30000);
+        setTimeout(function() { clearInterval(iframeInterval); }, 30000);
       }, 1000);
     }, 500);
-    // 30초 후 타임아웃
-    setTimeout(function() { clearInterval(certCheckInterval); }, 30000);
+    setTimeout(function() { clearInterval(certBtnInterval); }, 30000);
   }
 
-  // DOM 기반 팝업 감시
-  var autoCloseKeywords = ["정상적으로 접수", "접수되었습니다", "처리되었습니다", "완료되었습니다", "확인되었습니다"];
-
-  // 관리번호 팝업 확인 버튼 반복 찾기 (500ms 간격, 30초)
+  // === 관리번호 팝업 확인 버튼 반복 찾기 ===
   var corpConfirmInterval = setInterval(function() {
     var btn = document.querySelector("input[id*='btn_confirm'][value='확인']");
     if (btn && btn.offsetParent && !btn.dataset.savetaxCorpClicked) {
@@ -200,23 +167,14 @@
   }, 500);
   setTimeout(function() { clearInterval(corpConfirmInterval); }, 30000);
 
+  // === DOM 기반 팝업 감시 ===
+  var autoCloseKeywords = ["정상적으로 접수", "접수되었습니다", "처리되었습니다", "완료되었습니다", "확인되었습니다"];
+
   var observer = new MutationObserver(function() {
-    // 세무대리인 팝업 → 취소
     var popups = document.querySelectorAll("div.w2window, div[class*='popup'], div[class*='w2window']");
     popups.forEach(function(popup) {
-      if (!popup.offsetParent) return; // 안 보이면 무시
+      if (!popup.offsetParent) return;
       var text = popup.textContent || "";
-
-      // 세무대리인 관리번호 로그인 팝업 → 확인
-      if (text.indexOf("세무대리인") !== -1 && text.indexOf("관리번호") !== -1) {
-        var okBtn = popup.querySelector("input[value='확인']");
-        if (okBtn && !okBtn.dataset.savetaxClicked) {
-          okBtn.dataset.savetaxClicked = "true";
-          okBtn.click();
-          console.log("SaveTax: 세무대리인 관리번호 팝업 확인");
-        }
-        return;
-      }
 
       // 세무대리인 전용 화면 → 취소
       if (text.indexOf("세무대리인") !== -1 && text.indexOf("전용") !== -1) {
@@ -229,7 +187,7 @@
         return;
       }
 
-      // 알림 팝업 (접수/처리/완료/확인) → 확인
+      // 알림 팝업 → 확인
       for (var i = 0; i < autoCloseKeywords.length; i++) {
         if (text.indexOf(autoCloseKeywords[i]) !== -1) {
           var confirmBtn = popup.querySelector("input[value='확인']");
