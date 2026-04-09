@@ -159,14 +159,15 @@ async function main() {
         await salaryPage.waitForTimeout(500);
       }
 
-      // URL에서 cno, cd_com 추출
+      // URL에서 cno, cd_com, color 추출
       const url = salaryPage.url();
       const cno = extractParam(url, "cno");
       const cdCom = extractParam(url, "cd_com");
+      const color = extractParam(url, "color");
 
       if (cno && cdCom) {
-        results.push({ id: client.id, name: client.name, bizNumber: client.bizNumber, cno, cdCom });
-        console.log(`  ✓ cno=${cno}, cd_com=${cdCom}`);
+        results.push({ id: client.id, name: client.name, bizNumber: client.bizNumber, cno, cdCom, color });
+        console.log(`  ✓ cno=${cno}, cd_com=${cdCom}, color=${color}`);
       } else {
         console.log(`  ✗ URL 파싱 실패: ${url}`);
         errors.push(`${client.name}: URL 파싱 실패`);
@@ -217,9 +218,9 @@ function extractParam(url: string, key: string): string {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-function saveCsv(results: { id: number; name: string; bizNumber: string; cno: string; cdCom: string }[]) {
-  const header = "id,거래처명,사업자번호,cno,cd_com\n";
-  const rows = results.map((r) => `${r.id},"${r.name}","${r.bizNumber}","${r.cno}","${r.cdCom}"`).join("\n");
+function saveCsv(results: { id: number; name: string; bizNumber: string; cno: string; cdCom: string; color: string }[]) {
+  const header = "id,거래처명,사업자번호,cno,cd_com,color\n";
+  const rows = results.map((r) => `${r.id},"${r.name}","${r.bizNumber}","${r.cno}","${r.cdCom}","${r.color}"`).join("\n");
   fs.writeFileSync("scripts/wehago-clients.csv", "\uFEFF" + header + rows, "utf-8");
 }
 
