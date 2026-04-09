@@ -486,16 +486,14 @@
     try {
       if (await checkLogout()) return;
 
-      // 1. chrome.storage에 인증 정보 저장 (background가 팝업 감지 시 사용)
-      await chrome.storage.local.set({
-        savetax_corp_cert: {
-          certName: creds.certName,
-          certPw: creds.certPw,
-          agentNumber: creds.agentNumber,
-          agentPw: creds.agentPw || creds.pw,
-        }
-      });
-      console.log("SaveTax: corp_login - chrome.storage 저장 완료");
+      // 1. cookie로 인증 정보 전달 (suppress-alert.js MAIN world에서 읽기)
+      document.cookie = "savetax_corp=" + encodeURIComponent(JSON.stringify({
+        certName: creds.certName,
+        certPw: creds.certPw,
+        agentNumber: creds.agentNumber,
+        agentPw: creds.agentPw || creds.pw,
+      })) + "; path=/; max-age=120";
+      console.log("SaveTax: corp_login - cookie에 인증 정보 저장");
 
       // 2. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);

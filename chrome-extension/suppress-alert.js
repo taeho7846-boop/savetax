@@ -79,21 +79,26 @@
           }
 
           setTimeout(function() {
-            // DOM에서 인증 정보 읽기 대기 (content script가 심을 때까지)
-            console.log("SaveTax: [MAIN] DOM에서 인증 정보 대기중...");
+            // cookie에서 인증 정보 읽기
+            console.log("SaveTax: [MAIN] cookie에서 인증 정보 읽기...");
+            var cd = null;
             var credsWait = setInterval(function() {
-              var credsEl = document.getElementById("savetax-corp-creds");
-              if (!credsEl) {
-                console.log("SaveTax: [MAIN] savetax-corp-creds 아직 없음...");
+              var match = document.cookie.match(/savetax_corp=([^;]+)/);
+              if (!match) {
+                console.log("SaveTax: [MAIN] cookie 아직 없음...");
                 return;
               }
               clearInterval(credsWait);
-              console.log("SaveTax: [MAIN] 인증 정보 발견! certName:", credsEl.dataset.certName);
+              try { cd = JSON.parse(decodeURIComponent(match[1])); } catch(e) { return; }
+              // cookie 삭제
+              document.cookie = "savetax_corp=; path=/; max-age=0";
+              console.log("SaveTax: [MAIN] 인증 정보 발견! certName:", cd.certName);
+              doCertProcess(cd);
+            }, 500);
+            // 30초 타임아웃
+            setTimeout(function() { clearInterval(credsWait); console.log("SaveTax: [MAIN] 인증 정보 대기 타임아웃"); }, 30000);
 
-              var cd = {
-                certName: credsEl.dataset.certName || "",
-                certPw: credsEl.dataset.certPw || "",
-              };
+            function doCertProcess(cd) {
               var certDoc2;
               try { certDoc2 = dscertFrame.contentDocument || dscertFrame.contentWindow.document; } catch(e) { return; }
 
@@ -128,8 +133,8 @@
                   }
 
                   // 인증 후 원래 창에서 관리번호 입력
-                  var agentNumber = credsEl.dataset.agentNumber;
-                  var agentPw = credsEl.dataset.agentPw;
+                  var agentNumber = cd.agentNumber;
+                  var agentPw = cd.agentPw;
                   if (agentNumber && window.opener) {
                     setTimeout(function() {
                       try {
