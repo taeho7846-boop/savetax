@@ -1,5 +1,21 @@
 // 텔레그램 봇 폴링 스크립트 (curl 기반)
 import { execSync } from "child_process";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+// .env 파일에서 환경변수 로드
+try {
+  const envPath = resolve(__dirname, "../.env");
+  const envContent = readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const match = line.match(/^([^#=]+)=(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      const val = match[2].trim().replace(/^["']|["']$/g, "");
+      if (!process.env[key]) process.env[key] = val;
+    }
+  }
+} catch {}
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!BOT_TOKEN) {
