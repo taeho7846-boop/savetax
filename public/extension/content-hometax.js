@@ -304,16 +304,8 @@
       await sleep(2000);
 
       // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
-      for (let attempt = 0; attempt < 15; attempt++) {
-        await sleep(1000);
-        const btn = document.querySelector("input[id*='btn_confirm'][value='확인']");
-        if (btn && btn.style.display !== "none" && btn.style.visibility !== "hidden") {
-          btn.click();
-          console.log("SaveTax: 세무대리인 팝업 확인 클릭 성공");
-          break;
-        }
-      }
-      await sleep(3000);
+      // suppress-alert.js (MAIN world)가 자동으로 확인 클릭
+      await sleep(5000);
 
       // 3. 공동∙금융 인증 버튼 클릭
       for (let attempt = 0; attempt < 10; attempt++) {
