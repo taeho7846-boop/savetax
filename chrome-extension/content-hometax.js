@@ -420,9 +420,11 @@
   let creds;
   try {
     creds = JSON.parse(decodeURIComponent(escape(atob(encoded))));
-  } catch {
-    try { creds = JSON.parse(atob(encoded)); } catch { return; }
+  } catch (e1) {
+    console.log("SaveTax: content hash 파싱1 실패:", e1.message);
+    try { creds = JSON.parse(atob(encoded)); } catch (e2) { console.log("SaveTax: content hash 파싱2 실패:", e2.message); return; }
   }
+  console.log("SaveTax: content mode:", creds.mode);
 
   // hash 제거 (보안)
   history.replaceState(null, "", window.location.pathname + window.location.search);
