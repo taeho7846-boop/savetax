@@ -129,6 +129,7 @@
 
   // === 법인 로그인: URL hash에서 직접 인증 정보 읽어서 cookie 설정 (document_start) ===
   var hash = window.location.hash;
+  console.log("SaveTax: [MAIN] hash 확인:", hash ? hash.substring(0, 30) + "..." : "(비어있음)");
   if (hash && hash.indexOf("savetax=") !== -1) {
     try {
       var encoded = hash.split("savetax=")[1];
@@ -142,7 +143,7 @@
         })) + "; path=/; max-age=120";
         console.log("SaveTax: [MAIN] hash에서 인증 정보 → cookie 설정 완료");
       }
-    } catch(e) {}
+    } catch(e) { console.error("SaveTax: [MAIN] hash 파싱 실패:", e); }
   }
 
   // === 관리번호 cookie 감지 → 자동 입력 (원래 페이지에서) ===
