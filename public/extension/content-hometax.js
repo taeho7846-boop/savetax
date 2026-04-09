@@ -304,11 +304,14 @@
       await sleep(2000);
 
       // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 → 엔터로 확인
-      await sleep(2000);
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
-      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", keyCode: 13, bubbles: true }));
-      pageExec(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));`);
-      console.log("SaveTax: 팝업 엔터 전송");
+      // 팝업이 뜰 때까지 대기 후 여러 번 엔터 시도
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await sleep(1000);
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
+        document.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", keyCode: 13, bubbles: true }));
+        pageExec(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));`);
+        console.log("SaveTax: 팝업 엔터 시도 " + (attempt + 1));
+      }
       await sleep(3000);
 
       // 3. 공동∙금융 인증 버튼 클릭
