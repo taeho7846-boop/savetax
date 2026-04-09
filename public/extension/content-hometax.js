@@ -183,19 +183,21 @@
 
 // 법인 로그인 완료 후 다음 액션 실행 (register/commission/recommission)
 (async function () {
-  // savetax_corp_next + login_done 폴링 (90초 대기)
+  // savetax_corp_next 폴링 + 로그인 완료 확인 (관리번호 입력 필드가 없어야 = 로그인 완료)
   let nextData = null;
   for (let i = 0; i < 90; i++) {
     await new Promise(r => setTimeout(r, 1000));
-    const s = await chrome.storage.local.get(["savetax_corp_next", "savetax_login_done"]);
-    if (!s.savetax_login_done) continue;
-    if (s.savetax_corp_next) {
-      nextData = s.savetax_corp_next;
-      break;
-    }
+    const s = await chrome.storage.local.get("savetax_corp_next");
+    if (!s.savetax_corp_next) continue;
+    // 관리번호 입력 필드가 있으면 아직 로그인 중
+    if (document.getElementById("mf_txppWframe_input1")) continue;
+    // 로그인 완료 후 메인 메뉴가 보이는지
+    if (!document.getElementById("mf_wfHeader_wq_uuid_619")) continue;
+    nextData = s.savetax_corp_next;
+    break;
   }
   if (!nextData) return;
-  chrome.storage.local.remove(["savetax_corp_next", "savetax_login_done"]);
+  console.log("SaveTax: [법인] 로그인 완료 확인, 다음 액션 시작");
 
   // 관리번호 로그인이 완료될 때까지 대기 (세무대리인 메뉴가 보이면 완료)
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
