@@ -3,7 +3,7 @@
   // 팝업 페이지에서만 실행 (popup.html)
   if (!window.location.href.includes("popup.html") && !window.location.href.includes("UTECMABA")) return;
 
-  // chrome.storage에서 데이터 폴링 (원래 페이지가 저장할 때까지 대기)
+  // chrome.storage에서 데이터 폴링
   let creds = null;
   for (let i = 0; i < 15; i++) {
     const storage = await chrome.storage.local.get("savetax_corp_cert");
@@ -15,6 +15,17 @@
     await new Promise(r => setTimeout(r, 1000));
   }
   if (!creds) return;
+
+  // background에 이 탭에서 MAIN world로 인증서 처리 요청
+  console.log("SaveTax: [팝업] background에 인증서 처리 요청");
+  chrome.runtime.sendMessage({
+    type: "exec-corp-cert",
+    certName: creds.certName,
+    certPw: creds.certPw,
+    agentNumber: creds.agentNumber,
+    agentPw: creds.agentPw,
+  });
+  return; // 나머지는 background가 처리
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   function setInput(el, value) {

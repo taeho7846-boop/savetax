@@ -242,14 +242,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "exec-corp-cert") {
     (async () => {
       try {
-        // 팝업 탭 찾기 (hometax popup.html)
-        const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
-        const popupTab = tabs.find(t => t.url && t.url.includes("popup.html"));
-        if (!popupTab) { sendResponse({ ok: false, error: "팝업 탭 없음" }); return; }
+        // sender.tab.id로 정확한 팝업 탭 사용
+        const tabId = sender.tab?.id;
+        if (!tabId) { sendResponse({ ok: false, error: "탭 ID 없음" }); return; }
+        console.log("SaveTax BG: exec-corp-cert 수신, tabId:", tabId);
 
         // MAIN world에서 인증서 처리 코드 실행
         await chrome.scripting.executeScript({
-          target: { tabId: popupTab.id },
+          target: { tabId: tabId },
           world: "MAIN",
           func: (certName, certPw) => {
             function doCorpCert() {
@@ -316,6 +316,51 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           args: [msg.certName, msg.certPw],
         });
 
+        // 인증 후 15초 뒤 관리번호 입력
+        if (msg.agentNumber) {
+          setTimeout(() => {
+            chrome.tabs.query({ url: "https://hometax.go.kr/*" }, (tabs) => {
+              const mainTab = tabs.find(t => !t.url.includes("popup.html"));
+              if (!mainTab) return;
+              console.log("SaveTax BG: 관리번호 입력 시작, tabId:", mainTab.id);
+              chrome.scripting.executeScript({
+                target: { tabId: mainTab.id },
+                world: "MAIN",
+                func: (agentNumber, agentPw) => {
+                  console.log("SaveTax: [BG] 관리번호 입력 시작");
+                  var inputs = document.querySelectorAll("input");
+                  for (var i = 0; i < inputs.length; i++) {
+                    if ((inputs[i].title || "").indexOf("관리번호") !== -1) {
+                      inputs[i].focus(); inputs[i].value = agentNumber;
+                      inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
+                      console.log("SaveTax: [BG] 관리번호 입력 완료");
+                      break;
+                    }
+                  }
+                  var pwInputs = document.querySelectorAll("input[type='password']");
+                  if (pwInputs.length > 0) {
+                    var lastPw = pwInputs[pwInputs.length - 1];
+                    lastPw.focus(); lastPw.value = agentPw;
+                    lastPw.dispatchEvent(new Event("input", { bubbles: true }));
+                    console.log("SaveTax: [BG] 비밀번호 입력 완료");
+                  }
+                  setTimeout(function() {
+                    var btns = document.querySelectorAll("button, input[type='button']");
+                    for (var j = 0; j < btns.length; j++) {
+                      if ((btns[j].textContent || btns[j].value || "").trim() === "로그인" && btns[j].offsetParent) {
+                        btns[j].click();
+                        console.log("SaveTax: [BG] 로그인 클릭");
+                        break;
+                      }
+                    }
+                  }, 300);
+                },
+                args: [msg.agentNumber, msg.agentPw],
+              }).catch(e => console.error("SaveTax BG: 관리번호 실패:", e));
+            });
+          }, 15000);
+        }
+
         sendResponse({ ok: true });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });
@@ -324,7 +369,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  // 법인 로그인: 원래 탭에서 관리번호 입력
+  // 법인 로그인: 원래 탭에서 관리번호 입력 (수동 호출용)
   if (msg.type === "exec-corp-agent") {
     (async () => {
       try {
