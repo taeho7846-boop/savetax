@@ -152,6 +152,7 @@ model Settings {
   tiSupplierCeoName  String? // 세금계산서 공급자 대표자명
   wehagoId           String? // 위하고 로그인 ID
   wehagoPw           String? // 위하고 로그인 PW
+  wehagoTaxNum       String? // 위하고 taxNum (세무사 관리번호)
 }
 
 // 신규수임 프로세스

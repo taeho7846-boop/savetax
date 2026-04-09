@@ -62,12 +62,12 @@ export default async function WithholdingPage({
 
   const settings = await prisma.settings.findUnique({
     where: { userId: session.id },
-    select: { wehagoId: true },
+    select: { wehagoId: true, wehagoTaxNum: true },
   });
 
   return (
     <div className="flex flex-col h-full">
-      <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser={isManager} wehagoCompanyId={settings?.wehagoId || ""} />
+      <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser={isManager} wehagoCompanyId={settings?.wehagoId || ""} wehagoTaxNum={settings?.wehagoTaxNum || ""} />
     </div>
   );
 }

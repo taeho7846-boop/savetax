@@ -16,11 +16,12 @@ async function parseWehagoUrl(url: string | null | undefined, clientId?: number)
   const cdCom = getParam("cd_com");
   const color = getParam("color");
   const yminsa = getParam("yminsa");
+  const taxNum = getParam("taxNum");
+  const companyID = getParam("companyID");
   if (!cno) return {};
   const result: any = { wehagoCno: cno };
   if (cdCom) result.wehagoCdCom = cdCom;
   if (color && yminsa) {
-    // 기존 colors와 머지
     let existing: Record<string, string> = {};
     if (clientId) {
       const client = await prisma.client.findUnique({ where: { id: clientId }, select: { wehagoColors: true } });
@@ -28,6 +29,20 @@ async function parseWehagoUrl(url: string | null | undefined, clientId?: number)
     }
     existing[yminsa] = color;
     result.wehagoColors = JSON.stringify(existing);
+  }
+  // taxNum, companyID → Settings에 저장
+  if (taxNum || companyID) {
+    try {
+      const session = await requireAuth();
+      const updateData: any = {};
+      if (taxNum) updateData.wehagoTaxNum = taxNum;
+      if (companyID) updateData.wehagoId = companyID;
+      await prisma.settings.upsert({
+        where: { userId: session.id },
+        update: updateData,
+        create: { userId: session.id, ...updateData },
+      });
+    } catch {}
   }
   return result;
 }

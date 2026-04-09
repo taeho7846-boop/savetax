@@ -89,7 +89,7 @@ function getAllExtraColumns() {
   ];
 }
 
-export function WithholdingTable({ clients, yearMonth, showAssignedUser = false, wehagoCompanyId = "" }: { clients: Client[]; yearMonth: string; showAssignedUser?: boolean; wehagoCompanyId?: string }) {
+export function WithholdingTable({ clients, yearMonth, showAssignedUser = false, wehagoCompanyId = "", wehagoTaxNum = "" }: { clients: Client[]; yearMonth: string; showAssignedUser?: boolean; wehagoCompanyId?: string; wehagoTaxNum?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
@@ -281,7 +281,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                             {client.wehagoCno && client.wehagoCdCom && (() => {
                               const wehagoColor = (() => { try { const c = JSON.parse(client.wehagoColors || "{}"); return c[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })();
                               const baseUrl = `https://smarta.wehago.com/#/smarta/humanresource`;
-                              const params = `sao&cno=${client.wehagoCno}&cd_com=${client.wehagoCdCom}&gisu=${month}&yminsa=${year}&searchData=${year}0101${year}1231&color=${wehagoColor}&companyName=${encodeURIComponent(client.name)}&companyID=${wehagoCompanyId}&taxNum=8024471&yn_private=1&wehagoT`;
+                              const params = `sao&cno=${client.wehagoCno}&cd_com=${client.wehagoCdCom}&gisu=${month}&yminsa=${year}&searchData=${year}0101${year}1231&color=${wehagoColor}&companyName=${encodeURIComponent(client.name)}&companyID=${wehagoCompanyId}&taxNum=${wehagoTaxNum}&yn_private=1&wehagoT`;
                               return (
                                 <>
                                   {laborList.includes("근로소득") && (
