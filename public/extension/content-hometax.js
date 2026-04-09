@@ -304,39 +304,15 @@
       await sleep(2000);
 
       // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
-      for (let attempt = 0; attempt < 10; attempt++) {
+      for (let attempt = 0; attempt < 15; attempt++) {
         await sleep(500);
-        // role=button name=확인 찾기
-        const btns = document.querySelectorAll("button, input[type='button'], a[role='button']");
-        let found = false;
-        for (const btn of btns) {
-          const text = (btn.textContent || btn.value || "").trim();
-          if (text === "확인" && btn.offsetParent !== null) {
-            btn.click();
-            console.log("SaveTax: 세무대리인 관리번호 팝업 확인 클릭");
-            found = true;
-            break;
-          }
-        }
-        if (found) break;
-        // input[value='확인'] 도 시도
-        const confirmInput = document.querySelector("input[value='확인']");
-        if (confirmInput && confirmInput.offsetParent !== null) {
-          confirmInput.click();
-          console.log("SaveTax: 확인 input 클릭");
+        // btn_confirm ID 패턴으로 찾기 (홈택스 자체 팝업)
+        const confirmBtn = document.querySelector("input[id*='btn_confirm'][value='확인']");
+        if (confirmBtn && confirmBtn.offsetParent !== null) {
+          pageExec(`document.querySelector("input[id*='btn_confirm'][value='확인']").click();`);
+          console.log("SaveTax: 세무대리인 관리번호 팝업 확인 클릭 (btn_confirm)");
           break;
         }
-        // pageExec로 시도
-        try {
-          pageExec(`
-            var btns = document.querySelectorAll("input[value='확인'], button");
-            for (var i = 0; i < btns.length; i++) {
-              if ((btns[i].value || btns[i].textContent || "").trim() === "확인" && btns[i].offsetParent !== null) {
-                btns[i].click(); break;
-              }
-            }
-          `);
-        } catch (e) {}
       }
       await sleep(3000);
 
