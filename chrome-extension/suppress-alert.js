@@ -137,8 +137,8 @@
     console.log("SaveTax: [MAIN] encoded 길이:", encoded.length);
     try {
       var decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
-      console.log("SaveTax: [MAIN] decoded mode:", decoded.mode, "certName:", decoded.certName);
-      if (decoded.certName && decoded.agentNumber) {
+      console.log("SaveTax: [MAIN] decoded:", JSON.stringify(decoded).substring(0, 200));
+      if (decoded.certName) {
         document.cookie = "savetax_corp=" + encodeURIComponent(JSON.stringify({
           certName: decoded.certName,
           certPw: decoded.certPw,
