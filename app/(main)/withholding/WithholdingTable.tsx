@@ -302,6 +302,15 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                                       사업
                                     </button>
                                   )}
+                                  {laborList.includes("일용직") && (
+                                    <button
+                                      onClick={() => window.open(`${baseUrl}/TWSA0107?${params}`, "_blank")}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 whitespace-nowrap shrink-0"
+                                      title="위하고 일용직급여자료입력"
+                                    >
+                                      일용
+                                    </button>
+                                  )}
                                 </>
                               );
                             })()}
