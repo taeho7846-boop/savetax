@@ -6,6 +6,32 @@ import { revalidatePath } from "next/cache";
 import { createClientFolder } from "@/lib/google-drive";
 import { redirect } from "next/navigation";
 
+async function parseWehagoUrl(url: string | null | undefined, clientId?: number) {
+  if (!url || !url.includes("smarta.wehago.com")) return {};
+  const getParam = (key: string) => {
+    const match = url.match(new RegExp(`[?&]${key}=([^&]*)`));
+    return match ? decodeURIComponent(match[1]) : "";
+  };
+  const cno = getParam("cno");
+  const cdCom = getParam("cd_com");
+  const color = getParam("color");
+  const yminsa = getParam("yminsa");
+  if (!cno) return {};
+  const result: any = { wehagoCno: cno };
+  if (cdCom) result.wehagoCdCom = cdCom;
+  if (color && yminsa) {
+    // 기존 colors와 머지
+    let existing: Record<string, string> = {};
+    if (clientId) {
+      const client = await prisma.client.findUnique({ where: { id: clientId }, select: { wehagoColors: true } });
+      try { existing = JSON.parse(client?.wehagoColors || "{}"); } catch {}
+    }
+    existing[yminsa] = color;
+    result.wehagoColors = JSON.stringify(existing);
+  }
+  return result;
+}
+
 function getTaxTypes(formData: FormData) {
   const types = ["기장대리", "신고대리"].filter(
     (t) => formData.get(`taxType_${t}`) === t
@@ -61,7 +87,7 @@ export async function createClient(formData: FormData) {
       withholdingType: (formData.get("withholdingType") as string) || null,
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
-      myboxLink: (formData.get("myboxLink") as string) || null,
+      ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string)),
       accountingProgram: getAccountingProgram(formData),
       contactMethod: getContactMethod(formData),
       assignedUserId: formData.get("assignedUserId")
@@ -116,7 +142,7 @@ export async function updateClient(id: number, formData: FormData) {
       withholdingType: (formData.get("withholdingType") as string) || null,
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
-      myboxLink: (formData.get("myboxLink") as string) || null,
+      ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string, id)),
       accountingProgram: getAccountingProgram(formData),
       contactMethod: getContactMethod(formData),
       ...(formData.has("assignedUserId")
@@ -157,7 +183,7 @@ export async function updateClientInModal(id: number, formData: FormData) {
       withholdingType: (formData.get("withholdingType") as string) || null,
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
-      myboxLink: (formData.get("myboxLink") as string) || null,
+      ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string, id)),
       accountingProgram: getAccountingProgram(formData),
       contactMethod: getContactMethod(formData),
       ...(formData.has("assignedUserId")
@@ -292,7 +318,7 @@ export async function createClientInModal(formData: FormData) {
       halfYearTax: formData.get("halfYearTax") === "true",
       affiliation: (formData.get("affiliation") as string) || null,
       notes: (formData.get("notes") as string) || null,
-      myboxLink: (formData.get("myboxLink") as string) || null,
+      ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string)),
       accountingProgram: getAccountingProgram(formData),
       contactMethod: getContactMethod(formData),
       assignedUserId: formData.get("assignedUserId")

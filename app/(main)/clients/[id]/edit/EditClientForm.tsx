@@ -433,28 +433,17 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         /></CopyWrap>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-800 mb-1">마이박스 링크</label>
+        <label className="block text-sm font-medium text-gray-800 mb-1">위하고 급여자료입력 URL</label>
         <div className="flex gap-2">
           <div className="flex-1">
-            <CopyWrap><input
-              name="myboxLink"
-              defaultValue={client.myboxLink ?? ""}
-              placeholder="마이박스 폴더 경로 또는 링크"
+            <input
+              name="wehagoPayrollUrl"
+              placeholder="위하고 급여자료입력 화면 URL을 붙여넣으세요"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-            /></CopyWrap>
+            />
           </div>
-          {client.myboxLink && (
-            <a
-              href={client.myboxLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 bg-green-500 text-white text-sm px-3 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-1"
-              onClick={(e) => e.stopPropagation()}
-            >
-              📁 열기
-            </a>
-          )}
         </div>
+        <p className="text-xs text-gray-400 mt-1">URL 입력 시 위하고 cno, cd_com, color가 자동 파싱됩니다.</p>
       </div>
 
       {/* 모달에서는 숨기고 헤더에 표시 */}

@@ -5,9 +5,9 @@
 import { chromium } from "playwright";
 import * as fs from "fs";
 
-const WEHAGO_ID = "taehotax";
-const WEHAGO_PW = "Taeho9311!";
-const YEARS_TO_COLLECT = ["2025", "2026"];
+const WEHAGO_ID = "swngtax";
+const WEHAGO_PW = "whdals12";
+const YEARS_TO_COLLECT = ["2026", "2025"];
 
 const JSON_FILE = "scripts/labor-clients.json";
 const API_URL = "http://localhost:3000/api/export-labor-clients";
@@ -137,14 +137,18 @@ async function main() {
       // 년도별 color 수집 (hidden input에서 읽기)
       const colors: Record<string, string> = {};
 
-      for (const yr of YEARS_TO_COLLECT) {
+      // 첫 번째 년도(2026) color 수집 → 바로 cd_com 추출 → 나머지 년도 수집
+      let finalCdCom = cdCom;
+
+      for (let yi = 0; yi < YEARS_TO_COLLECT.length; yi++) {
+        const yr = YEARS_TO_COLLECT[yi];
         try {
           // 년도 드롭다운 열기
           const yearBtn = salaryPage.locator("button.ls_roundselect_btn, button.LS_btn.ls_roundselect_btn").first();
           await yearBtn.click({ force: true });
           await salaryPage.waitForTimeout(800);
 
-          // 해당 년도 선택: li 안의 button.ls_space_btnlist 클릭
+          // 해당 년도 선택
           const yearItem = salaryPage.locator('#scrollElement button.ls_space_btnlist').filter({ hasText: yr });
           await yearItem.click({ force: true, timeout: 3000 });
           await salaryPage.waitForTimeout(1500);
@@ -157,23 +161,46 @@ async function main() {
             colors[actualYear] = color;
             console.log(`  ✓ ${actualYear}년: color=${color}`);
           }
+
+          // 첫 번째 성공한 년도에서 cd_com 추출 (아직 없으면)
+          if (!finalCdCom) {
+            try {
+              try {
+                await salaryPage.getByText("근로소득관리 / 연말정산관리").first().click({ timeout: 2000 });
+                await salaryPage.waitForTimeout(1000);
+              } catch {}
+              await salaryPage.getByText("급여자료입력").first().click({ timeout: 5000 });
+              await salaryPage.waitForTimeout(3000);
+              for (let j = 0; j < 3; j++) {
+                await salaryPage.keyboard.press("Escape");
+                await salaryPage.waitForTimeout(500);
+              }
+              finalCdCom = extractParam(salaryPage.url(), "cd_com");
+              // 뒤로가기해서 급여 메뉴로 돌아가기
+              await salaryPage.goBack();
+              await salaryPage.waitForTimeout(1500);
+            } catch {
+              try {
+                await salaryPage.getByText("사업소득관리").first().click({ timeout: 2000 });
+                await salaryPage.waitForTimeout(1000);
+                await salaryPage.getByText("사업소득자료입력").first().click({ timeout: 5000 });
+                await salaryPage.waitForTimeout(3000);
+                for (let j = 0; j < 3; j++) {
+                  await salaryPage.keyboard.press("Escape");
+                  await salaryPage.waitForTimeout(500);
+                }
+                finalCdCom = extractParam(salaryPage.url(), "cd_com");
+                await salaryPage.goBack();
+                await salaryPage.waitForTimeout(1500);
+              } catch {}
+            }
+          }
         } catch {
+          // 년도 선택 실패 시 ESC로 드롭다운 닫기
+          await salaryPage.keyboard.press("Escape");
+          await salaryPage.waitForTimeout(500);
           console.log(`  - ${yr}년 color 수집 실패`);
         }
-      }
-
-      // cd_com이 없으면 급여자료입력에서 추출
-      let finalCdCom = cdCom;
-      if (!finalCdCom) {
-        try {
-          await salaryPage.getByText("급여자료입력").first().click({ timeout: 5000 });
-          await salaryPage.waitForTimeout(3000);
-          for (let j = 0; j < 3; j++) {
-            await salaryPage.keyboard.press("Escape");
-            await salaryPage.waitForTimeout(500);
-          }
-          finalCdCom = extractParam(salaryPage.url(), "cd_com");
-        } catch {}
       }
 
       if (cno) {
