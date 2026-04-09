@@ -129,11 +129,13 @@
 
   // === 법인 로그인: URL hash에서 직접 인증 정보 읽어서 cookie 설정 (document_start) ===
   var hash = window.location.hash;
-  console.log("SaveTax: [MAIN] hash 확인:", hash ? hash.substring(0, 30) + "..." : "(비어있음)");
+  console.log("SaveTax: [MAIN] hash 확인:", hash ? hash.substring(0, 40) + "..." : "(비어있음)", "길이:", hash.length);
   if (hash && hash.indexOf("savetax=") !== -1) {
+    var encoded = hash.substring(hash.indexOf("savetax=") + 8);
+    console.log("SaveTax: [MAIN] encoded 길이:", encoded.length);
     try {
-      var encoded = hash.substring(hash.indexOf("savetax=") + 8);
       var decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+      console.log("SaveTax: [MAIN] decoded mode:", decoded.mode, "certName:", decoded.certName);
       if (decoded.mode === "corp_login" && decoded.certName) {
         document.cookie = "savetax_corp=" + encodeURIComponent(JSON.stringify({
           certName: decoded.certName,
