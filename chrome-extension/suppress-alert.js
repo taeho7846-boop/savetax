@@ -162,30 +162,24 @@
     console.log("SaveTax: [MAIN] 관리번호 cookie 발견, 입력 시작");
 
     setTimeout(function() {
-      var inputs = document.querySelectorAll("input");
-      for (var i = 0; i < inputs.length; i++) {
-        if ((inputs[i].title || "").indexOf("관리번호") !== -1) {
-          inputs[i].focus(); inputs[i].value = ad.agentNumber;
-          inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
-          console.log("SaveTax: [MAIN] 관리번호 입력: " + ad.agentNumber);
-          break;
-        }
+      // 정확한 ID로 입력
+      var agentInput = document.getElementById("mf_txppWframe_input1");
+      if (agentInput) {
+        agentInput.focus(); agentInput.value = ad.agentNumber;
+        agentInput.dispatchEvent(new Event("input", { bubbles: true }));
+        console.log("SaveTax: [MAIN] 관리번호 입력: " + ad.agentNumber);
       }
-      var pwInputs = document.querySelectorAll("input[type='password']");
-      if (pwInputs.length > 0) {
-        var lastPw = pwInputs[pwInputs.length - 1];
-        lastPw.focus(); lastPw.value = ad.agentPw;
-        lastPw.dispatchEvent(new Event("input", { bubbles: true }));
+      var pwInput = document.getElementById("mf_txppWframe_input2");
+      if (pwInput) {
+        pwInput.focus(); pwInput.value = ad.agentPw;
+        pwInput.dispatchEvent(new Event("input", { bubbles: true }));
         console.log("SaveTax: [MAIN] 비밀번호 입력");
       }
       setTimeout(function() {
-        var btns = document.querySelectorAll("button, input[type='button']");
-        for (var j = 0; j < btns.length; j++) {
-          if ((btns[j].textContent || btns[j].value || "").trim() === "로그인" && btns[j].offsetParent) {
-            btns[j].click();
-            console.log("SaveTax: [MAIN] 로그인 클릭");
-            break;
-          }
+        var loginBtn = document.getElementById("mf_txppWframe_trigger41");
+        if (loginBtn) {
+          loginBtn.click();
+          console.log("SaveTax: [MAIN] 로그인 클릭");
         }
       }, 300);
     }, 2000);
