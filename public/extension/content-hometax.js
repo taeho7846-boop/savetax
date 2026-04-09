@@ -303,14 +303,15 @@
       await doLogin(creds.id, creds.pw);
       await sleep(2000);
 
-      // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 → 엔터로 확인
-      // 팝업이 뜰 때까지 대기 후 여러 번 엔터 시도
-      for (let attempt = 0; attempt < 10; attempt++) {
+      // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
+      for (let attempt = 0; attempt < 15; attempt++) {
         await sleep(1000);
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
-        document.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", keyCode: 13, bubbles: true }));
-        pageExec(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));`);
-        console.log("SaveTax: 팝업 엔터 시도 " + (attempt + 1));
+        const btn = document.querySelector("input[id*='btn_confirm'][value='확인']");
+        if (btn && btn.style.display !== "none" && btn.style.visibility !== "hidden") {
+          btn.click();
+          console.log("SaveTax: 세무대리인 팝업 확인 클릭 성공");
+          break;
+        }
       }
       await sleep(3000);
 
