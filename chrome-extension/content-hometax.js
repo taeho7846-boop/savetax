@@ -14,52 +14,64 @@
   }
 
   try {
-    // 4. 공동∙금융 인증 버튼 - 탭+엔터로 선택
-    console.log("SaveTax: [법인] 새 창 - 공동∙금융 인증 선택...");
-    await sleep(2000);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", keyCode: 9, bubbles: true }));
-    await sleep(300);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
-    console.log("SaveTax: [법인] Tab+Enter 전송");
-    await sleep(3000);
+    // 4. suppress-alert.js가 공동∙금융 인증 버튼을 클릭할 때까지 대기
+    // 그 후 dscert iframe이 나타날 때까지 대기
+    console.log("SaveTax: [법인] dscert iframe 대기중...");
 
     // 5. 인증서 선택 + 비밀번호 (dscert iframe)
     if (creds.certPw) {
-      for (let attempt = 0; attempt < 10; attempt++) {
+      let certHandled = false;
+      for (let attempt = 0; attempt < 30; attempt++) {
         await sleep(1000);
+
         const dscertFrame = document.querySelector("iframe[name='dscert']");
-        if (!dscertFrame) continue;
+        if (!dscertFrame) {
+          console.log("SaveTax: [법인] dscert iframe 아직 없음... (" + (attempt+1) + "/30)");
+          continue;
+        }
+
         let certDoc;
         try { certDoc = dscertFrame.contentDocument; } catch (e) { continue; }
         if (!certDoc) continue;
+
+        // 비밀번호 필드가 있는지 확인 (iframe이 완전히 로드됐는지)
+        const pwField = certDoc.querySelector("input[type='password']");
+        if (!pwField) {
+          console.log("SaveTax: [법인] iframe 로드중...");
+          continue;
+        }
+
+        console.log("SaveTax: [법인] dscert iframe 발견! 인증서 처리 시작");
 
         // 하드디스크 탭
         try {
           const hdLinks = certDoc.querySelectorAll("a");
           for (const a of hdLinks) {
-            if (a.textContent?.includes("하드디스크")) { a.click(); await sleep(500); break; }
+            if (a.textContent?.includes("하드디스크")) { a.click(); await sleep(1000); break; }
           }
         } catch (e) {}
 
         // 인증서 선택
         if (creds.certName) {
-          await sleep(500);
+          await sleep(1000);
           try {
             const links = certDoc.querySelectorAll("a");
             for (const a of links) {
-              if (a.textContent?.includes(creds.certName)) { a.click(); await sleep(300); break; }
+              if (a.textContent?.includes(creds.certName)) {
+                a.click();
+                console.log("SaveTax: [법인] 인증서 선택: " + creds.certName);
+                await sleep(500);
+                break;
+              }
             }
           } catch (e) {}
         }
 
         // 비밀번호 입력
-        const pwField = certDoc.querySelector("input[type='password']");
-        if (pwField) {
-          pwField.focus();
-          pwField.value = creds.certPw;
-          pwField.dispatchEvent(new Event("input", { bubbles: true }));
-          console.log("SaveTax: [법인] 인증서 비밀번호 입력");
-        }
+        pwField.focus();
+        pwField.value = creds.certPw;
+        pwField.dispatchEvent(new Event("input", { bubbles: true }));
+        console.log("SaveTax: [법인] 인증서 비밀번호 입력");
         await sleep(300);
 
         // 확인 버튼
@@ -68,8 +80,10 @@
           confirmBtn.click();
           console.log("SaveTax: [법인] 인증서 확인 클릭");
         }
+        certHandled = true;
         break;
       }
+      if (!certHandled) console.log("SaveTax: [법인] 인증서 처리 타임아웃 (30초)");
       await sleep(3000);
     }
 
