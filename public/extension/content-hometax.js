@@ -486,14 +486,18 @@
     try {
       if (await checkLogout()) return;
 
-      // 1. cookie로 인증 정보 전달 (suppress-alert.js MAIN world에서 읽기)
-      document.cookie = "savetax_corp=" + encodeURIComponent(JSON.stringify({
+      // 1. DOM에 hidden input으로 인증 정보 저장 → suppress-alert.js(MAIN)가 cookie 설정
+      var corpDataEl = document.createElement("input");
+      corpDataEl.type = "hidden";
+      corpDataEl.id = "savetax-corp-data";
+      corpDataEl.value = JSON.stringify({
         certName: creds.certName,
         certPw: creds.certPw,
         agentNumber: creds.agentNumber,
         agentPw: creds.agentPw || creds.pw,
-      })) + "; path=/; max-age=120";
-      console.log("SaveTax: corp_login - cookie에 인증 정보 저장");
+      });
+      document.body.appendChild(corpDataEl);
+      console.log("SaveTax: corp_login - DOM에 인증 정보 저장");
 
       // 2. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);

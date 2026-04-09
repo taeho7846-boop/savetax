@@ -155,6 +155,17 @@
     setTimeout(function() { clearInterval(certBtnInterval); }, 30000);
   }
 
+  // === 법인 로그인: content script가 DOM에 심은 인증 정보 → cookie로 변환 (MAIN world) ===
+  var corpDataInterval = setInterval(function() {
+    var el = document.getElementById("savetax-corp-data");
+    if (!el) return;
+    clearInterval(corpDataInterval);
+    document.cookie = "savetax_corp=" + encodeURIComponent(el.value) + "; path=/; max-age=120";
+    el.remove();
+    console.log("SaveTax: [MAIN] 인증 정보 DOM→cookie 변환 완료");
+  }, 300);
+  setTimeout(function() { clearInterval(corpDataInterval); }, 30000);
+
   // === 관리번호 팝업 확인 버튼 반복 찾기 ===
   var corpConfirmInterval = setInterval(function() {
     var btn = document.querySelector("input[id*='btn_confirm'][value='확인']");
