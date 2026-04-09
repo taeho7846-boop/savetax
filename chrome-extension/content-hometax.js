@@ -497,7 +497,16 @@
         agentPw: creds.agentPw || creds.pw,
       });
       document.body.appendChild(corpDataEl);
-      console.log("SaveTax: corp_login - DOM에 인증 정보 저장");
+      console.log("SaveTax: corp_login - DOM에 인증 정보 저장, cookie 변환 대기...");
+
+      // suppress-alert가 cookie로 변환할 때까지 대기
+      for (let w = 0; w < 30; w++) {
+        await sleep(300);
+        if (document.cookie.includes("savetax_corp=")) {
+          console.log("SaveTax: corp_login - cookie 변환 확인!");
+          break;
+        }
+      }
 
       // 2. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);
