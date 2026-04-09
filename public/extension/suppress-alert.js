@@ -132,7 +132,7 @@
   console.log("SaveTax: [MAIN] hash 확인:", hash ? hash.substring(0, 30) + "..." : "(비어있음)");
   if (hash && hash.indexOf("savetax=") !== -1) {
     try {
-      var encoded = hash.split("savetax=")[1];
+      var encoded = hash.substring(hash.indexOf("savetax=") + 8);
       var decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
       if (decoded.mode === "corp_login" && decoded.certName) {
         document.cookie = "savetax_corp=" + encodeURIComponent(JSON.stringify({
