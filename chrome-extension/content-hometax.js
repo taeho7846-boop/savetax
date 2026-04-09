@@ -1,10 +1,10 @@
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
 (async function () {
-  const corpData = localStorage.getItem("savetax_corp_cert");
-  if (!corpData) return;
+  const storage = await chrome.storage.local.get("savetax_corp_cert");
+  if (!storage.savetax_corp_cert) return;
 
-  const creds = JSON.parse(corpData);
-  localStorage.removeItem("savetax_corp_cert");
+  const creds = storage.savetax_corp_cert;
+  chrome.storage.local.remove("savetax_corp_cert");
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   function setInput(el, value) {
@@ -76,10 +76,12 @@
     // 6. 관리번호 + 비밀번호 (인증 후 원래 페이지로 돌아갈 수 있음)
     // opener(부모 창)에서 입력해야 할 수도 있으므로 localStorage에 다시 저장
     if (creds.agentNumber) {
-      localStorage.setItem("savetax_corp_agent", JSON.stringify({
-        agentNumber: creds.agentNumber,
-        agentPw: creds.agentPw,
-      }));
+      chrome.storage.local.set({
+        savetax_corp_agent: {
+          agentNumber: creds.agentNumber,
+          agentPw: creds.agentPw,
+        }
+      });
       console.log("SaveTax: [법인] 관리번호 정보 저장, 원래 창에서 처리 대기");
     }
 
@@ -90,11 +92,11 @@
 
 // 법인 로그인: 관리번호 입력 (인증 후 원래 페이지에서)
 (async function () {
-  const agentData = localStorage.getItem("savetax_corp_agent");
-  if (!agentData) return;
+  const agentStorage = await chrome.storage.local.get("savetax_corp_agent");
+  if (!agentStorage.savetax_corp_agent) return;
 
-  const creds = JSON.parse(agentData);
-  localStorage.removeItem("savetax_corp_agent");
+  const creds = agentStorage.savetax_corp_agent;
+  chrome.storage.local.remove("savetax_corp_agent");
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   function setInput(el, value) {
@@ -449,13 +451,15 @@
       // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
       // suppress-alert.js (MAIN world)가 자동으로 확인 클릭
       // 3. 새 창이 열리면 거기서 인증서 처리 (savetax_corp_cert로 전달)
-      localStorage.setItem("savetax_corp_cert", JSON.stringify({
-        certName: creds.certName,
-        certPw: creds.certPw,
-        agentNumber: creds.agentNumber,
-        agentPw: creds.agentPw || creds.pw,
-      }));
-      console.log("SaveTax: corp_login - 인증 정보 localStorage에 저장, 새 창 대기");
+      chrome.storage.local.set({
+        savetax_corp_cert: {
+          certName: creds.certName,
+          certPw: creds.certPw,
+          agentNumber: creds.agentNumber,
+          agentPw: creds.agentPw || creds.pw,
+        }
+      });
+      console.log("SaveTax: corp_login - 인증 정보 chrome.storage에 저장, 새 창 대기");
 
     } catch (e) {
       console.error("SaveTax 법인 로그인 실패:", e);

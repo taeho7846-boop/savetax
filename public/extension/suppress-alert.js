@@ -27,8 +27,8 @@
     return origConfirm.call(window, msg);
   };
 
-  // 법인 로그인: 사용자인증 선택 팝업에서 공동·금융 인증 자동 클릭
-  if (localStorage.getItem("savetax_corp_cert") && window.location.href.indexOf("popup.html") !== -1) {
+  // 법인 로그인: 사용자인증 선택 팝업에서 공동·금융 인증 자동 클릭 (popup.html)
+  if (window.location.href.indexOf("popup.html") !== -1) {
     var certCheckInterval = setInterval(function() {
       // mf_btnPkcCert_type01 버튼 찾기
       var btn = document.getElementById("mf_btnPkcCert_type01");
