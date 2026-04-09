@@ -486,28 +486,7 @@
     try {
       if (await checkLogout()) return;
 
-      // 1. DOM에 hidden input으로 인증 정보 저장 → suppress-alert.js(MAIN)가 cookie 설정
-      var corpDataEl = document.createElement("input");
-      corpDataEl.type = "hidden";
-      corpDataEl.id = "savetax-corp-data";
-      corpDataEl.value = JSON.stringify({
-        certName: creds.certName,
-        certPw: creds.certPw,
-        agentNumber: creds.agentNumber,
-        agentPw: creds.agentPw || creds.pw,
-      });
-      document.body.appendChild(corpDataEl);
-      console.log("SaveTax: corp_login - DOM에 인증 정보 저장, cookie 변환 대기...");
-
-      // suppress-alert가 cookie로 변환할 때까지 대기
-      for (let w = 0; w < 30; w++) {
-        await sleep(300);
-        if (document.cookie.includes("savetax_corp=")) {
-          console.log("SaveTax: corp_login - cookie 변환 확인!");
-          break;
-        }
-      }
-
+      // 1. suppress-alert.js(MAIN, document_start)가 hash에서 이미 cookie 설정 완료
       // 2. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);
       console.log("SaveTax: corp_login - 로그인 완료, background가 나머지 처리");

@@ -127,16 +127,23 @@
     setTimeout(function() { clearInterval(certBtnInterval); }, 30000);
   }
 
-  // === 법인 로그인: content script가 DOM에 심은 인증 정보 → cookie로 변환 (MAIN world) ===
-  var corpDataInterval = setInterval(function() {
-    var el = document.getElementById("savetax-corp-data");
-    if (!el) return;
-    clearInterval(corpDataInterval);
-    document.cookie = "savetax_corp=" + encodeURIComponent(el.value) + "; path=/; max-age=120";
-    el.remove();
-    console.log("SaveTax: [MAIN] 인증 정보 DOM→cookie 변환 완료");
-  }, 300);
-  setTimeout(function() { clearInterval(corpDataInterval); }, 30000);
+  // === 법인 로그인: URL hash에서 직접 인증 정보 읽어서 cookie 설정 (document_start) ===
+  var hash = window.location.hash;
+  if (hash && hash.indexOf("savetax=") !== -1) {
+    try {
+      var encoded = hash.split("savetax=")[1];
+      var decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+      if (decoded.mode === "corp_login" && decoded.certName) {
+        document.cookie = "savetax_corp=" + encodeURIComponent(JSON.stringify({
+          certName: decoded.certName,
+          certPw: decoded.certPw,
+          agentNumber: decoded.agentNumber,
+          agentPw: decoded.agentPw || decoded.pw,
+        })) + "; path=/; max-age=120";
+        console.log("SaveTax: [MAIN] hash에서 인증 정보 → cookie 설정 완료");
+      }
+    } catch(e) {}
+  }
 
   // === 관리번호 cookie 감지 → 자동 입력 (원래 페이지에서) ===
   var agentCookieInterval = setInterval(function() {
