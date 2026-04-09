@@ -632,6 +632,10 @@
     try {
       if (await checkLogout()) return;
 
+      // 이전 시그널 초기화
+      document.cookie = "savetax_login_done=; path=/; max-age=0";
+      await chrome.storage.local.remove(["savetax_corp_next", "savetax_login_done", "savetax_corp_agent"]);
+
       // 로그인 후 이어서 할 작업을 chrome.storage에 저장
       const nextAction = mode.replace("corp_", ""); // register, commission, recommission
       await chrome.storage.local.set({
