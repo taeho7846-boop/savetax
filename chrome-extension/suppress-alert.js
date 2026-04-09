@@ -188,22 +188,19 @@
   // DOM 기반 팝업 감시
   var autoCloseKeywords = ["정상적으로 접수", "접수되었습니다", "처리되었습니다", "완료되었습니다", "확인되었습니다"];
 
-  var observer = new MutationObserver(function() {
-    // 세무대리인 관리번호 팝업 → 확인 (btn_confirm 직접 찾기)
-    var confirmBtns = document.querySelectorAll("input[id*='btn_confirm'][value='확인']");
-    confirmBtns.forEach(function(btn) {
-      if (btn.style.display === "none" || btn.style.visibility === "hidden") return;
-      if (btn.dataset.savetaxClicked) return;
-      // 부모 텍스트에 관리번호가 있는지
-      var parent = btn.closest("div[class*='w2window'], div[class*='w2group']") || btn.parentElement?.parentElement?.parentElement;
-      var text = parent ? (parent.textContent || "") : "";
-      if (text.indexOf("관리번호") !== -1) {
-        btn.dataset.savetaxClicked = "true";
-        btn.click();
-        console.log("SaveTax: 관리번호 팝업 확인 (btn_confirm 직접)");
-      }
-    });
+  // 관리번호 팝업 확인 버튼 반복 찾기 (500ms 간격, 30초)
+  var corpConfirmInterval = setInterval(function() {
+    var btn = document.querySelector("input[id*='btn_confirm'][value='확인']");
+    if (btn && btn.offsetParent && !btn.dataset.savetaxCorpClicked) {
+      btn.dataset.savetaxCorpClicked = "true";
+      btn.click();
+      console.log("SaveTax: 관리번호 팝업 확인 클릭!");
+      clearInterval(corpConfirmInterval);
+    }
+  }, 500);
+  setTimeout(function() { clearInterval(corpConfirmInterval); }, 30000);
 
+  var observer = new MutationObserver(function() {
     // 세무대리인 팝업 → 취소
     var popups = document.querySelectorAll("div.w2window, div[class*='popup'], div[class*='w2window']");
     popups.forEach(function(popup) {
