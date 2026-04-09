@@ -303,23 +303,57 @@
       await doLogin(creds.id, creds.pw);
       await sleep(2000);
 
-      // 2. 확인 팝업 처리
-      try {
-        const confirmBtn = await waitForXPath("//*[normalize-space(text())='확인']", 3000);
-        if (confirmBtn) confirmBtn.click();
-      } catch (e) {}
-      await sleep(2000);
+      // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await sleep(500);
+        // role=button name=확인 찾기
+        const btns = document.querySelectorAll("button, input[type='button'], a[role='button']");
+        let found = false;
+        for (const btn of btns) {
+          const text = (btn.textContent || btn.value || "").trim();
+          if (text === "확인" && btn.offsetParent !== null) {
+            btn.click();
+            console.log("SaveTax: 세무대리인 관리번호 팝업 확인 클릭");
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+        // input[value='확인'] 도 시도
+        const confirmInput = document.querySelector("input[value='확인']");
+        if (confirmInput && confirmInput.offsetParent !== null) {
+          confirmInput.click();
+          console.log("SaveTax: 확인 input 클릭");
+          break;
+        }
+        // pageExec로 시도
+        try {
+          pageExec(`
+            var btns = document.querySelectorAll("input[value='확인'], button");
+            for (var i = 0; i < btns.length; i++) {
+              if ((btns[i].value || btns[i].textContent || "").trim() === "확인" && btns[i].offsetParent !== null) {
+                btns[i].click(); break;
+              }
+            }
+          `);
+        } catch (e) {}
+      }
+      await sleep(3000);
 
       // 3. 공동∙금융 인증 버튼 클릭
-      try {
-        const certBtn = await waitForXPath("//button[contains(text(),'공동') and contains(text(),'인증')]", 5000);
-        if (certBtn) certBtn.click();
-      } catch (e) {
-        // 다른 셀렉터 시도
-        try {
-          const certBtn2 = document.evaluate("//button[contains(text(),'금융 인증')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-          if (certBtn2) certBtn2.click();
-        } catch (e2) {}
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await sleep(500);
+        const btns = document.querySelectorAll("button");
+        let found = false;
+        for (const btn of btns) {
+          if (btn.textContent?.includes("공동") && btn.textContent?.includes("인증") && btn.offsetParent !== null) {
+            btn.click();
+            console.log("SaveTax: 공동∙금융 인증 클릭");
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
       }
       await sleep(2000);
 
