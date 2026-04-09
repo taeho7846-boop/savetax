@@ -107,41 +107,13 @@
                     console.log("SaveTax: [MAIN] 인증서 확인 클릭");
                   }
 
-                  // 6. 원래 창에서 관리번호 입력
-                  if (cd.agentNumber && window.opener) {
-                    setTimeout(function() {
-                      try {
-                        var opDoc = window.opener.document;
-                        var inputs = opDoc.querySelectorAll("input");
-                        for (var m = 0; m < inputs.length; m++) {
-                          if ((inputs[m].title || "").indexOf("관리번호") !== -1) {
-                            inputs[m].focus(); inputs[m].value = cd.agentNumber;
-                            inputs[m].dispatchEvent(new Event("input", { bubbles: true }));
-                            console.log("SaveTax: [MAIN] 관리번호 입력: " + cd.agentNumber);
-                            break;
-                          }
-                        }
-                        var pwInputs = opDoc.querySelectorAll("input[type='password']");
-                        if (pwInputs.length > 0) {
-                          var lastPw = pwInputs[pwInputs.length - 1];
-                          lastPw.focus(); lastPw.value = cd.agentPw;
-                          lastPw.dispatchEvent(new Event("input", { bubbles: true }));
-                          console.log("SaveTax: [MAIN] 비밀번호 입력");
-                        }
-                        setTimeout(function() {
-                          var btns = opDoc.querySelectorAll("button, input[type='button']");
-                          for (var n = 0; n < btns.length; n++) {
-                            if ((btns[n].textContent || btns[n].value || "").trim() === "로그인" && btns[n].offsetParent) {
-                              btns[n].click();
-                              console.log("SaveTax: [MAIN] 로그인 클릭");
-                              break;
-                            }
-                          }
-                        }, 300);
-                      } catch(e) {
-                        console.error("SaveTax: [MAIN] 관리번호 입력 실패:", e);
-                      }
-                    }, 3000);
+                  // 6. cookie에 관리번호 정보 저장 → 원래 페이지 suppress-alert가 처리
+                  if (cd.agentNumber) {
+                    document.cookie = "savetax_agent=" + encodeURIComponent(JSON.stringify({
+                      agentNumber: cd.agentNumber,
+                      agentPw: cd.agentPw
+                    })) + "; path=/; max-age=120";
+                    console.log("SaveTax: [MAIN] 관리번호 정보 cookie에 저장");
                   }
                 }, 500);
               }, 500);
@@ -165,6 +137,48 @@
     console.log("SaveTax: [MAIN] 인증 정보 DOM→cookie 변환 완료");
   }, 300);
   setTimeout(function() { clearInterval(corpDataInterval); }, 30000);
+
+  // === 관리번호 cookie 감지 → 자동 입력 (원래 페이지에서) ===
+  var agentCookieInterval = setInterval(function() {
+    var match = document.cookie.match(/savetax_agent=([^;]+)/);
+    if (!match) return;
+    clearInterval(agentCookieInterval);
+
+    var ad;
+    try { ad = JSON.parse(decodeURIComponent(match[1])); } catch(e) { return; }
+    document.cookie = "savetax_agent=; path=/; max-age=0";
+    console.log("SaveTax: [MAIN] 관리번호 cookie 발견, 입력 시작");
+
+    setTimeout(function() {
+      var inputs = document.querySelectorAll("input");
+      for (var i = 0; i < inputs.length; i++) {
+        if ((inputs[i].title || "").indexOf("관리번호") !== -1) {
+          inputs[i].focus(); inputs[i].value = ad.agentNumber;
+          inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
+          console.log("SaveTax: [MAIN] 관리번호 입력: " + ad.agentNumber);
+          break;
+        }
+      }
+      var pwInputs = document.querySelectorAll("input[type='password']");
+      if (pwInputs.length > 0) {
+        var lastPw = pwInputs[pwInputs.length - 1];
+        lastPw.focus(); lastPw.value = ad.agentPw;
+        lastPw.dispatchEvent(new Event("input", { bubbles: true }));
+        console.log("SaveTax: [MAIN] 비밀번호 입력");
+      }
+      setTimeout(function() {
+        var btns = document.querySelectorAll("button, input[type='button']");
+        for (var j = 0; j < btns.length; j++) {
+          if ((btns[j].textContent || btns[j].value || "").trim() === "로그인" && btns[j].offsetParent) {
+            btns[j].click();
+            console.log("SaveTax: [MAIN] 로그인 클릭");
+            break;
+          }
+        }
+      }, 300);
+    }, 2000);
+  }, 500);
+  setTimeout(function() { clearInterval(agentCookieInterval); }, 60000);
 
   // === 관리번호 팝업 확인 버튼 반복 찾기 ===
   var corpConfirmInterval = setInterval(function() {
