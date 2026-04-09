@@ -230,8 +230,14 @@ const tools: Anthropic.Tool[] = [
   },
 ];
 
-// 본인 + 소속직원 거래처 필터
+// 본인 + 소속직원 거래처 필터 (총괄조회 계정은 전체 접근)
 async function getMyClientFilter(sessionId: number) {
+  const user = await prisma.user.findUnique({
+    where: { id: sessionId },
+    select: { role: true },
+  });
+  if (user?.role === "readonly") return {};
+
   const employees = await prisma.user.findMany({
     where: { managerId: sessionId, isActive: true },
     select: { id: true },
