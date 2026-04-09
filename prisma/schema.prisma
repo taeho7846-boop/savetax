@@ -35,7 +35,7 @@ model User {
   feedbacks          Feedback[]         @relation("feedbacks")
   notices            Notice[]           @relation("notices")
   knowledges         Knowledge[]        @relation("knowledges")
-  telegramUser       TelegramUser?
+  telegramUsers      TelegramUser[]
 }
 
 // 고객사
@@ -434,7 +434,7 @@ model TempMemo {
 model TelegramUser {
   id         Int    @id @default(autoincrement())
   telegramId String @unique
-  userId     Int    @unique
+  userId     Int
   user       User   @relation(fields: [userId], references: [id])
 }
 

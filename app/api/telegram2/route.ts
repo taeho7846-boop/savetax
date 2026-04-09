@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
         sendTelegram(chatId, `❌ '${username}' 계정을 찾을 수 없습니다.`);
         return NextResponse.json({ ok: true });
       }
+      // 이미 같은 telegramId가 있으면 업데이트, 없으면 생성 (한 유저에 여러 텔레그램 ID 허용)
       await prisma.telegramUser.upsert({
         where: { telegramId: `bot2_${telegramId}` },
         update: { userId: user.id },

@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   const { telegramId } = await req.json();
   if (!telegramId) return NextResponse.json({ userId: null });
 
-  const tgUser = await prisma.telegramUser.findUnique({
+  const tgUser = await prisma.telegramUser.findFirst({
     where: { telegramId: String(telegramId) },
     select: { userId: true },
   });
