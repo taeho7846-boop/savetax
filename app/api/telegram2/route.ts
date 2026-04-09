@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const chatId = message.chat.id;
 
     if (message.text?.startsWith("/start")) {
-      sendTelegram(chatId, `안녕하세요! 세이브택스 AI봇입니다.\n\n먼저 홈페이지 아이디와 연동하세요:\n/연동 홈페이지아이디\n\n예시: /연동 savetax\n\n연동 후 메시지를 보내면 본인의 임시메모함에 저장됩니다.`);
+      sendTelegram(chatId, `안녕하세요! 세이브택스 AI 어시스턴트입니다.\n\n먼저 홈페이지 아이디와 연동하세요:\n/연동 홈페이지아이디\n\n예시: /연동 savetax\n\n연동 후 메시지를 보내면 AI가 바로 답변합니다.`);
       return NextResponse.json({ ok: true });
     }
 
@@ -58,52 +58,38 @@ export async function POST(req: NextRequest) {
 
     const content = message.text || message.caption || (fileUrl ? "(파일)" : "(내용 없음)");
 
-    if (message.text?.startsWith("/ai")) {
-      const query = message.text.replace("/ai", "").trim();
-      if (!query) {
-        sendTelegram(chatId, "사용법: /ai 질문내용\n예시: /ai 피부양자 자격요건");
-        return NextResponse.json({ ok: true });
-      }
-      const tgUser = await prisma.telegramUser.findUnique({ where: { telegramId: `bot2_${telegramId}` } });
-      if (!tgUser) {
-        sendTelegram(chatId, "❌ 먼저 /연동 명령어로 계정을 연동해주세요.");
-        return NextResponse.json({ ok: true });
-      }
-      sendTelegram(chatId, "🤖 답변 생성 중...");
-      try {
-        const internalKey = (process.env.ANTHROPIC_API_KEY || "").slice(-10);
-        const res = await fetch(`http://localhost:80/api/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
-          body: JSON.stringify({ message: query, history: [], _internalUserId: tgUser.userId }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const reply = data.reply
-            ?.replace(/\*\*(.*?)\*\*/g, "*$1*")
-            ?.replace(/#{1,3}\s/g, "")
-            ?.slice(0, 4000) || "답변을 생성할 수 없습니다.";
-          sendTelegramMarkdown(chatId, reply);
-        } else {
-          sendTelegram(chatId, "❌ AI 응답 실패. 다시 시도해주세요.");
-        }
-      } catch (e) {
-        console.error("[Telegram2 AI] 오류:", e);
-        sendTelegram(chatId, "❌ AI 응답 실패. 다시 시도해주세요.");
-      }
+    // 모든 메시지 → AI 대화
+    const tgUser = await prisma.telegramUser.findUnique({ where: { telegramId: `bot2_${telegramId}` } });
+    if (!tgUser) {
+      sendTelegram(chatId, "❌ 먼저 /연동 명령어로 계정을 연동해주세요.");
       return NextResponse.json({ ok: true });
     }
 
-    await prisma.tempMemo.create({
-      data: {
-        telegramId: `bot2_${telegramId}`,
-        senderName,
-        content,
-        fileUrl,
-      },
-    });
+    const query = content;
+    if (!query || query === "(내용 없음)") return NextResponse.json({ ok: true });
 
-    await sendTelegram(chatId, `✅ 메모 저장 완료!\n"${content.slice(0, 30)}${content.length > 30 ? "..." : ""}"`);
+    sendTelegram(chatId, "🤖 답변 생성 중...");
+    try {
+      const internalKey = (process.env.ANTHROPIC_API_KEY || "").slice(-10);
+      const res = await fetch(`http://localhost:80/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
+        body: JSON.stringify({ message: query, history: [], _internalUserId: tgUser.userId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.reply
+          ?.replace(/\*\*(.*?)\*\*/g, "*$1*")
+          ?.replace(/#{1,3}\s/g, "")
+          ?.slice(0, 4000) || "답변을 생성할 수 없습니다.";
+        sendTelegramMarkdown(chatId, reply);
+      } else {
+        sendTelegram(chatId, "❌ AI 응답 실패. 다시 시도해주세요.");
+      }
+    } catch (e) {
+      console.error("[Super-bot AI] 오류:", e);
+      sendTelegram(chatId, "❌ AI 응답 실패. 다시 시도해주세요.");
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
