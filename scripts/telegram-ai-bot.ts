@@ -59,7 +59,7 @@ async function handleMessage(chatId: number, telegramId: string, text: string, s
     return;
   }
 
-  // /연동
+  // /연동 (AI봇 전용 - ai_ 접두사로 메모봇과 분리)
   if (text.startsWith("/연동")) {
     const username = text.replace("/연동", "").trim();
     if (!username) {
@@ -67,7 +67,7 @@ async function handleMessage(chatId: number, telegramId: string, text: string, s
       return;
     }
     try {
-      const body = JSON.stringify({ message: { from: { id: Number(telegramId) }, chat: { id: chatId }, text: `/연동 ${username}` } }).replace(/'/g, "'\\''");
+      const body = JSON.stringify({ message: { from: { id: `ai_${telegramId}` }, chat: { id: chatId }, text: `/연동 ${username}` } }).replace(/'/g, "'\\''");
       execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${body}' "http://localhost:80/api/telegram"`, { encoding: "utf-8" });
     } catch {}
     return;
@@ -88,8 +88,8 @@ async function handleMessage(chatId: number, telegramId: string, text: string, s
     const internalKey = ANTHROPIC_KEY.slice(-10);
     const history = chatHistory.get(telegramId) || [];
 
-    // userId 조회
-    const lookupBody = JSON.stringify({ telegramId }).replace(/'/g, "'\\''");
+    // userId 조회 (ai_ 접두사로 메모봇과 분리)
+    const lookupBody = JSON.stringify({ telegramId: `ai_${telegramId}` }).replace(/'/g, "'\\''");
     const lookupResult = execSync(`curl -s --connect-timeout 5 -X POST -H "Content-Type: application/json" -d '${lookupBody}' "http://localhost:80/api/telegram/lookup"`, { encoding: "utf-8" });
     const lookupData = JSON.parse(lookupResult);
 
