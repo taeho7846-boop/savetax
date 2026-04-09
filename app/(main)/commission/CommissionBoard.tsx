@@ -143,7 +143,9 @@ export default function CommissionBoard({
   const [autoLoading, setAutoLoading] = useState<string | null>(null);
   const [autoResult, setAutoResult] = useState<{ ok: boolean; msg: string; pdfPath?: string } | null>(null);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
+  const [wehagoProgress, setWehagoProgress] = useState<{ id: number; step: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Happy call form
@@ -437,6 +439,17 @@ export default function CommissionBoard({
         </button>
       </div>
 
+      {/* 검색 */}
+      <div className="mb-3">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="거래처명, 대표자, 사업자번호 검색..."
+          className="w-full max-w-sm px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]/40"
+        />
+      </div>
+
       {/* 테이블 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
@@ -476,9 +489,12 @@ export default function CommissionBoard({
           </thead>
           <tbody className="divide-y divide-gray-50">
             {(() => {
-              const filtered = stageFilter
-                ? commissions.filter((c) => getStage(c).label === stageFilter)
-                : commissions;
+              const q = searchQuery.trim().toLowerCase();
+              const filtered = commissions.filter((c) => {
+                if (stageFilter && getStage(c).label !== stageFilter) return false;
+                if (q && !c.client.name.toLowerCase().includes(q) && !(c.client.ceoName ?? "").toLowerCase().includes(q)) return false;
+                return true;
+              });
               return filtered.length === 0 ? (
               <tr>
                 <td
@@ -661,25 +677,61 @@ export default function CommissionBoard({
                             disabled={loading}
                           />
                           {!c.wihagoDone && (
-                            <button
-                              onClick={async () => {
-                                if (!confirm(`"${c.client.name}" 위하고 수임처를 자동 생성하시겠습니까?`)) return;
-                                try {
-                                  const res = await fetch("/api/wehago/create-client", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ clientId: c.clientId }),
-                                  });
-                                  const data = await res.json();
-                                  alert(data.message || data.error);
-                                  if (data.success) doToggle(c.id, "wihagoDone", true);
-                                } catch { alert("위하고 자동생성 실패"); }
-                              }}
-                              disabled={loading}
-                              className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 disabled:opacity-50 whitespace-nowrap"
-                            >
-                              자동
-                            </button>
+                            wehagoProgress?.id === c.id ? (
+                              <div className="flex items-center gap-1 text-[9px] text-purple-600">
+                                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                <span className="whitespace-nowrap">{wehagoProgress.step}</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`"${c.client.name}" 위하고 수임처를 자동 생성하시겠습니까?`)) return;
+                                  setWehagoProgress({ id: c.id, step: "준비 중..." });
+                                  try {
+                                    const res = await fetch("/api/wehago/create-client", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ clientId: c.clientId }),
+                                    });
+                                    const reader = res.body?.getReader();
+                                    if (!reader) throw new Error("스트림 없음");
+                                    const decoder = new TextDecoder();
+                                    let buf = "";
+                                    let finalResult: { success?: boolean; message?: string } = {};
+                                    while (true) {
+                                      const { done, value } = await reader.read();
+                                      if (done) break;
+                                      buf += decoder.decode(value, { stream: true });
+                                      const lines = buf.split("\n\n");
+                                      buf = lines.pop() || "";
+                                      for (const line of lines) {
+                                        const match = line.match(/^data: (.+)$/m);
+                                        if (!match) continue;
+                                        const ev = JSON.parse(match[1]);
+                                        if (ev.type === "progress") {
+                                          setWehagoProgress({ id: c.id, step: ev.step });
+                                        } else if (ev.type === "done") {
+                                          finalResult = ev;
+                                        }
+                                      }
+                                    }
+                                    setWehagoProgress(null);
+                                    alert(finalResult.message || "완료");
+                                    if (finalResult.success) doToggle(c.id, "wihagoDone", true);
+                                  } catch (err) {
+                                    setWehagoProgress(null);
+                                    alert("위하고 자동생성 실패: " + String(err));
+                                  }
+                                }}
+                                disabled={loading || wehagoProgress !== null}
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 disabled:opacity-50 whitespace-nowrap"
+                              >
+                                자동
+                              </button>
+                            )
                           )}
                         </div>
                         {c.wihagoAt && (

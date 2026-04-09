@@ -17,10 +17,13 @@ type WehagoResult = {
 export async function createWehagoClient(
   wehagoId: string,
   wehagoPw: string,
-  client: WehagoClientInput
+  client: WehagoClientInput,
+  onProgress?: (step: string) => void,
 ): Promise<WehagoResult> {
+  const progress = onProgress ?? (() => {});
   let browser;
   try {
+    progress("브라우저 시작 중...");
     const pw = await import("playwright" as any);
     const chromium = pw.chromium;
 
@@ -36,6 +39,7 @@ export async function createWehagoClient(
     const page = await context.newPage();
 
     // 1. 위하고 로그인 (직접 로그인 페이지)
+    progress("위하고 접속 중...");
     await page.goto("https://www.wehago.com/#/login", { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(1500);
 
@@ -53,6 +57,7 @@ export async function createWehagoClient(
       } catch {}
     }
 
+    progress("로그인 중...");
     await page.getByRole("textbox", { name: "아이디를 입력하세요" }).fill(wehagoId);
     await page.getByRole("textbox", { name: "비밀번호를 입력하세요" }).fill(wehagoPw);
     await page.getByRole("button", { name: "로그인" }).click();
@@ -107,6 +112,7 @@ export async function createWehagoClient(
       return { success: false, message: "위하고 로그인 실패. ID/PW를 확인해주세요." };
     }
 
+    progress("팝업 닫는 중...");
     // 2. 모든 팝업/오버레이 강제 닫기 (광고 포함)
     // 방법 1: ESC 키로 팝업 닫기 시도
     for (let i = 0; i < 5; i++) {
@@ -178,6 +184,7 @@ export async function createWehagoClient(
     await page.waitForTimeout(1500);
 
     // 새 수임처 생성
+    progress("수임처 메뉴 진입 중...");
     await page.getByRole("button", { name: "전체" }).click({ force: true });
     await page.waitForTimeout(1500);
     await page.getByRole("button", { name: "새 수임처" }).click({ force: true });
@@ -188,6 +195,7 @@ export async function createWehagoClient(
     await page.waitForTimeout(1500);
 
     // 3. 폼 입력 (id 기반 셀렉터)
+    progress("정보 입력 중...");
     // 회사명
     await page.locator('#companyNameKr').fill(client.name);
     await page.waitForTimeout(500);
@@ -251,6 +259,7 @@ export async function createWehagoClient(
     }
 
 
+    progress("수임처 생성 중...");
     // 확인/알림 팝업 처리
     for (let i = 0; i < 5; i++) {
       try {

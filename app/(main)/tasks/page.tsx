@@ -256,9 +256,9 @@ export default async function TasksPage({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-gray-800">{task.title}</div>
+                      <div className="text-gray-800 whitespace-pre-wrap break-words">{task.title}</div>
                       {task.notes && (
-                        <div className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap line-clamp-2">{task.notes}</div>
+                        <div className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap break-words">{task.notes}</div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
