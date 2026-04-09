@@ -49,6 +49,8 @@ export default async function WithholdingPage({
       withholdingRecords: {
         where: { yearMonth },
       },
+      wehagoCno: true,
+      wehagoCdCom: true,
       withholdingLaborOverrides: {
         where: { yearMonth },
         select: { laborTypes: true, memo: true },

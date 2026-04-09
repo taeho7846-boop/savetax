@@ -48,6 +48,8 @@ type Client = {
   halfYearTax: boolean;
   accountingProgram: string;
   withholdingType: string | null;
+  wehagoCno: string | null;
+  wehagoCdCom: string | null;
   assignedUser?: { name: string } | null;
   withholdingRecords: WHRecord[];
   withholdingLaborOverrides: { laborTypes: string | null; memo: string | null }[];
@@ -275,6 +277,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                               p === "위하고" ? <img key={p} src="/wehago.svg" alt="위하고" className="w-3.5 h-3.5 rounded shrink-0" /> :
                               p === "세무사랑" ? <img key={p} src="/semusarang.svg" alt="세무사랑" className="w-3.5 h-3.5 rounded shrink-0" /> : null
                             ))}
+                            {client.wehagoCno && client.wehagoCdCom && laborList.includes("근로소득") && (
+                              <button
+                                onClick={() => window.open(
+                                  `https://smarta.wehago.com/#/smarta/humanresource/SWSA0101?sao&cno=${client.wehagoCno}&cd_com=${client.wehagoCdCom}&gisu=1&yminsa=${year}&wehagoT`,
+                                  "_blank"
+                                )}
+                                className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
+                                title="위하고 급여자료입력 바로가기"
+                              >
+                                급여
+                              </button>
+                            )}
                           </div>
                         </td>
                         <td className="px-1 py-2 text-center">
