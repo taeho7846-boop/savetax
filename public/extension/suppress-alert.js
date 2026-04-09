@@ -79,12 +79,16 @@
           }
 
           setTimeout(function() {
-            // content script에서 creds 받기 대기
+            // DOM에서 인증 정보 읽기 대기
             var credsWait = setInterval(function() {
-              if (!corpCertCreds) return;
+              var credsEl = document.getElementById("savetax-corp-creds");
+              if (!credsEl) return;
               clearInterval(credsWait);
 
-              var cd = corpCertCreds;
+              var cd = {
+                certName: credsEl.dataset.certName || "",
+                certPw: credsEl.dataset.certPw || "",
+              };
               var certDoc2;
               try { certDoc2 = dscertFrame.contentDocument || dscertFrame.contentWindow.document; } catch(e) { return; }
 
@@ -116,6 +120,45 @@
                   if (confirmBtn) {
                     confirmBtn.click();
                     console.log("SaveTax: [MAIN] 인증서 확인 클릭");
+                  }
+
+                  // 인증 후 원래 창에서 관리번호 입력
+                  var agentNumber = credsEl.dataset.agentNumber;
+                  var agentPw = credsEl.dataset.agentPw;
+                  if (agentNumber && window.opener) {
+                    setTimeout(function() {
+                      try {
+                        var opDoc = window.opener.document;
+                        var inputs = opDoc.querySelectorAll("input");
+                        for (var m = 0; m < inputs.length; m++) {
+                          if ((inputs[m].title || "").indexOf("관리번호") !== -1) {
+                            inputs[m].focus(); inputs[m].value = agentNumber;
+                            inputs[m].dispatchEvent(new Event("input", { bubbles: true }));
+                            console.log("SaveTax: [MAIN] 관리번호 입력: " + agentNumber);
+                            break;
+                          }
+                        }
+                        var pwInputs = opDoc.querySelectorAll("input[type='password']");
+                        if (pwInputs.length > 0) {
+                          var lastPw = pwInputs[pwInputs.length - 1];
+                          lastPw.focus(); lastPw.value = agentPw;
+                          lastPw.dispatchEvent(new Event("input", { bubbles: true }));
+                          console.log("SaveTax: [MAIN] 비밀번호 입력");
+                        }
+                        setTimeout(function() {
+                          var btns = opDoc.querySelectorAll("button, input[type='button']");
+                          for (var n = 0; n < btns.length; n++) {
+                            if ((btns[n].textContent || btns[n].value || "").trim() === "로그인" && btns[n].offsetParent) {
+                              btns[n].click();
+                              console.log("SaveTax: [MAIN] 로그인 클릭");
+                              break;
+                            }
+                          }
+                        }, 300);
+                      } catch(e) {
+                        console.error("SaveTax: [MAIN] 관리번호 입력 실패:", e);
+                      }
+                    }, 3000);
                   }
                 }, 500);
               }, 500);

@@ -16,16 +16,18 @@
   }
   if (!creds) return;
 
-  // background에 이 탭에서 MAIN world로 인증서 처리 요청
-  console.log("SaveTax: [팝업] background에 인증서 처리 요청");
-  chrome.runtime.sendMessage({
-    type: "exec-corp-cert",
-    certName: creds.certName,
-    certPw: creds.certPw,
-    agentNumber: creds.agentNumber,
-    agentPw: creds.agentPw,
-  });
-  return; // 나머지는 background가 처리
+  // suppress-alert.js(MAIN world)에 인증 정보 전달 (DOM hidden input 사용)
+  console.log("SaveTax: [팝업] DOM에 인증 정보 심기");
+  const el = document.createElement("div");
+  el.id = "savetax-corp-creds";
+  el.style.display = "none";
+  el.dataset.certName = creds.certName || "";
+  el.dataset.certPw = creds.certPw || "";
+  el.dataset.agentNumber = creds.agentNumber || "";
+  el.dataset.agentPw = creds.agentPw || "";
+  document.documentElement.appendChild(el);
+  console.log("SaveTax: [팝업] 인증 정보 DOM에 저장 완료");
+  // suppress-alert.js가 나머지 처리
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   function setInput(el, value) {
