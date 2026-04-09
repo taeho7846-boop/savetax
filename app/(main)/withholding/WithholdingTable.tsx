@@ -106,6 +106,33 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["D"]));
+  const [verifyResult, setVerifyResult] = useState<{
+    excelCount: number;
+    clientCount: number;
+    checkedNotInExcel: { name: string; bizNumber: string; type: string }[];
+    notCheckedButInExcel: { name: string; bizNumber: string; type: string }[];
+    allMatch: boolean;
+  } | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  async function handleVerify(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVerifyLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("yearMonth", yearMonth);
+      const res = await fetch("/api/withholding-verify", { method: "POST", body: fd });
+      const data = await res.json();
+      setVerifyResult(data);
+    } catch {
+      alert("검증 중 오류가 발생했습니다.");
+    }
+    setVerifyLoading(false);
+    e.target.value = "";
+  }
   const month = parseInt(yearMonth.split("-")[1]);
   const extraColumns = getAllExtraColumns();
 
@@ -182,6 +209,14 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             autoComplete="off"
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
           />
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleVerify} className="hidden" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={verifyLoading}
+            className="text-xs px-3 py-1.5 rounded-lg font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {verifyLoading ? "검증중..." : "신고 검증"}
+          </button>
           {checkedIds.size > 0 && (
             <div className="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-lg">
               {checkedIds.size}개 선택
@@ -506,6 +541,74 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
               >저장</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 검증 결과 모달 */}
+      {verifyResult && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-900">원천세 신고 검증 결과</h3>
+              <button onClick={() => setVerifyResult(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+            </div>
+
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1 bg-gray-50 rounded-lg p-3 text-center">
+                <div className="text-xs text-gray-500">엑셀 신고건수</div>
+                <div className="text-lg font-bold text-gray-800">{verifyResult.excelCount}</div>
+              </div>
+              <div className="flex-1 bg-gray-50 rounded-lg p-3 text-center">
+                <div className="text-xs text-gray-500">시스템 대상</div>
+                <div className="text-lg font-bold text-gray-800">{verifyResult.clientCount}</div>
+              </div>
+            </div>
+
+            {verifyResult.allMatch ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <span className="text-green-700 font-medium">모두 일치합니다</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {verifyResult.checkedNotInExcel.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-red-600 mb-2">
+                      체크했는데 신고 안 됨 ({verifyResult.checkedNotInExcel.length}건)
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg divide-y divide-red-100">
+                      {verifyResult.checkedNotInExcel.map((c, i) => (
+                        <div key={i} className="px-3 py-2 flex items-center justify-between">
+                          <span className="text-sm text-gray-800">{c.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">{c.bizNumber}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-600">{c.type}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {verifyResult.notCheckedButInExcel.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-amber-600 mb-2">
+                      체크 안 했는데 신고 됨 ({verifyResult.notCheckedButInExcel.length}건)
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg divide-y divide-amber-100">
+                      {verifyResult.notCheckedButInExcel.map((c, i) => (
+                        <div key={i} className="px-3 py-2 flex items-center justify-between">
+                          <span className="text-sm text-gray-800">{c.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">{c.bizNumber}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-600">{c.type}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
