@@ -304,15 +304,20 @@
       await sleep(2000);
 
       // 2. "세무대리인관리번호로 로그인 하시겠습니까?" 팝업 확인
-      for (let attempt = 0; attempt < 15; attempt++) {
+      for (let attempt = 0; attempt < 20; attempt++) {
         await sleep(500);
-        // btn_confirm ID 패턴으로 찾기 (홈택스 자체 팝업)
-        const confirmBtn = document.querySelector("input[id*='btn_confirm'][value='확인']");
-        if (confirmBtn && confirmBtn.offsetParent !== null) {
-          pageExec(`document.querySelector("input[id*='btn_confirm'][value='확인']").click();`);
-          console.log("SaveTax: 세무대리인 관리번호 팝업 확인 클릭 (btn_confirm)");
-          break;
-        }
+        pageExec(`
+          (function() {
+            var els = document.querySelectorAll("input[type='button']");
+            for (var i = 0; i < els.length; i++) {
+              if (els[i].value === "확인" && els[i].id.indexOf("btn_confirm") !== -1 && els[i].style.display !== "none") {
+                els[i].click();
+                console.log("SaveTax: 확인 클릭 성공 - " + els[i].id);
+                return;
+              }
+            }
+          })();
+        `);
       }
       await sleep(3000);
 
