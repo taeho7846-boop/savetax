@@ -280,7 +280,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false 
                             {client.wehagoCno && client.wehagoCdCom && laborList.includes("근로소득") && (
                               <button
                                 onClick={() => window.open(
-                                  `https://smarta.wehago.com/#/smarta/humanresource/SWSA0101?sao&cno=${client.wehagoCno}&cd_com=${client.wehagoCdCom}&gisu=1&yminsa=${year}&wehagoT`,
+                                  `https://smarta.wehago.com/#/smarta/humanresource/SWSA0101?sao&cno=${client.wehagoCno}&cd_com=${client.wehagoCdCom}&gisu=1&yminsa=${year}&searchData=2021010120211231&companyName=${encodeURIComponent(client.name)}&companyID=taehotax&taxNum=8024471&yn_private=1&wehagoT`,
                                   "_blank"
                                 )}
                                 className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
