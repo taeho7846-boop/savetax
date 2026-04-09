@@ -178,6 +178,138 @@
   }
 })();
 
+// 법인 로그인 완료 후 다음 액션 실행 (register/commission/recommission)
+(async function () {
+  const nextStorage = await chrome.storage.local.get("savetax_corp_next");
+  if (!nextStorage.savetax_corp_next) return;
+
+  // 관리번호 로그인이 완료될 때까지 대기 (세무대리인 메뉴가 보이면 완료)
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function waitForId(id, timeout = 20000) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const check = () => {
+        const el = document.getElementById(id);
+        if (el) return resolve(el);
+        if (Date.now() - start > timeout) return reject(new Error("Timeout: #" + id));
+        setTimeout(check, 300);
+      };
+      check();
+    });
+  }
+  function waitForXPath(xpath, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const check = () => {
+        const el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+        if (el) return resolve(el);
+        if (Date.now() - start > timeout) return reject(new Error("Timeout"));
+        setTimeout(check, 300);
+      };
+      check();
+    });
+  }
+  function setInput(el, value) {
+    el.focus(); el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  const { action, creds } = nextStorage.savetax_corp_next;
+  chrome.storage.local.remove("savetax_corp_next");
+
+  // 관리번호 로그인 완료 대기 (메뉴 버튼이 나타나면)
+  try {
+    await waitForId("mf_wfHeader_wq_uuid_619", 30000);
+    console.log("SaveTax: [법인] 로그인 완료 확인, " + action + " 시작");
+    await sleep(1500);
+
+    if (action === "register") {
+      // 메뉴 이동
+      (await waitForId("mf_wfHeader_wq_uuid_619")).click();
+      await sleep(200);
+      (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
+      await sleep(200);
+      (await waitForXPath("//span[contains(text(),'기장대리 수임납세자 등록')]")).click();
+      await sleep(1000);
+
+      // 폼 입력
+      const bizNumber = (creds.bizNumber || "").replace(/[-\s]/g, "");
+      const residentNumber = (creds.residentNumber || "").replace(/[-\s]/g, "");
+      const phone = (creds.phone || "").replace(/[-\s]/g, "");
+      const biz1 = bizNumber.slice(0, 3), biz2 = bizNumber.slice(3, 5), biz3 = bizNumber.slice(5, 10);
+      const phone1 = phone.slice(0, 3), phone2 = phone.slice(3, 7), phone3 = phone.slice(7, 11);
+
+      if (creds.clientType === "individual") {
+        try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_0']")).click(); } catch (e) {}
+      } else {
+        try { (await waitForXPath("//label[@for='mf_txppWframe_taPrxClntClCd_input_1']")).click(); } catch (e) {}
+      }
+
+      setInput(await waitForId("mf_txppWframe_bsno1"), biz1);
+      setInput(await waitForId("mf_txppWframe_bsno2"), biz2);
+      setInput(await waitForId("mf_txppWframe_bsno3"), biz3);
+      setInput(await waitForId("mf_txppWframe_resno"), residentNumber);
+      setInput(await waitForId("mf_txppWframe_telno1"), phone1);
+      setInput(await waitForId("mf_txppWframe_telno2"), phone2);
+      setInput(await waitForId("mf_txppWframe_telno3"), phone3);
+      const mpSelect = document.getElementById("mf_txppWframe_mp1");
+      if (mpSelect) { mpSelect.value = phone1; mpSelect.dispatchEvent(new Event("change", { bubbles: true })); }
+      setInput(await waitForId("mf_txppWframe_mp2"), phone2);
+      setInput(await waitForId("mf_txppWframe_mp3"), phone3);
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      setInput(await waitForId("mf_txppWframe_afaDt_input"), dateStr);
+      if (creds.clientType === "individual") {
+        try { (await waitForXPath("//label[@for='mf_txppWframe_infrOfrRngCd_input_0']")).click(); } catch (e) {}
+      }
+      console.log("SaveTax: [법인] 기장등록 입력 완료");
+    }
+
+    if (action === "commission" || action === "recommission") {
+      // 메뉴 이동
+      (await waitForId("mf_wfHeader_wq_uuid_619")).click();
+      (await waitForXPath("//span[@escape='false' and @label='수임 납세자 관리']")).click();
+      if (action === "commission") {
+        (await waitForXPath("//span[contains(text(),'세무대리정보 이용 신청서(기장수임용)')]")).click();
+      } else {
+        (await waitForXPath("//span[contains(text(),'기장 기존해지와 신규수임')]")).click();
+      }
+      await sleep(2000);
+
+      // 폼 입력
+      const rn = (creds.residentNumber || "").replace(/[-\s]/g, "");
+      setInput(await waitForId("mf_txppWframe_pf_UTECAAAZ07_inputCvaAplnBscClntResRgtNo1"), rn.slice(0, 6));
+      setInput(await waitForId("mf_txppWframe_pf_UTECAAAZ07_inputCvaAplnBscClntResRgtNo2"), rn.slice(6));
+      setInput(await waitForId("mf_txppWframe_pf_UTECAAAZ07_inputClntFnm"), creds.ceoName || "");
+      await sleep(300);
+      (await waitForId("mf_txppWframe_pf_UTECAAAZ07_btnClntFnmCnfr")).click();
+      await sleep(1500);
+      try {
+        const alertEl = await waitForXPath("//input[@value='확인' and contains(@id,'btn_confirm')]", 2000);
+        if (alertEl) alertEl.click();
+      } catch (e) {}
+
+      // 첨부파일 다운로드
+      const filesToDownload = [
+        { label: "세무대리인 신분증", url: creds.agentIdCardUrl, filename: "세무대리인_신분증.jpg" },
+        { label: "대표자 신분증", url: creds.clientIdCardUrl, filename: "대표자_신분증.jpg" },
+        { label: "홈택스수임신청서", url: creds.pdfUrl, filename: "홈택스수임신청서.pdf" },
+      ].filter(f => f.url);
+      if (filesToDownload.length > 0) {
+        try {
+          await chrome.runtime.sendMessage({ type: "download-files", files: filesToDownload });
+        } catch (e) {}
+      }
+      const label = action === "commission" ? "기장수임" : "해지후수임";
+      console.log("SaveTax: [법인] " + label + " 입력 완료");
+    }
+
+  } catch (e) {
+    console.error("SaveTax: [법인] 다음 액션 실패:", e);
+  }
+})();
+
 // 페이지 이동 후에도 자동화 이어서 진행
 (async function () {
   const pendingData = sessionStorage.getItem("savetax_register_data");
@@ -470,6 +602,37 @@
       }
     } catch (e) {
       console.error("SaveTax 자동 로그인 실패:", e);
+    }
+  }
+
+  // ============================================================
+  // MODE: corp_register / corp_commission / corp_recommission
+  // 법인 로그인 후 기장등록/수임/해지후수임 이어서 실행
+  // ============================================================
+  if (mode === "corp_register" || mode === "corp_commission" || mode === "corp_recommission") {
+    try {
+      if (await checkLogout()) return;
+
+      // 로그인 후 이어서 할 작업을 chrome.storage에 저장
+      const nextAction = mode.replace("corp_", ""); // register, commission, recommission
+      await chrome.storage.local.set({
+        savetax_corp_agent: {
+          agentNumber: creds.agentNumber,
+          agentPw: creds.agentPw || creds.pw,
+        },
+        savetax_corp_next: {
+          action: nextAction,
+          creds: creds,
+        }
+      });
+      console.log("SaveTax: " + mode + " - 다음 액션 저장:", nextAction);
+
+      // corp_login과 동일한 로그인
+      await doLogin(creds.id, creds.pw);
+      console.log("SaveTax: " + mode + " - 로그인 완료, 인증 후 자동 진행");
+
+    } catch (e) {
+      console.error("SaveTax " + mode + " 실패:", e);
     }
   }
 

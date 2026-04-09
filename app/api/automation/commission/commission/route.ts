@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     agentPw: settings.agentHometaxPw,
     certName: settings.certName ?? "",
     certPw: settings.certPassword ?? "",
+    agentNumber: settings.agentNumber ?? "",
     residentNumber: client.residentNumber,
     ceoName: client.ceoName,
     agentIdCardPath,

@@ -292,13 +292,18 @@ export default function CommissionBoard({
 
       // Chrome 확장 프로그램 방식
       if ((action === "register" || action === "commission" || action === "recommission") && data.agentId) {
+        const isCorp = !!data.agentNumber;
         const payload: Record<string, string> = {
-          mode: action,
+          mode: isCorp ? "corp_" + action : action,
           id: data.agentId,
           pw: data.agentPw,
           certName: data.certName,
           certPw: data.certPw,
         };
+        if (isCorp) {
+          payload.agentNumber = data.agentNumber;
+          payload.agentPw = data.agentPw;
+        }
         if (action === "register") {
           payload.clientType = data.clientType;
           payload.bizNumber = data.bizNumber;
@@ -312,7 +317,7 @@ export default function CommissionBoard({
           payload.clientIdCardUrl = data.clientIdCardPath ? `${serverOrigin}${data.clientIdCardPath}` : "";
           payload.pdfUrl = data.pdfPath ? `${serverOrigin}${data.pdfPath}` : "";
         }
-        const creds = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+        const creds = btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/=/g, "");
         window.open(
           `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
           "_blank"
