@@ -24,9 +24,14 @@
   }
 
   try {
-    // 4. suppress-alert.js가 공동∙금융 인증 버튼을 클릭할 때까지 대기
-    // 그 후 dscert iframe이 나타날 때까지 대기
-    console.log("SaveTax: [법인] dscert iframe 대기중...");
+    // 4. suppress-alert.js(MAIN world)에 인증 정보 전달
+    console.log("SaveTax: [법인] MAIN world에 인증 정보 전달...");
+    window.dispatchEvent(new CustomEvent("savetax_corp_creds", {
+      detail: { certName: creds.certName, certPw: creds.certPw }
+    }));
+
+    // suppress-alert.js가 공동금융인증 + 인증서 전부 처리
+    console.log("SaveTax: [법인] suppress-alert.js가 인증서 처리 대기중...");
 
     // 5. 인증서 선택 + 비밀번호 (dscert iframe)
     if (creds.certPw) {

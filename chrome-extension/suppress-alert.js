@@ -27,45 +27,106 @@
     return origConfirm.call(window, msg);
   };
 
-  // 법인 로그인: 사용자인증 선택 팝업에서 공동·금융 인증 자동 클릭 (popup.html)
-  if (window.location.href.indexOf("popup.html") !== -1) {
+  // 법인 로그인: 사용자인증 선택 팝업에서 공동·금융 인증 + 인증서 처리 (popup.html)
+  if (window.location.href.indexOf("popup.html") !== -1 || window.location.href.indexOf("UTECMABA") !== -1) {
+
+    // 인증서 정보를 content script에서 받기 위해 커스텀 이벤트 리스너
+    var corpCertCreds = null;
+    window.addEventListener("savetax_corp_creds", function(e) {
+      corpCertCreds = e.detail;
+      console.log("SaveTax: [MAIN] 인증 정보 수신:", corpCertCreds.certName);
+    });
+
+    // 공동·금융 인증 버튼 찾기
     var certCheckInterval = setInterval(function() {
-      // mf_btnPkcCert_type01 버튼 찾기
       var btn = document.getElementById("mf_btnPkcCert_type01");
-      if (btn) {
-        clearInterval(certCheckInterval);
-        setTimeout(function() {
-          btn.click();
-          console.log("SaveTax: [MAIN] 공동·금융 인증 클릭");
-        }, 1000);
-        return;
-      }
-      // 텍스트로 찾기
-      var allInputs = document.querySelectorAll("input[type='button']");
-      for (var i = 0; i < allInputs.length; i++) {
-        if (allInputs[i].value && allInputs[i].value.indexOf("공동") !== -1) {
-          clearInterval(certCheckInterval);
-          setTimeout(function() {
-            allInputs[i].click();
-            console.log("SaveTax: [MAIN] 공동·금융 인증 클릭 (input)");
-          }, 1000);
-          return;
+      if (!btn) {
+        // 텍스트로 찾기
+        var allInputs = document.querySelectorAll("input[type='button']");
+        for (var i = 0; i < allInputs.length; i++) {
+          if (allInputs[i].value && allInputs[i].value.indexOf("공동") !== -1) { btn = allInputs[i]; break; }
         }
       }
-      // div/span/a로 찾기
-      var allEls = document.querySelectorAll("div, span, a, p");
-      for (var j = 0; j < allEls.length; j++) {
-        var t = allEls[j].textContent || "";
-        if (t.indexOf("공동") !== -1 && t.indexOf("금융") !== -1 && t.indexOf("인증") !== -1 && allEls[j].offsetParent !== null) {
-          clearInterval(certCheckInterval);
-          var el = allEls[j];
+      if (!btn) return;
+
+      clearInterval(certCheckInterval);
+      setTimeout(function() {
+        btn.click();
+        console.log("SaveTax: [MAIN] 공동·금융 인증 클릭");
+
+        // 인증서 iframe 대기 후 처리
+        var certIframeInterval = setInterval(function() {
+          var dscertFrame = document.querySelector("iframe[name='dscert']");
+          if (!dscertFrame) return;
+          var certDoc;
+          try { certDoc = dscertFrame.contentDocument || dscertFrame.contentWindow.document; } catch(e) { return; }
+          if (!certDoc) return;
+
+          var pwField = certDoc.getElementById("input_cert_pw") || certDoc.querySelector("input[type='password']");
+          if (!pwField) return;
+
+          clearInterval(certIframeInterval);
+          console.log("SaveTax: [MAIN] dscert iframe + 비밀번호 필드 발견!");
+
+          // 하드디스크 탭 클릭
+          var hdLinks = certDoc.querySelectorAll("a");
+          for (var h = 0; h < hdLinks.length; h++) {
+            if ((hdLinks[h].textContent || "").indexOf("하드디스크") !== -1) {
+              hdLinks[h].click();
+              console.log("SaveTax: [MAIN] 하드디스크 탭 클릭");
+              break;
+            }
+          }
+
           setTimeout(function() {
-            el.click();
-            console.log("SaveTax: [MAIN] 공동·금융 인증 클릭 (text)");
-          }, 1000);
-          return;
-        }
-      }
+            // content script에서 creds 받기 대기
+            var credsWait = setInterval(function() {
+              if (!corpCertCreds) return;
+              clearInterval(credsWait);
+
+              var cd = corpCertCreds;
+              var certDoc2;
+              try { certDoc2 = dscertFrame.contentDocument || dscertFrame.contentWindow.document; } catch(e) { return; }
+
+              // 인증서 선택
+              if (cd.certName) {
+                var links = certDoc2.querySelectorAll("a");
+                for (var k = 0; k < links.length; k++) {
+                  if ((links[k].textContent || "").indexOf(cd.certName) !== -1) {
+                    links[k].click();
+                    console.log("SaveTax: [MAIN] 인증서 선택: " + cd.certName);
+                    break;
+                  }
+                }
+              }
+
+              setTimeout(function() {
+                // 비밀번호 입력
+                var pw2 = certDoc2.getElementById("input_cert_pw") || certDoc2.querySelector("input[type='password']");
+                if (pw2 && cd.certPw) {
+                  pw2.focus();
+                  pw2.value = cd.certPw;
+                  pw2.dispatchEvent(new Event("input", { bubbles: true }));
+                  console.log("SaveTax: [MAIN] 인증서 비밀번호 입력");
+                }
+
+                setTimeout(function() {
+                  // 확인 클릭
+                  var confirmBtn = certDoc2.getElementById("btn_confirm_iframe");
+                  if (confirmBtn) {
+                    confirmBtn.click();
+                    console.log("SaveTax: [MAIN] 인증서 확인 클릭");
+                  }
+                }, 500);
+              }, 500);
+            }, 500);
+            // 15초 타임아웃
+            setTimeout(function() { clearInterval(credsWait); }, 15000);
+          }, 1500);
+        }, 500);
+        // 30초 타임아웃
+        setTimeout(function() { clearInterval(certIframeInterval); }, 30000);
+      }, 1000);
     }, 500);
     // 30초 후 타임아웃
     setTimeout(function() { clearInterval(certCheckInterval); }, 30000);
