@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookkeepingTable } from "./BookkeepingTable";
 import { OneoffTable } from "./OneoffTable";
+import { RefundTable } from "./RefundTable";
 
 export default async function SettlementPage({
   searchParams,
@@ -24,6 +25,20 @@ export default async function SettlementPage({
     const [y, m] = yearMonth.split("-").map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  if (tab === "refund") {
+    const refunds = await prisma.settlementRefund.findMany({
+      where: { yearMonth },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return (
+      <div>
+        <Header year={year} mon={mon} yearMonth={yearMonth} tab={tab} prevYM={changeMonth(-1)} nextYM={changeMonth(1)} />
+        <RefundTable items={refunds} yearMonth={yearMonth} />
+      </div>
+    );
   }
 
   if (tab === "oneoff") {
@@ -86,6 +101,16 @@ function Header({ year, mon, yearMonth, tab, prevYM, nextYM }: {
           }`}
         >
           단건
+        </Link>
+        <Link
+          href={`/settlement?ym=${yearMonth}&tab=refund`}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            tab === "refund"
+              ? "border-[#1a2e4a] text-[#1a2e4a]"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          환불
         </Link>
       </div>
     </>

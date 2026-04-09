@@ -125,3 +125,59 @@ export async function deleteOneoffSettlement(id: number) {
   await prisma.settlementOneoff.delete({ where: { id } });
   revalidatePath("/settlement");
 }
+
+// === 환불 정산 ===
+
+export async function createRefundSettlement(data: {
+  yearMonth: string;
+  clientName: string;
+  ceoName?: string;
+  assignedUserName?: string;
+  affiliation?: string;
+  withdrawalAmount: number;
+  fee: number;
+  notes?: string;
+}) {
+  const session = await requireAuth();
+  await prisma.settlementRefund.create({
+    data: { ...data, createdByUserId: session.id },
+  });
+  revalidatePath("/settlement");
+}
+
+export async function updateRefundSettlement(
+  id: number,
+  data: {
+    clientName?: string;
+    ceoName?: string;
+    assignedUserName?: string;
+    affiliation?: string;
+    withdrawalAmount?: number;
+    fee?: number;
+    notes?: string;
+  }
+) {
+  await requireAuth();
+  await prisma.settlementRefund.update({ where: { id }, data });
+  revalidatePath("/settlement");
+}
+
+export async function toggleRefundField(
+  id: number,
+  field: "withdrawn" | "remitted"
+) {
+  await requireAuth();
+  const existing = await prisma.settlementRefund.findUnique({ where: { id } });
+  if (!existing) return;
+  await prisma.settlementRefund.update({
+    where: { id },
+    data: { [field]: !existing[field] },
+  });
+  revalidatePath("/settlement");
+}
+
+export async function deleteRefundSettlement(id: number) {
+  await requireAuth();
+  await prisma.settlementRefund.delete({ where: { id } });
+  revalidatePath("/settlement");
+}

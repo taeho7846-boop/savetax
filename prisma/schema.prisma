@@ -477,6 +477,24 @@ model SettlementOneoff {
   updatedAt       DateTime @updatedAt
 }
 
+// Savetax 정산 - 환불
+model SettlementRefund {
+  id              Int      @id @default(autoincrement())
+  yearMonth       String   // "2026-04"
+  clientName      String   // 거래처명
+  ceoName         String?  // 대표자명
+  assignedUserName String? // 담당자명
+  affiliation     String?  // 소속
+  withdrawalAmount Int     @default(0) // 출금액
+  fee             Int      @default(0) // 수수료
+  withdrawn       Boolean  @default(false) // 출금여부
+  remitted        Boolean  @default(false) // 송금여부
+  notes           String?  // 비고
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 // 건의사항/오류제보
 model Feedback {
   id        Int      @id @default(autoincrement())
