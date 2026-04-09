@@ -37,6 +37,17 @@
       if (!popup.offsetParent) return; // 안 보이면 무시
       var text = popup.textContent || "";
 
+      // 세무대리인 관리번호 로그인 팝업 → 확인
+      if (text.indexOf("세무대리인") !== -1 && text.indexOf("관리번호") !== -1) {
+        var okBtn = popup.querySelector("input[value='확인']");
+        if (okBtn && !okBtn.dataset.savetaxClicked) {
+          okBtn.dataset.savetaxClicked = "true";
+          okBtn.click();
+          console.log("SaveTax: 세무대리인 관리번호 팝업 확인");
+        }
+        return;
+      }
+
       // 세무대리인 전용 화면 → 취소
       if (text.indexOf("세무대리인") !== -1 && text.indexOf("전용") !== -1) {
         var cancelBtn = popup.querySelector("input[value='취소']");
