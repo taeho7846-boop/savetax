@@ -154,6 +154,19 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     return sum + steps.filter(s => doneMap.has(s)).length;
   }, 0);
 
+  // 원천세 신고 진행률 (ABC 그룹만, 신고없음 제외)
+  const abcClients = filtered.filter(c => ["A", "B", "C"].includes(c.withholdingType || ""));
+  const taxFilingTotal = abcClients.filter(c => {
+    const steps = getStepsByType(c.withholdingType || "", month, c.halfYearTax);
+    const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
+    return steps.includes("원천세신고") && !doneMap.has("신고없음");
+  }).length;
+  const taxFilingDone = abcClients.filter(c => {
+    const steps = getStepsByType(c.withholdingType || "", month, c.halfYearTax);
+    const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
+    return steps.includes("원천세신고") && !doneMap.has("신고없음") && doneMap.has("원천세신고");
+  }).length;
+
   const [year, mon] = yearMonth.split("-");
 
   return (
@@ -174,8 +187,21 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               {checkedIds.size}개 선택
             </div>
           )}
-          <div className="text-sm text-gray-500">
-            프로세스: <span className="font-medium text-[#1a2e4a]">{doneProcess}</span> / {totalProcess}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
+              <span className="text-xs text-gray-500">원천세 신고</span>
+              <span className="text-sm font-bold text-[#1a2e4a]">{taxFilingDone}</span>
+              <span className="text-xs text-gray-400">/</span>
+              <span className="text-sm font-medium text-gray-600">{taxFilingTotal}</span>
+              {taxFilingTotal > 0 && (
+                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden ml-1">
+                  <div className="h-full bg-[#1a2e4a] rounded-full transition-all" style={{ width: `${Math.round(taxFilingDone / taxFilingTotal * 100)}%` }} />
+                </div>
+              )}
+            </div>
+            <div className="text-xs text-gray-400">
+              프로세스 {doneProcess}/{totalProcess}
+            </div>
           </div>
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
             <button onClick={() => handleMonthChange(-1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">◀</button>
