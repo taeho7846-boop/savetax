@@ -5,8 +5,8 @@
 import { chromium } from "playwright";
 import * as fs from "fs";
 
-const WEHAGO_ID = "swngtax";
-const WEHAGO_PW = "whdals12";
+const WEHAGO_ID = "doyultax";
+const WEHAGO_PW = "doyultax24!";
 const YEARS_TO_COLLECT = ["2026", "2025"];
 
 const JSON_FILE = "scripts/labor-clients.json";
