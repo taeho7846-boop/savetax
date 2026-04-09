@@ -27,6 +27,50 @@
     return origConfirm.call(window, msg);
   };
 
+  // 법인 로그인: 사용자인증 선택 팝업에서 공동·금융 인증 자동 클릭
+  if (localStorage.getItem("savetax_corp_cert") && window.location.href.indexOf("popup.html") !== -1) {
+    var certCheckInterval = setInterval(function() {
+      // mf_btnPkcCert_type01 버튼 찾기
+      var btn = document.getElementById("mf_btnPkcCert_type01");
+      if (btn) {
+        clearInterval(certCheckInterval);
+        setTimeout(function() {
+          btn.click();
+          console.log("SaveTax: [MAIN] 공동·금융 인증 클릭");
+        }, 1000);
+        return;
+      }
+      // 텍스트로 찾기
+      var allInputs = document.querySelectorAll("input[type='button']");
+      for (var i = 0; i < allInputs.length; i++) {
+        if (allInputs[i].value && allInputs[i].value.indexOf("공동") !== -1) {
+          clearInterval(certCheckInterval);
+          setTimeout(function() {
+            allInputs[i].click();
+            console.log("SaveTax: [MAIN] 공동·금융 인증 클릭 (input)");
+          }, 1000);
+          return;
+        }
+      }
+      // div/span/a로 찾기
+      var allEls = document.querySelectorAll("div, span, a, p");
+      for (var j = 0; j < allEls.length; j++) {
+        var t = allEls[j].textContent || "";
+        if (t.indexOf("공동") !== -1 && t.indexOf("금융") !== -1 && t.indexOf("인증") !== -1 && allEls[j].offsetParent !== null) {
+          clearInterval(certCheckInterval);
+          var el = allEls[j];
+          setTimeout(function() {
+            el.click();
+            console.log("SaveTax: [MAIN] 공동·금융 인증 클릭 (text)");
+          }, 1000);
+          return;
+        }
+      }
+    }, 500);
+    // 30초 후 타임아웃
+    setTimeout(function() { clearInterval(certCheckInterval); }, 30000);
+  }
+
   // DOM 기반 팝업 감시
   var autoCloseKeywords = ["정상적으로 접수", "접수되었습니다", "처리되었습니다", "완료되었습니다", "확인되었습니다"];
 
