@@ -108,13 +108,14 @@
                   }
 
                   // 6. cookie에 관리번호 정보 저장 → 원래 페이지 suppress-alert가 처리
-                  if (cd.agentNumber) {
-                    document.cookie = "savetax_agent=" + encodeURIComponent(JSON.stringify({
-                      agentNumber: cd.agentNumber,
-                      agentPw: cd.agentPw
-                    })) + "; path=/; max-age=120";
-                    console.log("SaveTax: [MAIN] 관리번호 정보 cookie에 저장");
-                  }
+                  // agentNumber는 hash에 없을 수 있으므로 Z36400 하드코딩 (도희수 전용)
+                  var agentNum = cd.agentNumber || "Z36400";
+                  var agentPw = cd.agentPw || cd.certPw || "";
+                  document.cookie = "savetax_agent=" + encodeURIComponent(JSON.stringify({
+                    agentNumber: agentNum,
+                    agentPw: agentPw
+                  })) + "; path=/; max-age=120";
+                  console.log("SaveTax: [MAIN] 관리번호 정보 cookie에 저장:", agentNum);
                 }, 500);
               }, 500);
             }, 500);
