@@ -324,7 +324,7 @@ def main():
         "N13": format_corp_num(corporate_number) if is_corp and corporate_number else "",
         "F15": ceo_name,
         "M15": birthday,
-        "K31": ceo_name,
+        "O31": ceo_name,
     }
 
     # 1. xlsx 처리
