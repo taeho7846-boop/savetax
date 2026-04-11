@@ -106,7 +106,16 @@ export async function createWehagoClient(
     await page.waitForTimeout(1500);
 
     // "신규 회사로 생성" 버튼 클릭
-    await page.locator('button.cl139_selectboxItem__btnItem:has(.icon_company.new)').click({ force: true, timeout: 10000 });
+    try {
+      await page.getByText("신규 회사로 생성").click({ force: true, timeout: 5000 });
+    } catch {
+      // 클래스명 해시가 다를 수 있으므로 폴백
+      try {
+        await page.locator('button:has(.icon_company.new)').click({ force: true, timeout: 5000 });
+      } catch {
+        await page.locator('button.cl139_selectboxItem__btnItem:has(.icon_company.new)').click({ force: true, timeout: 5000 });
+      }
+    }
     await page.waitForTimeout(1500);
 
     // 3. 폼 입력 (id 기반 셀렉터)
