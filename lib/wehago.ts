@@ -1,4 +1,6 @@
 // playwright는 VPS에서만 설치됨 - 동적 import 사용
+import path from "path";
+import { mkdir } from "fs/promises";
 
 type WehagoClientInput = {
   name: string;           // 수임처명
@@ -22,6 +24,19 @@ export async function createWehagoClient(
 ): Promise<WehagoResult> {
   const progress = onProgress ?? (() => {});
   let browser;
+  let page: any;
+  const screenshotDir = path.join(process.cwd(), "public", "uploads", "wehago-debug");
+  await mkdir(screenshotDir, { recursive: true });
+  let stepNum = 0;
+
+  async function screenshot(name: string) {
+    if (!page) return;
+    try {
+      stepNum++;
+      await page.screenshot({ path: path.join(screenshotDir, `${stepNum}_${name}.png`), fullPage: false });
+    } catch {}
+  }
+
   try {
     progress("브라우저 시작 중...");
     const pw = await import("playwright" as any);
@@ -36,7 +51,7 @@ export async function createWehagoClient(
       viewport: { width: 1280, height: 900 },
       locale: "ko-KR",
     });
-    const page = await context.newPage();
+    page = await context.newPage();
 
     // 1. 위하고 로그인 (직접 로그인 페이지)
     progress("위하고 접속 중...");
@@ -62,6 +77,7 @@ export async function createWehagoClient(
     await page.getByRole("textbox", { name: "비밀번호를 입력하세요" }).fill(wehagoPw);
     await page.getByRole("button", { name: "로그인" }).click();
     await page.waitForTimeout(1500);
+    await screenshot("login_clicked");
 
     // 중복 로그인 "확인" 팝업 처리
     try {
@@ -77,9 +93,11 @@ export async function createWehagoClient(
     // 로그인 확인
     const url = page.url();
     if (url.includes("login")) {
+      await screenshot("login_failed");
       await browser.close();
       return { success: false, message: "위하고 로그인 실패. ID/PW를 확인해주세요." };
     }
+    await screenshot("login_success");
 
     progress("팝업 닫는 중...");
     // 팝업 다 뜰 때까지 대기 후 ESC로 닫기
@@ -88,6 +106,7 @@ export async function createWehagoClient(
       await page.keyboard.press("Escape");
       await page.waitForTimeout(500);
     }
+    await screenshot("after_esc");
 
     // 2차인증 팝업 닫기
     try {
@@ -97,26 +116,31 @@ export async function createWehagoClient(
         await page.waitForTimeout(500);
       }
     } catch {}
+    await screenshot("after_2fa_close");
 
     // 새 수임처 생성
     progress("수임처 메뉴 진입 중...");
     await page.getByRole("button", { name: "전체" }).click({ force: true });
     await page.waitForTimeout(1500);
+    await screenshot("after_menu_all");
+
     await page.getByRole("button", { name: "새 수임처" }).click({ force: true });
     await page.waitForTimeout(1500);
+    await screenshot("after_new_client");
 
     // "신규 회사로 생성" 버튼 클릭
     try {
       await page.getByText("신규 회사로 생성").click({ force: true, timeout: 5000 });
     } catch {
-      // 클래스명 해시가 다를 수 있으므로 폴백
       try {
         await page.locator('button:has(.icon_company.new)').click({ force: true, timeout: 5000 });
       } catch {
+        await screenshot("error_new_company_btn");
         await page.locator('button.cl139_selectboxItem__btnItem:has(.icon_company.new)').click({ force: true, timeout: 5000 });
       }
     }
     await page.waitForTimeout(1500);
+    await screenshot("after_new_company");
 
     // 3. 폼 입력 (id 기반 셀렉터)
     progress("정보 입력 중...");
@@ -203,6 +227,7 @@ export async function createWehagoClient(
     return { success: true, message: `위하고 수임처 "${client.name}" 생성 완료` };
 
   } catch (error: any) {
+    await screenshot("error_final");
     if (browser) await browser.close();
     console.error("[Wehago] 자동화 오류:", error);
     return { success: false, message: `위하고 자동화 오류: ${error.message}` };
