@@ -728,11 +728,17 @@ export default function CommissionBoard({
                                       }
                                     }
                                     setWehagoProgress(null);
-                                    alert(finalResult.message || "완료");
+                                    const msg = finalResult.message || "완료";
+                                    alert(msg);
                                     if (finalResult.success) doToggle(c.id, "wihagoDone", true);
                                   } catch (err) {
                                     setWehagoProgress(null);
-                                    alert("위하고 자동생성 실패: " + String(err));
+                                    const errMsg = String(err);
+                                    if (errMsg.includes("network") || errMsg.includes("abort") || errMsg.includes("TypeError")) {
+                                      alert("위하고 자동생성이 진행 중이거나 완료되었을 수 있습니다. 위하고에서 직접 확인해주세요.");
+                                    } else {
+                                      alert("위하고 자동생성 실패: " + errMsg);
+                                    }
                                   }
                                 }}
                                 disabled={loading || wehagoProgress !== null}
