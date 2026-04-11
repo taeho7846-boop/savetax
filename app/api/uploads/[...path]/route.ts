@@ -28,10 +28,16 @@ export async function GET(
     const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
+    // settings 폴더 파일은 자주 교체되므로 캐시 안 함
+    const isSettings = segments[0] === "settings";
+    const cacheControl = isSettings
+      ? "no-cache, no-store, must-revalidate"
+      : "public, max-age=31536000, immutable";
+
     return new NextResponse(data, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": cacheControl,
       },
     });
   } catch {

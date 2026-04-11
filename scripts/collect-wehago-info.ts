@@ -33,8 +33,8 @@ async function main() {
   console.log(`  수집 대상: ${targets.length}개\n`);
 
   const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    headless: false,
+    slowMo: 300,
   });
 
   const context = await browser.newContext({

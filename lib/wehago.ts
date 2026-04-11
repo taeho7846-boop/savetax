@@ -28,7 +28,7 @@ export async function createWehagoClient(
     const chromium = pw.chromium;
 
     browser = await chromium.launch({
-      headless: true,
+      headless: false,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
