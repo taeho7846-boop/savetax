@@ -140,7 +140,7 @@ def parse_cell_ref(ref):
     return col_str, int(row_str)
 
 
-def set_cell_inline(sheet_data, cell_ref, value):
+def set_cell_inline(sheet_data, cell_ref, value, font_size=None):
     """셀에 inline string 값 설정 (기존 값 덮어쓰기)"""
     _, row_num = parse_cell_ref(cell_ref)
 
@@ -175,8 +175,16 @@ def set_cell_inline(sheet_data, cell_ref, value):
     if "s" in target_cell.attrib:
         pass  # 스타일 유지
     is_elem = ET.SubElement(target_cell, f"{{{NS}}}is")
-    t_elem = ET.SubElement(is_elem, f"{{{NS}}}t")
-    t_elem.text = value
+    if font_size:
+        r_elem = ET.SubElement(is_elem, f"{{{NS}}}r")
+        rpr = ET.SubElement(r_elem, f"{{{NS}}}rPr")
+        sz = ET.SubElement(rpr, f"{{{NS}}}sz")
+        sz.set("val", str(font_size))
+        t_elem = ET.SubElement(r_elem, f"{{{NS}}}t")
+        t_elem.text = value
+    else:
+        t_elem = ET.SubElement(is_elem, f"{{{NS}}}t")
+        t_elem.text = value
 
 
 def modify_xlsx_cells_and_stamp(input_xlsx, output_xlsx, cell_data, stamp_png_data=None):

@@ -701,6 +701,10 @@ export default function CommissionBoard({
                                       headers: { "Content-Type": "application/json" },
                                       body: JSON.stringify({ clientId: c.clientId }),
                                     });
+                                    if (!res.ok) {
+                                      const err = await res.json();
+                                      throw new Error(err.error || "요청 실패");
+                                    }
                                     const reader = res.body?.getReader();
                                     if (!reader) throw new Error("스트림 없음");
                                     const decoder = new TextDecoder();

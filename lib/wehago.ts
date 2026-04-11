@@ -28,7 +28,7 @@ export async function createWehagoClient(
     const chromium = pw.chromium;
 
     browser = await chromium.launch({
-      headless: false,
+      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
@@ -66,41 +66,10 @@ export async function createWehagoClient(
     // 중복 로그인 "확인" 팝업 처리
     try {
       const confirmBtn = page.getByRole("button", { name: "확인" });
-      if (await confirmBtn.isVisible({ timeout: 3000 })) {
+      if (await confirmBtn.isVisible({ timeout: 2000 })) {
         await confirmBtn.click();
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
       }
-    } catch {}
-
-    await page.waitForTimeout(1500);
-
-    // 팝업/공지 닫기 (최대 5번 시도)
-    for (let i = 0; i < 5; i++) {
-      try {
-        const closeBtn = await page.getByRole("button", { name: "닫기" }).first();
-        if (await closeBtn.isVisible({ timeout: 1500 })) {
-          // "하루 동안 보지 않기" 같은 체크박스가 있으면 클릭
-          const skipTexts = ["하루 동안 보지 않기", "오늘 하루 보지 않기", "다시 보지 않기"];
-          for (const txt of skipTexts) {
-            try {
-              const el = await page.getByText(txt).first();
-              if (await el.isVisible({ timeout: 500 })) await el.click();
-            } catch {}
-          }
-          await closeBtn.click();
-          await page.waitForTimeout(500);
-        } else {
-          break;
-        }
-      } catch {
-        break;
-      }
-    }
-
-    // 확인 버튼 (로그인 후 나오는 경우)
-    try {
-      const confirmBtn = await page.getByRole("button", { name: "확인" });
-      if (await confirmBtn.isVisible({ timeout: 1500 })) await confirmBtn.click();
     } catch {}
 
     await page.waitForTimeout(1500);
@@ -113,75 +82,21 @@ export async function createWehagoClient(
     }
 
     progress("팝업 닫는 중...");
-    // 2. 모든 팝업/오버레이 강제 닫기 (광고 포함)
-    // 방법 1: ESC 키로 팝업 닫기 시도
-    for (let i = 0; i < 5; i++) {
+    // 팝업 다 뜰 때까지 대기 후 ESC로 닫기
+    await page.waitForTimeout(5000);
+    for (let i = 0; i < 3; i++) {
       await page.keyboard.press("Escape");
       await page.waitForTimeout(500);
     }
-    await page.waitForTimeout(800);
 
-    // 방법 2: 체크박스 + 버튼 클릭
-    for (let i = 0; i < 15; i++) {
-      try {
-        // "하루 동안 보지 않기" 체크
-        for (const txt of ["하루 동안 보지 않기", "오늘 하루 보지 않기", "다시 보지 않기"]) {
-          try {
-            const chk = page.getByText(txt).first();
-            if (await chk.isVisible({ timeout: 300 })) await chk.click({ force: true });
-          } catch {}
-        }
-        await page.waitForTimeout(300);
-
-        // 닫기 버튼 찾기
-        let found = false;
-        const closeSelectors = [
-          'button.btn_close', 'button[class*="close"]', '.popup_close',
-          'button:has-text("닫기")', 'button:has-text("확인")',
-          'button:has-text("×")', 'button:has-text("X")',
-          '[class*="modal"] button', '[class*="popup"] button',
-          '[class*="layer"] button', '[role="dialog"] button',
-        ];
-        for (const sel of closeSelectors) {
-          try {
-            const btns = await page.locator(sel).all();
-            for (const btn of btns) {
-              if (await btn.isVisible({ timeout: 200 })) {
-                await btn.click({ force: true });
-                found = true;
-                await page.waitForTimeout(500);
-                break;
-              }
-            }
-            if (found) break;
-          } catch {}
-        }
-        if (!found) break;
-      } catch { break; }
-    }
-
-    // 방법 3: JavaScript로 모든 오버레이/iframe 강제 제거
-    await page.evaluate(() => {
-      // 일반 오버레이
-      document.querySelectorAll('[class*="modal"], [class*="popup"], [class*="layer"], [class*="dim"], [class*="overlay"], [class*="banner"]').forEach(el => {
-        (el as HTMLElement).remove();
-      });
-      // iframe 제거
-      document.querySelectorAll('iframe').forEach(el => {
-        if (el.src && (el.src.includes('banner') || el.src.includes('popup') || el.src.includes('ad'))) {
-          el.remove();
-        }
-      });
-      // z-index 높은 fixed/absolute 요소 제거
-      document.querySelectorAll('*').forEach(el => {
-        const style = window.getComputedStyle(el);
-        const zIndex = parseInt(style.zIndex);
-        if ((style.position === 'fixed' || style.position === 'absolute') && zIndex > 999) {
-          (el as HTMLElement).remove();
-        }
-      });
-    });
-    await page.waitForTimeout(1500);
+    // 2차인증 팝업 닫기
+    try {
+      const authClose = page.locator('#divPortalHeader .LUX_basic_dialog .dialog_data_tit button');
+      if (await authClose.isVisible({ timeout: 1500 })) {
+        await authClose.click({ force: true });
+        await page.waitForTimeout(500);
+      }
+    } catch {}
 
     // 새 수임처 생성
     progress("수임처 메뉴 진입 중...");
