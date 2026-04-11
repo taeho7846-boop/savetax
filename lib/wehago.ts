@@ -207,7 +207,7 @@ export async function createWehagoClient(
       await page.keyboard.press("Tab");
       await screenshot("before_submit");
       await page.keyboard.press("Enter");
-      await page.waitForTimeout(15000);
+      await page.waitForTimeout(1500);
     } else {
       await screenshot("before_submit");
       await page.locator('button.WSC_LUXButton:has-text("수임처 생성")').click({ force: true });
