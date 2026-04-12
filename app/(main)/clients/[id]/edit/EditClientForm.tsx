@@ -85,6 +85,7 @@ interface Props {
     bankName: string | null;
     bankAccount: string | null;
     openDate?: string | null;
+    contractDate?: string | null;
     halfYearTax?: boolean;
     withholdingType?: string | null;
     affiliation?: string | null;
@@ -263,6 +264,15 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
               name="openDate"
               type="date"
               defaultValue={client.openDate ?? ""}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-800 mb-1">계약일자</label>
+            <input
+              name="contractDate"
+              type="date"
+              defaultValue={client.contractDate ?? ""}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
             />
           </div>

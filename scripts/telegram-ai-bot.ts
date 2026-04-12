@@ -162,11 +162,13 @@ async function poll() {
         const fileData = curlGet(`${TG_BASE}/getFile?file_id=${fileId}`);
         if (fileData?.ok) {
           const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileData.result.file_path}`;
-          const imgRes = await fetch(fileUrl);
-          const imgBuf = Buffer.from(await imgRes.arrayBuffer());
           const ext = fileData.result.file_path?.split(".").pop()?.toLowerCase() || "jpg";
           const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-          imageBase64 = `data:${mimeType};base64,${imgBuf.toString("base64")}`;
+          // curl로 다운로드 → base64 (줄바꿈 제거)
+          const b64 = execSync(`curl -s --connect-timeout 15 --max-time 30 "${fileUrl}" | base64 -w 0`, { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }).trim();
+          if (b64) {
+            imageBase64 = `data:${mimeType};base64,${b64}`;
+          }
         }
       } catch (e) {
         console.error("[AI] 이미지 다운로드 실패:", e);

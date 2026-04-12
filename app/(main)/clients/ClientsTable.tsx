@@ -42,6 +42,7 @@ type Client = {
   accountingProgram: string;
   contactMethod: string;
   affiliation: string | null;
+  contractDate: string | null;
   myboxLink: string | null;
   driveFolderId: string | null;
   withholdingType: string | null;
@@ -49,7 +50,7 @@ type Client = {
   assignedUser?: { name: string } | null;
 };
 
-type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "monthlyFee" | "affiliation" | "myboxLink" | "driveFolderId";
+type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "monthlyFee" | "affiliation" | "contractDate" | "myboxLink" | "driveFolderId";
 
 const LABOR_OPTIONS = ["1인사업자", "근로소득", "사업소득", "일용직"];
 const SORT_COLS: { key: SortCol; label: string }[] = [
@@ -532,6 +533,15 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
               </th>
               <th className="text-center px-4 py-3 text-gray-700 font-medium">
                 <button
+                  onClick={() => handleSort("contractDate")}
+                  className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
+                >
+                  계약일자
+                  <SortIcon col="contractDate" />
+                </button>
+              </th>
+              <th className="text-center px-4 py-3 text-gray-700 font-medium">
+                <button
                   onClick={() => handleSort("driveFolderId")}
                   className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
                 >
@@ -643,6 +653,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-800">
+                      {client.contractDate || <span className="text-gray-400">-</span>}
                     </td>
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {client.driveFolderId ? (

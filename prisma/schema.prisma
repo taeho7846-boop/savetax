@@ -64,6 +64,7 @@ model Client {
   updatedAt                 DateTime                   @updatedAt
   corporateNumber           String?
   openDate                  String?
+  contractDate              String?
   halfYearTax               Boolean                    @default(false)
   affiliation               String?
   freeMonths                Int?
