@@ -95,28 +95,52 @@ export async function createWehagoClient(
     await screenshot("login_success");
 
     progress("팝업 닫는 중...");
-    // 팝업 다 뜰 때까지 대기 후 ESC로 닫기
-    await page.waitForTimeout(3000);
-    for (let i = 0; i < 3; i++) {
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(300);
-    }
-    await screenshot("after_esc");
 
-    // 2차인증 팝업 닫기
-    try {
-      const authClose = page.locator('#divPortalHeader .LUX_basic_dialog .dialog_data_tit button');
-      if (await authClose.isVisible({ timeout: 1000 })) {
-        await authClose.click({ force: true });
-        await page.waitForTimeout(300);
+    // 팝업 닫기 + 메뉴 진입을 최대 3회 시도
+    let menuOpened = false;
+    for (let retry = 0; retry < 3; retry++) {
+      // ESC로 팝업 닫기
+      await page.waitForTimeout(retry === 0 ? 3000 : 2000);
+      for (let i = 0; i < 5; i++) {
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(200);
       }
-    } catch {}
-    await screenshot("after_2fa_close");
 
-    // 새 수임처 생성
-    progress("수임처 메뉴 진입 중...");
-    await page.getByRole("button", { name: "전체" }).click({ force: true });
-    await page.getByRole("button", { name: "새 수임처" }).waitFor({ state: "visible", timeout: 5000 });
+      // 2차인증 팝업 닫기
+      try {
+        const authClose = page.locator('#divPortalHeader .LUX_basic_dialog .dialog_data_tit button');
+        if (await authClose.isVisible({ timeout: 1000 })) {
+          await authClose.click({ force: true });
+          await page.waitForTimeout(300);
+        }
+      } catch {}
+
+      // JS로 팝업/오버레이 강제 제거
+      await page.evaluate(() => {
+        document.querySelectorAll('[id^="common_pop_dialog"]').forEach(el => el.remove());
+        document.querySelectorAll('[class*="modal"], [class*="popup"], [class*="layer"], [class*="dim"], [class*="overlay"], [class*="dialog"]').forEach(el => {
+          if ((el as HTMLElement).style) (el as HTMLElement).remove();
+        });
+      });
+      await page.waitForTimeout(500);
+
+      // "전체" 버튼 클릭 시도
+      try {
+        await page.getByRole("button", { name: "전체" }).click({ force: true, timeout: 3000 });
+        await page.getByRole("button", { name: "새 수임처" }).waitFor({ state: "visible", timeout: 5000 });
+        menuOpened = true;
+        break;
+      } catch {
+        console.log(`[Wehago] 메뉴 진입 실패 (${retry + 1}/3), 재시도...`);
+        await screenshot(`retry_menu_${retry + 1}`);
+      }
+    }
+
+    if (!menuOpened) {
+      await screenshot("error_menu_failed");
+      await browser.close();
+      return { success: false, message: "위하고 메뉴 진입 실패. 팝업이 닫히지 않았습니다." };
+    }
     await screenshot("after_menu_all");
 
     await page.getByRole("button", { name: "새 수임처" }).click({ force: true });
