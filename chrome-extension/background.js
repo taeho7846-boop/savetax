@@ -449,7 +449,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "upload-business-income") {
     (async () => {
       try {
-        // 1. 최근 다운로드된 사업소득조회 엑셀 찾기
+        // 1. 최근 다운로드된 엑셀 찾기
         const downloads = await chrome.downloads.search({
           filenameRegex: ".*\\.xlsx$",
           orderBy: ["-startTime"],
@@ -462,10 +462,67 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return;
         }
 
-        const filePath = downloads[0].filename;
-        console.log("SaveTax BG: 엑셀 파일 찾음:", filePath);
+        const downloadItem = downloads[0];
+        console.log("SaveTax BG: 엑셀 파일 찾음:", downloadItem.filename);
 
-        // 2. 서버에 파일 경로 전달 → 서버가 직접 읽어서 업로드
+        // 2. 원본 다운로드 URL로 파일 다시 fetch → base64 변환
+        let base64 = null;
+        const downloadUrl = downloadItem.finalUrl || downloadItem.url;
+
+        if (downloadUrl && !downloadUrl.startsWith("file:")) {
+          try {
+            const res = await fetch(downloadUrl);
+            const blob = await res.blob();
+            const buf = await blob.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            let binary = "";
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            base64 = btoa(binary);
+            console.log("SaveTax BG: 파일 fetch 성공, size:", bytes.length);
+          } catch (e) {
+            console.log("SaveTax BG: URL fetch 실패, content script로 시도:", e.message);
+          }
+        }
+
+        // 3. URL fetch 실패 시 → content script에서 XMLHttpRequest로 시도
+        if (!base64) {
+          // sender 탭에서 다운로드 URL로 fetch 시도
+          try {
+            const [result] = await chrome.scripting.executeScript({
+              target: { tabId: sender.tab.id },
+              func: async (url) => {
+                try {
+                  const res = await fetch(url);
+                  const blob = await res.blob();
+                  return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(",")[1]);
+                    reader.readAsDataURL(blob);
+                  });
+                } catch {
+                  return null;
+                }
+              },
+              args: [downloadUrl],
+            });
+            if (result?.result) {
+              base64 = result.result;
+              console.log("SaveTax BG: content script fetch 성공");
+            }
+          } catch (e) {
+            console.log("SaveTax BG: content script fetch도 실패:", e.message);
+          }
+        }
+
+        if (!base64) {
+          sendResponse({ ok: false, error: "파일을 읽을 수 없습니다. 수동으로 구글드라이브에 업로드해주세요." });
+          return;
+        }
+
+        // 4. 서버 API로 전송
         const monthPadded = String(msg.month).padStart(2, "0");
         const uploadRes = await fetch("http://64.176.227.99/api/automation/upload-business-income", {
           method: "POST",
@@ -474,7 +531,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             clientName: msg.clientName,
             year: msg.year,
             month: monthPadded,
-            filePath: filePath,
+            fileBase64: base64,
             fileName: `${msg.year}년 ${monthPadded}월 사업소득조회_${msg.clientName}.xlsx`,
           }),
         });
