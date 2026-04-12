@@ -86,6 +86,9 @@ interface Props {
     bankAccount: string | null;
     openDate?: string | null;
     contractDate?: string | null;
+    bizType?: string | null;
+    bizCategory?: string | null;
+    bizItem?: string | null;
     halfYearTax?: boolean;
     withholdingType?: string | null;
     affiliation?: string | null;
