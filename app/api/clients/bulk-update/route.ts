@@ -253,9 +253,6 @@ export async function POST(req: NextRequest) {
           if (val) updateData[field] = val;
         } else if (field === "withholdingType") {
           if (["A", "B", "C", "D"].includes(val.toUpperCase())) updateData[field] = val.toUpperCase();
-        } else if (field === "firstWithdrawalMonth") {
-          // 최초출금월: 항상 덮어쓰기
-          if (val) updateData[field] = val;
         } else if (field === "cmsStatus") {
           if (val === "등록") updateData[field] = "done";
           else if (val === "등록요청중") updateData[field] = "pending";
