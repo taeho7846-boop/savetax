@@ -37,6 +37,8 @@ const HEADER_MAP: Record<string, string> = {
   출금계좌: "bankAccount",
   개업년월일: "openDate",
   개업일: "openDate",
+  계약일자: "contractDate",
+  계약일: "contractDate",
   원천세신고유형: "halfYearTax",
   "6개월납": "halfYearTax",
   소속: "affiliation",
@@ -234,6 +236,9 @@ export async function POST(req: NextRequest) {
             const converted = normalizeDate(val);
             if (converted) updateData[field] = converted;
           }
+        } else if (field === "contractDate") {
+          const converted = normalizeDate(val);
+          if (converted) updateData[field] = converted;
         } else if (field === "monthlyFee" || field === "freeMonths") {
           if (existingVal == null) {
             const num = parseInt(val.replace(/[^0-9]/g, ""));
@@ -248,6 +253,9 @@ export async function POST(req: NextRequest) {
           if (val) updateData[field] = val;
         } else if (field === "withholdingType") {
           if (["A", "B", "C", "D"].includes(val.toUpperCase())) updateData[field] = val.toUpperCase();
+        } else if (field === "firstWithdrawalMonth") {
+          // 최초출금월: 항상 덮어쓰기
+          if (val) updateData[field] = val;
         } else if (field === "cmsStatus") {
           if (val === "등록") updateData[field] = "done";
           else if (val === "등록요청중") updateData[field] = "pending";
