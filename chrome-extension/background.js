@@ -467,7 +467,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // 2. 서버에 파일 경로 전달 → 서버가 직접 읽어서 업로드
         const monthPadded = String(msg.month).padStart(2, "0");
-        const uploadRes = await fetch("http://localhost:3000/api/automation/upload-business-income", {
+        const uploadRes = await fetch("http://64.176.227.99/api/automation/upload-business-income", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -492,7 +492,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "save-payslip-pdf") {
     (async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/automation/save-payslip", {
+        const res = await fetch("http://64.176.227.99/api/automation/save-payslip", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
