@@ -52,7 +52,7 @@ function sendTelegram(chatId: number, text: string) {
 // 사용자별 대화 히스토리 (메모리)
 const chatHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
 
-async function handleMessage(chatId: number, telegramId: string, text: string, senderName: string) {
+async function handleMessage(chatId: number, telegramId: string, text: string, senderName: string, imageBase64?: string) {
   // /start
   if (text.startsWith("/start")) {
     sendTelegram(chatId, `🤖 *세무 AI 어시스턴트*입니다.\n\n먼저 홈페이지 계정과 연동하세요:\n/연동 홈페이지아이디\n\n연동 후 바로 질문하면 됩니다.\n예: 피부양자 자격요건 알려줘\n예: 인텍 전화번호`);
@@ -102,6 +102,7 @@ async function handleMessage(chatId: number, telegramId: string, text: string, s
       message: text,
       history,
       _internalUserId: lookupData.userId,
+      ...(imageBase64 ? { image: imageBase64 } : {}),
     }).replace(/'/g, "'\\''");
 
     const result = execSync(
@@ -146,11 +147,32 @@ function poll() {
 
   for (const update of data.result) {
     offset = update.update_id + 1;
-    if (update.message?.text) {
-      const msg = update.message;
-      console.log(`[AI] 메시지: ${msg.from?.first_name} - ${msg.text.slice(0, 30)}`);
-      handleMessage(msg.chat.id, String(msg.from.id), msg.text, msg.from.first_name || "");
+    const msg = update.message;
+    if (!msg) continue;
+
+    const text = msg.text || msg.caption || "";
+    if (!text) continue;
+
+    // 사진이 있으면 이미지 다운로드 → base64
+    let imageBase64: string | undefined;
+    if (msg.photo && msg.photo.length > 0) {
+      try {
+        const fileId = msg.photo[msg.photo.length - 1].file_id;
+        const fileData = curlGet(`${TG_BASE}/getFile?file_id=${fileId}`);
+        if (fileData?.ok) {
+          const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileData.result.file_path}`;
+          const imgResult = execSync(`curl -s --connect-timeout 10 "${fileUrl}" | base64`, { encoding: "utf-8" }).trim();
+          const ext = fileData.result.file_path?.split(".").pop()?.toLowerCase() || "jpg";
+          const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+          imageBase64 = `data:${mimeType};base64,${imgResult}`;
+        }
+      } catch (e) {
+        console.error("[AI] 이미지 다운로드 실패:", e);
+      }
     }
+
+    console.log(`[AI] 메시지: ${msg.from?.first_name} - ${text.slice(0, 30)}${imageBase64 ? " (이미지)" : ""}`);
+    handleMessage(msg.chat.id, String(msg.from.id), text, msg.from.first_name || "", imageBase64);
   }
 }
 
