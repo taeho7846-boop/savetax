@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -61,6 +62,23 @@ export async function POST(req: NextRequest) {
         uploads,
       },
     );
+
+    // 성공하면 DB에 위멤버스 완료 기록
+    if (result.success) {
+      const client = await prisma.client.findFirst({
+        where: { name: clientName, isDeleted: false },
+        select: { id: true },
+      });
+      if (client) {
+        const yearMonth = `${year}-${month}`;
+        await prisma.withholdingRecord.upsert({
+          where: { clientId_yearMonth_taskType: { clientId: client.id, yearMonth, taskType: "위멤버스완료" } },
+          update: { done: true },
+          create: { clientId: client.id, yearMonth, taskType: "위멤버스완료", done: true },
+        });
+        revalidatePath("/withholding");
+      }
+    }
 
     return NextResponse.json(result);
   } catch (error: any) {

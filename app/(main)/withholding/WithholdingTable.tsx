@@ -224,8 +224,94 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             {verifyLoading ? "검증중..." : "신고 검증"}
           </button>
           {checkedIds.size > 0 && (
-            <div className="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-lg">
-              {checkedIds.size}개 선택
+            <div className="flex items-center gap-2">
+              <div className="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-lg">
+                {checkedIds.size}개 선택
+              </div>
+              <button
+                onClick={async () => {
+                  const selectedClients = filtered.filter(c => checkedIds.has(c.id));
+                  if (!selectedClients.length) return;
+                  if (!confirm(`${selectedClients.length}개 거래처 위멤버스 일괄 처리를 시작할까요?`)) return;
+
+                  const monthPadded = String(month).padStart(2, "0");
+                  const baseUrl = `https://smarta.wehago.com/#/smarta/humanresource`;
+
+                  for (let idx = 0; idx < selectedClients.length; idx++) {
+                    const cl = selectedClients[idx];
+                    const override = cl.withholdingLaborOverrides?.[0];
+                    const baseLaborTypes = cl.laborTypes?.split(",").map((t: string) => t.trim()).filter((t: string) => t && t !== "1인사업자") ?? [];
+                    const laborList = override?.laborTypes
+                      ? override.laborTypes.split(",").map((t: string) => t.trim()).filter((t: string) => t && t !== "1인사업자")
+                      : baseLaborTypes;
+
+                    if (!cl.wehagoCno || !cl.wehagoCdCom) continue;
+                    const incomeTypes: string[] = [];
+                    if (laborList.includes("근로소득")) incomeTypes.push("salary");
+                    if (laborList.includes("사업소득")) incomeTypes.push("business");
+                    if (laborList.includes("일용직")) incomeTypes.push("daily");
+                    if (!incomeTypes.length) continue;
+
+                    const wehagoColor = (() => { try { const c = JSON.parse(cl.wehagoColors || "{}"); return c[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })();
+                    const params = `sao&cno=${cl.wehagoCno}&cd_com=${cl.wehagoCdCom}&gisu=${month}&yminsa=${year}&searchData=${year}0101${year}1231&color=${wehagoColor}&companyName=${encodeURIComponent(cl.name)}&companyID=${wehagoCompanyId}&taxNum=${wehagoTaxNum}&yn_private=1&wehagoT`;
+
+                    alert(`[${idx + 1}/${selectedClients.length}] ${cl.name} 처리 시작 (${incomeTypes.map(t => t === "salary" ? "근로" : t === "business" ? "사업" : "일용").join("+")})`);
+
+                    async function waitForFile(type: string): Promise<boolean> {
+                      for (let i = 0; i < 90; i++) {
+                        const res = await fetch("/api/automation/check-file", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ clientName: cl.name, year: String(year), month: monthPadded, type }),
+                        });
+                        const data = await res.json();
+                        if (data.exists) return true;
+                        await new Promise(r => setTimeout(r, 2000));
+                      }
+                      return false;
+                    }
+
+                    // 근로소득 다운로드
+                    if (incomeTypes.includes("salary")) {
+                      const tab = window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank");
+                      await waitForFile("salary");
+                      if (tab) tab.close();
+                    }
+                    // 사업소득 다운로드
+                    if (incomeTypes.includes("business")) {
+                      const tab = window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank");
+                      await waitForFile("business");
+                      if (tab) tab.close();
+                    }
+                    // 일용직 다운로드
+                    if (incomeTypes.includes("daily")) {
+                      const tab = window.open(`${baseUrl}/TWSA0107?${params}&autoDailyWorker=${month}`, "_blank");
+                      await waitForFile("daily");
+                      if (tab) tab.close();
+                    }
+
+                    // 위멤버스 업로드
+                    try {
+                      const res = await fetch("/api/automation/wemembers-process", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ clientName: cl.name, year: String(year), month: monthPadded, incomeTypes }),
+                      });
+                      const result = await res.json();
+                      if (result.success) {
+                        // 성공하면 체크 해제
+                        setCheckedIds(prev => { const n = new Set(prev); n.delete(cl.id); return n; });
+                      }
+                    } catch {}
+                  }
+
+                  alert(`${selectedClients.length}개 거래처 위멤버스 일괄 처리 완료!`);
+                  setCheckedIds(new Set());
+                }}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700"
+              >
+                일괄 위멤버스
+              </button>
             </div>
           )}
           <div className="flex items-center gap-3">
@@ -458,6 +544,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                     >
                                       위멤버스
                                     </button>
+                                  )}
+                                  {doneMap.has("위멤버스완료") && (
+                                    <span className="ml-0.5 text-[9px] text-green-600 font-bold">✓</span>
                                   )}
                                 </>
                               );
