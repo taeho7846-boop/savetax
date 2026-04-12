@@ -379,13 +379,22 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                     </>
                                   )}
                                   {laborList.includes("사업소득") && (
-                                    <button
-                                      onClick={() => window.open(`${baseUrl}/SWBU0102?${params}`, "_blank")}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 whitespace-nowrap shrink-0"
-                                      title="위하고 사업소득자료입력"
-                                    >
-                                      사업
-                                    </button>
+                                    <>
+                                      <button
+                                        onClick={() => window.open(`${baseUrl}/SWBU0102?${params}`, "_blank")}
+                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 whitespace-nowrap shrink-0"
+                                        title="위하고 사업소득자료입력"
+                                      >
+                                        사업
+                                      </button>
+                                      <button
+                                        onClick={() => window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank")}
+                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 whitespace-nowrap shrink-0"
+                                        title="사업소득 엑셀 다운로드"
+                                      >
+                                        소득조회
+                                      </button>
+                                    </>
                                   )}
                                   {laborList.includes("일용직") && (
                                     <button

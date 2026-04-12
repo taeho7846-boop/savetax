@@ -23,7 +23,7 @@ def main():
     year = sys.argv[3]
     month = sys.argv[4]
 
-    save_dir = f"G:\\공유 드라이브\\도희수의 SAVETAX_NH\\{user_name}\\{client_name}\\5. 위멤버스\\근로소득"
+    save_dir = f"G:\\공유 드라이브\\고객사 관리\\{user_name}\\{client_name}\\5. 위멤버스\\근로소득"
     filename = f"{year}년 {month.zfill(2)}월 급여명세서_{client_name}"
 
     # 1. 인쇄 미리보기 창 포커스 (제목표시줄 클릭)

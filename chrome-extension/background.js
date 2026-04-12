@@ -445,6 +445,49 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // 사업소득 엑셀 → 구글드라이브 업로드
+  if (msg.type === "upload-business-income") {
+    (async () => {
+      try {
+        // 1. 최근 다운로드된 사업소득조회 엑셀 찾기
+        const downloads = await chrome.downloads.search({
+          filenameRegex: ".*\\.xlsx$",
+          orderBy: ["-startTime"],
+          limit: 1,
+          state: "complete",
+        });
+
+        if (!downloads || downloads.length === 0) {
+          sendResponse({ ok: false, error: "다운로드된 엑셀 파일을 찾을 수 없습니다" });
+          return;
+        }
+
+        const filePath = downloads[0].filename;
+        console.log("SaveTax BG: 엑셀 파일 찾음:", filePath);
+
+        // 2. 서버에 파일 경로 전달 → 서버가 직접 읽어서 업로드
+        const monthPadded = String(msg.month).padStart(2, "0");
+        const uploadRes = await fetch("http://localhost:3000/api/automation/upload-business-income", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientName: msg.clientName,
+            year: msg.year,
+            month: monthPadded,
+            filePath: filePath,
+            fileName: `${msg.year}년 ${monthPadded}월 사업소득조회_${msg.clientName}.xlsx`,
+          }),
+        });
+        const result = await uploadRes.json();
+        sendResponse(result);
+      } catch (e) {
+        console.error("SaveTax BG: 업로드 실패:", e);
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
   // 위하고 급여명세서 pyautogui 저장
   if (msg.type === "save-payslip-pdf") {
     (async () => {
