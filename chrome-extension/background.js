@@ -444,6 +444,61 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: err.message }));
     return true;
   }
+
+  // 위하고 급여명세서 pyautogui 저장
+  if (msg.type === "save-payslip-pdf") {
+    (async () => {
+      try {
+        const res = await fetch("http://localhost:3000/api/automation/save-payslip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientName: msg.clientName,
+            year: msg.year,
+            month: msg.month,
+          }),
+        });
+        const result = await res.json();
+        sendResponse(result);
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
+  // 위하고 급여명세서 PDF 저장 (content script가 보낸 탭에서 직접)
+  if (msg.type === "wehago-print-pdf") {
+    (async () => {
+      try {
+        const tabId = sender.tab?.id;
+        if (!tabId) { sendResponse({ ok: false, error: "탭 ID 없음" }); return; }
+
+        await chrome.debugger.attach({ tabId }, "1.3");
+        const result = await chrome.debugger.sendCommand({ tabId }, "Page.printToPDF", {
+          printBackground: true,
+          preferCSSPageSize: true,
+          paperWidth: 8.27,
+          paperHeight: 11.69,
+        });
+        await chrome.debugger.detach({ tabId });
+
+        const docName = (msg.docName || "급여명세서").replace(/[/\\:*?"<>|]/g, "_");
+        const dataUrl = "data:application/pdf;base64," + result.data;
+
+        await chrome.downloads.download({
+          url: dataUrl,
+          filename: `급여명세서/${docName}.pdf`,
+          conflictAction: "uniquify",
+        });
+
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
 });
 
 async function handleFileUpload(files, tabId) {

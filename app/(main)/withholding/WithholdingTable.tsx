@@ -114,6 +114,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     allMatch: boolean;
   } | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [payslipLoading, setPayslipLoading] = useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   async function handleVerify(e: React.ChangeEvent<HTMLInputElement>) {
@@ -135,6 +136,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   }
   const month = parseInt(yearMonth.split("-")[1]);
   const extraColumns = getAllExtraColumns();
+
+  // 마지막 선택 월 localStorage에 저장
+  React.useEffect(() => {
+    localStorage.setItem("withholding_ym", yearMonth);
+  }, [yearMonth]);
 
   function handleMonthChange(delta: number) {
     const [y, m] = yearMonth.split("-").map(Number);
@@ -355,13 +361,22 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                               return (
                                 <>
                                   {laborList.includes("근로소득") && (
-                                    <button
-                                      onClick={() => window.open(`${baseUrl}/SWSA0101?${params}`, "_blank")}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
-                                      title="위하고 급여자료입력"
-                                    >
-                                      급여
-                                    </button>
+                                    <>
+                                      <button
+                                        onClick={() => window.open(`${baseUrl}/SWSA0101?${params}`, "_blank")}
+                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
+                                        title="위하고 급여자료입력"
+                                      >
+                                        급여
+                                      </button>
+                                      <button
+                                        onClick={() => window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank")}
+                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 whitespace-nowrap shrink-0"
+                                        title="급여명세서 PDF 다운로드"
+                                      >
+                                        명세서
+                                      </button>
+                                    </>
                                   )}
                                   {laborList.includes("사업소득") && (
                                     <button

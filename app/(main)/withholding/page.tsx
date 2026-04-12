@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { WithholdingTable } from "./WithholdingTable";
+import { WithholdingRedirect } from "./WithholdingRedirect";
 
 export default async function WithholdingPage({
   searchParams,
@@ -12,11 +13,14 @@ export default async function WithholdingPage({
   if (!session) redirect("/login");
 
   const params = await searchParams;
-  const now = new Date();
-  const defaultMonth = now.getDate() <= 10
-    ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    : now;
-  const yearMonth = params.ym || `${defaultMonth.getFullYear()}-${String(defaultMonth.getMonth() + 1).padStart(2, "0")}`;
+  // ym 파라미터가 없으면 클라이언트에서 localStorage 확인 후 리다이렉트
+  if (!params.ym) {
+    const now = new Date();
+    const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    // 클라이언트 리다이렉트 컴포넌트 반환
+    return <WithholdingRedirect fallback={fallback} />;
+  }
+  const yearMonth = params.ym;
 
   const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
   let assignedFilter: any = { assignedUserId: session.id };

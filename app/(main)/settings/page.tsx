@@ -1,5 +1,6 @@
 import { getSettings, saveSettings } from "@/app/actions/settings";
 import SettingsUploads from "./SettingsUploads";
+import { WimembersButton } from "./WimembersButton";
 
 export default async function SettingsPage() {
   const settings = await getSettings();
@@ -152,6 +153,16 @@ export default async function SettingsPage() {
         >
           크롬 확장 프로그램 다운로드
         </a>
+      </div>
+
+      {/* 위멤버스 폴더 일괄 생성 */}
+      <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">구글드라이브 위멤버스 폴더</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          기존 거래처의 구글드라이브에 &quot;5. 위멤버스&quot; 폴더(근로소득/사업소득/일용직)를 일괄 생성합니다.<br />
+          이미 폴더가 있는 거래처는 건너뜁니다.
+        </p>
+        <WimembersButton />
       </div>
 
       <div className="mt-6">

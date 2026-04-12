@@ -111,8 +111,17 @@ export async function createClientFolder(
     "2. 부가가치세",
     clientType === "corporate" ? "3. 법인세" : "3. 종합소득세",
     "4. 이관자료",
+    "5. 위멤버스",
   ];
   await Promise.all(subFolders.map((name) => createFolder(name, clientFolderId)));
+
+  // 위멤버스 하위폴더 생성
+  const wimembersFolderId = await createFolder("5. 위멤버스", clientFolderId);
+  await Promise.all([
+    createFolder("근로소득", wimembersFolderId),
+    createFolder("사업소득", wimembersFolderId),
+    createFolder("일용직", wimembersFolderId),
+  ]);
 
   return {
     folderId: clientFolderId,
