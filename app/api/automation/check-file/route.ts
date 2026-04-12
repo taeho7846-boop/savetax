@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
   let filePath: string;
   if (type === "salary") {
     filePath = `${basePath}\\근로소득\\${year}년 ${month}월 급여명세서_${clientName}.xlsx`;
+  } else if (type === "daily") {
+    filePath = `${basePath}\\일용직\\${year}년 ${month}월 일용직급여__${clientName}.xlsx`;
   } else {
     filePath = `${basePath}\\사업소득\\${year}년 ${month}월 사업소득조회_${clientName}.xlsx`;
   }

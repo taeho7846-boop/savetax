@@ -50,3 +50,4 @@ next-env.d.ts
 
 # uploads (신분증, 개인정보 파일)
 /public/uploads/
+google-credentials.json

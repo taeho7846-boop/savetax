@@ -524,7 +524,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // 4. 서버 API로 전송
         const monthPadded = String(msg.month).padStart(2, "0");
-        const uploadRes = await fetch("http://64.176.227.99/api/automation/upload-business-income", {
+        const uploadRes = await fetch("http://localhost:3000/api/automation/upload-business-income", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -545,11 +545,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // 일용직 pyautogui 저장
+  if (msg.type === "save-daily-worker") {
+    (async () => {
+      try {
+        const monthPadded = String(msg.month).padStart(2, "0");
+        const res = await fetch("http://localhost:3000/api/automation/save-daily-worker", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientName: msg.clientName,
+            year: msg.year,
+            month: monthPadded,
+          }),
+        });
+        const result = await res.json();
+        sendResponse(result);
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
   // 위하고 급여명세서 pyautogui 저장
   if (msg.type === "save-payslip-pdf") {
     (async () => {
       try {
-        const res = await fetch("http://64.176.227.99/api/automation/save-payslip", {
+        const res = await fetch("http://localhost:3000/api/automation/save-payslip", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -1,8 +1,8 @@
 """
-급여명세서 PDF 저장 (pyautogui)
+일용직 급여자료 엑셀 저장 (pyautogui)
 - 위하고 인쇄 미리보기가 열린 후 호출됨
-- 인쇄 미리보기 포커스 → Shift+P → 파일명 입력 → 경로 이동 → 저장
-- 인자: python save_payslip_pdf.py {사용자이름} {거래처명} {년도} {월}
+- 인쇄 미리보기 포커스 → Shift+E → 파일명 입력 → 경로 이동 → 저장
+- 인자: python save_daily_worker.py {사용자이름} {거래처명} {년도} {월}
 """
 import pyautogui
 import pyperclip
@@ -23,11 +23,10 @@ def main():
     year = sys.argv[3]
     month = sys.argv[4]
 
-    save_dir = f"G:\\공유 드라이브\\고객사 관리\\{user_name}\\{client_name}\\5. 위멤버스\\근로소득"
-    filename = f"{year}년 {month.zfill(2)}월 급여명세서_{client_name}.xlsx"
+    save_dir = f"G:\\공유 드라이브\\고객사 관리\\{user_name}\\{client_name}\\5. 위멤버스\\일용직"
+    filename = f"{year}년 {month.zfill(2)}월 일용직급여__{client_name}.xlsx"
 
     # 1. 인쇄 미리보기 창 포커스
-    # 제목에 "인쇄" 가 포함된 창 찾아서 활성화
     try:
         import pygetwindow as gw
         for w in gw.getAllWindows():
@@ -36,7 +35,6 @@ def main():
                 time.sleep(0.5)
                 break
         else:
-            # 못 찾으면 Alt+Tab
             pyautogui.hotkey("alt", "tab")
             time.sleep(0.5)
     except:

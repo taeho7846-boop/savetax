@@ -1,12 +1,24 @@
 import path from "path";
 import { mkdir } from "fs/promises";
 
+type UploadItem = {
+  incomeType: "salary" | "business" | "daily";
+  filePath: string;
+};
+
 type WemembersUploadInput = {
   clientName: string;
   month: string;       // "03"
   year: string;        // "2026"
-  incomeType: "salary" | "business";  // 근로소득 or 사업소득
-  filePath: string;    // 업로드할 파일 경로
+  incomeType: "salary" | "business";
+  filePath: string;
+};
+
+type WemembersMultiInput = {
+  clientName: string;
+  month: string;
+  year: string;
+  uploads: UploadItem[];  // 근로 → 사업 순서
 };
 
 type WemembersResult = {
@@ -14,10 +26,25 @@ type WemembersResult = {
   message: string;
 };
 
+// 단건 업로드 (하위 호환)
 export async function uploadToWemembers(
   wemembersId: string,
   wemembersPw: string,
   input: WemembersUploadInput,
+): Promise<WemembersResult> {
+  return uploadMultiToWemembers(wemembersId, wemembersPw, {
+    clientName: input.clientName,
+    month: input.month,
+    year: input.year,
+    uploads: [{ incomeType: input.incomeType, filePath: input.filePath }],
+  });
+}
+
+// 다건 업로드 (근로 → 사업 한번에)
+export async function uploadMultiToWemembers(
+  wemembersId: string,
+  wemembersPw: string,
+  input: WemembersMultiInput,
 ): Promise<WemembersResult> {
   let browser;
   let page: any;
@@ -54,7 +81,6 @@ export async function uploadToWemembers(
     await page.waitForTimeout(1000);
     await page.locator('#USER_ID').waitFor({ state: "visible", timeout: 5000 });
     await page.locator('#USER_ID').fill(wemembersId);
-    // 비밀번호 필드 찾기
     await page.locator('input[type="password"]').first().fill(wemembersPw);
     await page.locator('#btnLogin').click();
     await page.waitForTimeout(3000);
@@ -96,14 +122,13 @@ export async function uploadToWemembers(
     await page.waitForTimeout(2000);
     await screenshot("register_dialog");
 
-    // ── 6~9: 급여대장 등록 팝업 (cboxIframe 안) ──
+    // ── 6~8: 급여대장 등록 팝업 (cboxIframe 안) ──
     const popupFrame = page.frameLocator('iframe[class*="cboxIframe"]');
 
     // 6. 급여 귀속월 변경
     const payStdInput = popupFrame.locator('#payStd');
     await payStdInput.click();
     await page.waitForTimeout(500);
-    // 월 선택 팝업에서 해당 월 클릭
     const monthNum = parseInt(input.month);
     await popupFrame.getByText(String(monthNum), { exact: true }).first().click();
     await page.waitForTimeout(300);
@@ -111,44 +136,76 @@ export async function uploadToWemembers(
     await page.waitForTimeout(500);
     await screenshot("month_selected");
 
-    // 7. 급여대장 불러오기 드롭다운 → 소득 유형 선택
-    await popupFrame.getByText("급여대장 불러오기").click();
-    await page.waitForTimeout(500);
-    await screenshot("import_dropdown");
+    // ── 7~9: 각 소득별로 불러오기 + 파일 업로드 + 저장 + 다시 등록 ──
+    for (let i = 0; i < input.uploads.length; i++) {
+      const upload = input.uploads[i];
+      const label = upload.incomeType === "salary" ? "근로소득" : "사업소득";
+      const isFirst = i === 0;
 
-    // 파일 다이얼로그를 가로채서 자동으로 파일 선택
-    const fileChooserPromise = page.waitForEvent("filechooser", { timeout: 10000 });
+      // 첫 번째가 아니면 다시 급여대장 등록 → 월 선택
+      if (!isFirst) {
+        // 급여대장 등록 버튼 다시 클릭
+        try {
+          await frame.getByText("급여대장 등록", { exact: false }).first().click();
+        } catch {
+          await frame.locator('button:has-text("등록"), a:has-text("등록")').first().click();
+        }
+        await page.waitForTimeout(2000);
 
-    if (input.incomeType === "salary") {
-      await popupFrame.getByText("일반근로자 임금명세서").first().click();
-    } else {
-      await popupFrame.getByText("사업소득자").first().click();
+        // 팝업 프레임 다시 잡기
+        const popupFrame2 = page.frameLocator('iframe[class*="cboxIframe"]');
+
+        // 귀속월 선택
+        await popupFrame2.locator('#payStd').click();
+        await page.waitForTimeout(500);
+        await popupFrame2.getByText(String(monthNum), { exact: true }).first().click();
+        await page.waitForTimeout(300);
+        await popupFrame2.getByText("확인", { exact: true }).first().click();
+        await page.waitForTimeout(500);
+      }
+
+      // 현재 팝업 프레임
+      const currentPopup = page.frameLocator('iframe[class*="cboxIframe"]');
+
+      // 급여대장 불러오기 드롭다운 클릭
+      await currentPopup.getByText("급여대장 불러오기").click();
+      await page.waitForTimeout(500);
+      await screenshot(`import_dropdown_${label}`);
+
+      // 파일 다이얼로그 가로채기
+      const fileChooserPromise = page.waitForEvent("filechooser", { timeout: 10000 });
+
+      if (upload.incomeType === "salary") {
+        await currentPopup.getByText("일반근로자 임금명세서").first().click();
+      } else if (upload.incomeType === "daily") {
+        await currentPopup.getByText("일용근로자 임금명세서").first().click();
+      } else {
+        await currentPopup.getByText("사업소득자").first().click();
+      }
+
+      // 파일 선택
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(upload.filePath);
+      console.log(`[Wemembers] ${label} 파일 선택 완료:`, upload.filePath);
+      await page.waitForTimeout(3000);
+      await screenshot(`file_uploaded_${label}`);
+
+      // 저장
+      await currentPopup.getByText("저장", { exact: true }).first().click();
+      await page.waitForTimeout(2000);
+      await screenshot(`saved_${label}`);
+
+      // 등록 완료 얼럿 → Enter로 닫기
+      await page.waitForTimeout(1000);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(2500);
+
+      console.log(`[Wemembers] ${label} 등록 완료`);
     }
 
-    // 파일 다이얼로그 가로채기 → 파일 자동 선택
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles(input.filePath);
-    console.log("[Wemembers] 파일 선택 완료:", input.filePath);
-    await page.waitForTimeout(3000);
-    await screenshot("file_uploaded");
-
-    // 9. 저장 버튼 클릭
-    await popupFrame.getByText("저장", { exact: true }).first().click();
-    await page.waitForTimeout(2000);
-    await screenshot("saved");
-
-    // 확인 팝업
-    try {
-      await popupFrame.getByText("확인").first().click();
-      await page.waitForTimeout(500);
-    } catch {}
-    try {
-      await page.getByText("확인").first().click();
-      await page.waitForTimeout(500);
-    } catch {}
-
     await browser.close();
-    return { success: true, message: `위멤버스 ${input.clientName} ${input.incomeType === "salary" ? "급여명세서" : "사업소득"} 업로드 완료` };
+    const typeLabels = input.uploads.map(u => u.incomeType === "salary" ? "근로소득" : u.incomeType === "daily" ? "일용직" : "사업소득").join(" + ");
+    return { success: true, message: `위멤버스 ${input.clientName} ${typeLabels} 업로드 완료` };
 
   } catch (error: any) {
     await screenshot("error_final");

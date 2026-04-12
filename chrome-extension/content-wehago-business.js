@@ -110,6 +110,8 @@
       (res) => {
         if (res?.ok) {
           console.log("[SaveTax] 구글드라이브 업로드 완료:", res.message);
+          // 업로드 완료 후 탭 닫기
+          setTimeout(() => window.close(), 1000);
         } else {
           console.error("[SaveTax] 업로드 실패:", res?.error);
         }

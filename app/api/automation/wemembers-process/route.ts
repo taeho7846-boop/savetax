@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const userName = session.name || "미지정";
   const basePath = `G:\\공유 드라이브\\고객사 관리\\${userName}\\${clientName}\\5. 위멤버스`;
 
-  // 업로드할 파일 목록 구성
+  // 업로드할 파일 목록 구성 (근로 → 사업 순서)
   const uploads: { incomeType: "salary" | "business"; filePath: string }[] = [];
 
   if (incomeTypes.includes("salary")) {
@@ -41,49 +41,28 @@ export async function POST(req: NextRequest) {
       filePath: `${basePath}\\사업소득\\${year}년 ${month}월 사업소득조회_${clientName}.xlsx`,
     });
   }
+  if (incomeTypes.includes("daily")) {
+    uploads.push({
+      incomeType: "daily" as any,
+      filePath: `${basePath}\\일용직\\${year}년 ${month}월 일용직급여__${clientName}.xlsx`,
+    });
+  }
 
   try {
-    const { uploadToWemembers } = await import("@/lib/wemembers");
+    const { uploadMultiToWemembers } = await import("@/lib/wemembers");
 
-    // 첫 번째 소득 업로드
-    const firstResult = await uploadToWemembers(
+    const result = await uploadMultiToWemembers(
       settings.wemembersId,
       settings.wemembersPw,
       {
         clientName,
         month,
         year,
-        incomeType: uploads[0].incomeType,
-        filePath: uploads[0].filePath,
+        uploads,
       },
     );
 
-    if (!firstResult.success) {
-      return NextResponse.json(firstResult);
-    }
-
-    // 두 번째 소득이 있으면 같은 거래처에서 바로 추가 업로드
-    // TODO: 위멤버스 세션 유지해서 같은 거래처에서 추가 업로드
-    if (uploads.length > 1) {
-      const secondResult = await uploadToWemembers(
-        settings.wemembersId,
-        settings.wemembersPw,
-        {
-          clientName,
-          month,
-          year,
-          incomeType: uploads[1].incomeType,
-          filePath: uploads[1].filePath,
-        },
-      );
-      if (!secondResult.success) {
-        return NextResponse.json({ success: true, message: `${uploads[0].incomeType} 업로드 완료, ${uploads[1].incomeType} 실패: ${secondResult.message}` });
-      }
-    }
-
-    const typeLabels = uploads.map(u => u.incomeType === "salary" ? "근로소득" : "사업소득").join(" + ");
-    return NextResponse.json({ success: true, message: `위멤버스 ${clientName} ${typeLabels} 업로드 완료!` });
-
+    return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }

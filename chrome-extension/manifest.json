@@ -22,7 +22,7 @@
     },
     {
       "matches": ["https://smarta.wehago.com/*"],
-      "js": ["content-wehago-payslip.js", "content-wehago-business.js"],
+      "js": ["content-wehago-payslip.js", "content-wehago-business.js", "content-wehago-daily.js"],
       "run_at": "document_idle"
     }
   ]

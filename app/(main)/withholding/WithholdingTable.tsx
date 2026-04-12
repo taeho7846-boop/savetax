@@ -378,17 +378,27 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                       사업
                                     </button>
                                   )}
-                                  {(laborList.includes("근로소득") || laborList.includes("사업소득")) && (
+                                  {laborList.includes("일용직") && (
+                                    <button
+                                      onClick={() => window.open(`${baseUrl}/TWSA0107?${params}`, "_blank")}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 whitespace-nowrap shrink-0"
+                                      title="위하고 일용직급여자료입력"
+                                    >
+                                      일용
+                                    </button>
+                                  )}
+                                  {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
                                     <button
                                       onClick={async () => {
                                         const incomeTypes: string[] = [];
                                         if (laborList.includes("근로소득")) incomeTypes.push("salary");
                                         if (laborList.includes("사업소득")) incomeTypes.push("business");
+                                        if (laborList.includes("일용직")) incomeTypes.push("daily");
                                         const monthPadded = String(month).padStart(2, "0");
 
                                         // 파일 존재 체크 함수
                                         async function waitForFile(type: string): Promise<boolean> {
-                                          for (let i = 0; i < 60; i++) { // 최대 60초
+                                          for (let i = 0; i < 90; i++) {
                                             const res = await fetch("/api/automation/check-file", {
                                               method: "POST",
                                               headers: { "Content-Type": "application/json" },
@@ -403,21 +413,29 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
                                         // 1단계: 근로소득 다운로드
                                         if (incomeTypes.includes("salary")) {
-                                          const salaryTab = window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank");
+                                          const tab = window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank");
                                           const found = await waitForFile("salary");
-                                          if (salaryTab) salaryTab.close();
+                                          if (tab) tab.close();
                                           if (!found) { alert("근로소득 다운로드 시간 초과"); return; }
                                         }
 
                                         // 2단계: 사업소득 다운로드
                                         if (incomeTypes.includes("business")) {
-                                          const bizTab = window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank");
+                                          const tab = window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank");
                                           const found = await waitForFile("business");
-                                          if (bizTab) bizTab.close();
+                                          if (tab) tab.close();
                                           if (!found) { alert("사업소득 다운로드 시간 초과"); return; }
                                         }
 
-                                        // 3단계: 위멤버스 업로드
+                                        // 3단계: 일용직 다운로드
+                                        if (incomeTypes.includes("daily")) {
+                                          const tab = window.open(`${baseUrl}/TWSA0107?${params}&autoDailyWorker=${month}`, "_blank");
+                                          const found = await waitForFile("daily");
+                                          if (tab) tab.close();
+                                          if (!found) { alert("일용직 다운로드 시간 초과"); return; }
+                                        }
+
+                                        // 4단계: 위멤버스 업로드
                                         try {
                                           const res = await fetch("/api/automation/wemembers-process", {
                                             method: "POST",
@@ -439,15 +457,6 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                       title="위멤버스 다운로드+업로드"
                                     >
                                       위멤버스
-                                    </button>
-                                  )}
-                                  {laborList.includes("일용직") && (
-                                    <button
-                                      onClick={() => window.open(`${baseUrl}/TWSA0107?${params}`, "_blank")}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 whitespace-nowrap shrink-0"
-                                      title="위하고 일용직급여자료입력"
-                                    >
-                                      일용
                                     </button>
                                   )}
                                 </>
