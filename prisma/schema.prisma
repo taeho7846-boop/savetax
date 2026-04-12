@@ -45,6 +45,8 @@ model Client {
   email                     String?
   address                   String?
   bizType                   String?
+  bizCategory               String?
+  bizItem                   String?
   clientType                String                     @default("individual")
   contractStatus            String                     @default("active")
   taxationType              String?

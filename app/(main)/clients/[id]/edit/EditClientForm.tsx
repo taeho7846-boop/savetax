@@ -223,6 +223,40 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
       </div>
 
+      {/* 업종코드 / 업태 / 종목 */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">업종코드</label>
+          <input
+            name="bizType"
+            type="text"
+            defaultValue={client.bizType ?? ""}
+            placeholder="예: 940909"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">업태</label>
+          <input
+            name="bizCategory"
+            type="text"
+            defaultValue={client.bizCategory ?? ""}
+            placeholder="예: 서비스업"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">종목</label>
+          <input
+            name="bizItem"
+            type="text"
+            defaultValue={client.bizItem ?? ""}
+            placeholder="예: 세무사업"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          />
+        </div>
+      </div>
+
       {/* 회계프로그램 / 업무소통방법 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -267,15 +301,6 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">계약일자</label>
-            <input
-              name="contractDate"
-              type="date"
-              defaultValue={client.contractDate ?? ""}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
-            />
-          </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -300,6 +325,19 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
               <option value="D">D — 1인사업자 (원천세 없음)</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* 계약일자 */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-800 mb-1">계약일자</label>
+          <input
+            name="contractDate"
+            type="date"
+            defaultValue={client.contractDate ?? ""}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          />
         </div>
       </div>
 

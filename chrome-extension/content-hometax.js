@@ -621,7 +621,7 @@
       }
 
       // 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 500));
       chrome.runtime.sendMessage({ type: "hometax-reopen" });
     } catch (e) {
       console.error("SaveTax 자동 로그인 실패:", e);
