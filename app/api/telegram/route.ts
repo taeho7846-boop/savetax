@@ -63,6 +63,46 @@ export async function POST(req: NextRequest) {
 
     const content = message.text || message.caption || (fileUrl ? "(파일)" : "(내용 없음)");
 
+    // 사진 + 캡션(신분증 등): AI에 이미지와 함께 전달
+    if (fileUrl && message.caption && !message.caption.startsWith("/")) {
+      const tgUser = await prisma.telegramUser.findUnique({ where: { telegramId } });
+      if (!tgUser) {
+        sendTelegram(chatId, "❌ 먼저 /연동 명령어로 계정을 연동해주세요.");
+        return NextResponse.json({ ok: true });
+      }
+      sendTelegram(chatId, "🤖 처리 중...");
+      try {
+        // 이미지 다운로드 → base64 변환
+        const imgRes = await fetch(fileUrl);
+        const imgBuf = await imgRes.arrayBuffer();
+        const base64 = Buffer.from(imgBuf).toString("base64");
+        const ext = fileUrl.split(".").pop()?.toLowerCase() || "jpg";
+        const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+        const imageBase64 = `data:${mimeType};base64,${base64}`;
+
+        const internalKey = (process.env.ANTHROPIC_API_KEY || "").slice(-10);
+        const res = await fetch(`http://localhost:80/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
+          body: JSON.stringify({ message: message.caption, history: [], _internalUserId: tgUser.userId, image: imageBase64 }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data.reply
+            ?.replace(/\*\*(.*?)\*\*/g, "*$1*")
+            ?.replace(/#{1,3}\s/g, "")
+            ?.slice(0, 4000) || "처리할 수 없습니다.";
+          sendTelegramMarkdown(chatId, reply);
+        } else {
+          sendTelegram(chatId, "❌ 처리 실패. 다시 시도해주세요.");
+        }
+      } catch (e) {
+        console.error("[Telegram Image AI] 오류:", e);
+        sendTelegram(chatId, "❌ 처리 실패. 다시 시도해주세요.");
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     // /ai 명령어: AI 어시스턴트
     if (message.text?.startsWith("/ai")) {
       const query = message.text.replace("/ai", "").trim();
