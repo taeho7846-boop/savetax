@@ -71,11 +71,26 @@ export async function POST(req: NextRequest) {
 
     sendTelegram(chatId, "🤖 답변 생성 중...");
     try {
+      // 이미지가 있으면 base64로 변환해서 전달
+      let imageBase64: string | undefined;
+      if (fileUrl) {
+        try {
+          const imgRes = await fetch(fileUrl);
+          const imgBuf = await imgRes.arrayBuffer();
+          const base64 = Buffer.from(imgBuf).toString("base64");
+          const ext = fileUrl.split(".").pop()?.toLowerCase() || "jpg";
+          const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+          imageBase64 = `data:${mimeType};base64,${base64}`;
+        } catch (e) {
+          console.error("[Super-bot] 이미지 다운로드 실패:", e);
+        }
+      }
+
       const internalKey = (process.env.ANTHROPIC_API_KEY || "").slice(-10);
       const res = await fetch(`http://localhost:80/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
-        body: JSON.stringify({ message: query, history: [], _internalUserId: tgUser.userId }),
+        body: JSON.stringify({ message: query, history: [], _internalUserId: tgUser.userId, ...(imageBase64 ? { image: imageBase64 } : {}) }),
       });
       if (res.ok) {
         const data = await res.json();
