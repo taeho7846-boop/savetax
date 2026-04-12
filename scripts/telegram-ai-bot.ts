@@ -98,18 +98,19 @@ async function handleMessage(chatId: number, telegramId: string, text: string, s
       return;
     }
 
-    const chatBody = JSON.stringify({
+    const chatPayload: any = {
       message: text,
       history,
       _internalUserId: lookupData.userId,
-      ...(imageBase64 ? { image: imageBase64 } : {}),
-    }).replace(/'/g, "'\\''");
+    };
+    if (imageBase64) chatPayload.image = imageBase64;
 
-    const result = execSync(
-      `curl -s --connect-timeout 30 --max-time 60 -X POST -H "Content-Type: application/json" -H "x-internal-key: ${internalKey}" -d '${chatBody}' "http://localhost:80/api/chat"`,
-      { encoding: "utf-8" }
-    );
-    const data = JSON.parse(result);
+    const chatRes = await fetch("http://localhost:80/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-key": internalKey },
+      body: JSON.stringify(chatPayload),
+    });
+    const data = await chatRes.json();
 
     if (data.reply) {
       // 히스토리 업데이트
@@ -141,7 +142,7 @@ async function handleMessage(chatId: number, telegramId: string, text: string, s
 
 let offset = 0;
 
-function poll() {
+async function poll() {
   const data = curlGet(`${TG_BASE}/getUpdates?offset=${offset}&timeout=30`);
   if (!data?.ok || !data.result) return;
 
@@ -161,10 +162,11 @@ function poll() {
         const fileData = curlGet(`${TG_BASE}/getFile?file_id=${fileId}`);
         if (fileData?.ok) {
           const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileData.result.file_path}`;
-          const imgResult = execSync(`curl -s --connect-timeout 10 "${fileUrl}" | base64`, { encoding: "utf-8" }).trim();
+          const imgRes = await fetch(fileUrl);
+          const imgBuf = Buffer.from(await imgRes.arrayBuffer());
           const ext = fileData.result.file_path?.split(".").pop()?.toLowerCase() || "jpg";
           const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-          imageBase64 = `data:${mimeType};base64,${imgResult}`;
+          imageBase64 = `data:${mimeType};base64,${imgBuf.toString("base64")}`;
         }
       } catch (e) {
         console.error("[AI] 이미지 다운로드 실패:", e);
@@ -172,7 +174,7 @@ function poll() {
     }
 
     console.log(`[AI] 메시지: ${msg.from?.first_name} - ${text.slice(0, 30)}${imageBase64 ? " (이미지)" : ""}`);
-    handleMessage(msg.chat.id, String(msg.from.id), text, msg.from.first_name || "", imageBase64);
+    await handleMessage(msg.chat.id, String(msg.from.id), text, msg.from.first_name || "", imageBase64);
   }
 }
 
