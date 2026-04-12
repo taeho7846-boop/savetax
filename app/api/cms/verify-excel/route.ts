@@ -45,19 +45,9 @@ export async function POST(req: NextRequest) {
     })
     .filter(r => r.name.length > 0);
 
-  // DB에서 현재 사용자의 고객사 조회
-  const isManager = ["accountant", "admin", "owner"].includes(session.role);
-  let assignedFilter: any = { assignedUserId: session.id };
-  if (isManager) {
-    const employees = await prisma.user.findMany({
-      where: { managerId: session.id, isActive: true },
-      select: { id: true },
-    });
-    assignedFilter = { assignedUserId: { in: [session.id, ...employees.map(e => e.id)] } };
-  }
-
+  // DB에서 전체 거래처 조회 (CMS 엑셀은 사무실 전체 거래처 포함)
   const dbClients = await prisma.client.findMany({
-    where: { isDeleted: false, ...assignedFilter },
+    where: { isDeleted: false },
     select: {
       id: true,
       name: true,
