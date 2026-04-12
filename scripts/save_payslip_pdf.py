@@ -24,14 +24,27 @@ def main():
     month = sys.argv[4]
 
     save_dir = f"G:\\공유 드라이브\\고객사 관리\\{user_name}\\{client_name}\\5. 위멤버스\\근로소득"
-    filename = f"{year}년 {month.zfill(2)}월 급여명세서_{client_name}"
+    filename = f"{year}년 {month.zfill(2)}월 급여명세서_{client_name}.xlsx"
 
-    # 1. 인쇄 미리보기 창 포커스 (제목표시줄 클릭)
-    pyautogui.click(1614, 340)
-    time.sleep(0.5)
+    # 1. 인쇄 미리보기 창 포커스
+    # 제목에 "인쇄" 가 포함된 창 찾아서 활성화
+    try:
+        import pygetwindow as gw
+        for w in gw.getAllWindows():
+            if "인쇄" in w.title or "Print" in w.title:
+                w.activate()
+                time.sleep(0.5)
+                break
+        else:
+            # 못 찾으면 Alt+Tab
+            pyautogui.hotkey("alt", "tab")
+            time.sleep(0.5)
+    except:
+        pyautogui.hotkey("alt", "tab")
+        time.sleep(0.5)
 
-    # 2. Shift+P → PDF 저장 (파일탐색기 열기)
-    pyautogui.hotkey("shift", "p")
+    # 2. Shift+E → 엑셀 저장 (파일탐색기 열기)
+    pyautogui.hotkey("shift", "e")
     time.sleep(3)
 
     # 3. 파일명 입력
@@ -60,7 +73,7 @@ def main():
     except:
         pass
 
-    print(json.dumps({"ok": True, "message": f"{filename}.pdf 저장 완료", "path": f"{save_dir}\\{filename}.pdf"}))
+    print(json.dumps({"ok": True, "message": f"{filename} 저장 완료", "path": f"{save_dir}\\{filename}"}))
 
 if __name__ == "__main__":
     main()

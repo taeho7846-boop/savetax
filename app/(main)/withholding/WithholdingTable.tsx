@@ -361,40 +361,85 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                               return (
                                 <>
                                   {laborList.includes("근로소득") && (
-                                    <>
-                                      <button
-                                        onClick={() => window.open(`${baseUrl}/SWSA0101?${params}`, "_blank")}
-                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
-                                        title="위하고 급여자료입력"
-                                      >
-                                        급여
-                                      </button>
-                                      <button
-                                        onClick={() => window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank")}
-                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 whitespace-nowrap shrink-0"
-                                        title="급여명세서 PDF 다운로드"
-                                      >
-                                        명세서
-                                      </button>
-                                    </>
+                                    <button
+                                      onClick={() => window.open(`${baseUrl}/SWSA0101?${params}`, "_blank")}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
+                                      title="위하고 급여자료입력"
+                                    >
+                                      급여
+                                    </button>
                                   )}
                                   {laborList.includes("사업소득") && (
-                                    <>
-                                      <button
-                                        onClick={() => window.open(`${baseUrl}/SWBU0102?${params}`, "_blank")}
-                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 whitespace-nowrap shrink-0"
-                                        title="위하고 사업소득자료입력"
-                                      >
-                                        사업
-                                      </button>
-                                      <button
-                                        onClick={() => window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank")}
-                                        className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 whitespace-nowrap shrink-0"
-                                        title="사업소득 엑셀 다운로드"
-                                      >
-                                        소득조회
-                                      </button>
-                                    </>
+                                    <button
+                                      onClick={() => window.open(`${baseUrl}/SWBU0102?${params}`, "_blank")}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 whitespace-nowrap shrink-0"
+                                      title="위하고 사업소득자료입력"
+                                    >
+                                      사업
+                                    </button>
+                                  )}
+                                  {(laborList.includes("근로소득") || laborList.includes("사업소득")) && (
+                                    <button
+                                      onClick={async () => {
+                                        const incomeTypes: string[] = [];
+                                        if (laborList.includes("근로소득")) incomeTypes.push("salary");
+                                        if (laborList.includes("사업소득")) incomeTypes.push("business");
+                                        const monthPadded = String(month).padStart(2, "0");
+
+                                        // 파일 존재 체크 함수
+                                        async function waitForFile(type: string): Promise<boolean> {
+                                          for (let i = 0; i < 60; i++) { // 최대 60초
+                                            const res = await fetch("/api/automation/check-file", {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ clientName: client.name, year: String(year), month: monthPadded, type }),
+                                            });
+                                            const data = await res.json();
+                                            if (data.exists) return true;
+                                            await new Promise(r => setTimeout(r, 2000));
+                                          }
+                                          return false;
+                                        }
+
+                                        // 1단계: 근로소득 다운로드
+                                        if (incomeTypes.includes("salary")) {
+                                          const salaryTab = window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank");
+                                          const found = await waitForFile("salary");
+                                          if (salaryTab) salaryTab.close();
+                                          if (!found) { alert("근로소득 다운로드 시간 초과"); return; }
+                                        }
+
+                                        // 2단계: 사업소득 다운로드
+                                        if (incomeTypes.includes("business")) {
+                                          const bizTab = window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank");
+                                          const found = await waitForFile("business");
+                                          if (bizTab) bizTab.close();
+                                          if (!found) { alert("사업소득 다운로드 시간 초과"); return; }
+                                        }
+
+                                        // 3단계: 위멤버스 업로드
+                                        try {
+                                          const res = await fetch("/api/automation/wemembers-process", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({
+                                              clientName: client.name,
+                                              year: String(year),
+                                              month: monthPadded,
+                                              incomeTypes,
+                                            }),
+                                          });
+                                          const result = await res.json();
+                                          alert(result.message || (result.success ? "위멤버스 업로드 완료!" : "업로드 실패"));
+                                        } catch (err) {
+                                          alert("위멤버스 업로드 실패: " + String(err));
+                                        }
+                                      }}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 whitespace-nowrap shrink-0"
+                                      title="위멤버스 다운로드+업로드"
+                                    >
+                                      위멤버스
+                                    </button>
                                   )}
                                   {laborList.includes("일용직") && (
                                     <button

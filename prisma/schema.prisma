@@ -7,432 +7,375 @@ datasource db {
   provider = "postgresql"
 }
 
-// 사용자
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String
-  name      String
-  role      String   @default("employee") // owner | admin | accountant | employee | readonly
-  bizName1  String?  // 사업체명 1
-  bizName2  String?  // 사업체명 2
-  allowedMenus String?  // 허용 메뉴 (콤마 구분, null이면 전체 허용)
-  managerId Int?     // 소속 세무사 ID (employee만 해당)
-  manager   User?    @relation("ManagerEmployees", fields: [managerId], references: [id])
-  employees User[]   @relation("ManagerEmployees")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  clients       Client[]
-  assignedTasks Task[]   @relation("assignedTasks")
-  createdTasks  Task[]   @relation("createdTasks")
-  memos         Memo[]
-  schedules     Schedule[]
-  settings      Settings?
-  distributions     Distribution[]     @relation("distributions")
+  id                 Int                @id @default(autoincrement())
+  username           String             @unique
+  password           String
+  name               String
+  role               String             @default("employee")
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  managerId          Int?
+  bizName1           String?
+  bizName2           String?
+  allowedMenus       String?
+  clients            Client[]
+  distributions      Distribution[]     @relation("distributions")
   distributionPasses DistributionPass[] @relation("distributionPasses")
   feedbacks          Feedback[]         @relation("feedbacks")
-  notices            Notice[]           @relation("notices")
   knowledges         Knowledge[]        @relation("knowledges")
+  memos              Memo[]
+  notices            Notice[]           @relation("notices")
+  schedules          Schedule[]
+  settings           Settings?
+  assignedTasks      Task[]             @relation("assignedTasks")
+  createdTasks       Task[]             @relation("createdTasks")
   telegramUsers      TelegramUser[]
+  manager            User?              @relation("ManagerEmployees", fields: [managerId], references: [id])
+  employees          User[]             @relation("ManagerEmployees")
 }
 
-// 고객사
 model Client {
-  id             Int      @id @default(autoincrement())
-  name           String
-  bizNumber      String?  // 사업자등록번호
-  ceoName        String?  // 대표자명
-  phone          String?
-  email          String?
-  address        String?
-  bizType        String?  // 업종
-  clientType     String   @default("individual") // corporate | individual
-  contractStatus String   @default("active")     // active | inactive (deprecated)
-  taxationType   String?                         // 과세 | 면세
-  taxTypes       String?  // 신고유형 (콤마 구분)
-  accountingProgram String @default("위하고") // 위하고 | 세무사랑 | 위하고,세무사랑
-  laborTypes     String?  // 인건비 (콤마 구분)
-  residentNumber String?  // 주민등록번호
-  hometaxId      String?  // 홈택스 ID
-  hometaxPw      String?  // 홈택스 PW
-  monthlyFee     Int?     // 월 기장료
-  freeMonths     Int?     // 무료 기장 개월 수 (0 or 2)
-  firstWithdrawalMonth String? // 최초 출금월 (YYYY-MM)
-  bankName       String?  // 출금 은행
-  bankAccount    String?  // 출금 계좌번호
-  openDate       String?  // 개업년월일 (YYYY-MM-DD)
-  halfYearTax    Boolean  @default(false) // 6개월납 여부
-  affiliation    String?  // 소속 (세이브택스, 그 외)
-  corporateNumber String?  // 법인등록번호
-  contactMethod  String   @default("카톡") // 업무소통방법: 메일,카톡,문자 (콤마 구분)
-  withholdingType     String?  // 원천세 유형: A | B | C | D
-  withholdingDNotified Boolean @default(false) // D유형 최초 안내 발송 여부
-  notes          String?  // 특이사항
-  myboxLink      String?  // 네이버 마이박스 폴더 링크
-  driveFolderId  String?  // 구글 드라이브 거래처 폴더 ID
-  cmsStatus      String   @default("none") // CMS 상태: none, pending, done
-  wehagoCno      String?  // 위하고 거래처번호 (cNum)
-  wehagoCdCom    String?  // 위하고 회사코드 (cd_com)
-  wehagoColors   String?  // 위하고 년도별 색상코드 JSON {"2025":"#92B81E","2026":"#D0BA00"}
-  assignedUserId Int?
-  assignedUser   User?    @relation(fields: [assignedUserId], references: [id])
-  isDeleted      Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  tasks      Task[]
-  memos      Memo[]
-  feeRecords FeeRecord[]
-  commission CommissionProcess?
-  withholdingRecords WithholdingRecord[]
+  id                        Int                        @id @default(autoincrement())
+  name                      String
+  bizNumber                 String?
+  ceoName                   String?
+  phone                     String?
+  email                     String?
+  address                   String?
+  bizType                   String?
+  clientType                String                     @default("individual")
+  contractStatus            String                     @default("active")
+  taxationType              String?
+  taxTypes                  String?
+  laborTypes                String?
+  residentNumber            String?
+  hometaxId                 String?
+  hometaxPw                 String?
+  monthlyFee                Int?
+  firstWithdrawalMonth      String?
+  bankName                  String?
+  bankAccount               String?
+  notes                     String?
+  assignedUserId            Int?
+  isDeleted                 Boolean                    @default(false)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  corporateNumber           String?
+  openDate                  String?
+  halfYearTax               Boolean                    @default(false)
+  affiliation               String?
+  freeMonths                Int?
+  myboxLink                 String?
+  accountingProgram         String                     @default("위하고")
+  cmsStatus                 String                     @default("none")
+  contactMethod             String                     @default("카톡")
+  driveFolderId             String?
+  withholdingDNotified      Boolean                    @default(false)
+  withholdingType           String?
+  wehagoCdCom               String?
+  wehagoCno                 String?
+  wehagoColors              String?
+  assignedUser              User?                      @relation(fields: [assignedUserId], references: [id])
+  commission                CommissionProcess?
+  dataCollections           DataCollection[]
+  feeRecords                FeeRecord[]
+  incomeTaxRecords          IncomeTaxRecord[]
+  memos                     Memo[]
+  tasks                     Task[]
   withholdingLaborOverrides WithholdingLaborOverride[]
-  withholdingProcesses WithholdingProcess[]
-  incomeTaxRecords   IncomeTaxRecord[]
-  dataCollections    DataCollection[]
+  withholdingProcesses      WithholdingProcess[]
+  withholdingRecords        WithholdingRecord[]
 }
 
-// 기장료 수납 기록
 model FeeRecord {
   id        Int      @id @default(autoincrement())
   clientId  Int
-  client    Client   @relation(fields: [clientId], references: [id])
-  yearMonth String   // "YYYY-MM"
-  status    String   @default("unpaid") // "paid" | "unpaid"
+  yearMonth String
+  status    String   @default("unpaid")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  client    Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, yearMonth])
 }
 
-// 업무 / 일정
 model Task {
-  id          Int       @id @default(autoincrement())
-  clientId    Int?
-  client      Client?   @relation(fields: [clientId], references: [id])
-  assignedUserId Int?
-  assignedUser   User?  @relation("assignedTasks", fields: [assignedUserId], references: [id])
-  createdByUserId Int?
-  createdByUser   User? @relation("createdTasks", fields: [createdByUserId], references: [id])
-  title       String
-  taskType    String?   // 부가세 | 원천세 | 종합소득세 | 법인세 | 4대보험 | 결산 | 기타
-  status      String    @default("scheduled") // scheduled | in_progress | done | hold | delayed
-  priority    String    @default("normal")    // high | normal | low
-  dueDate     DateTime?
-  completedAt DateTime?
-  notes       String?
-  sharedWithEmployees Boolean @default(false) // 세무사가 소속 직원에게 공유 여부
-  isDeleted   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  memos Memo[]
+  id                  Int       @id @default(autoincrement())
+  clientId            Int?
+  assignedUserId      Int?
+  title               String
+  taskType            String?
+  status              String    @default("scheduled")
+  priority            String    @default("normal")
+  dueDate             DateTime?
+  completedAt         DateTime?
+  notes               String?
+  isDeleted           Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  createdByUserId     Int?
+  sharedWithEmployees Boolean   @default(false)
+  memos               Memo[]
+  assignedUser        User?     @relation("assignedTasks", fields: [assignedUserId], references: [id])
+  client              Client?   @relation(fields: [clientId], references: [id])
+  createdByUser       User?     @relation("createdTasks", fields: [createdByUserId], references: [id])
 }
 
-// 설정 (사용자별)
 model Settings {
-  id           Int     @id @default(autoincrement())
-  userId       Int     @unique
-  user         User    @relation(fields: [userId], references: [id])
-  agentHometaxId   String? // 세무대리인 홈택스 ID
-  agentHometaxPw   String? // 세무대리인 홈택스 PW
-  certName         String? // 공인인증서 이름
-  certPassword     String? // 공인인증서 비밀번호
-  commissionFormPath String? // 홈택스수임신청서 엑셀 템플릿 경로
-  agentIdCardPath    String? // 세무대리인 신분증 파일 경로
-  cmsExcelPath       String? // CMS 엑셀 파일 경로
-  cmsBulkExcelPath   String? // CMS 일괄등록 엑셀 파일 경로
-  pensionExcelPath   String? // 국민연금 엑셀 파일 경로
-  healthExcelPath    String? // 건강보험 엑셀 파일 경로
-  tiNormalExcelPath  String? // 세금계산서 일반발행 엑셀 경로
-  tiBulkExcelPath    String? // 세금계산서 대량등록발행 엑셀 경로
-  tiSupplierName     String? // 세금계산서 공급자 상호
-  tiSupplierBizNum   String? // 세금계산서 공급자 사업자등록번호
-  tiSupplierCeoName  String? // 세금계산서 공급자 대표자명
-  wehagoId           String? // 위하고 로그인 ID
-  wehagoPw           String? // 위하고 로그인 PW
-  wehagoTaxNum       String? // 위하고 taxNum (세무사 관리번호)
-  agentNumber        String? // 세무대리인 관리번호 (홈택스 법인로그인용)
+  id                 Int     @id @default(autoincrement())
+  agentHometaxId     String?
+  agentHometaxPw     String?
+  certName           String?
+  certPassword       String?
+  commissionFormPath String?
+  agentIdCardPath    String?
+  userId             Int     @unique
+  cmsExcelPath       String?
+  cmsBulkExcelPath   String?
+  healthExcelPath    String?
+  pensionExcelPath   String?
+  tiBulkExcelPath    String?
+  tiNormalExcelPath  String?
+  tiSupplierBizNum   String?
+  tiSupplierName     String?
+  tiSupplierCeoName  String?
+  wehagoId           String?
+  wehagoPw           String?
+  wehagoTaxNum       String?
+  wemembersId        String?
+  wemembersPw        String?
+  agentNumber        String?
+  user               User    @relation(fields: [userId], references: [id])
 }
 
-// 신규수임 프로세스
 model CommissionProcess {
-  id        Int      @id @default(autoincrement())
-  clientId  Int      @unique
-  client    Client   @relation(fields: [clientId], references: [id])
-
-  // 서류 수집
-  hasIdCard             Boolean   @default(false)  // 대표자 신분증
-  hasHometaxCredentials Boolean   @default(false)  // 홈택스 ID/PW
-
-  // 홈택스 수임
-  hometaxCommissionDone Boolean   @default(false)
+  id                    Int         @id @default(autoincrement())
+  clientId              Int         @unique
+  hasIdCard             Boolean     @default(false)
+  hasHometaxCredentials Boolean     @default(false)
+  hometaxCommissionDone Boolean     @default(false)
   hometaxCommissionAt   DateTime?
-
-  // 위하고 생성
-  wihagoType  String?             // "new" | "transfer"
-  wihagoDone  Boolean   @default(false)
-  wihagoAt    DateTime?
-
-  // 4대보험 EDI
-  hasEmployees          Boolean   @default(false)
-  nationalPensionDone   Boolean   @default(false)
+  wihagoType            String?
+  wihagoDone            Boolean     @default(false)
+  wihagoAt              DateTime?
+  hasEmployees          Boolean     @default(false)
+  nationalPensionDone   Boolean     @default(false)
   nationalPensionAt     DateTime?
-  healthInsuranceDone   Boolean   @default(false)
+  healthInsuranceDone   Boolean     @default(false)
   healthInsuranceAt     DateTime?
-
-  idCardPath  String?   // 대표자 신분증 파일 경로
-
-  notes       String?
-  completedAt DateTime?
-
-  // 이관자료 프로세스
-  transferRequested  Boolean   @default(false) // 이관 거래처 여부 (wihagoType=transfer)
-  lastTransferRequestAt DateTime? // 마지막 이관자료 요청일
-  transferReceivedAt DateTime? // 이관자료 수령 완료일
-
-  // 자료수집 프로세스
-  connectedAt        DateTime? // 해피콜 연결 날짜 (D+0 기준)
-  dataRequestCount   Int       @default(0) // 자료 요청 횟수
-  lastDataRequestAt  DateTime? // 마지막 자료 요청일
-
-  // 미루기
-  postponedUntil     DateTime? // 이 날짜까지 오늘의 업무에서 숨김
-  postponeNote       String?   // 미루기 사유
-
-  // 관리제외
-  excludeRequested   Boolean   @default(false) // 관리제외요청 상태
-  excludeRequestedAt DateTime? // 관리제외 요청일
-  excludeConfirmed   Boolean   @default(false) // 관리제외 확정
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  happyCalls HappyCall[]
+  idCardPath            String?
+  notes                 String?
+  completedAt           DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  connectedAt           DateTime?
+  dataRequestCount      Int         @default(0)
+  excludeConfirmed      Boolean     @default(false)
+  excludeRequested      Boolean     @default(false)
+  lastDataRequestAt     DateTime?
+  postponeNote          String?
+  postponedUntil        DateTime?
+  excludeRequestedAt    DateTime?
+  lastTransferRequestAt DateTime?
+  transferReceivedAt    DateTime?
+  transferRequested     Boolean     @default(false)
+  client                Client      @relation(fields: [clientId], references: [id])
+  happyCalls            HappyCall[]
 }
 
-// 해피콜 이력
 model HappyCall {
   id           Int               @id @default(autoincrement())
   commissionId Int
-  commission   CommissionProcess @relation(fields: [commissionId], references: [id])
   attemptNo    Int
-  result       String            // "connected" | "no_answer" | "callback"
+  result       String
   notes        String?
   calledAt     DateTime          @default(now())
+  commission   CommissionProcess @relation(fields: [commissionId], references: [id])
 }
 
-// 원천세 월별 체크
 model WithholdingRecord {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   clientId  Int
-  client    Client    @relation(fields: [clientId], references: [id])
-  yearMonth String    // "2026-03"
-  taskType  String    // 원천세신고, 간이지급명세서_근로, 간이지급명세서_사업, 근로내용확인신고서, 지급명세서_근로, 지급명세서_사업, 지급명세서_일용
-  done      Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  yearMonth String
+  taskType  String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, yearMonth, taskType])
 }
 
-// 원천세 프로세스 (유형별 월간 체크리스트)
 model WithholdingProcess {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   clientId  Int
-  client    Client   @relation(fields: [clientId], references: [id])
-  yearMonth String   // "2026-04"
-  step      String   // 단계: 급여확인요청 | 급여명세서전달 | 원천세신고 | 납부서전달 | 최초안내발송
-  done      Boolean  @default(false)
+  yearMonth String
+  step      String
+  done      Boolean   @default(false)
   doneAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  client    Client    @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, yearMonth, step])
 }
 
-// 원천세 월별 인건비 오버라이드
 model WithholdingLaborOverride {
   id         Int     @id @default(autoincrement())
   clientId   Int
+  yearMonth  String
+  laborTypes String?
+  memo       String?
   client     Client  @relation(fields: [clientId], references: [id])
-  yearMonth  String  // "2026-03"
-  laborTypes String? // 해당 월의 인건비 오버라이드 (콤마 구분, null이면 기본값)
-  memo       String? // 이번달 특이사항
 
   @@unique([clientId, yearMonth])
 }
 
-// 이관자료 확인 기록
 model TransferConfirm {
   id          Int      @id @default(autoincrement())
-  driveFileId String   @unique // 구글 드라이브 폴더/파일 ID
+  driveFileId String   @unique
   fileName    String
   confirmedBy Int?
   confirmedAt DateTime @default(now())
 }
 
-// 종합소득세 연도별 신고
 model IncomeTaxRecord {
-  id        Int      @id @default(autoincrement())
-  clientId  Int
-  client    Client   @relation(fields: [clientId], references: [id])
-  taxYear   String   // "2025" (귀속연도)
-
-  // 기본
-  bookkeepingDuty  String?  // 기장의무 (간편장부, 복식부기 등)
-  filingType       String?  // 신고유형 (D, E, F 등)
-
-  // 준비 체크
-  noticeSent       Boolean  @default(false) // 안내문발송
-  linkPass         Boolean  @default(false) // 링크패스
-  depreciation     Boolean  @default(false) // 감가상각자산
-  interestExpense  Boolean  @default(false) // 이자비용
-  insurance        Boolean  @default(false) // 보험료
-  donation         Boolean  @default(false) // 기부금
-
-  // 가결산
-  preSettlement    Boolean  @default(false) // 가결산
-
-  // 전기
-  prevSales        BigInt?  // 전기매출
-  prevIncome       BigInt?  // 전기종합소득금액
-  prevTax          BigInt?  // 전기결정세액
-
-  // 당기
-  currSales        BigInt?  // 당기매출
-  currIncome       BigInt?  // 당기종합소득금액
-  currTax          BigInt?  // 당기결정세액
-
-  // 감면 체크
-  bookkeepingCredit Boolean @default(false) // 기장세액공제
-  startupReduction  Boolean @default(false) // 창중감
-  smeReduction      Boolean @default(false) // 중특감
-  investCredit      Boolean @default(false) // 통합투자
-  employmentCredit  Boolean @default(false) // 고용증대
-
-  // 완료
-  filingDone       Boolean  @default(false) // 신고완료
-  paymentSent      Boolean  @default(false) // 납부서발송
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  clientId          Int
+  taxYear           String
+  bookkeepingDuty   String?
+  filingType        String?
+  noticeSent        Boolean  @default(false)
+  linkPass          Boolean  @default(false)
+  depreciation      Boolean  @default(false)
+  interestExpense   Boolean  @default(false)
+  insurance         Boolean  @default(false)
+  donation          Boolean  @default(false)
+  preSettlement     Boolean  @default(false)
+  prevSales         BigInt?
+  prevIncome        BigInt?
+  prevTax           BigInt?
+  currSales         BigInt?
+  currIncome        BigInt?
+  currTax           BigInt?
+  bookkeepingCredit Boolean  @default(false)
+  startupReduction  Boolean  @default(false)
+  smeReduction      Boolean  @default(false)
+  investCredit      Boolean  @default(false)
+  employmentCredit  Boolean  @default(false)
+  filingDone        Boolean  @default(false)
+  paymentSent       Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  client            Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, taxYear])
 }
 
-// 자료수집
 model DataCollection {
-  id         Int      @id @default(autoincrement())
-  clientId   Int
-  client     Client   @relation(fields: [clientId], references: [id])
-  docType    String   // 문서 종류
-  taxYear    String   // 귀속연도 "2025"
-  status     String   @default("pending") // pending | collected | error
-  params     String?  // 기간 설정 JSON
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  docType   String
+  taxYear   String
+  status    String   @default("pending")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  params    String?
+  client    Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, docType, taxYear])
 }
 
-// 스케쥴
 model Schedule {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
   title     String
-  date      String   // "2026-03-29"
-  startTime String?  // "09:00"
-  endTime   String?  // "18:00"
-  color     String   @default("blue") // blue, red, green, purple, orange
+  date      String
+  startTime String?
+  endTime   String?
+  color     String   @default("blue")
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 }
 
-// 메모
 model Memo {
   id        Int      @id @default(autoincrement())
   clientId  Int?
-  client    Client?  @relation(fields: [clientId], references: [id])
   taskId    Int?
-  task      Task?    @relation(fields: [taskId], references: [id])
   authorId  Int
-  author    User     @relation(fields: [authorId], references: [id])
-  title     String?
   content   String
-  memoType  String   @default("general") // general | handover | caution
+  memoType  String   @default("general")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  title     String?
+  author    User     @relation(fields: [authorId], references: [id])
+  client    Client?  @relation(fields: [clientId], references: [id])
+  task      Task?    @relation(fields: [taskId], references: [id])
 }
 
-// 세이브택스 배분
 model Distribution {
-  id             Int      @id @default(autoincrement())
-  clientName     String   // 거래처명 ("-"이면 PASS로 건너뜀)
-  clientType     String   // corporate | individual
-  assignedUserId Int      // 배정된 세무사
-  assignedUser   User     @relation("distributions", fields: [assignedUserId], references: [id])
-  batchId        String?  // 세트로 들어온 경우 같은 batchId
-  isSkipped      Boolean  @default(false) // PASS로 건너뛴 자리
-  excludeReason  String?  // 관리제외 사유
-  confirmedAt    DateTime? // 배분 확인 시점 (null이면 미확인)
-  createdAt      DateTime @default(now())
+  id             Int       @id @default(autoincrement())
+  clientName     String
+  clientType     String
+  assignedUserId Int
+  batchId        String?
+  createdAt      DateTime  @default(now())
+  isSkipped      Boolean   @default(false)
+  excludeReason  String?
+  confirmedAt    DateTime?
+  assignedUser   User      @relation("distributions", fields: [assignedUserId], references: [id])
 }
 
-// 배분 PASS 상태
 model DistributionPass {
   id         Int    @id @default(autoincrement())
   userId     Int
-  clientType String // corporate | individual
+  clientType String
   user       User   @relation("distributionPasses", fields: [userId], references: [id])
 
   @@unique([userId, clientType])
 }
 
-// 지식한입
 model Knowledge {
   id        Int      @id @default(autoincrement())
   authorId  Int
+  category  String
+  title     String
+  content   String
+  tags      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  files     String?
   author    User     @relation("knowledges", fields: [authorId], references: [id])
-  category  String   // 4대보험 | 세율 | 기준 | 서식 | 절차 | 기타
-  title     String
-  content   String
-  files     String?  // 첨부파일 경로들 (콤마 구분)
-  tags      String?  // 검색용 태그 (콤마 구분)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
-// 공지사항/템플릿
 model Notice {
-  id        Int      @id @default(autoincrement())
-  authorId  Int
-  author    User     @relation("notices", fields: [authorId], references: [id])
-  category  String   // template | reference
-  subCategory String? // 템플릿: 부가세, 종소세, 원천세, 4대보험, 기타 / 본점자료: 안내문, 링크, 세법
-  title     String
-  content   String
-  isPinned  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  authorId    Int
+  category    String
+  subCategory String?
+  title       String
+  content     String
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  author      User     @relation("notices", fields: [authorId], references: [id])
 }
 
-// 텔레그램 임시메모
 model TempMemo {
   id          Int      @id @default(autoincrement())
-  telegramId  String   // 텔레그램 사용자 ID
-  senderName  String   // 보낸 사람 이름
-  content     String   // 메시지 내용
-  fileUrl     String?  // 사진/파일 URL
-  isProcessed Boolean  @default(false) // 정리 완료 여부
+  telegramId  String
+  senderName  String
+  content     String
+  fileUrl     String?
+  isProcessed Boolean  @default(false)
   createdAt   DateTime @default(now())
 }
 
-// 텔레그램 사용자 매핑
 model TelegramUser {
   id         Int    @id @default(autoincrement())
   telegramId String @unique
@@ -440,71 +383,67 @@ model TelegramUser {
   user       User   @relation(fields: [userId], references: [id])
 }
 
-// Savetax 정산 - 기장
 model SettlementBookkeeping {
-  id              Int      @id @default(autoincrement())
-  clientName      String   // 거래처명
-  ceoName         String?  // 대표자명
-  assignedUserName String? // 담당자명
-  affiliation     String?  // 소속 (도율세무회계, 세무회계세웅 등)
-  monthlyFee      Int      @default(0) // 총기장료
-  headquarterFee  Int      @default(0) // 본점지급액
-  startMonth      String?  // 출금시작월 "2026-04"
-  withdrawn       Boolean  @default(false) // 출금여부 (월별)
-  remitted        Boolean  @default(false) // 송금여부 (월별)
-  tiIssued        Boolean  @default(false) // T/I 발급여부 (월별)
-  notes           String?  // 비고
-  yearMonth       String   // 체크 대상 월 "2026-04"
-  createdByUserId Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  yearMonth        String
+  headquarterFee   Int      @default(0)
+  withdrawn        Boolean  @default(false)
+  remitted         Boolean  @default(false)
+  tiIssued         Boolean  @default(false)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  affiliation      String?
+  assignedUserName String?
+  ceoName          String?
+  clientName       String
+  createdByUserId  Int?
+  monthlyFee       Int      @default(0)
+  startMonth       String?
 }
 
-// Savetax 정산 - 단건
 model SettlementOneoff {
-  id              Int      @id @default(autoincrement())
-  yearMonth       String   // "2026-04"
-  clientName      String   // 거래처명
-  ceoName         String?  // 대표자명
-  assignedUserName String? // 담당자명
-  affiliation     String?  // 소속
-  withdrawalAmount Int     @default(0) // 출금액
-  fee             Int      @default(0) // 수수료
-  withdrawn       Boolean  @default(false) // 출금여부
-  remitted        Boolean  @default(false) // 송금여부
-  tiIssued        Boolean  @default(false) // T/I 발급여부
-  notes           String?  // 비고
-  createdByUserId Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  yearMonth        String
+  clientName       String
+  ceoName          String?
+  assignedUserName String?
+  withdrawalAmount Int      @default(0)
+  fee              Int      @default(0)
+  withdrawn        Boolean  @default(false)
+  remitted         Boolean  @default(false)
+  tiIssued         Boolean  @default(false)
+  notes            String?
+  createdByUserId  Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  affiliation      String?
 }
 
-// Savetax 정산 - 환불
 model SettlementRefund {
-  id              Int      @id @default(autoincrement())
-  yearMonth       String   // "2026-04"
-  clientName      String   // 거래처명
-  ceoName         String?  // 대표자명
-  assignedUserName String? // 담당자명
-  affiliation     String?  // 소속
-  withdrawalAmount Int     @default(0) // 출금액
-  fee             Int      @default(0) // 수수료
-  withdrawn       Boolean  @default(false) // 출금여부
-  remitted        Boolean  @default(false) // 송금여부
-  notes           String?  // 비고
-  createdByUserId Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  yearMonth        String
+  clientName       String
+  ceoName          String?
+  assignedUserName String?
+  affiliation      String?
+  withdrawalAmount Int      @default(0)
+  fee              Int      @default(0)
+  withdrawn        Boolean  @default(false)
+  remitted         Boolean  @default(false)
+  notes            String?
+  createdByUserId  Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
-// 건의사항/오류제보
 model Feedback {
   id        Int      @id @default(autoincrement())
   authorId  Int
-  author    User     @relation("feedbacks", fields: [authorId], references: [id])
-  category  String   // suggestion | bug
-  page      String?  // 해당 탭 (대시보드, 고객사 관리 등)
+  category  String
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  page      String?
+  author    User     @relation("feedbacks", fields: [authorId], references: [id])
 }
