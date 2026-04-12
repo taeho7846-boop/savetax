@@ -619,6 +619,10 @@
       if (creds.certPw) {
         await doCert(creds.certName, creds.certPw);
       }
+
+      // 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
+      await new Promise(r => setTimeout(r, 3000));
+      chrome.runtime.sendMessage({ type: "hometax-reopen" });
     } catch (e) {
       console.error("SaveTax 자동 로그인 실패:", e);
     }
@@ -679,6 +683,11 @@
       // 2. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);
       console.log("SaveTax: corp_login - 로그인 완료");
+
+      // 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
+      // 관리번호 로그인까지 완료될 때까지 대기 후 reopen
+      await new Promise(r => setTimeout(r, 20000));
+      chrome.runtime.sendMessage({ type: "hometax-reopen" });
 
     } catch (e) {
       console.error("SaveTax 법인 로그인 실패:", e);

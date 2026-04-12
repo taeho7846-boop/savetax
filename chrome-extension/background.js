@@ -545,6 +545,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // 홈택스 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
+  if (msg.type === "hometax-reopen") {
+    (async () => {
+      try {
+        // 현재 홈택스 탭 닫기
+        if (sender.tab?.id) {
+          await chrome.tabs.remove(sender.tab.id);
+        }
+        // 새 탭으로 홈택스 열기
+        await chrome.tabs.create({ url: "https://hometax.go.kr" });
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
   // 일용직 pyautogui 저장
   if (msg.type === "save-daily-worker") {
     (async () => {
