@@ -9,7 +9,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
   }
 
-  // 구글드라이브 폴더ID가 있는 거래처만 대상
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
@@ -18,33 +17,44 @@ export async function POST(req: NextRequest) {
     select: { id: true, name: true, driveFolderId: true },
   });
 
-  let created = 0;
-  let skipped = 0;
-  let failed = 0;
-  const errors: string[] = [];
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      function send(data: Record<string, unknown>) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      }
 
-  for (const client of clients) {
-    if (!client.driveFolderId) { skipped++; continue; }
-    try {
-      const wimembersFolderId = await createFolder("5. 위멤버스", client.driveFolderId);
-      await Promise.all([
-        createFolder("근로소득", wimembersFolderId),
-        createFolder("사업소득", wimembersFolderId),
-        createFolder("일용직", wimembersFolderId),
-      ]);
-      created++;
-    } catch (e: any) {
-      failed++;
-      errors.push(`${client.name}: ${e.message}`);
-    }
-  }
+      let created = 0;
+      let failed = 0;
+      const total = clients.length;
 
-  return NextResponse.json({
-    ok: true,
-    total: clients.length,
-    created,
-    skipped,
-    failed,
-    errors: errors.slice(0, 10),
+      for (let i = 0; i < clients.length; i++) {
+        const client = clients[i];
+        if (!client.driveFolderId) continue;
+        try {
+          send({ type: "progress", current: i + 1, total, name: client.name });
+          const wimembersFolderId = await createFolder("5. 위멤버스", client.driveFolderId);
+          await Promise.all([
+            createFolder("근로소득", wimembersFolderId),
+            createFolder("사업소득", wimembersFolderId),
+            createFolder("일용직", wimembersFolderId),
+          ]);
+          created++;
+        } catch (e: any) {
+          failed++;
+        }
+      }
+
+      send({ type: "done", total, created, failed });
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
   });
 }
