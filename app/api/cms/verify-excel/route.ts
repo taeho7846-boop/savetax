@@ -22,27 +22,32 @@ export async function POST(req: NextRequest) {
 
   // 컬럼 자동 탐색
   const keys = Object.keys(rows[0]);
-  const nameKey = keys.find(k => /상호명|거래처명|상호|업체명/.test(k));
+  // 이름: 상호 > 상호명 > 거래처명 > 업체명 > 회원명 (상호가 비어있으면 회원명 fallback)
+  const tradeNameKey = keys.find(k => /^상호$|^상호명$|^거래처명$|^업체명$/.test(k));
+  const memberNameKey = keys.find(k => /^회원명$|^예금주$/.test(k));
   const statusKey = keys.find(k => /상태|등록상태|결과|처리상태/.test(k));
 
-  if (!nameKey) {
+  if (!tradeNameKey && !memberNameKey) {
     return NextResponse.json({
-      error: "엑셀에서 '상호명' 컬럼을 찾을 수 없습니다. 컬럼명을 확인해주세요.",
+      error: "엑셀에서 이름 컬럼을 찾을 수 없습니다. (상호, 회원명, 거래처명 등)",
     }, { status: 400 });
   }
 
   // 엑셀 → Map (거래처명 → 상태)
-  type ExcelEntry = { excelStatus: string; excelStatusType: "success" | "fail" | "paused" | "unknown" };
+  // 상호가 있으면 상호 사용, 없으면 회원명 fallback
+  type ExcelEntry = { excelStatus: string; excelStatusType: "success" | "fail" | "paused" | "unknown"; excelName: string };
   const excelMap = new Map<string, ExcelEntry>();
   for (const r of rows) {
-    const name = String(r[nameKey] || "").trim();
+    const tradeName = tradeNameKey ? String(r[tradeNameKey] || "").trim() : "";
+    const memberName = memberNameKey ? String(r[memberNameKey] || "").trim() : "";
+    const name = tradeName || memberName;
     if (!name) continue;
     const rawStatus = statusKey ? String(r[statusKey] || "").trim() : "";
     let excelStatusType: ExcelEntry["excelStatusType"] = "unknown";
     if (rawStatus.includes("등록성공")) excelStatusType = "success";
     else if (rawStatus.includes("등록실패")) excelStatusType = "fail";
     else if (rawStatus.includes("일시정지")) excelStatusType = "paused";
-    excelMap.set(name, { excelStatus: rawStatus, excelStatusType });
+    excelMap.set(name, { excelStatus: rawStatus, excelStatusType, excelName: name });
   }
 
   // DB에서 내 CMS 탭 거래처 조회 (CMS 탭과 동일 조건)
@@ -96,7 +101,7 @@ export async function POST(req: NextRequest) {
     const excel = excelMap.get(client.name.trim());
     if (excel) {
       const item: MatchedItem = {
-        excelName: client.name,
+        excelName: excel.excelName,
         excelStatus: excel.excelStatus,
         excelStatusType: excel.excelStatusType,
         clientId: client.id,
@@ -126,8 +131,8 @@ export async function POST(req: NextRequest) {
 
   const matched = needsUpdate.length + alreadyDone.length + failed.length + paused.length;
 
-  // 디버그: 컬럼명과 엑셀 샘플
-  const excelSampleNames = [...excelMap.keys()].slice(0, 5);
+  // 디버그
+  const excelSampleNames = [...excelMap.keys()].slice(0, 10);
   const dbSampleNames = dbClients.slice(0, 5).map(c => c.name);
 
   return NextResponse.json({
@@ -139,6 +144,6 @@ export async function POST(req: NextRequest) {
     failed,
     paused,
     notInExcel,
-    debug: { columns: keys, nameKey, statusKey, excelSampleNames, dbSampleNames },
+    debug: { tradeNameKey, memberNameKey, statusKey, totalRows: rows.length, excelMapSize: excelMap.size, excelSampleNames, dbSampleNames },
   });
 }

@@ -334,9 +334,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
           {/* 디버그 정보 (임시) */}
           {(verifyResult as any).debug && (
             <div className="mx-6 mt-2 p-3 bg-gray-100 rounded-lg text-xs text-gray-600">
-              <div><strong>감지된 컬럼:</strong> {(verifyResult as any).debug.columns?.join(", ")}</div>
-              <div><strong>이름 컬럼:</strong> {(verifyResult as any).debug.nameKey || "없음"}</div>
-              <div><strong>상태 컬럼:</strong> {(verifyResult as any).debug.statusKey || "없음"}</div>
+              <div><strong>상호 컬럼:</strong> {(verifyResult as any).debug.tradeNameKey || "없음"} / <strong>회원명 컬럼:</strong> {(verifyResult as any).debug.memberNameKey || "없음"} / <strong>상태 컬럼:</strong> {(verifyResult as any).debug.statusKey || "없음"}</div>
+              <div><strong>엑셀 행수:</strong> {(verifyResult as any).debug.totalRows} → <strong>이름 있는 행:</strong> {(verifyResult as any).debug.excelMapSize}</div>
               <div><strong>엑셀 샘플:</strong> {(verifyResult as any).debug.excelSampleNames?.join(", ")}</div>
               <div><strong>DB 샘플:</strong> {(verifyResult as any).debug.dbSampleNames?.join(", ")}</div>
             </div>
