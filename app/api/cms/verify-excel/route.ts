@@ -45,9 +45,26 @@ export async function POST(req: NextRequest) {
     })
     .filter(r => r.name.length > 0);
 
-  // DB에서 전체 거래처 조회 (CMS 엑셀은 사무실 전체 거래처 포함)
+  // DB에서 내 CMS 탭 거래처만 조회 (CMS 탭과 동일 조건)
+  const isManager = ["accountant", "admin", "owner"].includes(session.role);
+  let assignedFilter: any = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    assignedFilter = { assignedUserId: { in: [session.id, ...employees.map(e => e.id)] } };
+  }
+
   const dbClients = await prisma.client.findMany({
-    where: { isDeleted: false },
+    where: {
+      isDeleted: false,
+      ...assignedFilter,
+      OR: [
+        { taxTypes: null },
+        { NOT: { taxTypes: { contains: "신고대리" } } },
+      ],
+    },
     select: {
       id: true,
       name: true,
