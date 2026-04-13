@@ -17,6 +17,7 @@ import { TransferDocsCard } from "./TransferDocsCard";
 import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard, TransferRequestCard } from "./ProcessCards";
 import type { TransferItem } from "./ProcessCards";
 import { NewDistributionCard } from "./NewDistributionCard";
+import { UnpaidCard } from "./UnpaidCard";
 
 export default async function DashboardPage({
   searchParams,
@@ -132,6 +133,51 @@ export default async function DashboardPage({
         },
       }),
     ]);
+
+  // === 미수납 데이터 ===
+  const unpaidRaw = await prisma.client.findMany({
+    where: {
+      isDeleted: false,
+      ...myClient,
+      monthlyFee: { not: null },
+      firstWithdrawalMonth: { not: null, lte: currentYM },
+      OR: [
+        { taxTypes: null },
+        { NOT: { taxTypes: { contains: "신고대리" } } },
+      ],
+    },
+    select: {
+      id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true,
+      feeRecords: { where: { status: "paid" } },
+    },
+  });
+  // === 미수납 데이터 가공 ===
+  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; unpaidMonths: string[]; totalUnpaid: number }[] = [];
+  for (const c of unpaidRaw) {
+    const paidSet = new Set(c.feeRecords.map((r: any) => r.yearMonth));
+    const unpaidMonths: string[] = [];
+    // firstWithdrawalMonth부터 현재월까지 순회
+    let [y, m] = c.firstWithdrawalMonth!.split("-").map(Number);
+    const [cy, cm] = currentYM.split("-").map(Number);
+    while (y < cy || (y === cy && m <= cm)) {
+      const ym = `${y}-${String(m).padStart(2, "0")}`;
+      if (!paidSet.has(ym)) unpaidMonths.push(ym);
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    if (unpaidMonths.length > 0) {
+      unpaidClients.push({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        monthlyFee: c.monthlyFee!,
+        unpaidMonths,
+        totalUnpaid: unpaidMonths.length * c.monthlyFee!,
+      });
+    }
+  }
+  // 미수납 금액 큰 순으로 정렬
+  unpaidClients.sort((a, b) => b.totalUnpaid - a.totalUnpaid);
 
   // === 프로세스 카드 데이터 가공 ===
   const todayTs = today.getTime(); // 오늘 자정 기준
@@ -348,12 +394,12 @@ export default async function DashboardPage({
           </div>
 
           {/* 프로세스 카드 */}
-          {/* 프로세스 카드 */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <TodayTasksCard items={todayTasks} />
             <HappyCallCard items={happyCallItems} />
             <DataCollectCard items={dataCollectItems} />
             <ExcludeRequestCard items={excludeItems} />
+            <UnpaidCard clients={unpaidClients} />
           </div>
 
           <div className="grid grid-cols-2 gap-6">
