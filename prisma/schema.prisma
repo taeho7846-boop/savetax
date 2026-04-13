@@ -270,6 +270,7 @@ model IncomeTaxRecord {
   employmentCredit  Boolean  @default(false)
   filingDone        Boolean  @default(false)
   paymentSent       Boolean  @default(false)
+  memo              String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   client            Client   @relation(fields: [clientId], references: [id])

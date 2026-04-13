@@ -74,3 +74,28 @@ export async function updateIncomeTaxField(
 
   revalidatePath("/income-tax");
 }
+
+export async function setIncomeTaxMemo(
+  clientId: number,
+  taxYear: string,
+  memo: string
+) {
+  await requireAuth();
+
+  const existing = await prisma.incomeTaxRecord.findUnique({
+    where: { clientId_taxYear: { clientId, taxYear } },
+  });
+
+  if (existing) {
+    await prisma.incomeTaxRecord.update({
+      where: { id: existing.id },
+      data: { memo: memo || null },
+    });
+  } else {
+    await prisma.incomeTaxRecord.create({
+      data: { clientId, taxYear, memo: memo || null },
+    });
+  }
+
+  revalidatePath("/income-tax");
+}

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleIncomeTaxCheck, updateIncomeTaxField } from "@/app/actions/income-tax";
+import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo } from "@/app/actions/income-tax";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -27,6 +27,7 @@ type ITRecord = {
   employmentCredit: boolean;
   filingDone: boolean;
   paymentSent: boolean;
+  memo: string | null;
 };
 
 type Client = {
@@ -45,7 +46,7 @@ function getRecord(client: Client): ITRecord {
     prevSales: null, prevIncome: null, prevTax: null,
     currSales: null, currIncome: null, currTax: null,
     bookkeepingCredit: false, startupReduction: false, smeReduction: false,
-    investCredit: false, employmentCredit: false, filingDone: false, paymentSent: false,
+    investCredit: false, employmentCredit: false, filingDone: false, paymentSent: false, memo: null,
   };
 }
 
@@ -70,6 +71,7 @@ const GROUP_COLORS: Record<string, string> = {
 export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: { clients: Client[]; taxYear: string; showAssignedUser?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
@@ -125,7 +127,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
           <thead className="sticky top-0 z-10">
             {/* 그룹 헤더 */}
             <tr>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-gray-200`} colSpan={3}>기본</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-gray-200`} colSpan={showAssignedUser ? 4 : 3}>기본</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["준비"]} border-b border-blue-200`} colSpan={6}>준비</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-yellow-200`} colSpan={1}>가결산</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-purple-200`} colSpan={3}>전기</th>
@@ -136,6 +138,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
             {/* 세부 헤더 */}
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="px-3 py-2 text-left text-gray-700 font-medium sticky left-0 bg-gray-50 z-20 min-w-[100px]">고객사명</th>
+              <th className="px-2 py-2 text-center text-gray-600 font-medium w-10">메모</th>
               {showAssignedUser && (
                 <th className="px-2 py-2 text-center text-gray-600 font-medium">담당자</th>
               )}
@@ -179,6 +182,17 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
                     <td className="px-3 py-2 text-[#1a2e4a] font-medium sticky left-0 bg-white z-10 border-r border-gray-100">
                       {client.name}
                       <span className="ml-1 text-[10px] text-gray-400">{client.clientType === "corporate" ? "법인" : "개인"}</span>
+                    </td>
+                    {/* 메모 */}
+                    <td className="px-1 py-2 text-center">
+                      {r.memo ? (
+                        <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: r.memo! })}>
+                          <span className="text-amber-500 text-xs">📌</span>
+                          <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#1a2e4a] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{r.memo}</div>
+                        </span>
+                      ) : (
+                        <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-gray-200 hover:text-amber-500 text-xs">+</button>
+                      )}
                     </td>
                     {showAssignedUser && (
                       <td className="px-2 py-2 text-center text-xs text-gray-600">
@@ -242,6 +256,44 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
           </tbody>
         </table>
       </div>
+
+      {/* 메모 모달 */}
+      {memoModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setMemoModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">메모</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{memoModal.clientName}</p>
+              </div>
+              <button onClick={() => setMemoModal(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+            </div>
+            <textarea
+              defaultValue={memoModal.value}
+              placeholder="메모를 입력하세요..."
+              rows={4}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a] resize-none mb-4"
+              id="it-memo-textarea"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              {memoModal.value && (
+                <button onClick={() => { startTransition(() => setIncomeTaxMemo(memoModal.clientId, taxYear, "")); setMemoModal(null); }} className="text-sm text-red-500 hover:text-red-700 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors">삭제</button>
+              )}
+              <button onClick={() => setMemoModal(null)} className="text-sm text-gray-500 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">취소</button>
+              <button
+                onClick={() => {
+                  const val = (document.getElementById("it-memo-textarea") as HTMLTextAreaElement)?.value ?? "";
+                  startTransition(() => setIncomeTaxMemo(memoModal.clientId, taxYear, val));
+                  setMemoModal(null);
+                }}
+                disabled={isPending}
+                className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
+              >저장</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
