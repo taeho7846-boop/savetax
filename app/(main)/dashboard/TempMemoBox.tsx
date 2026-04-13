@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { moveTempMemoToTask, deleteTempMemo } from "@/app/actions/temp-memo";
 
@@ -80,12 +80,7 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">거래처</label>
-                    <select name="clientId" className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
-                      <option value="">거래처 없음</option>
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    <ClientSearch clients={clients} />
                   </div>
                 </div>
                 <div>
@@ -134,6 +129,61 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ClientSearch({ clients }: { clients: Client[] }) {
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  const filtered = query
+    ? clients.filter(c => c.name.includes(query))
+    : clients;
+  const selectedName = selectedId ? clients.find(c => c.id === selectedId)?.name || "" : "";
+
+  return (
+    <div className="relative" ref={ref}>
+      <input type="hidden" name="clientId" value={selectedId ?? ""} />
+      <input
+        type="text"
+        value={selectedId ? selectedName : query}
+        onChange={(e) => { setQuery(e.target.value); setSelectedId(null); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder="거래처 검색..."
+        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 max-h-40 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => { setSelectedId(null); setQuery(""); setOpen(false); }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50"
+          >
+            거래처 없음
+          </button>
+          {filtered.slice(0, 20).map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => { setSelectedId(c.id); setQuery(""); setOpen(false); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50"
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
