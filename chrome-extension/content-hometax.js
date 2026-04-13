@@ -187,7 +187,8 @@
   let nextData = null;
   for (let i = 0; i < 90; i++) {
     await new Promise(r => setTimeout(r, 1000));
-    if (!document.cookie.includes("savetax_login_done")) continue;
+    const loginDone = await chrome.storage.local.get("savetax_login_done");
+    if (!loginDone.savetax_login_done) continue;
     const s = await chrome.storage.local.get("savetax_corp_next");
     if (!s.savetax_corp_next) continue;
     nextData = s.savetax_corp_next;
@@ -195,7 +196,7 @@
   }
   if (!nextData) return;
   await new Promise(r => setTimeout(r, 3000));
-  document.cookie = "savetax_login_done=; path=/; max-age=0";
+  await chrome.storage.local.remove("savetax_login_done");
   chrome.storage.local.remove("savetax_corp_next");
   console.log("SaveTax: [법인] 로그인 완료 확인, 다음 액션 시작");
 
@@ -637,7 +638,6 @@
       if (await checkLogout()) return;
 
       // 이전 시그널 초기화
-      document.cookie = "savetax_login_done=; path=/; max-age=0";
       await chrome.storage.local.remove(["savetax_corp_next", "savetax_login_done", "savetax_corp_agent"]);
 
       // 로그인 후 이어서 할 작업을 chrome.storage에 저장

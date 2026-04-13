@@ -13,6 +13,7 @@ type UnpaidClient = {
   totalUnpaid: number;
   postponedUntil: string | null;
   postponeNote: string | null;
+  cmsStatus: string;
 };
 
 export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
@@ -160,8 +161,11 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800 truncate">{client.name}</div>
-                  <div className="text-[10px] text-red-400 mt-0.5">
+                  <div className="text-[10px] text-red-400 mt-0.5 flex items-center gap-1">
                     {client.unpaidMonths.map(m => `${parseInt(m.split("-")[1])}월`).join(", ")} 미수납
+                    {client.cmsStatus === "none" && (
+                      <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-medium">미등록</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
