@@ -147,14 +147,14 @@ export default async function DashboardPage({
       ],
     },
     select: {
-      id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true,
+      id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true, affiliation: true,
       feeRecords: { where: { status: "paid" } },
       unpaidPostpone: true,
     },
   });
   // === 미수납 데이터 가공 ===
   const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
-  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null }[] = [];
+  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; affiliation: string | null; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null }[] = [];
   for (const c of unpaidRaw) {
     const paidSet = new Set(c.feeRecords.map((r: any) => r.yearMonth));
     const unpaidMonths: string[] = [];
@@ -174,6 +174,7 @@ export default async function DashboardPage({
         name: c.name,
         phone: c.phone,
         monthlyFee: c.monthlyFee!,
+        affiliation: c.affiliation,
         unpaidMonths,
         totalUnpaid: unpaidMonths.length * c.monthlyFee!,
         postponedUntil: isPostponed ? pp.postponedUntil.toISOString() : null,
