@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   for (const r of rows) {
     const tradeName = tradeNameKey ? String(r[tradeNameKey] || "").trim() : "";
     const memberName = memberNameKey ? String(r[memberNameKey] || "").trim() : "";
-    const name = tradeName || memberName;
+    const name = memberName || tradeName;
     if (!name) continue;
     const rawStatus = statusKey ? String(r[statusKey] || "").trim() : "";
     let excelStatusType: ExcelEntry["excelStatusType"] = "unknown";
