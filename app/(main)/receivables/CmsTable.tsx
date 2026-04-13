@@ -28,13 +28,14 @@ type MatchedItem = {
 };
 
 type VerifyResult = {
+  totalClients: number;
   totalExcel: number;
   matched: number;
   needsUpdate: MatchedItem[];
   alreadyDone: MatchedItem[];
   failed: MatchedItem[];
   paused: MatchedItem[];
-  unmatched: { name: string; excelStatus: string }[];
+  notInExcel: { clientId: number; clientName: string; ceoName: string | null; currentStatus: string }[];
 };
 
 type SortCol = "name" | "ceoName" | "monthlyFee" | "cmsStatus";
@@ -304,7 +305,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             <div>
               <h2 className="text-lg font-bold text-gray-900">CMS 등록 검증 결과</h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                엑셀 {verifyResult.totalExcel}건 중 {verifyResult.matched}건 매칭
+                내 거래처 {verifyResult.totalClients}건 중 {verifyResult.matched}건 엑셀 매칭
               </p>
             </div>
             <button onClick={() => setVerifyResult(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
@@ -325,8 +326,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               <div className="text-xs text-red-600 mt-1">등록실패</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-600">{verifyResult.unmatched.length}</div>
-              <div className="text-xs text-gray-600 mt-1">미매칭</div>
+              <div className="text-2xl font-bold text-gray-600">{verifyResult.notInExcel.length}</div>
+              <div className="text-xs text-gray-600 mt-1">엑셀에 없음</div>
             </div>
           </div>
 
@@ -512,27 +513,33 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               </div>
             )}
 
-            {/* 5. 미매칭 */}
-            {verifyResult.unmatched.length > 0 && (
+            {/* 5. 엑셀에 없는 내 거래처 */}
+            {verifyResult.notInExcel.length > 0 && (
               <div className="mt-4">
                 <h3 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-gray-300" />
-                  미매칭 — 시스템에 없는 거래처 ({verifyResult.unmatched.length}건)
+                  엑셀에 없음 — CMS 미등록 추정 ({verifyResult.notInExcel.length}건)
                 </h3>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-700">엑셀 거래처명</th>
-                        <th className="px-3 py-2 text-center text-gray-700">CMS 상태</th>
+                        <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
+                        <th className="px-3 py-2 text-center text-gray-700">대표자</th>
+                        <th className="px-3 py-2 text-center text-gray-700">현재 시스템</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {verifyResult.unmatched.map((item, i) => (
-                        <tr key={i}>
-                          <td className="px-3 py-2 text-gray-600">{item.name}</td>
+                      {verifyResult.notInExcel.map(item => (
+                        <tr key={item.clientId}>
+                          <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
+                          <td className="px-3 py-2 text-center text-gray-600">{item.ceoName || "-"}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className="text-xs text-gray-500">{item.excelStatus || "-"}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              item.currentStatus === "done" ? "bg-green-100 text-green-700"
+                              : item.currentStatus === "pending" ? "bg-amber-100 text-amber-700"
+                              : "bg-gray-100 text-gray-500"
+                            }`}>{statusLabel(item.currentStatus)}</span>
                           </td>
                         </tr>
                       ))}

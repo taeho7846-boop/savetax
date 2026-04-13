@@ -31,21 +31,21 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  // 엑셀 행 파싱 (이름 + CMS 상태)
-  type ExcelRow = { name: string; excelStatus: string; excelStatusType: "success" | "fail" | "paused" | "unknown" };
-  const excelRows: ExcelRow[] = rows
-    .map(r => {
-      const name = String(r[nameKey] || "").trim();
-      const rawStatus = statusKey ? String(r[statusKey] || "").trim() : "";
-      let excelStatusType: ExcelRow["excelStatusType"] = "unknown";
-      if (rawStatus.includes("등록성공")) excelStatusType = "success";
-      else if (rawStatus.includes("등록실패")) excelStatusType = "fail";
-      else if (rawStatus.includes("일시정지")) excelStatusType = "paused";
-      return { name, excelStatus: rawStatus, excelStatusType };
-    })
-    .filter(r => r.name.length > 0);
+  // 엑셀 → Map (거래처명 → 상태)
+  type ExcelEntry = { excelStatus: string; excelStatusType: "success" | "fail" | "paused" | "unknown" };
+  const excelMap = new Map<string, ExcelEntry>();
+  for (const r of rows) {
+    const name = String(r[nameKey] || "").trim();
+    if (!name) continue;
+    const rawStatus = statusKey ? String(r[statusKey] || "").trim() : "";
+    let excelStatusType: ExcelEntry["excelStatusType"] = "unknown";
+    if (rawStatus.includes("등록성공")) excelStatusType = "success";
+    else if (rawStatus.includes("등록실패")) excelStatusType = "fail";
+    else if (rawStatus.includes("일시정지")) excelStatusType = "paused";
+    excelMap.set(name, { excelStatus: rawStatus, excelStatusType });
+  }
 
-  // DB에서 내 CMS 탭 거래처만 조회 (CMS 탭과 동일 조건)
+  // DB에서 내 CMS 탭 거래처 조회 (CMS 탭과 동일 조건)
   const isManager = ["accountant", "admin", "owner"].includes(session.role);
   let assignedFilter: any = { assignedUserId: session.id };
   if (isManager) {
@@ -74,9 +74,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // 매칭 로직: 정확 매칭
-  const dbMap = new Map(dbClients.map(c => [c.name.trim(), c]));
-
+  // 내 거래처 기준으로 엑셀에 있는지 확인
   type MatchedItem = {
     excelName: string;
     excelStatus: string;
@@ -88,48 +86,54 @@ export async function POST(req: NextRequest) {
     monthlyFee: number | null;
   };
 
-  const matched: MatchedItem[] = [];
-  const unmatched: { name: string; excelStatus: string }[] = [];
-  const matchedClientIds = new Set<number>();
+  const needsUpdate: MatchedItem[] = [];
+  const alreadyDone: MatchedItem[] = [];
+  const failed: MatchedItem[] = [];
+  const paused: MatchedItem[] = [];
+  const notInExcel: { clientId: number; clientName: string; ceoName: string | null; currentStatus: string }[] = [];
 
-  for (const row of excelRows) {
-    const client = dbMap.get(row.name);
-    if (client) {
-      if (!matchedClientIds.has(client.id)) {
-        matched.push({
-          excelName: row.name,
-          excelStatus: row.excelStatus,
-          excelStatusType: row.excelStatusType,
-          clientId: client.id,
-          clientName: client.name,
-          ceoName: client.ceoName,
-          currentStatus: client.cmsStatus,
-          monthlyFee: client.monthlyFee,
-        });
-        matchedClientIds.add(client.id);
+  for (const client of dbClients) {
+    const excel = excelMap.get(client.name.trim());
+    if (excel) {
+      const item: MatchedItem = {
+        excelName: client.name,
+        excelStatus: excel.excelStatus,
+        excelStatusType: excel.excelStatusType,
+        clientId: client.id,
+        clientName: client.name,
+        ceoName: client.ceoName,
+        currentStatus: client.cmsStatus,
+        monthlyFee: client.monthlyFee,
+      };
+      if (excel.excelStatusType === "success" && client.cmsStatus !== "done") {
+        needsUpdate.push(item);
+      } else if (excel.excelStatusType === "success" && client.cmsStatus === "done") {
+        alreadyDone.push(item);
+      } else if (excel.excelStatusType === "fail") {
+        failed.push(item);
+      } else if (excel.excelStatusType === "paused") {
+        paused.push(item);
       }
     } else {
-      unmatched.push({ name: row.name, excelStatus: row.excelStatus });
+      notInExcel.push({
+        clientId: client.id,
+        clientName: client.name,
+        ceoName: client.ceoName,
+        currentStatus: client.cmsStatus,
+      });
     }
   }
 
-  // 분류
-  // 1) CMS 등록성공인데 우리 시스템에서 done이 아닌 것 → 변경 필요
-  const needsUpdate = matched.filter(m => m.excelStatusType === "success" && m.currentStatus !== "done");
-  // 2) CMS 등록성공이고 이미 done → 일치
-  const alreadyDone = matched.filter(m => m.excelStatusType === "success" && m.currentStatus === "done");
-  // 3) CMS 등록실패 → 확인 필요
-  const failed = matched.filter(m => m.excelStatusType === "fail");
-  // 4) 일시정지
-  const paused = matched.filter(m => m.excelStatusType === "paused");
+  const matched = needsUpdate.length + alreadyDone.length + failed.length + paused.length;
 
   return NextResponse.json({
-    totalExcel: excelRows.length,
-    matched: matched.length,
+    totalClients: dbClients.length,
+    totalExcel: excelMap.size,
+    matched,
     needsUpdate,
     alreadyDone,
     failed,
     paused,
-    unmatched,
+    notInExcel,
   });
 }
