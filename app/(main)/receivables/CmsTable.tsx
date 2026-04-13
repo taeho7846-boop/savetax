@@ -695,10 +695,21 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               </td>
             </tr>
           ) : (
-            rows.map((client) => (
+            rows.map((client) => {
+              // 최초출금월이 현재월 이하인데 미등록이면 경고
+              const now = new Date();
+              const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+              const isOverdue = client.cmsStatus === "none" && client.firstWithdrawalMonth && client.firstWithdrawalMonth <= currentYM;
+              return (
               <tr
                 key={client.id}
-                className={`hover:bg-blue-50/50 transition-colors ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}
+                className={`transition-colors ${
+                  isOverdue
+                    ? "bg-orange-50 hover:bg-orange-100"
+                    : checkedIds.has(client.id)
+                    ? "bg-blue-50/50 hover:bg-blue-50"
+                    : "hover:bg-blue-50/50"
+                }`}
               >
                 <td className="px-3 py-3">
                   <input
@@ -744,7 +755,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                   </button>
                 </td>
               </tr>
-            ))
+              );
+            })
           )}
         </tbody>
       </table>
