@@ -331,6 +331,17 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             </div>
           </div>
 
+          {/* 디버그 정보 (임시) */}
+          {(verifyResult as any).debug && (
+            <div className="mx-6 mt-2 p-3 bg-gray-100 rounded-lg text-xs text-gray-600">
+              <div><strong>감지된 컬럼:</strong> {(verifyResult as any).debug.columns?.join(", ")}</div>
+              <div><strong>이름 컬럼:</strong> {(verifyResult as any).debug.nameKey || "없음"}</div>
+              <div><strong>상태 컬럼:</strong> {(verifyResult as any).debug.statusKey || "없음"}</div>
+              <div><strong>엑셀 샘플:</strong> {(verifyResult as any).debug.excelSampleNames?.join(", ")}</div>
+              <div><strong>DB 샘플:</strong> {(verifyResult as any).debug.dbSampleNames?.join(", ")}</div>
+            </div>
+          )}
+
           {/* 상세 목록 */}
           <div className="flex-1 overflow-y-auto px-6 pb-6">
             {/* 1. 변경 필요 (등록성공인데 우리 시스템에서 미등록/등록요청중) */}

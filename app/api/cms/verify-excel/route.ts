@@ -126,6 +126,10 @@ export async function POST(req: NextRequest) {
 
   const matched = needsUpdate.length + alreadyDone.length + failed.length + paused.length;
 
+  // 디버그: 컬럼명과 엑셀 샘플
+  const excelSampleNames = [...excelMap.keys()].slice(0, 5);
+  const dbSampleNames = dbClients.slice(0, 5).map(c => c.name);
+
   return NextResponse.json({
     totalClients: dbClients.length,
     totalExcel: excelMap.size,
@@ -135,5 +139,6 @@ export async function POST(req: NextRequest) {
     failed,
     paused,
     notInExcel,
+    debug: { columns: keys, nameKey, statusKey, excelSampleNames, dbSampleNames },
   });
 }
