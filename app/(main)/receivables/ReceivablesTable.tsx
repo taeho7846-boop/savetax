@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import React, { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toggleFeeRecord } from "@/app/actions/feeRecords";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
@@ -10,6 +10,7 @@ interface ClientRow {
   name: string;
   monthlyFee: number | null;
   firstWithdrawalMonth: string | null;
+  affiliation: string | null;
   yearRecords: Record<string, string>;
   cumulativeUnpaid: number;
 }
@@ -82,6 +83,12 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
   const [paidIds, setPaidIds] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 소속 필터
+  const [affFilter, setAffFilter] = useState<string[]>([]);
+  const [affFilterOpen, setAffFilterOpen] = useState(false);
+  const affFilterRef = useRef<HTMLDivElement>(null);
+  const affOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
+
   async function handleVerifyUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -113,20 +120,14 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
     router.refresh();
   }
 
-  async function handleBulkMarkPaid() {
-    if (!verifyResult) return;
-    const ids = verifyResult.success
-      .filter(s => !s.currentPaid && !paidIds.has(s.clientId))
-      .map(s => s.clientId);
-    if (ids.length === 0) return;
-    await fetch("/api/receivables/bulk-paid", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientIds: ids, yearMonth: verifyResult.targetMonth }),
-    });
-    setPaidIds(prev => { const n = new Set(prev); ids.forEach(id => n.add(id)); return n; });
-    router.refresh();
-  }
+  // 소속 필터 외부 클릭 닫기
+  React.useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) setAffFilterOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
 
   function toggle(clientId: number, yearMonth: string) {
     startTransition(() => toggleFeeRecord(clientId, yearMonth));
@@ -141,7 +142,8 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
     }
   }
 
-  const sorted = [...clients].sort((a, b) => {
+  const filtered = affFilter.length > 0 ? clients.filter(c => affFilter.includes(c.affiliation || "")) : clients;
+  const sorted = [...filtered].sort((a, b) => {
     if (!sortCol) return 0;
     let diff = 0;
     if (sortCol === "unpaid") {
@@ -212,20 +214,10 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               {/* 출금 성공 */}
               {verifyResult.success.length > 0 && (
                 <div className="mt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-green-700 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500" />
-                      출금 성공
-                    </h3>
-                    {verifyResult.success.some(s => !s.currentPaid && !paidIds.has(s.clientId)) && (
-                      <button
-                        onClick={handleBulkMarkPaid}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700"
-                      >
-                        미수납 전체 수납처리
-                      </button>
-                    )}
-                  </div>
+                  <h3 className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    출금 성공
+                  </h3>
                   <div className="border border-green-200 rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-green-50">
@@ -363,6 +355,43 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               <th className="sticky left-0 z-10 bg-gray-50 text-left px-4 py-3 text-gray-700 font-medium min-w-[140px]">
                 고객사명
               </th>
+              {/* 소속 필터 */}
+              <th className="text-center px-3 py-3 text-gray-700 font-medium min-w-[70px] whitespace-nowrap">
+                <div className="relative inline-block" ref={affFilterRef}>
+                  <button
+                    onClick={() => setAffFilterOpen(o => !o)}
+                    className={`flex items-center gap-1 mx-auto hover:text-[#1a2e4a] ${affFilter.length > 0 ? "text-[#1a2e4a] font-semibold" : ""}`}
+                  >
+                    소속
+                    {affFilter.length > 0 && (
+                      <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{affFilter.length}</span>
+                    )}
+                    <span className="text-gray-400 text-[10px]">▼</span>
+                  </button>
+                  {affFilterOpen && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[120px]">
+                      {affOptions.length === 0 ? (
+                        <p className="text-xs text-gray-400 px-2 py-1">데이터 없음</p>
+                      ) : (
+                        affOptions.map(aff => (
+                          <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-700 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={affFilter.includes(aff)}
+                              onChange={() => setAffFilter(prev => prev.includes(aff) ? prev.filter(v => v !== aff) : [...prev, aff])}
+                              className="accent-[#1a2e4a]"
+                            />
+                            {aff}
+                          </label>
+                        ))
+                      )}
+                      {affFilter.length > 0 && (
+                        <button onClick={() => setAffFilter([])} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1 pt-1 border-t border-gray-100">초기화</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </th>
               <th className="text-right px-4 py-3 text-gray-700 font-medium min-w-[100px] whitespace-nowrap">
                 월 기장료
               </th>
@@ -391,7 +420,7 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
           <tbody className="divide-y divide-gray-100">
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={months.length + 3} className="text-center py-12 text-gray-400">
+                <td colSpan={months.length + 4} className="text-center py-12 text-gray-400">
                   최초 출금월과 기장료가 등록된 고객사가 없습니다
                 </td>
               </tr>
@@ -408,6 +437,10 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                   </button>
                 </td>
 
+                {/* 소속 */}
+                <td className="px-3 py-3 text-center text-xs text-gray-600 whitespace-nowrap">
+                  {client.affiliation || <span className="text-gray-300">-</span>}
+                </td>
                 {/* 월 기장료 */}
                 <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
                   {client.monthlyFee ? fmtWon(client.monthlyFee) : "-"}

@@ -99,6 +99,7 @@ export default async function ReceivablesPage({
       name: c.name,
       monthlyFee: c.monthlyFee,
       firstWithdrawalMonth: c.firstWithdrawalMonth,
+      affiliation: c.affiliation,
       yearRecords,
       cumulativeUnpaid: unpaid,
     };
