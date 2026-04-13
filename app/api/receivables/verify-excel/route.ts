@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
   const keys = Object.keys(rows[0]);
   const nameKey = keys.find(k => /^회원명$/.test(k))
     || keys.find(k => /상호명|거래처명|상호|업체명/.test(k));
-  // Q열: 출금결과 관련 컬럼
-  const resultKey = keys.find(k => /출금결과|출금상태|결과|수납결과|수납상태/.test(k));
+  // Q열: 출금결과 관련 컬럼 (설명, 출금정상, 출금결과 등)
+  const resultKey = keys.find(k => /^설명$|출금결과|출금상태|출금정상|결과|수납결과|수납상태/.test(k));
   const amountKey = keys.find(k => /출금액|수납액|금액/.test(k));
 
   if (!nameKey) {
@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
     const name = String(r[nameKey] || "").trim();
     if (!name) continue;
     const result = resultKey ? String(r[resultKey] || "").trim() : "";
-    // 출금 성공 판단: "출금", "성공", "정상" 등 포함 & "실패", "오류", "불능" 미포함
-    const isSuccess = !result.includes("실패") && !result.includes("오류") && !result.includes("불능") && result.length > 0;
+    // 출금 성공: "출금정상" 또는 "정상" 포함 → 성공, "실패" 포함 → 실패
+    const isSuccess = result.includes("정상");
     const rawAmount = amountKey ? r[amountKey] : 0;
     const amount = typeof rawAmount === "number" ? rawAmount : parseInt(String(rawAmount).replace(/[^0-9]/g, "")) || 0;
     excelEntries.push({ name, result, isSuccess, amount });
@@ -154,6 +154,6 @@ export async function POST(req: NextRequest) {
     success,
     failed,
     notInExcel,
-    detectedColumns: { nameKey, resultKey, amountKey },
+    debug: { nameKey, resultKey, amountKey, allColumns: keys, sampleResults: excelEntries.slice(0, 3).map(e => ({ name: e.name, result: e.result, isSuccess: e.isSuccess })) },
   });
 }
