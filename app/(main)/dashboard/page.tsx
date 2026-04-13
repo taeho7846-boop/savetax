@@ -149,14 +149,15 @@ export default async function DashboardPage({
     select: {
       id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true,
       feeRecords: { where: { status: "paid" } },
+      unpaidPostpone: true,
     },
   });
   // === 미수납 데이터 가공 ===
-  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; unpaidMonths: string[]; totalUnpaid: number }[] = [];
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null }[] = [];
   for (const c of unpaidRaw) {
     const paidSet = new Set(c.feeRecords.map((r: any) => r.yearMonth));
     const unpaidMonths: string[] = [];
-    // firstWithdrawalMonth부터 현재월까지 순회
     let [y, m] = c.firstWithdrawalMonth!.split("-").map(Number);
     const [cy, cm] = currentYM.split("-").map(Number);
     while (y < cy || (y === cy && m <= cm)) {
@@ -166,6 +167,8 @@ export default async function DashboardPage({
       if (m > 12) { m = 1; y++; }
     }
     if (unpaidMonths.length > 0) {
+      const pp = (c as any).unpaidPostpone;
+      const isPostponed = pp?.postponedUntil && new Date(pp.postponedUntil) > todayMidnight;
       unpaidClients.push({
         id: c.id,
         name: c.name,
@@ -173,10 +176,11 @@ export default async function DashboardPage({
         monthlyFee: c.monthlyFee!,
         unpaidMonths,
         totalUnpaid: unpaidMonths.length * c.monthlyFee!,
+        postponedUntil: isPostponed ? pp.postponedUntil.toISOString() : null,
+        postponeNote: isPostponed ? pp.note : null,
       });
     }
   }
-  // 미수납 금액 큰 순으로 정렬
   unpaidClients.sort((a, b) => b.totalUnpaid - a.totalUnpaid);
 
   // === 프로세스 카드 데이터 가공 ===

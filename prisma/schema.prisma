@@ -90,6 +90,7 @@ model Client {
   withholdingLaborOverrides WithholdingLaborOverride[]
   withholdingProcesses      WithholdingProcess[]
   withholdingRecords        WithholdingRecord[]
+  unpaidPostpone            UnpaidPostpone?
 }
 
 model FeeRecord {
@@ -439,6 +440,15 @@ model SettlementRefund {
   createdByUserId  Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model UnpaidPostpone {
+  id             Int      @id @default(autoincrement())
+  clientId       Int      @unique
+  postponedUntil DateTime
+  note           String?
+  createdAt      DateTime @default(now())
+  client         Client   @relation(fields: [clientId], references: [id])
 }
 
 model Feedback {
