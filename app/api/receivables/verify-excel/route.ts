@@ -26,8 +26,20 @@ export async function POST(req: NextRequest) {
   const keys = Object.keys(rows[0]);
   const nameKey = keys.find(k => /^회원명$/.test(k))
     || keys.find(k => /상호명|거래처명|상호|업체명/.test(k));
-  // Q열: 출금결과 관련 컬럼 (설명, 출금정상, 출금결과 등)
-  const resultKey = keys.find(k => /^설명$|출금결과|출금상태|출금정상|결과|수납결과|수납상태/.test(k));
+  // Q열: 출금결과 컬럼 — "출금성공 [자동출금]", "정산완료" 등이 들어있는 컬럼 자동 탐색
+  // 먼저 이름으로 찾고, 못 찾으면 값에 "출금성공" 또는 "정산완료"가 있는 컬럼 탐색
+  let resultKey = keys.find(k => /^상태$|설명|출금결과|출금상태|결과|수납결과|수납상태|비고/.test(k));
+  if (!resultKey) {
+    // 값 기반 탐색: 첫 10행에서 "출금성공" 또는 "정산완료" 텍스트가 있는 컬럼 찾기
+    const sampleRows = rows.slice(0, 10);
+    for (const key of keys) {
+      const hasKeyword = sampleRows.some(r => {
+        const v = String(r[key] || "");
+        return v.includes("출금성공") || v.includes("정산완료") || v.includes("출금실패");
+      });
+      if (hasKeyword) { resultKey = key; break; }
+    }
+  }
   const amountKey = keys.find(k => /출금액|수납액|금액/.test(k));
 
   if (!nameKey) {
@@ -46,8 +58,8 @@ export async function POST(req: NextRequest) {
     const name = String(r[nameKey] || "").trim();
     if (!name) continue;
     const result = resultKey ? String(r[resultKey] || "").trim() : "";
-    // 출금 성공: "출금정상" 또는 "정상" 포함 → 성공, "실패" 포함 → 실패
-    const isSuccess = result.includes("정상");
+    // 출금 성공: "출금성공" 또는 "정산완료" 포함 → 성공, 나머지 → 실패
+    const isSuccess = result.includes("출금성공") || result.includes("정산완료");
     const rawAmount = amountKey ? r[amountKey] : 0;
     const amount = typeof rawAmount === "number" ? rawAmount : parseInt(String(rawAmount).replace(/[^0-9]/g, "")) || 0;
     excelEntries.push({ name, result, isSuccess, amount });
