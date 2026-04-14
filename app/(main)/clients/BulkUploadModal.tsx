@@ -35,9 +35,13 @@ export function BulkUpdateButton() {
   );
 }
 
+type WithdrawalChange = { clientId: number; clientName: string; bizNumber: string; currentValue: string | null; newValue: string };
+
 function BulkUpdateModal({ onClose }: { onClose: () => void }) {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{ updated: number; skipped: number; errors: string[]; message: string } | null>(null);
+  const [withdrawalPreview, setWithdrawalPreview] = useState<WithdrawalChange[] | null>(null);
+  const [applyingWithdrawal, setApplyingWithdrawal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -47,21 +51,29 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
 
     setUploading(true);
     setResult(null);
+    setWithdrawalPreview(null);
 
     const fd = new FormData();
     fd.append("file", file);
 
     try {
-      const res = await fetch("/api/clients/bulk-update", {
-        method: "POST",
-        body: fd,
-      });
+      // 1) 기존 일괄수정 (빈칸 채우기)
+      const res = await fetch("/api/clients/bulk-update", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
         setResult(data);
         router.refresh();
       } else {
         setResult({ updated: 0, skipped: 0, errors: [data.error], message: data.error });
+      }
+
+      // 2) 최초출금월 미리보기 (덮어쓰기 대상)
+      const fd2 = new FormData();
+      fd2.append("file", file);
+      const res2 = await fetch("/api/clients/bulk-update-preview", { method: "POST", body: fd2 });
+      const data2 = await res2.json();
+      if (res2.ok && data2.changes?.length > 0) {
+        setWithdrawalPreview(data2.changes);
       }
     } catch {
       setResult({ updated: 0, skipped: 0, errors: ["네트워크 오류"], message: "네트워크 오류" });
@@ -70,9 +82,31 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function handleApplyWithdrawal() {
+    if (!withdrawalPreview) return;
+    if (!confirm(`${withdrawalPreview.length}건의 최초출금월을 덮어쓰시겠습니까?`)) return;
+    setApplyingWithdrawal(true);
+    try {
+      const res = await fetch("/api/clients/bulk-update-preview", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ changes: withdrawalPreview.map(c => ({ clientId: c.clientId, newValue: c.newValue })) }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`${data.updated}건 최초출금월 업데이트 완료`);
+        setWithdrawalPreview(null);
+        router.refresh();
+      } else {
+        alert(data.error || "오류 발생");
+      }
+    } catch { alert("네트워크 오류"); }
+    finally { setApplyingWithdrawal(false); }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900">거래처 일괄수정</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
@@ -90,7 +124,7 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
           </div>
           <p className="text-xs text-gray-500 mb-3">
             사업자등록번호로 기존 거래처를 매칭하여 비어있는 항목만 채웁니다.<br />
-            헤더 순서는 상관없으며, 매칭되지 않는 거래처는 무시됩니다.
+            최초출금월은 미리보기 후 덮어쓰기 가능합니다.
           </p>
           <input
             ref={fileRef}
@@ -116,6 +150,44 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
                 ))}
               </ul>
             )}
+          </div>
+        )}
+
+        {/* 최초출금월 덮어쓰기 미리보기 */}
+        {withdrawalPreview && withdrawalPreview.length > 0 && (
+          <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-bold text-orange-800">최초출금월 변경 미리보기 ({withdrawalPreview.length}건)</div>
+              <button
+                onClick={handleApplyWithdrawal}
+                disabled={applyingWithdrawal}
+                className="text-xs px-3 py-1.5 rounded-lg bg-orange-500 text-white font-bold hover:bg-orange-600 disabled:opacity-50"
+              >
+                {applyingWithdrawal ? "적용 중..." : "일괄 덮어쓰기"}
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-orange-700">
+                    <th className="text-left py-1">거래처명</th>
+                    <th className="text-left py-1">현재값</th>
+                    <th className="text-center py-1"></th>
+                    <th className="text-left py-1">변경값</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {withdrawalPreview.map(c => (
+                    <tr key={c.clientId} className="border-t border-orange-200">
+                      <td className="py-1 text-gray-800">{c.clientName}</td>
+                      <td className="py-1 text-gray-500">{c.currentValue || "(없음)"}</td>
+                      <td className="py-1 text-center text-orange-500">→</td>
+                      <td className="py-1 font-medium text-orange-800">{c.newValue}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
