@@ -252,12 +252,25 @@ export async function POST(req: NextRequest) {
         } else if (field === "contactMethod") {
           if (val) updateData[field] = val;
         } else if (field === "firstWithdrawalMonth") {
-          // YYYY-MM 형식으로 변환 (2026-04-01 → 2026-04, 2026-04 → 2026-04)
-          const ym = val.match(/(\d{4})[.\-/](\d{1,2})/);
-          if (ym) {
-            const converted = `${ym[1]}-${ym[2].padStart(2, "0")}`;
-            if (!existingVal) updateData[field] = converted;
+          // YYYY-MM 형식으로 변환
+          let converted: string | null = null;
+          // 1) 엑셀 시리얼 번호 (46112 등)
+          const num = Number(val);
+          if (!isNaN(num) && num > 30000 && num < 60000) {
+            const d = new Date((num - 25569) * 86400000);
+            converted = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
           }
+          // 2) YYYY-MM-DD 또는 YYYY-MM
+          if (!converted) {
+            const ym = val.match(/(\d{4})[.\-/](\d{1,2})/);
+            if (ym) converted = `${ym[1]}-${ym[2].padStart(2, "0")}`;
+          }
+          // 3) YYYYMM (6자리)
+          if (!converted) {
+            const digits = val.replace(/[^0-9]/g, "");
+            if (digits.length === 6) converted = `${digits.slice(0, 4)}-${digits.slice(4, 6)}`;
+          }
+          if (converted && !existingVal) updateData[field] = converted;
         } else if (field === "withholdingType") {
           if (["A", "B", "C", "D"].includes(val.toUpperCase())) updateData[field] = val.toUpperCase();
         } else if (field === "cmsStatus") {
