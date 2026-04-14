@@ -251,6 +251,13 @@ export async function POST(req: NextRequest) {
           if (val) updateData[field] = val;
         } else if (field === "contactMethod") {
           if (val) updateData[field] = val;
+        } else if (field === "firstWithdrawalMonth") {
+          // YYYY-MM 형식으로 변환 (2026-04-01 → 2026-04, 2026-04 → 2026-04)
+          const ym = val.match(/(\d{4})[.\-/](\d{1,2})/);
+          if (ym) {
+            const converted = `${ym[1]}-${ym[2].padStart(2, "0")}`;
+            if (!existingVal) updateData[field] = converted;
+          }
         } else if (field === "withholdingType") {
           if (["A", "B", "C", "D"].includes(val.toUpperCase())) updateData[field] = val.toUpperCase();
         } else if (field === "cmsStatus") {
