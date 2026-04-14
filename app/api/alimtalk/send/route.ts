@@ -12,28 +12,33 @@ export async function POST(req: NextRequest) {
   // 로그인된 세무사의 설정에서 템플릿 ID 조회
   const settings = await prisma.settings.findUnique({
     where: { userId: session.id },
-    select: { alimtalkHappyCall: true, alimtalkDocRemind: true, alimtalkFeeRemind: true },
+    select: { alimtalkHappyCallIndiv: true, alimtalkHappyCallCorp: true, alimtalkDocRemind: true, alimtalkFeeRemind: true },
   });
 
-  const templateMap: Record<string, string | null | undefined> = {
-    happy_call: settings?.alimtalkHappyCall,
-    doc_remind: settings?.alimtalkDocRemind,
-    fee_remind: settings?.alimtalkFeeRemind,
-  };
-
-  const templateId = templateMap[type];
-  if (!templateId) {
-    return NextResponse.json({ error: "설정에서 알림톡 템플릿 ID를 먼저 등록해주세요" }, { status: 400 });
-  }
-
-  // 거래처 정보 조회
+  // 거래처 정보 조회 (clientType 포함)
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { name: true, phone: true, ceoName: true, monthlyFee: true },
+    select: { name: true, phone: true, ceoName: true, monthlyFee: true, clientType: true },
   });
 
   if (!client) return NextResponse.json({ error: "거래처를 찾을 수 없습니다" }, { status: 404 });
   if (!client.phone) return NextResponse.json({ error: "거래처 전화번호가 없습니다" }, { status: 400 });
+
+  // 해피콜은 개인/법인 구분
+  let templateId: string | null | undefined;
+  if (type === "happy_call") {
+    templateId = client.clientType === "corporate"
+      ? settings?.alimtalkHappyCallCorp
+      : settings?.alimtalkHappyCallIndiv;
+  } else if (type === "doc_remind") {
+    templateId = settings?.alimtalkDocRemind;
+  } else if (type === "fee_remind") {
+    templateId = settings?.alimtalkFeeRemind;
+  }
+
+  if (!templateId) {
+    return NextResponse.json({ error: "설정에서 알림톡 템플릿 ID를 먼저 등록해주세요" }, { status: 400 });
+  }
 
   try {
     const result = await sendAlimtalk({

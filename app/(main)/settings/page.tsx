@@ -166,12 +166,22 @@ export default async function SettingsPage() {
           <p className="text-[11px] text-gray-400 mb-3">솔라피에서 검수 완료된 템플릿 코드를 입력하세요</p>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1.5">해피콜 안내 (대시보드 해피콜 카드)</label>
+              <label className="block text-xs text-gray-500 mb-1.5">해피콜 안내 - 개인 (대시보드 해피콜 카드)</label>
               <input
-                name="alimtalkHappyCall"
+                name="alimtalkHappyCallIndiv"
                 type="text"
-                defaultValue={settings?.alimtalkHappyCall ?? ""}
+                defaultValue={settings?.alimtalkHappyCallIndiv ?? ""}
                 placeholder="예: iGxr27VOnP"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">해피콜 안내 - 법인 (대시보드 해피콜 카드)</label>
+              <input
+                name="alimtalkHappyCallCorp"
+                type="text"
+                defaultValue={settings?.alimtalkHappyCallCorp ?? ""}
+                placeholder="예: aBcD12345"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
               />
             </div>
