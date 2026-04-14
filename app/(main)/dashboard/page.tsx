@@ -202,8 +202,8 @@ export default async function DashboardPage({
     return until.getTime() > todayTs;
   }
 
-  const happyCallItems: { commissionId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
-  const dataCollectItems: { commissionId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
+  const happyCallItems: { commissionId: number; clientId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
+  const dataCollectItems: { commissionId: number; clientId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
   const todayTasks: { type: "happycall" | "datacollect" | "transfer"; commissionId: number; clientName: string; label: string }[] = [];
   const excludeItems: { commissionId: number; clientName: string; reason: string; daysElapsed: number; requestDays: number }[] = [];
   const postponedItems: { commissionId: number; clientName: string; until: string; note: string; type: string }[] = [];
@@ -260,7 +260,7 @@ export default async function DashboardPage({
         if (!cp.hasIdCard) missingDocs.push("신분증");
         if (!cp.hasHometaxCredentials) missingDocs.push("홈택스 ID/PW");
         dataCollectItems.push({
-          commissionId: cp.id, clientName, connectedAt: cp.connectedAt.toISOString(),
+          commissionId: cp.id, clientId: cp.clientId, clientName, connectedAt: cp.connectedAt.toISOString(),
           daysFromConnect: dfc, requestCount: cp.dataRequestCount,
           lastRequestAt: cp.lastDataRequestAt?.toISOString() || null,
           daysSinceRequest: cp.lastDataRequestAt ? daysDiff(new Date(cp.lastDataRequestAt)) : null,
@@ -279,7 +279,7 @@ export default async function DashboardPage({
       const daysSinceReq = cp.lastDataRequestAt ? daysDiff(new Date(cp.lastDataRequestAt)) : null;
 
       dataCollectItems.push({
-        commissionId: cp.id, clientName, connectedAt: cp.connectedAt.toISOString(),
+        commissionId: cp.id, clientId: cp.clientId, clientName, connectedAt: cp.connectedAt.toISOString(),
         daysFromConnect: dfc, requestCount: cp.dataRequestCount,
         lastRequestAt: cp.lastDataRequestAt?.toISOString() || null,
         daysSinceRequest: daysSinceReq, missingDocs,
@@ -306,7 +306,7 @@ export default async function DashboardPage({
       const daysElapsed = daysDiff(baseDate);
 
       happyCallItems.push({
-        commissionId: cp.id, clientName,
+        commissionId: cp.id, clientId: cp.clientId, clientName,
         noAnswerCount: noAnswerCalls.length,
         lastCallAt: baseDate.toISOString(),
         daysElapsed,

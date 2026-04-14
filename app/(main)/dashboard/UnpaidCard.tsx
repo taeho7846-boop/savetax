@@ -19,6 +19,23 @@ type UnpaidClient = {
 export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
+  const [sendingId, setSendingId] = useState<number | null>(null);
+
+  async function handleAlimtalk(clientId: number, clientName: string) {
+    if (!confirm(`"${clientName}"에게 카카오톡 독촉을 발송하시겠습니까?`)) return;
+    setSendingId(clientId);
+    try {
+      const res = await fetch("/api/alimtalk/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, type: "fee_remind" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error); return; }
+      alert("카카오톡 독촉이 발송되었습니다");
+    } catch { alert("발송 실패"); }
+    finally { setSendingId(null); }
+  }
   const [postponeModal, setPostponeModal] = useState<{ clientIds: number[]; clientName: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
@@ -171,10 +188,11 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-xs font-medium text-red-600">{client.totalUnpaid.toLocaleString()}원</span>
                   <button
-                    onClick={() => alert("솔라피 연동 후 활성화됩니다")}
-                    className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500"
+                    onClick={() => handleAlimtalk(client.id, client.name)}
+                    disabled={sendingId === client.id}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500 disabled:opacity-50"
                   >
-                    카카오톡독촉
+                    {sendingId === client.id ? "발송중..." : "카카오톡독촉"}
                   </button>
                   <button
                     onClick={() => setPostponeModal({ clientIds: [client.id], clientName: client.name })}

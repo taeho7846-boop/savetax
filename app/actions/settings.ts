@@ -24,6 +24,9 @@ export async function saveSettings(formData: FormData) {
     wehagoPw:          (formData.get("wehagoPw")          as string) || null,
     wemembersId:       (formData.get("wemembersId")       as string) || null,
     wemembersPw:       (formData.get("wemembersPw")       as string) || null,
+    alimtalkHappyCall: (formData.get("alimtalkHappyCall") as string) || null,
+    alimtalkDocRemind: (formData.get("alimtalkDocRemind") as string) || null,
+    alimtalkFeeRemind: (formData.get("alimtalkFeeRemind") as string) || null,
   };
 
   await prisma.settings.upsert({

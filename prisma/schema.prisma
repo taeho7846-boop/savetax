@@ -151,6 +151,9 @@ model Settings {
   wemembersId        String?
   wemembersPw        String?
   agentNumber        String?
+  alimtalkHappyCall  String?
+  alimtalkDocRemind  String?
+  alimtalkFeeRemind  String?
   user               User    @relation(fields: [userId], references: [id])
 }
 

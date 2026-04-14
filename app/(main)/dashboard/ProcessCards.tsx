@@ -7,6 +7,7 @@ import { markDataRequested, confirmExclusion, postponeTask, requestExclusion, ma
 
 type HappyCallItem = {
   commissionId: number;
+  clientId: number;
   clientName: string;
   noAnswerCount: number;
   lastCallAt: string; // ISO
@@ -15,6 +16,7 @@ type HappyCallItem = {
 
 type DataCollectItem = {
   commissionId: number;
+  clientId: number;
   clientName: string;
   connectedAt: string;
   daysFromConnect: number;
@@ -160,6 +162,7 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
 // ============ 해피콜 카드 ============
 export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
   const [isPending, startTransition] = useTransition();
+  const [sendingId, setSendingId] = useState<number | null>(null);
   const router = useRouter();
 
   function handleExclude(commissionId: number, clientName: string) {
@@ -168,6 +171,22 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
       await requestExclusion(commissionId);
       router.refresh();
     });
+  }
+
+  async function handleAlimtalk(clientId: number, clientName: string) {
+    if (!confirm(`"${clientName}"에게 카카오톡 안내를 발송하시겠습니까?`)) return;
+    setSendingId(clientId);
+    try {
+      const res = await fetch("/api/alimtalk/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, type: "happy_call" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error); return; }
+      alert("카카오톡 안내가 발송되었습니다");
+    } catch { alert("발송 실패"); }
+    finally { setSendingId(null); }
   }
 
   return (
@@ -201,10 +220,11 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
               )}
               <span className="text-[10px] text-gray-400">D+{item.daysElapsed}</span>
               <button
-                onClick={() => alert("솔라피 연동 후 활성화됩니다")}
+                onClick={() => handleAlimtalk(item.clientId, item.clientName)}
+                disabled={sendingId === item.clientId}
                 className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500 disabled:opacity-50"
               >
-                카카오톡안내
+                {sendingId === item.clientId ? "발송중..." : "카카오톡안내"}
               </button>
               <button
                 onClick={() => handleExclude(item.commissionId, item.clientName)}
@@ -224,6 +244,7 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
 // ============ 자료수집 카드 ============
 export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
   const [isPending, startTransition] = useTransition();
+  const [sendingId, setSendingId] = useState<number | null>(null);
   const router = useRouter();
 
   function handleExclude(commissionId: number, clientName: string) {
@@ -232,6 +253,22 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
       await requestExclusion(commissionId);
       router.refresh();
     });
+  }
+
+  async function handleAlimtalk(clientId: number, clientName: string) {
+    if (!confirm(`"${clientName}"에게 카카오톡 독촉을 발송하시겠습니까?`)) return;
+    setSendingId(clientId);
+    try {
+      const res = await fetch("/api/alimtalk/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, type: "doc_remind" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error); return; }
+      alert("카카오톡 독촉이 발송되었습니다");
+    } catch { alert("발송 실패"); }
+    finally { setSendingId(null); }
   }
 
   return (
@@ -262,10 +299,11 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
                 )}
                 <span className="text-[10px] text-gray-400">D+{item.daysFromConnect}</span>
                 <button
-                  onClick={() => alert("솔라피 연동 후 활성화됩니다")}
+                  onClick={() => handleAlimtalk(item.clientId, item.clientName)}
+                  disabled={sendingId === item.clientId}
                   className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500 disabled:opacity-50"
                 >
-                  카카오톡독촉
+                  {sendingId === item.clientId ? "발송중..." : "카카오톡독촉"}
                 </button>
                 <button
                   onClick={() => handleExclude(item.commissionId, item.clientName)}

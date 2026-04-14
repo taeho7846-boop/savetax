@@ -160,6 +160,44 @@ export default async function SettingsPage() {
           </div>
         </div>
 
+        {/* 알림톡 템플릿 */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">카카오 알림톡 템플릿 ID</h2>
+          <p className="text-[11px] text-gray-400 mb-3">솔라피에서 검수 완료된 템플릿 코드를 입력하세요</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">해피콜 안내 (대시보드 해피콜 카드)</label>
+              <input
+                name="alimtalkHappyCall"
+                type="text"
+                defaultValue={settings?.alimtalkHappyCall ?? ""}
+                placeholder="예: iGxr27VOnP"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">자료 독촉 (대시보드 자료수집 카드)</label>
+              <input
+                name="alimtalkDocRemind"
+                type="text"
+                defaultValue={settings?.alimtalkDocRemind ?? ""}
+                placeholder="예: aBcD12345"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">채권 독촉 (대시보드 미수납 카드)</label>
+              <input
+                name="alimtalkFeeRemind"
+                type="text"
+                defaultValue={settings?.alimtalkFeeRemind ?? ""}
+                placeholder="예: xYz98765"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]"
+              />
+            </div>
+          </div>
+        </div>
+
         <button
           type="submit"
           className="w-full bg-[#1a2e4a] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-[#243d61] transition-colors"
