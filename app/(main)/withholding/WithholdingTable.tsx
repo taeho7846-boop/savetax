@@ -412,7 +412,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
 
                     return (
-                      <tr key={client.id} className={`border-b border-gray-50 transition-colors ${allStepsDone ? "bg-green-50/40" : "hover:bg-blue-50/30"} ${checkedIds.has(client.id) ? "bg-blue-50/50" : ""}`}>
+                      <tr key={client.id} className={`border-b border-gray-50 transition-colors ${checkedIds.has(client.id) ? "bg-blue-100" : allStepsDone ? "bg-green-50/40" : "hover:bg-blue-50/30"}`}>
                         <td className="px-2 py-2">
                           <input
                             type="checkbox"
