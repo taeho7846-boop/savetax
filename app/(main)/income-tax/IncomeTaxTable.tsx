@@ -127,7 +127,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
           <thead className="sticky top-0 z-10">
             {/* 그룹 헤더 */}
             <tr>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-gray-200`} colSpan={showAssignedUser ? 4 : 3}>기본</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-gray-200`} colSpan={showAssignedUser ? 5 : 4}>기본</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["준비"]} border-b border-blue-200`} colSpan={6}>준비</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-yellow-200`} colSpan={1}>가결산</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-purple-200`} colSpan={3}>전기</th>
