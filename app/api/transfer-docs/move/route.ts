@@ -175,16 +175,60 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    // 파일 복사 (원본 유지)
-    const copyRes = await fetch(`${API}/files/${driveFileId}/copy?supportsAllDrives=true`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: fileName || undefined,
-        parents: [transferFolderId],
-      }),
+    // 파일 정보 가져오기 (mimeType 확인)
+    const fileInfoRes = await fetch(`${API}/files/${driveFileId}?fields=mimeType,name&supportsAllDrives=true`, {
+      headers: { Authorization: `Bearer ${token}` },
     });
-    const copyData = await copyRes.json();
+    const fileInfo = await fileInfoRes.json();
+    const mimeType = fileInfo.mimeType || "application/octet-stream";
+    const actualName = fileName || fileInfo.name || "file";
+
+    // Google Docs 등 네이티브 파일은 export, 일반 파일은 download
+    const isGoogleDoc = mimeType.startsWith("application/vnd.google-apps.");
+    let fileBuffer: ArrayBuffer;
+    let uploadMimeType = mimeType;
+
+    if (isGoogleDoc) {
+      // Google Docs → PDF로 export
+      const exportMime = "application/pdf";
+      const exportRes = await fetch(`${API}/files/${driveFileId}/export?mimeType=${encodeURIComponent(exportMime)}&supportsAllDrives=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!exportRes.ok) return NextResponse.json({ error: "파일 export 실패" }, { status: 500 });
+      fileBuffer = await exportRes.arrayBuffer();
+      uploadMimeType = exportMime;
+    } else {
+      // 일반 파일 다운로드
+      const downloadRes = await fetch(`${API}/files/${driveFileId}?alt=media&supportsAllDrives=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!downloadRes.ok) return NextResponse.json({ error: "파일 다운로드 실패" }, { status: 500 });
+      fileBuffer = await downloadRes.arrayBuffer();
+    }
+
+    // 대상 폴더에 업로드
+    const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
+    const metadata = JSON.stringify({
+      name: isGoogleDoc ? `${actualName}.pdf` : actualName,
+      parents: [transferFolderId],
+    });
+
+    const boundary = "savetax_boundary";
+    const body =
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
+      `--${boundary}\r\nContent-Type: ${uploadMimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n` +
+      Buffer.from(fileBuffer).toString("base64") +
+      `\r\n--${boundary}--`;
+
+    const uploadRes = await fetch(`${UPLOAD_API}/files?uploadType=multipart&supportsAllDrives=true`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    });
+    const copyData = await uploadRes.json();
 
     if (copyData.error) {
       return NextResponse.json({ error: copyData.error.message }, { status: 500 });
