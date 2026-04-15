@@ -132,6 +132,107 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ suggestions });
 }
 
+const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
+
+// 폴더 생성
+async function createDriveFolder(token: string, name: string, parentId: string): Promise<string> {
+  const res = await fetch(`${API}/files?supportsAllDrives=true`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
+  });
+  const data = await res.json();
+  return data.id;
+}
+
+// 단일 파일 다운로드 → 업로드
+async function copyFile(token: string, fileId: string, destFolderId: string): Promise<string | null> {
+  // 파일 정보
+  const infoRes = await fetch(`${API}/files/${fileId}?fields=mimeType,name&supportsAllDrives=true`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const info = await infoRes.json();
+  const mimeType = info.mimeType || "application/octet-stream";
+  const name = info.name || "file";
+
+  // Google Docs 계열은 스킵 (폴더 안의 문서는 드물고, export가 복잡)
+  if (mimeType === "application/vnd.google-apps.folder") return null;
+
+  let fileBuffer: ArrayBuffer;
+  let uploadMime = mimeType;
+  let uploadName = name;
+
+  if (mimeType.startsWith("application/vnd.google-apps.")) {
+    // Google Docs → PDF export
+    const exportMime = "application/pdf";
+    const exportRes = await fetch(`${API}/files/${fileId}/export?mimeType=${encodeURIComponent(exportMime)}&supportsAllDrives=true`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!exportRes.ok) return null;
+    fileBuffer = await exportRes.arrayBuffer();
+    uploadMime = exportMime;
+    uploadName = `${name}.pdf`;
+  } else {
+    const dlRes = await fetch(`${API}/files/${fileId}?alt=media&supportsAllDrives=true`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!dlRes.ok) return null;
+    fileBuffer = await dlRes.arrayBuffer();
+  }
+
+  const metadata = JSON.stringify({ name: uploadName, parents: [destFolderId] });
+  const boundary = "savetax_boundary_" + Date.now();
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
+    `--${boundary}\r\nContent-Type: ${uploadMime}\r\nContent-Transfer-Encoding: base64\r\n\r\n` +
+    Buffer.from(fileBuffer).toString("base64") +
+    `\r\n--${boundary}--`;
+
+  const uploadRes = await fetch(`${UPLOAD_API}/files?uploadType=multipart&supportsAllDrives=true`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  const data = await uploadRes.json();
+  return data.id || null;
+}
+
+// 폴더 재귀 복사 (폴더 생성 + 내부 파일 다운로드→업로드)
+async function copyFolderRecursive(token: string, sourceFolderId: string, destFolderId: string, folderName: string): Promise<{ folderId: string; fileCount: number }> {
+  // 대상에 폴더 생성
+  const newFolderId = await createDriveFolder(token, folderName, destFolderId);
+  let fileCount = 0;
+
+  // 원본 폴더 내용 조회
+  const listParams = new URLSearchParams({
+    q: `'${sourceFolderId}' in parents and trashed=false`,
+    fields: "files(id,name,mimeType)",
+    supportsAllDrives: "true",
+    includeItemsFromAllDrives: "true",
+    corpora: "allDrives",
+    pageSize: "100",
+  });
+  const listRes = await fetch(`${API}/files?${listParams}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const listData = await listRes.json();
+  const items = listData.files || [];
+
+  for (const item of items) {
+    if (item.mimeType === "application/vnd.google-apps.folder") {
+      // 하위 폴더 재귀 처리
+      const sub = await copyFolderRecursive(token, item.id, newFolderId, item.name);
+      fileCount += sub.fileCount;
+    } else {
+      // 파일 복사
+      const copied = await copyFile(token, item.id, newFolderId);
+      if (copied) fileCount++;
+    }
+  }
+
+  return { folderId: newFolderId, fileCount };
+}
+
 // POST: 거래처 4.이관자료 폴더로 복사 (원본 유지)
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -175,70 +276,57 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    // 파일 정보 가져오기 (mimeType 확인)
+    // 파일/폴더 정보 확인
     const fileInfoRes = await fetch(`${API}/files/${driveFileId}?fields=mimeType,name&supportsAllDrives=true`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const fileInfo = await fileInfoRes.json();
-    const mimeType = fileInfo.mimeType || "application/octet-stream";
-    const actualName = fileName || fileInfo.name || "file";
+    const isFolder = fileInfo.mimeType === "application/vnd.google-apps.folder";
 
-    // Google Docs 등 네이티브 파일은 export, 일반 파일은 download
-    const isGoogleDoc = mimeType.startsWith("application/vnd.google-apps.");
-    let fileBuffer: ArrayBuffer;
-    let uploadMimeType = mimeType;
+    let copiedId: string | null = null;
+    let message = "";
 
-    if (isGoogleDoc) {
-      // Google Docs → PDF로 export
-      const exportMime = "application/pdf";
-      const exportRes = await fetch(`${API}/files/${driveFileId}/export?mimeType=${encodeURIComponent(exportMime)}&supportsAllDrives=true`, {
+    if (isFolder) {
+      // 폴더: 안의 파일들만 꺼내서 대상 폴더에 직접 업로드
+      const listParams = new URLSearchParams({
+        q: `'${driveFileId}' in parents and trashed=false`,
+        fields: "files(id,name,mimeType)",
+        supportsAllDrives: "true",
+        includeItemsFromAllDrives: "true",
+        corpora: "allDrives",
+        pageSize: "100",
+      });
+      const listRes = await fetch(`${API}/files?${listParams}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!exportRes.ok) return NextResponse.json({ error: "파일 export 실패" }, { status: 500 });
-      fileBuffer = await exportRes.arrayBuffer();
-      uploadMimeType = exportMime;
+      const listData = await listRes.json();
+      const items = listData.files || [];
+
+      let fileCount = 0;
+      for (const item of items) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          // 하위 폴더는 재귀 복사
+          const sub = await copyFolderRecursive(token, item.id, transferFolderId, item.name);
+          fileCount += sub.fileCount;
+        } else {
+          const copied = await copyFile(token, item.id, transferFolderId);
+          if (copied) fileCount++;
+        }
+      }
+      copiedId = transferFolderId;
+      message = `"${client.name}/4. 이관자료"에 ${fileCount}개 파일 복사 완료`;
     } else {
-      // 일반 파일 다운로드
-      const downloadRes = await fetch(`${API}/files/${driveFileId}?alt=media&supportsAllDrives=true`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!downloadRes.ok) return NextResponse.json({ error: "파일 다운로드 실패" }, { status: 500 });
-      fileBuffer = await downloadRes.arrayBuffer();
-    }
-
-    // 대상 폴더에 업로드
-    const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
-    const metadata = JSON.stringify({
-      name: isGoogleDoc ? `${actualName}.pdf` : actualName,
-      parents: [transferFolderId],
-    });
-
-    const boundary = "savetax_boundary";
-    const body =
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
-      `--${boundary}\r\nContent-Type: ${uploadMimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n` +
-      Buffer.from(fileBuffer).toString("base64") +
-      `\r\n--${boundary}--`;
-
-    const uploadRes = await fetch(`${UPLOAD_API}/files?uploadType=multipart&supportsAllDrives=true`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
-      body,
-    });
-    const copyData = await uploadRes.json();
-
-    if (copyData.error) {
-      return NextResponse.json({ error: copyData.error.message }, { status: 500 });
+      // 단일 파일
+      copiedId = await copyFile(token, driveFileId, transferFolderId);
+      if (!copiedId) return NextResponse.json({ error: "파일 복사 실패" }, { status: 500 });
+      message = `"${client.name}/4. 이관자료" 폴더로 복사 완료`;
     }
 
     return NextResponse.json({
       ok: true,
-      copiedFileId: copyData.id,
+      copiedFileId: copiedId,
       clientName: client.name,
-      message: `"${client.name}/4. 이관자료" 폴더로 복사 완료`,
+      message,
     });
   } catch (e: any) {
     console.error("[이관자료 복사] 실패:", e);
