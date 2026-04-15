@@ -70,8 +70,20 @@ export async function GET(req: NextRequest) {
   const fileName = req.nextUrl.searchParams.get("fileName") ?? "";
   const searchQuery = req.nextUrl.searchParams.get("q") ?? "";
 
+  // 로그인한 사용자에게 배정된 거래처만 (관리자는 부하직원 포함)
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+  let assignedFilter: any = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [session.id, ...employees.map((e) => e.id)];
+    assignedFilter = { assignedUserId: { in: userIds } };
+  }
+
   const clients = await prisma.client.findMany({
-    where: { isDeleted: false, driveFolderId: { not: null } },
+    where: { isDeleted: false, driveFolderId: { not: null }, ...assignedFilter },
     select: { id: true, name: true, bizNumber: true, driveFolderId: true },
   });
 
