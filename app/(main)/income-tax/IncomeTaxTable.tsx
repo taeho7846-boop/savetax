@@ -75,6 +75,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
+  const [editClientId, setEditClientId] = useState<number | null>(null);
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
@@ -214,9 +215,9 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                   <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`}>
                     {/* 고객사명 */}
                     <td className="px-3 py-2 text-[#1a2e4a] font-medium sticky left-0 bg-white z-10 border-r border-gray-100">
-                      <a href={`/clients/${client.id}/edit`} className="hover:underline cursor-pointer">
+                      <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
                         {client.name}
-                      </a>
+                      </button>
                       <span className="ml-1 text-[10px] text-gray-400">{client.clientType === "corporate" ? "법인" : "개인"}</span>
                     </td>
                     {/* 메모 */}
@@ -331,6 +332,22 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                 className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
               >저장</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 고객사 수정 모달 */}
+      {editClientId && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditClientId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+              <h3 className="text-sm font-bold text-gray-900">고객사 수정</h3>
+              <button onClick={() => setEditClientId(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+            </div>
+            <iframe
+              src={`/clients/${editClientId}/edit?modal=1`}
+              className="flex-1 w-full border-0"
+            />
           </div>
         </div>
       )}
