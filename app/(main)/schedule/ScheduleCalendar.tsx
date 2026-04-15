@@ -216,26 +216,31 @@ export function ScheduleCalendar({
                     {day}
                   </div>
                   <div className="space-y-0.5">
-                    {/* 여러 날 일정 (바 형태) - 항상 최상단 */}
+                    {/* 여러 날 일정 - 각 날짜에 개별 표시 */}
                     {daySchedules.filter(s => s.endDate).map(s => {
                       const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
-                      const multiDay = getMultiDaySpan(s, day);
-                      if (!multiDay) return null;
+                      const startD = new Date(s.date);
+                      const endD = new Date(s.endDate!);
+                      const curD = new Date(dateStr);
+                      const totalDays = Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                      const currentDay = Math.round((curD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                      const isStart = dateStr === s.date;
+                      const isEnd = dateStr === s.endDate;
                       return (
                         <div
                           key={`multi-${s.id}`}
-                          className={`${c.bg} ${c.text} text-[10px] px-1.5 py-0.5 truncate cursor-pointer ${
-                            multiDay.isStart ? "rounded-l" : ""
-                          } rounded-r`}
-                          style={{ width: `calc(${multiDay.span * 100}% + ${(multiDay.span - 1) * 1}px)` }}
+                          className={`${c.bg} ${c.text} text-[10px] px-1 py-0.5 truncate cursor-pointer ${
+                            isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""
+                          }`}
                           onClick={(e) => { e.stopPropagation(); setEditSchedule(s); setShowForm(true); setError(""); }}
                           title={`${s.user.name}: ${s.title} (${s.date} ~ ${s.endDate})`}
                         >
-                          {multiDay.isStart ? s.title : s.title}
+                          {isStart ? s.title : `${s.title}`}
+                          <span className="opacity-50 ml-0.5">({currentDay}/{totalDays})</span>
                         </div>
                       );
                     })}
-                    {/* 세무 일정 (핵심) */}
+                    {/* 세무 일정 */}
                     {dayTaxEvents.slice(0, 5).map((te, i) => (
                       <div
                         key={`tax-${i}`}
