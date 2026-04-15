@@ -8,12 +8,12 @@ import { ChatBot } from "./ChatBot";
 
 const menus = [
   { href: "/dashboard", label: "대시보드", icon: "📊" },
-  { href: "/clients", label: "고객사 관리", icon: "🏢" },
+  { href: "/clients", label: "고객사관리", icon: "🏢" },
   { href: "/commission", label: "신규수임", icon: "📋" },
   { href: "/tax-agency", label: "신고대리", icon: "📄" },
   { href: "/withholding", label: "원천세", icon: "🧾" },
   { href: "/income-tax", label: "종합소득세", icon: "📑" },
-  { href: "/receivables", label: "채권 관리", icon: "💰" },
+  { href: "/receivables", label: "채권관리", icon: "💰" },
   { href: "/data-collect", label: "자료수집", icon: "📥" },
   { href: "/distribution", label: "Savetax 배분", icon: "📊" },
   { href: "/settlement", label: "Savetax 정산", icon: "💵" },
@@ -170,7 +170,7 @@ export default function Sidebar({
             }`}
           >
             <span>👥</span>
-            <span>직원 관리</span>
+            <span>직원관리</span>
           </Link>
         )}
         <Link

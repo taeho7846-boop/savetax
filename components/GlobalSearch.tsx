@@ -45,12 +45,12 @@ const ACTIONS: Action[] = [
 // 사이드바 메뉴 (내부 페이지)
 const MENUS = [
   { name: "대시보드", keywords: "대시보드, dashboard, 홈", icon: "📊", path: "/dashboard" },
-  { name: "고객사 관리", keywords: "고객사, 거래처, clients", icon: "🏢", path: "/clients" },
+  { name: "고객사관리", keywords: "고객사, 거래처, clients", icon: "🏢", path: "/clients" },
   { name: "신규수임", keywords: "신규수임, 수임, commission", icon: "📋", path: "/commission" },
   { name: "신고대리", keywords: "신고대리, 신고, 대리", icon: "📄", path: "/tax-agency" },
   { name: "원천세", keywords: "원천세, 원천, withholding", icon: "🧾", path: "/withholding" },
   { name: "종합소득세", keywords: "종합소득세, 종소세, income-tax", icon: "📑", path: "/income-tax" },
-  { name: "채권 관리", keywords: "채권, 미수납, receivables", icon: "💰", path: "/receivables" },
+  { name: "채권관리", keywords: "채권, 미수납, receivables", icon: "💰", path: "/receivables" },
   { name: "자료수집", keywords: "자료수집, 자료, data-collect", icon: "📥", path: "/data-collect" },
   { name: "Savetax 배분", keywords: "배분, savetax, distribution", icon: "📊", path: "/distribution" },
   { name: "Savetax 정산", keywords: "정산, settlement", icon: "💵", path: "/settlement" },
@@ -58,7 +58,7 @@ const MENUS = [
   { name: "수익추이", keywords: "수익, 추이, revenue", icon: "📈", path: "/revenue" },
   { name: "스케줄", keywords: "스케줄, 일정, schedule", icon: "📅", path: "/schedule" },
   { name: "업무/메모", keywords: "업무, 메모, tasks", icon: "🗓️", path: "/tasks" },
-  { name: "직원 관리", keywords: "직원, 스탭, staff", icon: "👥", path: "/staff" },
+  { name: "직원관리", keywords: "직원, 스탭, staff", icon: "👥", path: "/staff" },
   { name: "설정", keywords: "설정, settings", icon: "⚙️", path: "/settings" },
 ];
 
