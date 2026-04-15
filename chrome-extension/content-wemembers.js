@@ -30,19 +30,11 @@
   }
 
   function tryLogin() {
-    // ID 입력 필드 찾기
-    const idInput = document.querySelector('input[name="userId"]')
-      || document.querySelector('input[name="user_id"]')
-      || document.querySelector('input[name="loginId"]')
-      || document.querySelector('input[type="text"][id*="id" i]')
-      || document.querySelector('input[type="text"][placeholder*="아이디"]')
-      || document.querySelector('input[type="text"]');
+    // ID 입력 필드
+    const idInput = document.getElementById("USER_ID");
 
-    // PW 입력 필드 찾기
-    const pwInput = document.querySelector('input[name="userPw"]')
-      || document.querySelector('input[name="user_pw"]')
-      || document.querySelector('input[name="loginPw"]')
-      || document.querySelector('input[type="password"]');
+    // PW 입력 필드
+    const pwInput = document.getElementById("PWD");
 
     if (!idInput || !pwInput) {
       console.log("SaveTax: 입력 필드 아직 없음, 재시도...");
@@ -55,30 +47,12 @@
 
     // 로그인 버튼 클릭
     setTimeout(function () {
-      const loginBtn = document.querySelector('button[type="submit"]')
-        || document.querySelector('input[type="submit"]')
-        || document.querySelector('a.btn_login')
-        || document.querySelector('button.btn_login')
-        || document.querySelector('[onclick*="login" i]');
-
-      // 텍스트로 찾기
-      if (!loginBtn) {
-        const allBtns = document.querySelectorAll("button, input[type='button'], a.btn");
-        for (const btn of allBtns) {
-          const text = (btn.textContent || btn.value || "").trim();
-          if (text === "로그인" || text === "LOGIN" || text === "Sign In") {
-            btn.click();
-            console.log("SaveTax: 위멤버스 로그인 버튼 클릭 (텍스트 매칭)");
-            return;
-          }
-        }
-      }
-
+      const loginBtn = document.getElementById("btnLogin");
       if (loginBtn) {
         loginBtn.click();
-        console.log("SaveTax: 위멤버스 로그인 버튼 클릭");
+        console.log("SaveTax: 위멤버스 #btnLogin 클릭");
       } else {
-        // 폼 submit
+        // fallback
         const form = idInput.closest("form");
         if (form) {
           form.submit();
