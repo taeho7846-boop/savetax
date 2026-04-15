@@ -14,6 +14,8 @@ interface Staff {
   bizName1: string | null;
   bizName2: string | null;
   allowedMenus: string | null;
+  googleEmail: string | null;
+  googleCalendarId: string | null;
   createdAt: Date;
 }
 
@@ -354,6 +356,14 @@ function EditRow({
           <div>
             <label className="text-xs text-gray-500">사업체명 2</label>
             <input name="bizName2" defaultValue={staff.bizName2 ?? ""} placeholder="예) 세무회계태호" className="border border-gray-300 rounded px-2 py-1 text-sm w-32 block" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">구글 이메일</label>
+            <input name="googleEmail" defaultValue={staff.googleEmail ?? ""} placeholder="kim@gmail.com" className="border border-gray-300 rounded px-2 py-1 text-sm w-40 block" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">구글 캘린더 ID</label>
+            <input name="googleCalendarId" defaultValue={staff.googleCalendarId ?? ""} placeholder="kim@gmail.com" className="border border-gray-300 rounded px-2 py-1 text-sm w-40 block" />
           </div>
           <div>
             <label className="text-xs text-gray-500">상태</label>

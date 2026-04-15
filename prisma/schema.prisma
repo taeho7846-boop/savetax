@@ -20,6 +20,8 @@ model User {
   bizName1           String?
   bizName2           String?
   allowedMenus       String?
+  googleEmail        String?
+  googleCalendarId   String?
   clients            Client[]
   distributions      Distribution[]     @relation("distributions")
   distributionPasses DistributionPass[] @relation("distributionPasses")
@@ -303,17 +305,18 @@ model DataCollection {
 }
 
 model Schedule {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  title     String
-  date      String
-  startTime String?
-  endTime   String?
-  color     String   @default("blue")
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  title          String
+  date           String
+  startTime      String?
+  endTime        String?
+  color          String   @default("blue")
+  notes          String?
+  googleEventId  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id])
 }
 
 model Memo {

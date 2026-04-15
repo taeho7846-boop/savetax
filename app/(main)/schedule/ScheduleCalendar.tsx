@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSchedule, updateSchedule, deleteSchedule } from "@/app/actions/schedule";
 import { getTaxEventsForMonth, type TaxEvent } from "@/lib/tax-calendar";
@@ -51,6 +51,20 @@ export function ScheduleCalendar({
   const [editSchedule, setEditSchedule] = useState<Schedule | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  // 구글 캘린더 동기화 (페이지 로드 시)
+  useEffect(() => {
+    fetch("/api/calendar/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yearMonth }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.synced > 0) router.refresh();
+      })
+      .catch(() => {});
+  }, [yearMonth]);
 
   const [year, month] = yearMonth.split("-").map(Number);
   const days = getDaysInMonth(year, month);

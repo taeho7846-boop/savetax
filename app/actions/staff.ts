@@ -27,6 +27,8 @@ export async function getStaffList() {
       bizName1: true,
       bizName2: true,
       allowedMenus: true,
+      googleEmail: true,
+      googleCalendarId: true,
       createdAt: true,
     },
   });
@@ -74,7 +76,9 @@ export async function updateStaff(id: number, formData: FormData) {
   const bizName1 = (formData.get("bizName1") as string) || null;
   const bizName2 = (formData.get("bizName2") as string) || null;
   const allowedMenus = (formData.get("allowedMenus") as string) || null;
-  const data: Record<string, unknown> = { name, role, isActive, managerId, bizName1, bizName2, allowedMenus };
+  const googleEmail = (formData.get("googleEmail") as string) || null;
+  const googleCalendarId = (formData.get("googleCalendarId") as string) || null;
+  const data: Record<string, unknown> = { name, role, isActive, managerId, bizName1, bizName2, allowedMenus, googleEmail, googleCalendarId };
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);
   }
