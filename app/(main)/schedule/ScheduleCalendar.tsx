@@ -216,6 +216,25 @@ export function ScheduleCalendar({
                     {day}
                   </div>
                   <div className="space-y-0.5">
+                    {/* 여러 날 일정 (바 형태) - 항상 최상단 */}
+                    {daySchedules.filter(s => s.endDate).map(s => {
+                      const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
+                      const multiDay = getMultiDaySpan(s, day);
+                      if (!multiDay) return null;
+                      return (
+                        <div
+                          key={`multi-${s.id}`}
+                          className={`${c.bg} ${c.text} text-[10px] px-1.5 py-0.5 truncate cursor-pointer ${
+                            multiDay.isStart ? "rounded-l" : ""
+                          } rounded-r`}
+                          style={{ width: `calc(${multiDay.span * 100}% + ${(multiDay.span - 1) * 1}px)` }}
+                          onClick={(e) => { e.stopPropagation(); setEditSchedule(s); setShowForm(true); setError(""); }}
+                          title={`${s.user.name}: ${s.title} (${s.date} ~ ${s.endDate})`}
+                        >
+                          {multiDay.isStart ? s.title : s.title}
+                        </div>
+                      );
+                    })}
                     {/* 세무 일정 (핵심) */}
                     {dayTaxEvents.slice(0, 5).map((te, i) => (
                       <div
@@ -226,38 +245,9 @@ export function ScheduleCalendar({
                         {te.title}
                       </div>
                     ))}
-                    {dayTaxEvents.length > 5 && (
-                      <div className="text-[10px] text-red-400 pl-1">+{dayTaxEvents.length - 5}개 세무</div>
-                    )}
-                    {/* 개인 일정 */}
-                    {daySchedules.slice(0, Math.max(1, 5 - dayTaxEvents.length)).map(s => {
+                    {/* 단일 일정 */}
+                    {daySchedules.filter(s => !s.endDate).slice(0, Math.max(1, 5 - dayTaxEvents.length)).map(s => {
                       const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
-                      const multiDay = getMultiDaySpan(s, day);
-
-                      // 여러 날 일정: 바 형태 (시작일 또는 주 시작에서만 렌더)
-                      if (s.endDate && multiDay) {
-                        return (
-                          <div
-                            key={s.id}
-                            className={`${c.bg} ${c.text} text-[10px] px-1.5 py-0.5 truncate cursor-pointer relative z-10 ${
-                              multiDay.isStart ? "rounded-l" : ""
-                            } ${multiDay.isEnd ? "rounded-r" : ""}`}
-                            style={{
-                              width: `calc(${multiDay.span * 100}% + ${(multiDay.span - 1) * 1}px)`,
-                              position: "relative",
-                            }}
-                            onClick={(e) => { e.stopPropagation(); setEditSchedule(s); setShowForm(true); setError(""); }}
-                            title={`${s.user.name}: ${s.title} (${s.date} ~ ${s.endDate})`}
-                          >
-                            {s.title}
-                          </div>
-                        );
-                      }
-
-                      // 여러 날 일정이지만 렌더링 안 하는 날 (중간 날)
-                      if (s.endDate && !multiDay) return null;
-
-                      // 단일 일정
                       return (
                         <div
                           key={s.id}
@@ -269,9 +259,6 @@ export function ScheduleCalendar({
                         </div>
                       );
                     })}
-                    {totalItems > 6 && (
-                      <div className="text-[10px] text-gray-400 pl-1">+{totalItems - 6}개 더</div>
-                    )}
                   </div>
                 </div>
               );
