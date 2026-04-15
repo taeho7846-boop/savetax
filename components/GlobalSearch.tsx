@@ -42,8 +42,29 @@ const ACTIONS: Action[] = [
   { key: "로그인", label: "홈택스 로그인", desc: "홈택스 자동 로그인 (새 탭)", icon: "🔐", custom: true },
 ];
 
+// 사이드바 메뉴 (내부 페이지)
+const MENUS = [
+  { name: "대시보드", keywords: "대시보드, dashboard, 홈", icon: "📊", path: "/dashboard" },
+  { name: "고객사 관리", keywords: "고객사, 거래처, clients", icon: "🏢", path: "/clients" },
+  { name: "신규수임", keywords: "신규수임, 수임, commission", icon: "📋", path: "/commission" },
+  { name: "신고대리", keywords: "신고대리, 신고, 대리", icon: "📄", path: "/tax-agency" },
+  { name: "원천세", keywords: "원천세, 원천, withholding", icon: "🧾", path: "/withholding" },
+  { name: "종합소득세", keywords: "종합소득세, 종소세, income-tax", icon: "📑", path: "/income-tax" },
+  { name: "채권 관리", keywords: "채권, 미수납, receivables", icon: "💰", path: "/receivables" },
+  { name: "자료수집", keywords: "자료수집, 자료, data-collect", icon: "📥", path: "/data-collect" },
+  { name: "Savetax 배분", keywords: "배분, savetax, distribution", icon: "📊", path: "/distribution" },
+  { name: "Savetax 정산", keywords: "정산, settlement", icon: "💵", path: "/settlement" },
+  { name: "세무회계태호 배분", keywords: "태호, 배분, taeho", icon: "📊", path: "/distribution-taeho" },
+  { name: "수익추이", keywords: "수익, 추이, revenue", icon: "📈", path: "/revenue" },
+  { name: "스케줄", keywords: "스케줄, 일정, schedule", icon: "📅", path: "/schedule" },
+  { name: "업무/메모", keywords: "업무, 메모, tasks", icon: "🗓️", path: "/tasks" },
+  { name: "직원 관리", keywords: "직원, 스탭, staff", icon: "👥", path: "/staff" },
+  { name: "설정", keywords: "설정, settings", icon: "⚙️", path: "/settings" },
+];
+
 // 빌트인 외부 사이트 (검색어로 필터)
 const BUILTIN_SITES = [
+  { name: "세무대리인 홈택스 로그인", keywords: "세무대리인, 홈택스, 로그인, agent", url: "", group: "홈택스", agentLogin: true },
   { name: "위멤버스 로그인", keywords: "위멤버스, wemembers, 로그인", url: "https://www.wemembers.net/login_0001_01.act", group: "위멤버스", autoLogin: true },
   { name: "위멤버스 수임처", keywords: "위멤버스, 수임처", url: "https://tax.appplay.co.kr/outs_0003_01.act", group: "위멤버스" },
   { name: "위멤버스 급여관리", keywords: "위멤버스, 급여, 급여관리", url: "https://tax.appplay.co.kr/salm_0000_01.act", group: "위멤버스" },
@@ -214,10 +235,32 @@ export function GlobalSearch() {
     window.open(bookmark.url, "_blank", "noopener,noreferrer");
   }
 
-  async function handleSelectBuiltinSite(site: typeof BUILTIN_SITES[0]) {
+  async function handleSelectBuiltinSite(site: any) {
     setOpen(false);
-    if (site.autoLogin) {
-      // 설정에서 위멤버스 ID/PW 가져와서 hash에 담기
+    if (site.agentLogin) {
+      // 세무대리인 홈택스 로그인
+      try {
+        const res = await fetch("/api/settings/agent-credentials");
+        const data = await res.json();
+        if (data.id && data.pw) {
+          const creds = btoa(unescape(encodeURIComponent(JSON.stringify({
+            id: data.id,
+            pw: data.pw,
+            certName: data.certName || "",
+            certPw: data.certPw || "",
+          }))));
+          window.open(
+            `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+            "_blank"
+          );
+          return;
+        }
+        alert("세무대리인 홈택스 계정이 설정되지 않았습니다");
+      } catch {
+        alert("네트워크 오류");
+      }
+    } else if (site.autoLogin) {
+      // 위멤버스 자동 로그인
       try {
         const res = await fetch("/api/settings/wemembers-credentials");
         const data = await res.json();
@@ -227,12 +270,19 @@ export function GlobalSearch() {
           return;
         }
       } catch {}
-      // 자격증명 없으면 그냥 열기
       window.open(site.url, "_blank", "noopener,noreferrer");
     } else {
       window.open(site.url, "_blank", "noopener,noreferrer");
     }
   }
+
+  // 메뉴 필터 (액션 모드가 아닐 때)
+  const filteredMenus = !isActionMode && query.trim()
+    ? MENUS.filter((m) => {
+        const q = query.toLowerCase();
+        return m.name.toLowerCase().includes(q) || m.keywords.toLowerCase().includes(q);
+      })
+    : [];
 
   // 빌트인 사이트 필터 (액션 모드가 아닐 때)
   const filteredBuiltinSites = !isActionMode && query.trim()
@@ -242,7 +292,7 @@ export function GlobalSearch() {
       })
     : [];
 
-  const hasResults = clients.length > 0 || bookmarks.length > 0 || filteredBuiltinSites.length > 0;
+  const hasResults = clients.length > 0 || bookmarks.length > 0 || filteredBuiltinSites.length > 0 || filteredMenus.length > 0;
 
   if (!open) return null;
 
@@ -346,6 +396,29 @@ export function GlobalSearch() {
                   <div className="py-8 text-center text-sm text-gray-400">
                     검색 결과가 없습니다
                   </div>
+                )}
+
+                {/* 메뉴 */}
+                {filteredMenus.length > 0 && (
+                  <Command.Group heading={
+                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      메뉴
+                    </span>
+                  }>
+                    {filteredMenus.map((menu) => (
+                      <Command.Item
+                        key={menu.path}
+                        value={`menu-${menu.name}`}
+                        onSelect={() => { setOpen(false); router.push(menu.path); }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
+                          {menu.icon}
+                        </div>
+                        <div className="font-medium">{menu.name}</div>
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
                 )}
 
                 {/* 빌트인 사이트 (위멤버스 등) */}
