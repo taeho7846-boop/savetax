@@ -273,8 +273,10 @@ model IncomeTaxRecord {
   smeReduction      Boolean  @default(false)
   investCredit      Boolean  @default(false)
   employmentCredit  Boolean  @default(false)
+  depositReceived   Boolean  @default(false)
   filingDone        Boolean  @default(false)
   paymentSent       Boolean  @default(false)
+  adjustmentFee     BigInt?
   memo              String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

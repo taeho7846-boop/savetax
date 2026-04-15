@@ -15,7 +15,7 @@ export async function toggleIncomeTaxCheck(
     "noticeSent", "linkPass", "depreciation", "interestExpense",
     "insurance", "donation", "preSettlement",
     "bookkeepingCredit", "startupReduction", "smeReduction",
-    "investCredit", "employmentCredit", "filingDone", "paymentSent",
+    "investCredit", "employmentCredit", "depositReceived", "filingDone", "paymentSent",
   ];
   if (!boolFields.includes(field)) return;
 
@@ -46,7 +46,7 @@ export async function updateIncomeTaxField(
   await requireAuth();
 
   const textFields = ["bookkeepingDuty", "filingType"];
-  const numberFields = ["prevSales", "prevIncome", "prevTax", "currSales", "currIncome", "currTax"];
+  const numberFields = ["prevSales", "prevIncome", "prevTax", "currSales", "currIncome", "currTax", "adjustmentFee"];
 
   let data: Record<string, any> = {};
   if (textFields.includes(field)) {

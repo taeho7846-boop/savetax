@@ -25,8 +25,10 @@ type ITRecord = {
   smeReduction: boolean;
   investCredit: boolean;
   employmentCredit: boolean;
+  depositReceived: boolean;
   filingDone: boolean;
   paymentSent: boolean;
+  adjustmentFee: string | null;
   memo: string | null;
 };
 
@@ -46,7 +48,8 @@ function getRecord(client: Client): ITRecord {
     prevSales: null, prevIncome: null, prevTax: null,
     currSales: null, currIncome: null, currTax: null,
     bookkeepingCredit: false, startupReduction: false, smeReduction: false,
-    investCredit: false, employmentCredit: false, filingDone: false, paymentSent: false, memo: null,
+    investCredit: false, employmentCredit: false, depositReceived: false, filingDone: false, paymentSent: false,
+    adjustmentFee: null, memo: null,
   };
 }
 
@@ -68,14 +71,18 @@ const GROUP_COLORS: Record<string, string> = {
   완료: "bg-green-50",
 };
 
-export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: { clients: Client[]; taxYear: string; showAssignedUser?: boolean }) {
+export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, activeTab = "bookkeeping" }: { clients: Client[]; taxYear: string; showAssignedUser?: boolean; activeTab?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
-    router.push(`/income-tax?year=${y}`);
+    router.push(`/income-tax?year=${y}&tab=${activeTab}`);
+  }
+
+  function handleTabChange(tab: string) {
+    router.push(`/income-tax?year=${taxYear}&tab=${tab}`);
   }
 
   function handleToggle(clientId: number, field: string) {
@@ -96,7 +103,31 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
     <>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold text-gray-900">종합소득세</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold text-gray-900">종합소득세</h1>
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => handleTabChange("bookkeeping")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                activeTab === "bookkeeping"
+                  ? "bg-white text-[#1a2e4a] shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              기장
+            </button>
+            <button
+              onClick={() => handleTabChange("single")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                activeTab === "single"
+                  ? "bg-white text-[#1a2e4a] shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              단건
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-500">
             신고완료: <span className="font-medium text-[#1a2e4a]">{doneCount}</span> / {clients.length}
@@ -133,7 +164,8 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
               <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-purple-200`} colSpan={3}>전기</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["당기"]} border-b border-emerald-200`} colSpan={3}>당기</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["감면"]} border-b border-orange-200`} colSpan={5}>감면</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-green-200`} colSpan={2}>완료</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-green-200`} colSpan={3}>완료</th>
+              <th className={`px-3 py-1.5 bg-rose-50 border-b border-rose-200`} colSpan={1}>조정료</th>
             </tr>
             {/* 세부 헤더 */}
             <tr className="bg-gray-50 border-b border-gray-200">
@@ -162,14 +194,16 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
               <th className="px-2 py-2 text-center text-gray-600 font-medium">중특감</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">통합<br/>투자</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">고용<br/>증대</th>
+              <th className="px-2 py-2 text-center text-gray-600 font-medium">입금</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">신고<br/>완료</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">납부서<br/>발송</th>
+              <th className="px-2 py-2 text-center text-gray-600 font-medium">조정료</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {clients.length === 0 ? (
               <tr>
-                <td colSpan={23} className="text-center py-12 text-gray-500 text-sm">
+                <td colSpan={26} className="text-center py-12 text-gray-500 text-sm">
                   거래처가 없습니다
                 </td>
               </tr>
@@ -247,8 +281,12 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false }: {
                     <CheckCell checked={r.employmentCredit} onToggle={() => handleToggle(client.id, "employmentCredit")} disabled={isPending} />
 
                     {/* 완료 */}
+                    <CheckCell checked={r.depositReceived} onToggle={() => handleToggle(client.id, "depositReceived")} disabled={isPending} />
                     <CheckCell checked={r.filingDone} onToggle={() => handleToggle(client.id, "filingDone")} disabled={isPending} />
                     <CheckCell checked={r.paymentSent} onToggle={() => handleToggle(client.id, "paymentSent")} disabled={isPending} />
+
+                    {/* 조정료 */}
+                    <NumberCell value={r.adjustmentFee} onSave={(v) => handleFieldBlur(client.id, "adjustmentFee", v)} />
                   </tr>
                 );
               })
