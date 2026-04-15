@@ -88,7 +88,7 @@ export function GlobalSearch() {
 
   function handleSelectClient(clientId: number) {
     setOpen(false);
-    router.push(`/clients/${clientId}`);
+    router.push(`/clients/${clientId}/edit`);
   }
 
   function handleSelectBookmark(bookmark: BookmarkResult) {
