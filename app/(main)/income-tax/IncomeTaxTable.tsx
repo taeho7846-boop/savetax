@@ -265,13 +265,13 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
 
                     {/* 전기 숫자 */}
                     <NumberCell value={r.prevSales} onSave={(v) => handleFieldBlur(client.id, "prevSales", v)} />
-                    <NumberCell value={r.prevIncome} onSave={(v) => handleFieldBlur(client.id, "prevIncome", v)} />
-                    <NumberCell value={r.prevTax} onSave={(v) => handleFieldBlur(client.id, "prevTax", v)} />
+                    <NumberCell value={r.prevIncome} onSave={(v) => handleFieldBlur(client.id, "prevIncome", v)} colorType="income" />
+                    <NumberCell value={r.prevTax} onSave={(v) => handleFieldBlur(client.id, "prevTax", v)} colorType="tax" />
 
                     {/* 당기 숫자 */}
                     <NumberCell value={r.currSales} onSave={(v) => handleFieldBlur(client.id, "currSales", v)} />
-                    <NumberCell value={r.currIncome} onSave={(v) => handleFieldBlur(client.id, "currIncome", v)} />
-                    <NumberCell value={r.currTax} onSave={(v) => handleFieldBlur(client.id, "currTax", v)} />
+                    <NumberCell value={r.currIncome} onSave={(v) => handleFieldBlur(client.id, "currIncome", v)} colorType="income" />
+                    <NumberCell value={r.currTax} onSave={(v) => handleFieldBlur(client.id, "currTax", v)} colorType="tax" />
 
                     {/* 감면 체크 */}
                     <CheckCell checked={r.bookkeepingCredit} onToggle={() => handleToggle(client.id, "bookkeepingCredit")} disabled={isPending} />
@@ -350,9 +350,15 @@ function CheckCell({ checked, onToggle, disabled }: { checked: boolean; onToggle
   );
 }
 
-function NumberCell({ value, onSave }: { value: string | null; onSave: (v: string) => void }) {
+function NumberCell({ value, onSave, colorType }: { value: string | null; onSave: (v: string) => void; colorType?: "income" | "tax" }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
+
+  const num = value ? parseInt(value) : null;
+  const isNegative = num !== null && !isNaN(num) && num < 0;
+  let textColor = "text-gray-700";
+  if (isNegative && colorType === "income") textColor = "text-red-500 font-medium";
+  if (isNegative && colorType === "tax") textColor = "text-blue-500 font-medium";
 
   if (editing) {
     return (
@@ -371,7 +377,7 @@ function NumberCell({ value, onSave }: { value: string | null; onSave: (v: strin
   }
   return (
     <td
-      className="px-2 py-2 text-right text-gray-700 cursor-pointer hover:bg-blue-50 min-w-[70px]"
+      className={`px-2 py-2 text-right cursor-pointer hover:bg-blue-50 min-w-[70px] ${textColor}`}
       onClick={() => { setVal(value ?? ""); setEditing(true); }}
     >
       {formatNumber(value) || <span className="text-gray-300">-</span>}

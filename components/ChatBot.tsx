@@ -143,6 +143,29 @@ export function ChatBot() {
     }
   }, [open]);
 
+  // 단축키: Shift+A로 열기, ESC로 닫기
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isTyping =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable;
+
+      if (e.key === "Escape" && open) {
+        setOpen(false);
+        return;
+      }
+      if (e.shiftKey && e.key === "A" && !isTyping) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   async function send() {
     if ((!input.trim() && !imagePreview) || loading) return;
     const userMsg = input.trim();
