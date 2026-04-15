@@ -19,6 +19,15 @@ function verifySlackRequest(body: string, timestamp: string, signature: string):
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
+
+  // 1) URL 검증 (Slack 앱 설정 시 최초 1회) — 서명 검증 전에 처리
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (parsed.type === "url_verification") {
+      return NextResponse.json({ challenge: parsed.challenge });
+    }
+  } catch {}
+
   const timestamp = req.headers.get("x-slack-request-timestamp") || "";
   const signature = req.headers.get("x-slack-signature") || "";
 
@@ -28,11 +37,6 @@ export async function POST(req: NextRequest) {
   }
 
   const body = JSON.parse(rawBody);
-
-  // 1) URL 검증 (Slack 앱 설정 시 최초 1회)
-  if (body.type === "url_verification") {
-    return NextResponse.json({ challenge: body.challenge });
-  }
 
   // 2) 이벤트 처리
   if (body.type === "event_callback") {
