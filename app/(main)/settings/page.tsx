@@ -166,7 +166,7 @@ export default async function SettingsPage() {
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
                     <div className="font-medium text-gray-700">거래처 + 액션</div>
-                    <div className="text-gray-400">/ → 거래처명 검색 → Tab → 액션 선택 → Enter</div>
+                    <div className="text-gray-400">/ → 거래처명 검색 → Space → 액션 선택 → Enter</div>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
                     <div className="font-medium text-gray-700">외부 사이트</div>
@@ -177,7 +177,7 @@ export default async function SettingsPage() {
 
               {/* 액션 목록 */}
               <div>
-                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">액션 목록 (거래처 선택 후 Tab)</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">액션 목록 (거래처 선택 후 Space)</h3>
                 <div className="grid grid-cols-2 gap-1.5">
                   {[
                     { icon: "✏️", key: "수정", desc: "거래처 정보 수정" },

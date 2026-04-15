@@ -173,18 +173,14 @@ export function GlobalSearch() {
           className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
           shouldFilter={false}
           onKeyDown={(e) => {
-            // Tab으로 거래처 선택 (액션 모드가 아닐 때)
-            if (e.key === "Tab" && !isActionMode && clients.length > 0) {
-              e.preventDefault();
-              // 현재 하이라이트된 거래처 찾기
+            // Space로 거래처 선택 → 액션 모드 (일반 모드일 때만)
+            if (e.key === " " && !isActionMode && clients.length > 0 && query.trim()) {
               const selected = document.querySelector('[cmdk-item][data-selected="true"]');
               const clientId = selected?.getAttribute("data-client-id");
               if (clientId) {
+                e.preventDefault();
                 const client = clients.find((c) => c.id === parseInt(clientId));
                 if (client) handleTabSelect(client);
-              } else {
-                // 첫 번째 거래처 선택
-                if (clients[0]) handleTabSelect(clients[0]);
               }
             }
           }}
@@ -305,7 +301,7 @@ export function GlobalSearch() {
                 {clients.length > 0 && (
                   <Command.Group heading={
                     <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                      거래처 <span className="text-gray-300 font-normal ml-1">Tab으로 액션 선택</span>
+                      거래처 <span className="text-gray-300 font-normal ml-1">Space로 액션 선택</span>
                     </span>
                   }>
                     {clients.map((client) => (
@@ -327,7 +323,7 @@ export function GlobalSearch() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <kbd className="text-[10px] px-1.5 py-0.5 bg-gray-100 group-data-[selected=true]:bg-white/20 rounded text-gray-300 group-data-[selected=true]:text-white/40">
-                            Tab
+                            Space
                           </kbd>
                           <svg className="w-4 h-4 text-gray-300 group-data-[selected=true]:text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -349,7 +345,7 @@ export function GlobalSearch() {
             </div>
             {!isActionMode && (
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 text-[10px] font-medium">Tab</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 text-[10px] font-medium">Space</kbd>
                 <span>액션 선택</span>
               </div>
             )}
