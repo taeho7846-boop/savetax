@@ -8,9 +8,13 @@ const SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 // Slack 요청 서명 검증
 function verifySlackRequest(body: string, timestamp: string, signature: string): boolean {
   if (!SIGNING_SECRET) return true; // 개발 환경
+  if (!timestamp || !signature) return false;
   const sigBasestring = `v0:${timestamp}:${body}`;
   const mySignature = "v0=" + crypto.createHmac("sha256", SIGNING_SECRET).update(sigBasestring).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(mySignature), Buffer.from(signature));
+  const a = Buffer.from(mySignature);
+  const b = Buffer.from(signature);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export async function POST(req: NextRequest) {
