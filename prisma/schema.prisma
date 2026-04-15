@@ -34,6 +34,7 @@ model User {
   assignedTasks      Task[]             @relation("assignedTasks")
   createdTasks       Task[]             @relation("createdTasks")
   telegramUsers      TelegramUser[]
+  slackUsers         SlackUser[]
   manager            User?              @relation("ManagerEmployees", fields: [managerId], references: [id])
   employees          User[]             @relation("ManagerEmployees")
   bookmarks          Bookmark[]         @relation("bookmarks")
@@ -385,11 +386,13 @@ model Notice {
 
 model TempMemo {
   id          Int      @id @default(autoincrement())
-  telegramId  String
+  telegramId  String   @default("")
   senderName  String
   content     String
   fileUrl     String?
   isProcessed Boolean  @default(false)
+  source      String   @default("telegram")
+  slackUserId String?
   createdAt   DateTime @default(now())
 }
 
@@ -398,6 +401,13 @@ model TelegramUser {
   telegramId String @unique
   userId     Int
   user       User   @relation(fields: [userId], references: [id])
+}
+
+model SlackUser {
+  id        Int    @id @default(autoincrement())
+  slackId   String @unique
+  userId    Int
+  user      User   @relation(fields: [userId], references: [id])
 }
 
 model SettlementBookkeeping {
