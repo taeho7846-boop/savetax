@@ -131,8 +131,76 @@ export default async function SettingsPage() {
           </button>
         </form>
 
-        {/* ===== 오른쪽 열: 북마크 + 도구 ===== */}
+        {/* ===== 오른쪽 열: 가이드 + 북마크 + 도구 ===== */}
         <div className="space-y-4">
+          {/* 단축키 & 액션 가이드 */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">단축키 & 검색 가이드</h2>
+
+            <div className="space-y-4">
+              {/* 단축키 */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">단축키</h3>
+                <div className="space-y-1.5">
+                  {[
+                    { keys: "/", desc: "전역 검색 열기" },
+                    { keys: "Shift + A", desc: "AI 어시스턴트 열기/닫기" },
+                  ].map((s) => (
+                    <div key={s.keys} className="flex items-center gap-3">
+                      <kbd className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium text-gray-600 bg-gray-100 rounded border border-gray-200 min-w-[80px] justify-center">
+                        {s.keys}
+                      </kbd>
+                      <span className="text-xs text-gray-600">{s.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 검색 사용법 */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">검색 사용법</h3>
+                <div className="space-y-2 text-xs text-gray-600">
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                    <div className="font-medium text-gray-700">거래처 바로 이동</div>
+                    <div className="text-gray-400">/ → 거래처명 검색 → Enter → 수정 페이지 이동</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                    <div className="font-medium text-gray-700">거래처 + 액션</div>
+                    <div className="text-gray-400">/ → 거래처명 검색 → Tab → 액션 선택 → Enter</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                    <div className="font-medium text-gray-700">외부 사이트</div>
+                    <div className="text-gray-400">/ → 사이트명 검색 → Enter → 새 탭으로 열기</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 액션 목록 */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">액션 목록 (거래처 선택 후 Tab)</h3>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { icon: "✏️", key: "수정", desc: "거래처 정보 수정" },
+                    { icon: "📝", key: "메모", desc: "메모 작성" },
+                    { icon: "📋", key: "히스토리", desc: "업무/메모 내역" },
+                    { icon: "🧾", key: "원천세", desc: "원천세 현황" },
+                    { icon: "📑", key: "종소세", desc: "종합소득세 현황" },
+                    { icon: "📥", key: "자료", desc: "자료수집 현황" },
+                    { icon: "🔐", key: "로그인", desc: "홈택스 로그인" },
+                  ].map((a) => (
+                    <div key={a.key} className="flex items-center gap-2 bg-gray-50 rounded-lg px-2.5 py-2">
+                      <span className="text-sm">{a.icon}</span>
+                      <div>
+                        <div className="text-xs font-medium text-gray-700">{a.key}</div>
+                        <div className="text-[10px] text-gray-400">{a.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* 검색 북마크 */}
           <BookmarkManager bookmarks={bookmarks} isAdmin={isAdmin} />
 
