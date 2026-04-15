@@ -64,6 +64,15 @@ export async function POST(req: NextRequest) {
         endTime = event.end.dateTime.split("T")[1]?.substring(0, 5) || null;
       }
 
+      // 종료일 (여러 날 일정용) - 구글은 종료일이 exclusive라서 하루 빼야 함
+      let endDate: string | null = null;
+      if (event.end?.date && event.end.date !== date) {
+        const ed = new Date(event.end.date);
+        ed.setDate(ed.getDate() - 1); // exclusive → inclusive
+        const edStr = ed.toISOString().split("T")[0];
+        if (edStr !== date) endDate = edStr; // 시작일과 다르면 여러 날
+      }
+
       // 같은 제목+날짜+시간으로 이미 있는지 확인 (중복 방지)
       const duplicate = existingSchedules.find(
         s => s.title === title && s.date === date && s.startTime === startTime
@@ -77,6 +86,7 @@ export async function POST(req: NextRequest) {
           userId: session.id,
           title,
           date,
+          endDate,
           startTime,
           endTime,
           color,

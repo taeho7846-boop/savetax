@@ -10,6 +10,7 @@ type Schedule = {
   userId: number;
   title: string;
   date: string;
+  endDate: string | null;
   startTime: string | null;
   endTime: string | null;
   color: string;
@@ -91,7 +92,36 @@ export function ScheduleCalendar({
 
   function getSchedulesForDay(day: number) {
     const dateStr = getDateStr(day);
-    return schedules.filter(s => s.date === dateStr);
+    return schedules.filter(s => {
+      if (s.endDate) {
+        // 여러 날 일정: 시작일~종료일 범위에 포함
+        return dateStr >= s.date && dateStr <= s.endDate;
+      }
+      return s.date === dateStr;
+    });
+  }
+
+  // 여러 날 일정이 해당 날짜에서 몇 칸을 차지하는지 계산
+  function getMultiDaySpan(s: Schedule, day: number): { isStart: boolean; isEnd: boolean; span: number } | null {
+    if (!s.endDate) return null;
+    const dateStr = getDateStr(day);
+    if (dateStr < s.date || dateStr > s.endDate) return null;
+
+    const isStart = dateStr === s.date;
+    const isEnd = dateStr === s.endDate;
+    const dayOfWeek = new Date(year, month - 1, day).getDay(); // 0=일
+
+    // 해당 행(주)에서 남은 칸 수 계산
+    const remainInWeek = 7 - dayOfWeek;
+    const endD = new Date(s.endDate);
+    const curD = new Date(dateStr);
+    const remainDays = Math.floor((endD.getTime() - curD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const span = Math.min(remainInWeek, remainDays);
+
+    // 주의 첫 날이거나 일정 시작일일 때만 바를 렌더링
+    const shouldRender = isStart || dayOfWeek === 0;
+
+    return shouldRender ? { isStart, isEnd: dateStr === s.endDate || dayOfWeek + span >= 7 ? false : isEnd, span } : null;
   }
 
   function handleDayClick(day: number) {
@@ -202,6 +232,32 @@ export function ScheduleCalendar({
                     {/* 개인 일정 */}
                     {daySchedules.slice(0, Math.max(1, 5 - dayTaxEvents.length)).map(s => {
                       const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
+                      const multiDay = getMultiDaySpan(s, day);
+
+                      // 여러 날 일정: 바 형태 (시작일 또는 주 시작에서만 렌더)
+                      if (s.endDate && multiDay) {
+                        return (
+                          <div
+                            key={s.id}
+                            className={`${c.bg} ${c.text} text-[10px] px-1.5 py-0.5 truncate cursor-pointer relative z-10 ${
+                              multiDay.isStart ? "rounded-l" : ""
+                            } ${multiDay.isEnd ? "rounded-r" : ""}`}
+                            style={{
+                              width: `calc(${multiDay.span * 100}% + ${(multiDay.span - 1) * 1}px)`,
+                              position: "relative",
+                            }}
+                            onClick={(e) => { e.stopPropagation(); setEditSchedule(s); setShowForm(true); setError(""); }}
+                            title={`${s.user.name}: ${s.title} (${s.date} ~ ${s.endDate})`}
+                          >
+                            {s.title}
+                          </div>
+                        );
+                      }
+
+                      // 여러 날 일정이지만 렌더링 안 하는 날 (중간 날)
+                      if (s.endDate && !multiDay) return null;
+
+                      // 단일 일정
                       return (
                         <div
                           key={s.id}

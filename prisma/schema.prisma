@@ -309,6 +309,7 @@ model Schedule {
   userId         Int
   title          String
   date           String
+  endDate        String?
   startTime      String?
   endTime        String?
   color          String   @default("blue")
