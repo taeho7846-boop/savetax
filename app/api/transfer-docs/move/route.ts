@@ -21,102 +21,171 @@ async function getToken() {
   return token.token || "";
 }
 
-// "4. 이관자료" 하위폴더 찾기
-async function findTransferFolder(token: string, clientDriveFolderId: string): Promise<string | null> {
-  const params = new URLSearchParams({
-    q: `'${clientDriveFolderId}' in parents and name contains '이관자료' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: "files(id,name)",
-    supportsAllDrives: "true",
-    includeItemsFromAllDrives: "true",
-    corpora: "allDrives",
-  });
+// 간단한 유사도 점수 (0~100)
+function similarity(a: string, b: string): number {
+  const al = a.toLowerCase().replace(/\s/g, "");
+  const bl = b.toLowerCase().replace(/\s/g, "");
 
-  const res = await fetch(`${API}/files?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await res.json();
-
-  if (data.files && data.files.length > 0) {
-    return data.files[0].id;
+  // 정확히 포함되면 높은 점수
+  if (al.includes(bl) || bl.includes(al)) {
+    const longer = Math.max(al.length, bl.length);
+    const shorter = Math.min(al.length, bl.length);
+    return Math.round((shorter / longer) * 100);
   }
-  return null;
+
+  // Levenshtein 기반 유사도
+  const m = al.length;
+  const n = bl.length;
+  if (m === 0 || n === 0) return 0;
+
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = al[i - 1] === bl[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+
+  const maxLen = Math.max(m, n);
+  return Math.round(((maxLen - dp[m][n]) / maxLen) * 100);
 }
 
-// 파일/폴더를 다른 폴더로 이동
-async function moveFile(token: string, fileId: string, fromFolderId: string, toFolderId: string) {
-  const res = await fetch(`${API}/files/${fileId}?addParents=${toFolderId}&removeParents=${fromFolderId}&supportsAllDrives=true`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+// 파일명에서 거래처명 추출 시도 (언더스코어, 하이픈 등으로 분리)
+function extractCandidates(fileName: string): string[] {
+  const name = fileName.replace(/\.(xlsx?|pdf|zip|hwp|docx?|csv|txt)$/i, "");
+  const parts = name.split(/[_\-\s]+/);
+  // 파일명 전체 + 분리된 부분들
+  return [name, ...parts].filter((p) => p.length >= 2);
+}
+
+// GET: 파일명 기반 거래처 추천
+export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const fileName = req.nextUrl.searchParams.get("fileName") ?? "";
+  const searchQuery = req.nextUrl.searchParams.get("q") ?? "";
+
+  const clients = await prisma.client.findMany({
+    where: { isDeleted: false, driveFolderId: { not: null } },
+    select: { id: true, name: true, bizNumber: true, driveFolderId: true },
   });
-  return res.json();
+
+  // 직접 검색 모드
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    const results = clients
+      .filter((c) => c.name.toLowerCase().includes(q) || (c.bizNumber && c.bizNumber.includes(q)))
+      .slice(0, 10)
+      .map((c) => ({ id: c.id, name: c.name, score: 100 }));
+    return NextResponse.json({ suggestions: results });
+  }
+
+  // 파일명 기반 추천
+  if (!fileName) return NextResponse.json({ suggestions: [] });
+
+  const candidates = extractCandidates(fileName);
+  const scored = clients.map((c) => {
+    let bestScore = 0;
+
+    // 거래처명 포함 여부 (정확한 매칭)
+    if (fileName.includes(c.name)) {
+      bestScore = Math.max(bestScore, 95);
+    }
+
+    // 사업자번호 매칭
+    if (c.bizNumber && fileName.includes(c.bizNumber.replace(/-/g, ""))) {
+      bestScore = Math.max(bestScore, 90);
+    }
+
+    // 각 후보 문자열과 유사도 비교
+    for (const cand of candidates) {
+      const score = similarity(cand, c.name);
+      bestScore = Math.max(bestScore, score);
+    }
+
+    return { id: c.id, name: c.name, score: bestScore };
+  });
+
+  // 60% 이상만, 상위 5개
+  const suggestions = scored
+    .filter((s) => s.score >= 60)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  return NextResponse.json({ suggestions });
 }
 
+// POST: 거래처 4.이관자료 폴더로 복사 (원본 유지)
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { driveFileId, fileName } = await req.json();
-  if (!driveFileId || !fileName) {
-    return NextResponse.json({ error: "driveFileId와 fileName이 필요합니다" }, { status: 400 });
+  const { driveFileId, fileName, clientId } = await req.json();
+  if (!driveFileId || !clientId) {
+    return NextResponse.json({ error: "driveFileId와 clientId가 필요합니다" }, { status: 400 });
   }
 
   try {
-    // 1. 파일명에서 거래처명 매칭 시도
-    const clients = await prisma.client.findMany({
-      where: { isDeleted: false, driveFolderId: { not: null } },
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
       select: { id: true, name: true, driveFolderId: true },
     });
 
-    // 파일명에 거래처명이 포함되어 있는지 확인
-    const matched = clients.filter((c) => fileName.includes(c.name));
-
-    if (matched.length === 0) {
-      return NextResponse.json({
-        error: "매칭 실패",
-        message: `"${fileName}"에서 거래처명을 찾을 수 없습니다. 파일명에 거래처명이 포함되어 있는지 확인해주세요.`,
-        clients: clients.map((c) => c.name).slice(0, 10),
-      }, { status: 404 });
+    if (!client?.driveFolderId) {
+      return NextResponse.json({ error: `거래처의 구글드라이브 폴더가 없습니다` }, { status: 404 });
     }
 
-    // 가장 긴 이름 매칭 (예: "ABC상사" vs "ABC" → "ABC상사" 우선)
-    const client = matched.sort((a, b) => b.name.length - a.name.length)[0];
-
-    if (!client.driveFolderId) {
-      return NextResponse.json({
-        error: "드라이브 없음",
-        message: `"${client.name}"의 구글드라이브 폴더가 설정되지 않았습니다.`,
-      }, { status: 404 });
-    }
-
-    // 2. "4. 이관자료" 폴더 찾기
     const token = await getToken();
-    const transferFolderId = await findTransferFolder(token, client.driveFolderId);
+
+    // "4. 이관자료" 하위폴더 찾기
+    const folderParams = new URLSearchParams({
+      q: `'${client.driveFolderId}' in parents and name contains '이관자료' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: "files(id,name)",
+      supportsAllDrives: "true",
+      includeItemsFromAllDrives: "true",
+      corpora: "allDrives",
+    });
+
+    const folderRes = await fetch(`${API}/files?${folderParams}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const folderData = await folderRes.json();
+    const transferFolderId = folderData.files?.[0]?.id;
 
     if (!transferFolderId) {
       return NextResponse.json({
-        error: "폴더 없음",
-        message: `"${client.name}"의 "4. 이관자료" 폴더를 찾을 수 없습니다.`,
+        error: `"${client.name}"의 "4. 이관자료" 폴더를 찾을 수 없습니다`,
       }, { status: 404 });
     }
 
-    // 3. 파일 현재 부모 폴더 확인
-    const fileInfo = await fetch(`${API}/files/${driveFileId}?fields=parents&supportsAllDrives=true`, {
-      headers: { Authorization: `Bearer ${token}` },
+    // 파일 복사 (원본 유지)
+    const copyRes = await fetch(`${API}/files/${driveFileId}/copy?supportsAllDrives=true`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: fileName || undefined,
+        parents: [transferFolderId],
+      }),
     });
-    const fileData = await fileInfo.json();
-    const currentParent = fileData.parents?.[0] || "";
+    const copyData = await copyRes.json();
 
-    // 4. 파일 이동
-    await moveFile(token, driveFileId, currentParent, transferFolderId);
+    if (copyData.error) {
+      return NextResponse.json({ error: copyData.error.message }, { status: 500 });
+    }
 
     return NextResponse.json({
       ok: true,
+      copiedFileId: copyData.id,
       clientName: client.name,
-      message: `"${fileName}" → "${client.name}/4. 이관자료" 폴더로 이동 완료`,
+      message: `"${client.name}/4. 이관자료" 폴더로 복사 완료`,
     });
   } catch (e: any) {
-    console.error("[이관자료 이동] 실패:", e);
-    return NextResponse.json({ error: e.message || "이동 실패" }, { status: 500 });
+    console.error("[이관자료 복사] 실패:", e);
+    return NextResponse.json({ error: e.message || "복사 실패" }, { status: 500 });
   }
 }
