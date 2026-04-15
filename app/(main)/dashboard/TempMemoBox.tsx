@@ -48,7 +48,7 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
 
   if (memos.length === 0) return (
     <div className="text-center py-16 text-gray-400 text-sm">
-      텔레그램에서 @TaehotaxBot 에게 메시지를 보내면 여기에 표시됩니다
+      슬랙 #메모 채널에 메시지를 보내면 여기에 표시됩니다
     </div>
   );
 
@@ -60,7 +60,7 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
         <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">
           {memos.length}
         </span>
-        <span className="text-xs text-gray-400 ml-1">텔레그램에서 수신</span>
+        <span className="text-xs text-gray-400 ml-1">슬랙에서 수신</span>
       </div>
 
       <div className="space-y-3">

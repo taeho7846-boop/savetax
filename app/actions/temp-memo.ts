@@ -7,17 +7,28 @@ import { revalidatePath } from "next/cache";
 export async function getTempMemos() {
   const session = await requireAuth();
 
-  // 연동된 모든 텔레그램 ID 조회 (여러 기기 지원)
+  // 슬랙 연동된 ID 조회
+  const slackUsers = await prisma.slackUser.findMany({
+    where: { userId: session.id },
+  });
+  const slackIds = slackUsers.map((s) => s.slackId);
+
+  // 텔레그램 연동된 ID 조회
   const telegramUsers = await prisma.telegramUser.findMany({
     where: { userId: session.id },
   });
-
-  if (telegramUsers.length === 0) return [];
-
   const telegramIds = telegramUsers.map((t) => t.telegramId);
 
+  if (slackIds.length === 0 && telegramIds.length === 0) return [];
+
   return prisma.tempMemo.findMany({
-    where: { isProcessed: false, telegramId: { in: telegramIds } },
+    where: {
+      isProcessed: false,
+      OR: [
+        ...(slackIds.length > 0 ? [{ slackUserId: { in: slackIds } }] : []),
+        ...(telegramIds.length > 0 ? [{ telegramId: { in: telegramIds } }] : []),
+      ],
+    },
     orderBy: { createdAt: "desc" },
   });
 }
