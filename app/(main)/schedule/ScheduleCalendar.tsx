@@ -216,27 +216,26 @@ export function ScheduleCalendar({
                     {day}
                   </div>
                   <div className="space-y-0.5">
-                    {/* 여러 날 일정 - 각 날짜에 개별 표시 */}
+                    {/* 여러 날 일정 - 바가 이어져 보이도록 */}
                     {daySchedules.filter(s => s.endDate).map(s => {
                       const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
-                      const startD = new Date(s.date);
-                      const endD = new Date(s.endDate!);
-                      const curD = new Date(dateStr);
-                      const totalDays = Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                      const currentDay = Math.round((curD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                       const isStart = dateStr === s.date;
                       const isEnd = dateStr === s.endDate;
+                      const isWeekStart = dayOfWeek === 0;
+                      const isWeekEnd = dayOfWeek === 6;
+                      // 바 모서리: 시작일 또는 주 시작이면 왼쪽 둥글게, 종료일 또는 주 마지막이면 오른쪽 둥글게
+                      const roundLeft = isStart || isWeekStart;
+                      const roundRight = isEnd || isWeekEnd;
                       return (
                         <div
                           key={`multi-${s.id}`}
-                          className={`${c.bg} ${c.text} text-[10px] px-1 py-0.5 truncate cursor-pointer ${
-                            isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""
+                          className={`${c.bg} ${c.text} text-[10px] py-0.5 truncate cursor-pointer -mx-1 px-1.5 ${
+                            roundLeft && roundRight ? "rounded mx-0" : roundLeft ? "rounded-l ml-0 -mr-1" : roundRight ? "rounded-r -ml-1 mr-0" : "-ml-1 -mr-1"
                           }`}
                           onClick={(e) => { e.stopPropagation(); setEditSchedule(s); setShowForm(true); setError(""); }}
                           title={`${s.user.name}: ${s.title} (${s.date} ~ ${s.endDate})`}
                         >
-                          {isStart ? s.title : `${s.title}`}
-                          <span className="opacity-50 ml-0.5">({currentDay}/{totalDays})</span>
+                          {(isStart || isWeekStart) ? s.title : "\u00A0"}
                         </div>
                       );
                     })}
