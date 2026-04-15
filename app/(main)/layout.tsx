@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getSettings } from "@/app/actions/settings";
 import Sidebar from "@/components/Sidebar";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 export default async function MainLayout({
   children,
@@ -17,6 +18,7 @@ export default async function MainLayout({
     <div className="flex h-screen bg-gray-50">
       <Sidebar user={session} settings={settings} />
       <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+      <GlobalSearch />
     </div>
   );
 }

@@ -34,6 +34,8 @@ model User {
   telegramUsers      TelegramUser[]
   manager            User?              @relation("ManagerEmployees", fields: [managerId], references: [id])
   employees          User[]             @relation("ManagerEmployees")
+  bookmarks          Bookmark[]         @relation("bookmarks")
+  createdBookmarks   Bookmark[]         @relation("createdBookmarks")
 }
 
 model Client {
@@ -466,4 +468,20 @@ model Feedback {
   updatedAt DateTime @updatedAt
   page      String?
   author    User     @relation("feedbacks", fields: [authorId], references: [id])
+}
+
+model Bookmark {
+  id        Int      @id @default(autoincrement())
+  scope     String   @default("shared")
+  userId    Int?
+  name      String
+  keywords  String?
+  url       String
+  category  String?
+  usageCount Int     @default(0)
+  createdBy Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation("bookmarks", fields: [userId], references: [id])
+  creator   User     @relation("createdBookmarks", fields: [createdBy], references: [id])
 }
