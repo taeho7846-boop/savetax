@@ -23,14 +23,35 @@ type BookmarkResult = {
 
 type SelectedClient = { id: number; name: string } | null;
 
-const ACTIONS = [
+type Action = {
+  key: string;
+  label: string;
+  desc: string;
+  icon: string;
+  path?: (id: number) => string;
+  custom?: boolean;
+};
+
+const ACTIONS: Action[] = [
   { key: "수정", label: "수정", desc: "거래처 정보 수정", icon: "✏️", path: (id: number) => `/clients/${id}/edit` },
   { key: "메모", label: "메모", desc: "메모 작성", icon: "📝", path: (id: number) => `/memos/new?clientId=${id}` },
   { key: "히스토리", label: "히스토리", desc: "업무/메모 히스토리", icon: "📋", path: (id: number) => `/clients/${id}?tab=history` },
-  { key: "원천세", label: "원천세", desc: "원천세 현황", icon: "🧾", path: (_id: number) => `/withholding` },
-  { key: "종소세", label: "종합소득세", desc: "종합소득세 현황", icon: "📑", path: (_id: number) => `/income-tax` },
-  { key: "자료", label: "자료수집", desc: "자료수집 현황", icon: "📥", path: (_id: number) => `/data-collect` },
-  { key: "로그인", label: "홈택스 로그인", desc: "홈택스 자동 로그인", icon: "🔐", path: (id: number) => `/clients/${id}?action=hometax-login` },
+  { key: "원천세", label: "원천세", desc: "원천세 현황", icon: "🧾", path: () => `/withholding` },
+  { key: "종소세", label: "종합소득세", desc: "종합소득세 현황", icon: "📑", path: () => `/income-tax` },
+  { key: "자료", label: "자료수집", desc: "자료수집 현황", icon: "📥", path: () => `/data-collect` },
+  { key: "로그인", label: "홈택스 로그인", desc: "홈택스 자동 로그인 (새 탭)", icon: "🔐", custom: true },
+];
+
+// 빌트인 외부 사이트 (검색어로 필터)
+const BUILTIN_SITES = [
+  { name: "위멤버스 로그인", keywords: "위멤버스, wemembers, 로그인", url: "https://www.wemembers.net/login_0001_01.act", group: "위멤버스" },
+  { name: "위멤버스 수임처", keywords: "위멤버스, 수임처", url: "https://tax.appplay.co.kr/outs_0003_01.act", group: "위멤버스" },
+  { name: "위멤버스 급여관리", keywords: "위멤버스, 급여, 급여관리", url: "https://tax.appplay.co.kr/salm_0000_01.act", group: "위멤버스" },
+  { name: "위멤버스 부가세", keywords: "위멤버스, 부가세, 부가가치세", url: "https://tax.appplay.co.kr/htax_0000_00.act", group: "위멤버스" },
+  { name: "위멤버스 법인세", keywords: "위멤버스, 법인세", url: "https://tax.appplay.co.kr/txcp_main.act", group: "위멤버스" },
+  { name: "위멤버스 종합소득세", keywords: "위멤버스, 종소세, 종합소득세", url: "https://tax.appplay.co.kr/trcc_0000_00.act", group: "위멤버스" },
+  { name: "위멤버스 4대보험", keywords: "위멤버스, 4대보험, 사대보험", url: "https://tax.appplay.co.kr/outs_0000_00.act", group: "위멤버스" },
+  { name: "위멤버스 세모리포트", keywords: "위멤버스, 세모리포트, 세모, 리포트", url: "https://reportmgmt.appplay.co.kr/main_dash_001.act", group: "위멤버스" },
 ];
 
 export function GlobalSearch() {
@@ -135,13 +156,52 @@ export function GlobalSearch() {
     router.push(`/clients/${clientId}/edit`);
   }
 
+  // 홈택스 로그인
+  async function doHometaxLogin(clientId: number) {
+    try {
+      const res = await fetch("/api/automation/hometax-credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error ?? "로그인 정보를 가져올 수 없습니다");
+        return;
+      }
+      const isCorp = !!data.agentNumber;
+      const credData: Record<string, string> = {
+        mode: isCorp ? "corp_login" : "login",
+        id: data.hometaxId,
+        pw: data.hometaxPw,
+        rn: data.residentNumber,
+      };
+      if (isCorp) {
+        credData.certName = data.certName;
+        credData.certPw = data.certPw;
+        credData.agentNumber = data.agentNumber;
+        credData.agentPw = data.hometaxPw;
+      }
+      const creds = btoa(unescape(encodeURIComponent(JSON.stringify(credData)))).replace(/=/g, "");
+      window.open(
+        `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+        "_blank"
+      );
+    } catch {
+      alert("네트워크 오류가 발생했습니다");
+    }
+  }
+
   // 액션 실행
-  function handleSelectAction(action: typeof ACTIONS[0]) {
+  function handleSelectAction(action: Action) {
     if (!selectedClient) return;
     setOpen(false);
-    const path = action.path(selectedClient.id);
+    if (action.custom && action.key === "로그인") {
+      doHometaxLogin(selectedClient.id);
+    } else if (action.path) {
+      router.push(action.path(selectedClient.id));
+    }
     setSelectedClient(null);
-    router.push(path);
   }
 
   function handleSelectBookmark(bookmark: BookmarkResult) {
@@ -154,7 +214,20 @@ export function GlobalSearch() {
     window.open(bookmark.url, "_blank", "noopener,noreferrer");
   }
 
-  const hasResults = clients.length > 0 || bookmarks.length > 0;
+  function handleSelectBuiltinSite(url: string) {
+    setOpen(false);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  // 빌트인 사이트 필터 (액션 모드가 아닐 때)
+  const filteredBuiltinSites = !isActionMode && query.trim()
+    ? BUILTIN_SITES.filter((s) => {
+        const q = query.toLowerCase();
+        return s.name.toLowerCase().includes(q) || s.keywords.toLowerCase().includes(q);
+      })
+    : [];
+
+  const hasResults = clients.length > 0 || bookmarks.length > 0 || filteredBuiltinSites.length > 0;
 
   if (!open) return null;
 
@@ -260,7 +333,38 @@ export function GlobalSearch() {
                   </div>
                 )}
 
-                {/* 외부 사이트 */}
+                {/* 빌트인 사이트 (위멤버스 등) */}
+                {filteredBuiltinSites.length > 0 && (
+                  <Command.Group heading={
+                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      위멤버스
+                    </span>
+                  }>
+                    {filteredBuiltinSites.map((site) => (
+                      <Command.Item
+                        key={site.url}
+                        value={`builtin-${site.name}`}
+                        onSelect={() => handleSelectBuiltinSite(site.url)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 group-data-[selected=true]:bg-white/20 flex items-center justify-center shrink-0">
+                          <span className="text-sm">🏢</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{site.name}</div>
+                          <div className="text-xs text-gray-400 group-data-[selected=true]:text-white/60 truncate">
+                            {site.url.replace(/^https?:\/\//, "").split("/")[0]}
+                          </div>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-300 group-data-[selected=true]:text-white/50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                )}
+
+                {/* 외부 사이트 (북마크) */}
                 {bookmarks.length > 0 && (
                   <Command.Group heading={
                     <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
