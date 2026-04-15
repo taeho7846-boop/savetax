@@ -64,13 +64,18 @@ export async function POST(req: NextRequest) {
         endTime = event.end.dateTime.split("T")[1]?.substring(0, 5) || null;
       }
 
-      // 종료일 (여러 날 일정용) - 구글은 종료일이 exclusive라서 하루 빼야 함
+      // 종료일 (여러 날 일정용)
       let endDate: string | null = null;
       if (event.end?.date && event.end.date !== date) {
+        // 종일 이벤트: 구글은 종료일이 exclusive라서 하루 빼야 함
         const ed = new Date(event.end.date);
-        ed.setDate(ed.getDate() - 1); // exclusive → inclusive
+        ed.setDate(ed.getDate() - 1);
         const edStr = ed.toISOString().split("T")[0];
-        if (edStr !== date) endDate = edStr; // 시작일과 다르면 여러 날
+        if (edStr !== date) endDate = edStr;
+      } else if (event.end?.dateTime) {
+        // 시간 지정 이벤트: 종료 날짜가 시작 날짜와 다르면 여러 날
+        const endDateStr = event.end.dateTime.split("T")[0];
+        if (endDateStr !== date) endDate = endDateStr;
       }
 
       // 같은 제목+날짜+시간으로 이미 있는지 확인 (중복 방지)
