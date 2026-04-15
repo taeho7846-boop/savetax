@@ -44,7 +44,7 @@ const ACTIONS: Action[] = [
 
 // 빌트인 외부 사이트 (검색어로 필터)
 const BUILTIN_SITES = [
-  { name: "위멤버스 로그인", keywords: "위멤버스, wemembers, 로그인", url: "https://www.wemembers.net/login_0001_01.act", group: "위멤버스" },
+  { name: "위멤버스 로그인", keywords: "위멤버스, wemembers, 로그인", url: "https://www.wemembers.net/login_0001_01.act", group: "위멤버스", autoLogin: true },
   { name: "위멤버스 수임처", keywords: "위멤버스, 수임처", url: "https://tax.appplay.co.kr/outs_0003_01.act", group: "위멤버스" },
   { name: "위멤버스 급여관리", keywords: "위멤버스, 급여, 급여관리", url: "https://tax.appplay.co.kr/salm_0000_01.act", group: "위멤버스" },
   { name: "위멤버스 부가세", keywords: "위멤버스, 부가세, 부가가치세", url: "https://tax.appplay.co.kr/htax_0000_00.act", group: "위멤버스" },
@@ -214,9 +214,24 @@ export function GlobalSearch() {
     window.open(bookmark.url, "_blank", "noopener,noreferrer");
   }
 
-  function handleSelectBuiltinSite(url: string) {
+  async function handleSelectBuiltinSite(site: typeof BUILTIN_SITES[0]) {
     setOpen(false);
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (site.autoLogin) {
+      // 설정에서 위멤버스 ID/PW 가져와서 hash에 담기
+      try {
+        const res = await fetch("/api/settings/wemembers-credentials");
+        const data = await res.json();
+        if (data.id && data.pw) {
+          const creds = btoa(unescape(encodeURIComponent(JSON.stringify({ id: data.id, pw: data.pw }))));
+          window.open(site.url + "#savetax=" + creds, "_blank");
+          return;
+        }
+      } catch {}
+      // 자격증명 없으면 그냥 열기
+      window.open(site.url, "_blank", "noopener,noreferrer");
+    } else {
+      window.open(site.url, "_blank", "noopener,noreferrer");
+    }
   }
 
   // 빌트인 사이트 필터 (액션 모드가 아닐 때)
@@ -344,7 +359,7 @@ export function GlobalSearch() {
                       <Command.Item
                         key={site.url}
                         value={`builtin-${site.name}`}
-                        onSelect={() => handleSelectBuiltinSite(site.url)}
+                        onSelect={() => handleSelectBuiltinSite(site)}
                         className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
                       >
                         <div className="w-8 h-8 rounded-lg bg-indigo-50 group-data-[selected=true]:bg-white/20 flex items-center justify-center shrink-0">

@@ -4,7 +4,7 @@
   "version": "2.0",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": ["debugger", "downloads", "notifications", "storage", "scripting", "tabs"],
-  "host_permissions": ["http://64.176.227.99/*", "https://hometax.go.kr/*", "https://smarta.wehago.com/*", "http://localhost:3000/*"],
+  "host_permissions": ["http://64.176.227.99/*", "https://hometax.go.kr/*", "https://smarta.wehago.com/*", "https://www.wemembers.net/*", "https://tax.appplay.co.kr/*", "http://localhost:3000/*"],
   "background": {
     "service_worker": "background.js"
   },
@@ -23,6 +23,11 @@
     {
       "matches": ["https://smarta.wehago.com/*"],
       "js": ["content-wehago-payslip.js", "content-wehago-business.js", "content-wehago-daily.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.wemembers.net/*"],
+      "js": ["content-wemembers.js"],
       "run_at": "document_idle"
     }
   ]
