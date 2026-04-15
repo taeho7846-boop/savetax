@@ -214,7 +214,9 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                   <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`}>
                     {/* 고객사명 */}
                     <td className="px-3 py-2 text-[#1a2e4a] font-medium sticky left-0 bg-white z-10 border-r border-gray-100">
-                      {client.name}
+                      <a href={`/clients/${client.id}/edit`} className="hover:underline cursor-pointer">
+                        {client.name}
+                      </a>
                       <span className="ml-1 text-[10px] text-gray-400">{client.clientType === "corporate" ? "법인" : "개인"}</span>
                     </td>
                     {/* 메모 */}
