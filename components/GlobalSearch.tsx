@@ -40,6 +40,7 @@ const ACTIONS: Action[] = [
   { key: "종소세", label: "종합소득세", desc: "종합소득세 현황", icon: "📑", path: () => `/income-tax` },
   { key: "자료", label: "자료수집", desc: "자료수집 현황", icon: "📥", path: () => `/data-collect` },
   { key: "로그인", label: "홈택스 로그인", desc: "홈택스 자동 로그인 (새 탭)", icon: "🔐", custom: true },
+  { key: "드라이브", label: "구글드라이브", desc: "거래처 자료 폴더 열기 (새 탭)", icon: "📁", custom: true },
 ];
 
 // 사이드바 메뉴 (내부 페이지)
@@ -213,12 +214,29 @@ export function GlobalSearch() {
     }
   }
 
+  // 구글드라이브 열기
+  async function openClientDrive(clientId: number) {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/drive-folder`);
+      const data = await res.json();
+      if (data.url) {
+        window.open(data.url, "_blank", "noopener,noreferrer");
+      } else {
+        alert("구글드라이브 폴더가 설정되지 않았습니다");
+      }
+    } catch {
+      alert("네트워크 오류");
+    }
+  }
+
   // 액션 실행
   function handleSelectAction(action: Action) {
     if (!selectedClient) return;
     setOpen(false);
     if (action.custom && action.key === "로그인") {
       doHometaxLogin(selectedClient.id);
+    } else if (action.custom && action.key === "드라이브") {
+      openClientDrive(selectedClient.id);
     } else if (action.path) {
       router.push(action.path(selectedClient.id));
     }
