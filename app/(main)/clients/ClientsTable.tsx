@@ -78,6 +78,10 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [vncOpen, setVncOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [driveCreating, setDriveCreating] = useState(false);
+  const [driveMatchModal, setDriveMatchModal] = useState(false);
+  const [driveParentId, setDriveParentId] = useState("");
+  const [driveMatching, setDriveMatching] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignUsers, setAssignUsers] = useState<{ id: number; name: string }[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -163,6 +167,56 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       setCheckedIds(new Set());
       router.refresh();
     });
+  }
+
+  const unlinkedCount = clients.filter(c => !c.driveFolderId).length;
+
+  async function handleDriveCreateAll() {
+    if (unlinkedCount === 0) { alert("미연결 거래처가 없습니다."); return; }
+    if (!confirm(`Drive 폴더가 없는 ${unlinkedCount}개 거래처에 폴더를 생성하시겠습니까?`)) return;
+    setDriveCreating(true);
+    try {
+      const res = await fetch("/api/drive-create-all", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { alert(`오류: ${data.error}`); return; }
+      alert(`완료! ${data.created}/${data.total}개 폴더 생성${data.errors?.length ? `\n실패: ${data.errors.join(", ")}` : ""}`);
+      router.refresh();
+    } catch { alert("네트워크 오류"); }
+    finally { setDriveCreating(false); }
+  }
+
+  async function handleDriveMatch() {
+    if (!driveParentId.trim()) { alert("Google Drive 상위 폴더 ID를 입력해주세요."); return; }
+    setDriveMatching(true);
+    try {
+      const res = await fetch("/api/drive-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentId: driveParentId.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(`오류: ${data.error}`); return; }
+      alert(`완료! ${data.updated}개 거래처 매칭 성공`);
+      setDriveMatchModal(false);
+      setDriveParentId("");
+      router.refresh();
+    } catch { alert("네트워크 오류"); }
+    finally { setDriveMatching(false); }
+  }
+
+  async function handleDriveMatchPreview() {
+    if (!driveParentId.trim()) { alert("Google Drive 상위 폴더 ID를 입력해주세요."); return; }
+    setDriveMatching(true);
+    try {
+      const res = await fetch(`/api/drive-match?parentId=${encodeURIComponent(driveParentId.trim())}`);
+      const data = await res.json();
+      if (!res.ok) { alert(`오류: ${data.error}`); return; }
+      const msg = [`매칭 가능: ${data.matched}개`, `미매칭: ${data.unmatched}개`];
+      if (data.matchedList?.length) msg.push(`\n매칭 목록:\n${data.matchedList.map((m: any) => `  ${m.clientName} ↔ ${m.folderName}`).join("\n")}`);
+      if (data.unmatchedList?.length) msg.push(`\n미매칭 폴더:\n${data.unmatchedList.join(", ")}`);
+      alert(msg.join("\n"));
+    } catch { alert("네트워크 오류"); }
+    finally { setDriveMatching(false); }
   }
 
   async function handleHometaxLogin(e: React.MouseEvent, clientId: number) {
@@ -297,6 +351,66 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
     <>
       {selectedId !== null && (
         <ClientEditModal clientId={selectedId} onClose={() => setSelectedId(null)} />
+      )}
+
+      {/* Drive 관리 버튼 */}
+      {!readonly && unlinkedCount > 0 && (
+        <div className="flex items-center gap-2 mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+          <span className="text-sm text-amber-700">Drive 미연결 거래처 <strong>{unlinkedCount}개</strong></span>
+          <button
+            onClick={handleDriveCreateAll}
+            disabled={driveCreating}
+            className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {driveCreating ? "생성 중..." : "폴더 일괄 생성"}
+          </button>
+          <button
+            onClick={() => setDriveMatchModal(true)}
+            className="text-sm bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
+          >
+            기존 폴더 매칭
+          </button>
+        </div>
+      )}
+
+      {/* Drive 매칭 모달 */}
+      {driveMatchModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setDriveMatchModal(false)}>
+          <div className="bg-white rounded-xl p-6 w-[480px] shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-semibold text-gray-800 mb-1">기존 Drive 폴더 매칭</h3>
+            <p className="text-xs text-gray-400 mb-4">Google Drive 상위 폴더의 ID를 입력하면, 하위 폴더명과 거래처명이 일치하는 것을 자동 연결합니다.</p>
+            <input
+              type="text"
+              value={driveParentId}
+              onChange={e => setDriveParentId(e.target.value)}
+              placeholder="Google Drive 폴더 ID (URL에서 복사)"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+            <p className="text-xs text-gray-400 mb-4">폴더 URL 예시: drive.google.com/drive/folders/<strong>여기가 ID</strong></p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={handleDriveMatchPreview}
+                disabled={driveMatching}
+                className="text-sm bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              >
+                {driveMatching ? "확인 중..." : "미리보기"}
+              </button>
+              <button
+                onClick={handleDriveMatch}
+                disabled={driveMatching}
+                className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {driveMatching ? "매칭 중..." : "매칭 실행"}
+              </button>
+              <button
+                onClick={() => { setDriveMatchModal(false); setDriveParentId(""); }}
+                className="text-sm text-gray-500 px-4 py-2 rounded-lg hover:bg-gray-100"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {checkedIds.size > 0 && (
