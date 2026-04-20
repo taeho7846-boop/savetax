@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ unlinked: count });
 }
 
-// POST: 미연결 거래처 폴더 일괄 생성
+// POST: 미연결 거래처 폴더 일괄 생성 (스트리밍)
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -32,6 +32,10 @@ export async function POST(req: NextRequest) {
     select: { id: true, name: true, clientType: true, assignedUserId: true },
   });
 
+  if (clients.length === 0) {
+    return NextResponse.json({ total: 0, created: 0, errors: [] });
+  }
+
   // 담당자 정보 미리 조회
   const userIds = [...new Set(clients.map(c => c.assignedUserId).filter(Boolean))] as number[];
   const users = await prisma.user.findMany({
@@ -40,21 +44,35 @@ export async function POST(req: NextRequest) {
   });
   const userMap = new Map(users.map(u => [u.id, u.name]));
 
-  let created = 0;
-  let errors: string[] = [];
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      let created = 0;
+      const errors: string[] = [];
 
-  for (const client of clients) {
-    try {
-      const managerName = userMap.get(client.assignedUserId!) || "미배정";
-      const { folderId } = await createClientFolder(managerName, client.name, client.clientType);
-      await prisma.client.update({ where: { id: client.id }, data: { driveFolderId: folderId } });
-      created++;
-      console.log(`[Drive 일괄생성] ${created}/${clients.length} ${client.name} 완료`);
-    } catch (e: any) {
-      errors.push(`${client.name}: ${e.message}`);
-      console.error(`[Drive 일괄생성] ${client.name} 실패:`, e.message);
-    }
-  }
+      for (const client of clients) {
+        try {
+          const managerName = userMap.get(client.assignedUserId!) || "미배정";
+          const { folderId } = await createClientFolder(managerName, client.name, client.clientType);
+          await prisma.client.update({ where: { id: client.id }, data: { driveFolderId: folderId } });
+          created++;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "progress", current: created, total: clients.length, name: client.name })}\n\n`));
+        } catch (e: any) {
+          errors.push(`${client.name}: ${e.message}`);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", name: client.name, message: e.message })}\n\n`));
+        }
+      }
 
-  return NextResponse.json({ total: clients.length, created, errors });
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", total: clients.length, created, errors })}\n\n`));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }

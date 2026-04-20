@@ -79,6 +79,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [driveCreating, setDriveCreating] = useState(false);
+  const [driveProgress, setDriveProgress] = useState("");
   const [driveMatchModal, setDriveMatchModal] = useState(false);
   const [driveParentId, setDriveParentId] = useState("");
   const [driveMatching, setDriveMatching] = useState(false);
@@ -175,14 +176,39 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
     if (unlinkedCount === 0) { alert("미연결 거래처가 없습니다."); return; }
     if (!confirm(`Drive 폴더가 없는 ${unlinkedCount}개 거래처에 폴더를 생성하시겠습니까?`)) return;
     setDriveCreating(true);
+    setDriveProgress("준비 중...");
     try {
-      const res = await fetch("/api/drive-create-all", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) { alert(`오류: ${data.error}`); return; }
-      alert(`완료! ${data.created}/${data.total}개 폴더 생성${data.errors?.length ? `\n실패: ${data.errors.join(", ")}` : ""}`);
+      const res = await fetch("/api/drive-create-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const reader = res.body?.getReader();
+      if (!reader) { alert("스트림 오류"); return; }
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n\n");
+        buf = lines.pop() || "";
+        for (const line of lines) {
+          const match = line.match(/^data: (.+)$/);
+          if (!match) continue;
+          try {
+            const msg = JSON.parse(match[1]);
+            if (msg.type === "progress") {
+              setDriveProgress(`${msg.current}/${msg.total} - ${msg.name}`);
+            } else if (msg.type === "done") {
+              alert(`완료! ${msg.created}/${msg.total}개 폴더 생성${msg.errors?.length ? `\n실패: ${msg.errors.map((e: string) => e).join(", ")}` : ""}`);
+            }
+          } catch {}
+        }
+      }
       router.refresh();
     } catch { alert("네트워크 오류"); }
-    finally { setDriveCreating(false); }
+    finally { setDriveCreating(false); setDriveProgress(""); }
   }
 
   async function handleDriveMatch() {
@@ -357,6 +383,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       {!readonly && unlinkedCount > 0 && (
         <div className="flex items-center gap-2 mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
           <span className="text-sm text-amber-700">Drive 미연결 거래처 <strong>{unlinkedCount}개</strong></span>
+          {driveProgress && <span className="text-xs text-amber-600">{driveProgress}</span>}
           <button
             onClick={handleDriveCreateAll}
             disabled={driveCreating}
