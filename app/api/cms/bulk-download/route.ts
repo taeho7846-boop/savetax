@@ -152,6 +152,7 @@ export async function POST(req: NextRequest) {
       ws[`N${row}`] = { t: "s", v: "05" };
       ws[`O${row}`] = { t: "s", v: "99" };
       ws[`P${row}`] = { t: "s", v: firstMonth };
+      ws[`R${row}`] = { t: "s", v: (client.bizNumber || "").replace(/[-\s]/g, "") };
       ws[`AA${row}`] = { t: "s", v: "N" };
     });
 
