@@ -86,6 +86,36 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
     }
   }
 
+  function handleVerifyExcelDownload() {
+    if (!verifyResult) return;
+    const rows: string[][] = [["구분", "거래처명", "대표자", "CMS 상태", "현재 시스템", "월 기장료"]];
+    for (const item of verifyResult.needsUpdate) {
+      rows.push(["변경 필요", item.clientName, item.ceoName || "", item.excelStatus, statusLabel(item.currentStatus), item.monthlyFee?.toLocaleString() || ""]);
+    }
+    for (const item of verifyResult.alreadyDone) {
+      rows.push(["이미 일치", item.clientName, item.ceoName || "", item.excelStatus, statusLabel(item.currentStatus), item.monthlyFee?.toLocaleString() || ""]);
+    }
+    for (const item of verifyResult.failed) {
+      rows.push(["등록실패", item.clientName, item.ceoName || "", item.excelStatus, statusLabel(item.currentStatus), item.monthlyFee?.toLocaleString() || ""]);
+    }
+    for (const item of verifyResult.paused || []) {
+      rows.push(["일시정지", item.clientName, item.ceoName || "", item.excelStatus, statusLabel(item.currentStatus), item.monthlyFee?.toLocaleString() || ""]);
+    }
+    for (const item of verifyResult.notInExcel) {
+      rows.push(["엑셀에 없음", item.clientName, item.ceoName || "", "", statusLabel(item.currentStatus), ""]);
+    }
+    // CSV 생성 후 다운로드
+    const bom = "\uFEFF";
+    const csv = bom + rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `CMS_검증결과_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleUpdateSingle(clientId: number, status: string) {
     startTransition(async () => {
       await fetch("/api/cms/update-status", {
@@ -308,7 +338,15 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 내 거래처 {verifyResult.totalClients}건 중 {verifyResult.matched}건 엑셀 매칭
               </p>
             </div>
-            <button onClick={() => setVerifyResult(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleVerifyExcelDownload()}
+                className="text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                엑셀 다운로드
+              </button>
+              <button onClick={() => setVerifyResult(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
           </div>
 
           {/* 요약 카드 */}

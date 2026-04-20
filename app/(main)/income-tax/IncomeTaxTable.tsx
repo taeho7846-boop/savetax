@@ -76,6 +76,8 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
   const [isPending, startTransition] = useTransition();
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
   const [editClientId, setEditClientId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [userFilter, setUserFilter] = useState<string | null>(null);
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
@@ -98,7 +100,20 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
     });
   }
 
-  const doneCount = clients.filter(c => getRecord(c).filingDone).length;
+  // 담당자 목록 추출
+  const assignedUsers = [...new Set(clients.map(c => c.assignedUserName).filter(Boolean))] as string[];
+
+  // 필터 적용
+  let filteredClients = clients;
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    filteredClients = filteredClients.filter(c => c.name.toLowerCase().includes(q));
+  }
+  if (userFilter) {
+    filteredClients = filteredClients.filter(c => c.assignedUserName === userFilter);
+  }
+
+  const doneCount = filteredClients.filter(c => getRecord(c).filingDone).length;
 
   return (
     <>
@@ -130,8 +145,27 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="거래처 검색..."
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 focus:border-[#1a2e4a]"
+          />
+          {showAssignedUser && assignedUsers.length > 1 && (
+            <select
+              value={userFilter ?? ""}
+              onChange={e => setUserFilter(e.target.value || null)}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 focus:border-[#1a2e4a]"
+            >
+              <option value="">전체 담당자</option>
+              {assignedUsers.map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          )}
           <div className="text-sm text-gray-500">
-            신고완료: <span className="font-medium text-[#1a2e4a]">{doneCount}</span> / {clients.length}
+            신고완료: <span className="font-medium text-[#1a2e4a]">{doneCount}</span> / {filteredClients.length}
           </div>
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
             <button
@@ -202,14 +236,14 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {clients.length === 0 ? (
+            {filteredClients.length === 0 ? (
               <tr>
                 <td colSpan={26} className="text-center py-12 text-gray-500 text-sm">
-                  거래처가 없습니다
+                  {clients.length === 0 ? "거래처가 없습니다" : "검색 결과가 없습니다"}
                 </td>
               </tr>
             ) : (
-              clients.map((client) => {
+              filteredClients.map((client) => {
                 const r = getRecord(client);
                 return (
                   <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`}>
