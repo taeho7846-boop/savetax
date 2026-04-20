@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   const tradeNameKey = keys.find(k => /^상호$|^상호명$|^거래처명$|^업체명$/.test(k));
   const memberNameKey = keys.find(k => /^회원명$|^예금주$/.test(k));
   const statusKey = keys.find(k => /상태|등록상태|결과|처리상태/.test(k));
+  const bizNumberKey = keys.find(k => /사업자.*번호|사업자등록번호|사업자번호/.test(k));
 
   if (!tradeNameKey && !memberNameKey) {
     return NextResponse.json({
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
   // 상호가 있으면 상호 사용, 없으면 회원명 fallback
   type ExcelEntry = { excelStatus: string; excelStatusType: "success" | "fail" | "paused" | "unknown"; excelName: string };
   const excelMap = new Map<string, ExcelEntry>();
+  const excelBizMap = new Map<string, ExcelEntry>(); // 사업자번호 → 엑셀 항목
   for (const r of rows) {
     const tradeName = tradeNameKey ? String(r[tradeNameKey] || "").trim() : "";
     const memberName = memberNameKey ? String(r[memberNameKey] || "").trim() : "";
@@ -47,7 +49,13 @@ export async function POST(req: NextRequest) {
     if (rawStatus.includes("등록성공")) excelStatusType = "success";
     else if (rawStatus.includes("등록실패")) excelStatusType = "fail";
     else if (rawStatus.includes("일시정지")) excelStatusType = "paused";
-    excelMap.set(name, { excelStatus: rawStatus, excelStatusType, excelName: name });
+    const entry: ExcelEntry = { excelStatus: rawStatus, excelStatusType, excelName: name };
+    excelMap.set(name, entry);
+    // 사업자번호 매핑
+    if (bizNumberKey) {
+      const biz = String(r[bizNumberKey] || "").replace(/[-\s]/g, "").trim();
+      if (biz) excelBizMap.set(biz, entry);
+    }
   }
 
   // DB에서 내 CMS 탭 거래처 조회 (CMS 탭과 동일 조건)
@@ -74,6 +82,7 @@ export async function POST(req: NextRequest) {
       id: true,
       name: true,
       ceoName: true,
+      bizNumber: true,
       cmsStatus: true,
       monthlyFee: true,
     },
@@ -98,7 +107,11 @@ export async function POST(req: NextRequest) {
   const notInExcel: { clientId: number; clientName: string; ceoName: string | null; currentStatus: string }[] = [];
 
   for (const client of dbClients) {
-    const excel = excelMap.get(client.name.trim());
+    // 1차: 이름 매칭, 2차: 사업자번호 매칭
+    const clientBiz = (client.bizNumber || "").replace(/[-\s]/g, "").trim();
+    const excel = excelMap.get(client.name.trim())
+      || (clientBiz ? excelBizMap.get(clientBiz) : undefined)
+      || undefined;
     if (excel) {
       const item: MatchedItem = {
         excelName: excel.excelName,
@@ -144,6 +157,6 @@ export async function POST(req: NextRequest) {
     failed,
     paused,
     notInExcel,
-    debug: { tradeNameKey, memberNameKey, statusKey, totalRows: rows.length, excelMapSize: excelMap.size, excelSampleNames, dbSampleNames },
+    debug: { tradeNameKey, memberNameKey, statusKey, bizNumberKey: bizNumberKey || null, totalRows: rows.length, excelMapSize: excelMap.size, bizMapSize: excelBizMap.size, excelSampleNames, dbSampleNames },
   });
 }
