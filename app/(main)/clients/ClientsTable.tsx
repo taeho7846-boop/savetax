@@ -61,7 +61,9 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
   { key: "monthlyFee",      label: "월 기장료"    },
 ];
 
-export function ClientsTable({ clients, readonly = false, showAssignedUser = false }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean }) {
+type HideCol = "labor" | "monthlyFee" | "affiliation" | "contractDate";
+
+export function ClientsTable({ clients, readonly = false, showAssignedUser = false, hideCols = [] }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean; hideCols?: HideCol[] }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [laborFilter, setLaborFilter] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -170,6 +172,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
     });
   }
 
+  const hide = new Set(hideCols);
+  const visibleSortCols = SORT_COLS.filter(c => !(c.key === "monthlyFee" && hide.has("monthlyFee")));
   const unlinkedCount = clients.filter(c => !c.driveFolderId).length;
 
   async function handleDriveCreateAll() {
@@ -443,9 +447,11 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       {checkedIds.size > 0 && (
         <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg">
           <span className="text-sm text-blue-700 font-medium">{checkedIds.size}개 선택</span>
+          {!hide.has("monthlyFee") && (
           <span className="text-sm text-blue-600">
             월 기장료 합계: <strong>{rows.filter(c => checkedIds.has(c.id)).reduce((sum, c) => sum + (c.monthlyFee || 0), 0).toLocaleString()}원</strong>
           </span>
+          )}
           <button
             onClick={handleExcelDownload}
             disabled={isPending}
@@ -573,6 +579,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
               )}
 
               {/* 인건비 필터 */}
+              {!hide.has("labor") && (
               <th className="text-center px-4 py-3 text-gray-700 font-medium">
                 <div className="relative inline-block" ref={filterRef}>
                   <button
@@ -615,9 +622,10 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   )}
                 </div>
               </th>
+              )}
 
               {/* 정렬 가능한 컬럼 */}
-              {SORT_COLS.map(({ key, label }) => (
+              {visibleSortCols.map(({ key, label }) => (
                 <th key={key} className="text-center px-4 py-3 text-gray-700 font-medium">
                   <button
                     onClick={() => handleSort(key)}
@@ -628,6 +636,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   </button>
                 </th>
               ))}
+              {!hide.has("affiliation") && (
               <th className="text-center px-4 py-3 text-gray-700 font-medium">
                 <div className="relative inline-block" ref={affFilterRef}>
                   <button
@@ -672,6 +681,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   )}
                 </div>
               </th>
+              )}
+              {!hide.has("contractDate") && (
               <th className="text-center px-4 py-3 text-gray-700 font-medium">
                 <button
                   onClick={() => handleSort("contractDate")}
@@ -681,6 +692,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   <SortIcon col="contractDate" />
                 </button>
               </th>
+              )}
               <th className="text-center px-4 py-3 text-gray-700 font-medium">
                 <button
                   onClick={() => handleSort("driveFolderId")}
@@ -743,6 +755,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                         {client.assignedUser?.name || <span className="text-gray-400">-</span>}
                       </td>
                     )}
+                    {!hide.has("labor") && (
                     <td className="px-4 py-3 text-center">
                       {laborList.length === 0 && !client.withholdingType ? (
                         <span className="text-gray-300">-</span>
@@ -766,6 +779,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                         </div>
                       )}
                     </td>
+                    )}
                     <td className="px-4 py-3 text-center text-gray-800">{client.bizNumber || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.phone || <span className="text-gray-400">-</span>}</td>
                     <td className="px-4 py-3 text-center text-gray-800">
@@ -783,9 +797,12 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center text-gray-800">{client.residentNumber || <span className="text-gray-400">-</span>}</td>
+                    {!hide.has("monthlyFee") && (
                     <td className="px-4 py-3 text-center text-gray-800">
                       {client.monthlyFee != null ? client.monthlyFee.toLocaleString() + "원" : <span className="text-gray-400">-</span>}
                     </td>
+                    )}
+                    {!hide.has("affiliation") && (
                     <td className="px-4 py-3 text-center text-xs">
                       {client.affiliation === "세이브택스" ? (
                         <span className="text-blue-600 font-medium">세이브택스</span>
@@ -795,9 +812,12 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
+                    )}
+                    {!hide.has("contractDate") && (
                     <td className="px-4 py-3 text-center text-xs text-gray-800">
                       {client.contractDate || <span className="text-gray-400">-</span>}
                     </td>
+                    )}
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {client.driveFolderId ? (
                         <a
