@@ -254,5 +254,6 @@ export async function assignFromSavetax(clientName: string, clientType: string, 
     data: { clientName, clientType: ct, assignedUserId: userId, batchId: `drag_${Date.now()}` },
   });
 
+  await notifyDistribution(userId, [clientName], ct);
   revalidatePath("/distribution-taeho");
 }
