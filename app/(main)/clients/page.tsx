@@ -16,13 +16,14 @@ const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: stri
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; type?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
   const params = await searchParams;
   const q = params.q || "";
+  const clientType = params.type || "all"; // "all" | "individual" | "corporate"
   const isReadonly = session.role === "readonly";
   const isManager = session.role === "accountant" || session.role === "admin";
 
@@ -43,6 +44,7 @@ export default async function ClientsPage({
     where: {
       isDeleted: false,
       ...assignedFilter,
+      ...(clientType !== "all" && { clientType }),
       OR: [
         { taxTypes: null },
         { NOT: { taxTypes: { contains: "신고대리" } } },
@@ -61,9 +63,23 @@ export default async function ClientsPage({
     orderBy: { name: "asc" },
   });
 
-  const trashCount = isReadonly ? 0 : await prisma.client.count({
-    where: { isDeleted: true, assignedUserId: session.id },
-  });
+  const baseWhere = {
+    isDeleted: false,
+    ...assignedFilter,
+    OR: [
+      { taxTypes: null },
+      { NOT: { taxTypes: { contains: "신고대리" } } },
+    ],
+  };
+
+  const [totalCount, individualCount, corporateCount, trashCount] = await Promise.all([
+    prisma.client.count({ where: baseWhere }),
+    prisma.client.count({ where: { ...baseWhere, clientType: "individual" } }),
+    prisma.client.count({ where: { ...baseWhere, clientType: "corporate" } }),
+    isReadonly ? Promise.resolve(0) : prisma.client.count({
+      where: { isDeleted: true, assignedUserId: session.id },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col h-full">
@@ -102,8 +118,30 @@ export default async function ClientsPage({
         </div>
       </div>
 
+      {/* 전체/개인/법인 탭 */}
+      <div className="flex items-center gap-1 mb-4">
+        {[
+          { key: "all", label: "전체", count: totalCount },
+          { key: "individual", label: "개인", count: individualCount },
+          { key: "corporate", label: "법인", count: corporateCount },
+        ].map(tab => (
+          <a
+            key={tab.key}
+            href={`/clients?type=${tab.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+              clientType === tab.key
+                ? "bg-[#1a2e4a] text-white"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            {tab.label} <span className={`ml-1 text-xs ${clientType === tab.key ? "text-white/70" : "text-gray-400"}`}>{tab.count}</span>
+          </a>
+        ))}
+      </div>
+
       {/* 검색/필터 */}
       <form className="flex gap-3 mb-5">
+        <input type="hidden" name="type" value={clientType} />
         <input
           name="q"
           defaultValue={q}
