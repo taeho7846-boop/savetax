@@ -7,6 +7,8 @@ import { sendSlackDM } from "@/lib/slack";
 
 async function notifyDistribution(assignedUserId: number, clientNames: string[], clientType: string) {
   try {
+    const settings = await prisma.settings.findUnique({ where: { userId: assignedUserId }, select: { slackDistributionEnabled: true } });
+    if (settings?.slackDistributionEnabled === false) return;
     const slackUser = await prisma.slackUser.findFirst({ where: { userId: assignedUserId } });
     if (!slackUser) return;
     const user = await prisma.user.findUnique({ where: { id: assignedUserId }, select: { name: true } });

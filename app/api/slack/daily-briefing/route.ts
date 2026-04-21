@@ -4,21 +4,60 @@ import { sendSlackDM } from "@/lib/slack";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
-function getKSTDate(offset = 0) {
+function getKSTNow() {
   const now = new Date();
-  now.setHours(now.getHours() + 9); // UTC → KST
-  now.setDate(now.getDate() + offset);
-  return now.toISOString().slice(0, 10);
+  // KST = UTC + 9
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return {
+    dateStr: kst.toISOString().slice(0, 10),
+    hour: kst.getUTCHours(),
+    minute: kst.getUTCMinutes(),
+    timeStr: `${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")}`,
+  };
+}
+
+function getTomorrowStr() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  kst.setUTCDate(kst.getUTCDate() + 1);
+  return kst.toISOString().slice(0, 10);
+}
+
+// 시간 매칭: ±15분 이내
+function isTimeMatch(userTime: string, currentHour: number, currentMinute: number) {
+  const [h, m] = userTime.split(":").map(Number);
+  const userMinutes = h * 60 + m;
+  const currentMinutes = currentHour * 60 + currentMinute;
+  const diff = Math.abs(userMinutes - currentMinutes);
+  return diff <= 15;
 }
 
 export async function POST(req: NextRequest) {
-  const { secret, type = "morning" } = await req.json().catch(() => ({ secret: "", type: "morning" }));
+  const { secret, type } = await req.json().catch(() => ({ secret: "", type: "" }));
   if (CRON_SECRET && secret !== CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const kst = getKSTNow();
+
+  // 슬랙 연동된 사용자 + 설정 조회
   const slackUsers = await prisma.slackUser.findMany({
-    include: { user: { select: { id: true, name: true } } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          settings: {
+            select: {
+              slackMorningEnabled: true,
+              slackMorningTime: true,
+              slackEveningEnabled: true,
+              slackEveningTime: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (slackUsers.length === 0) {
@@ -32,11 +71,18 @@ export async function POST(req: NextRequest) {
     try {
       const userId = su.user.id;
       const userName = su.user.name;
-      let message = "";
+      const s = su.user.settings;
+      const morningTime = s?.slackMorningTime ?? "08:00";
+      const eveningTime = s?.slackEveningTime ?? "19:00";
+      const morningEnabled = s?.slackMorningEnabled ?? true;
+      const eveningEnabled = s?.slackEveningEnabled ?? true;
 
-      if (type === "morning") {
-        // ── 아침: 오늘 일정 + 오늘 할일 ──
-        const todayStr = getKSTDate();
+      // type이 지정되면 해당 타입만, 아니면 시간 기반 자동 판단
+      const sendMorning = type === "morning" || (!type && morningEnabled && isTimeMatch(morningTime, kst.hour, kst.minute));
+      const sendEvening = type === "evening" || (!type && eveningEnabled && isTimeMatch(eveningTime, kst.hour, kst.minute));
+
+      if (sendMorning && morningEnabled) {
+        const todayStr = kst.dateStr;
         const todayStart = new Date(todayStr + "T00:00:00+09:00");
         const todayEnd = new Date(todayStr + "T23:59:59+09:00");
 
@@ -68,9 +114,9 @@ export async function POST(req: NextRequest) {
 
         if (schedules.length > 0) {
           lines.push("📅 *오늘의 일정*");
-          for (const s of schedules) {
-            const time = s.startTime ? `${s.startTime}${s.endTime ? `~${s.endTime}` : ""}` : "종일";
-            lines.push(`  • ${time} ${s.title}`);
+          for (const sc of schedules) {
+            const time = sc.startTime ? `${sc.startTime}${sc.endTime ? `~${sc.endTime}` : ""}` : "종일";
+            lines.push(`  • ${time} ${sc.title}`);
           }
         } else {
           lines.push("📅 *오늘의 일정* — 없음");
@@ -102,11 +148,14 @@ export async function POST(req: NextRequest) {
         }
         lines.push("");
         lines.push("오늘도 화이팅! 💪");
-        message = lines.join("\n");
 
-      } else if (type === "evening") {
-        // ── 저녁: 내일 일정 미리보기 ──
-        const tomorrowStr = getKSTDate(1);
+        const result = await sendSlackDM(su.slackId, lines.join("\n"));
+        if (result.ok) sent++;
+        else errors.push(`${userName}(아침): ${result.error}`);
+      }
+
+      if (sendEvening && eveningEnabled) {
+        const tomorrowStr = getTomorrowStr();
 
         const schedules = await prisma.schedule.findMany({
           where: {
@@ -119,33 +168,27 @@ export async function POST(req: NextRequest) {
           orderBy: { startTime: "asc" },
         });
 
-        if (schedules.length === 0) continue; // 내일 일정 없으면 안 보냄
+        if (schedules.length === 0) continue;
 
         const lines: string[] = [];
         lines.push(`🌙 *${userName}님, 내일 일정 안내* (${tomorrowStr})`);
         lines.push("");
         lines.push("📅 *내일의 일정*");
-        for (const s of schedules) {
-          const time = s.startTime ? `${s.startTime}${s.endTime ? `~${s.endTime}` : ""}` : "종일";
-          lines.push(`  • ${time} ${s.title}`);
+        for (const sc of schedules) {
+          const time = sc.startTime ? `${sc.startTime}${sc.endTime ? `~${sc.endTime}` : ""}` : "종일";
+          lines.push(`  • ${time} ${sc.title}`);
         }
         lines.push("");
         lines.push("내일 준비 잘 하시고, 오늘 수고하셨습니다! 🙏");
-        message = lines.join("\n");
-      }
 
-      if (!message) continue;
-
-      const result = await sendSlackDM(su.slackId, message);
-      if (result.ok) {
-        sent++;
-      } else {
-        errors.push(`${userName}: ${result.error}`);
+        const result = await sendSlackDM(su.slackId, lines.join("\n"));
+        if (result.ok) sent++;
+        else errors.push(`${userName}(저녁): ${result.error}`);
       }
     } catch (e: any) {
       errors.push(`${su.user.name}: ${e.message}`);
     }
   }
 
-  return NextResponse.json({ type, sent, total: slackUsers.length, errors });
+  return NextResponse.json({ kstTime: kst.timeStr, sent, total: slackUsers.length, errors });
 }

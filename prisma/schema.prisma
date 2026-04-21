@@ -160,6 +160,11 @@ model Settings {
   alimtalkHappyCallCorp   String?
   alimtalkDocRemind       String?
   alimtalkFeeRemind       String?
+  slackMorningEnabled     Boolean @default(true)
+  slackMorningTime        String  @default("08:00")
+  slackEveningEnabled     Boolean @default(true)
+  slackEveningTime        String  @default("19:00")
+  slackDistributionEnabled Boolean @default(true)
   user               User    @relation(fields: [userId], references: [id])
 }
 

@@ -28,6 +28,11 @@ export async function saveSettings(formData: FormData) {
     alimtalkHappyCallCorp:  (formData.get("alimtalkHappyCallCorp")  as string) || null,
     alimtalkDocRemind:      (formData.get("alimtalkDocRemind")      as string) || null,
     alimtalkFeeRemind:      (formData.get("alimtalkFeeRemind")      as string) || null,
+    slackMorningEnabled:    formData.get("slackMorningEnabled") === "on",
+    slackMorningTime:       (formData.get("slackMorningTime") as string) || "08:00",
+    slackEveningEnabled:    formData.get("slackEveningEnabled") === "on",
+    slackEveningTime:       (formData.get("slackEveningTime") as string) || "19:00",
+    slackDistributionEnabled: formData.get("slackDistributionEnabled") === "on",
   };
 
   await prisma.settings.upsert({
