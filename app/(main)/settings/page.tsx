@@ -129,18 +129,18 @@ export default async function SettingsPage() {
             <p className="text-[10px] text-gray-400 mb-3">슬랙 연동 후 자동 알림을 받을 수 있습니다</p>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <input name="slackMorningEnabled" type="checkbox" defaultChecked={settings?.slackMorningEnabled ?? true} className="accent-[#1a2e4a] w-4 h-4" />
-                <label className="text-sm text-gray-700 flex-1">아침 브리핑 (오늘 일정 + 할일)</label>
-                <input name="slackMorningTime" type="time" defaultValue={settings?.slackMorningTime ?? "08:00"} className={`${inputClass} w-28 text-center`} />
+                <input name="slackMorningEnabled" type="checkbox" defaultChecked={settings?.slackMorningEnabled ?? true} className="accent-[#1a2e4a] w-4 h-4 shrink-0" />
+                <span className="text-sm text-gray-700 whitespace-nowrap">아침 브리핑</span>
+                <input name="slackMorningTime" type="time" defaultValue={settings?.slackMorningTime ?? "08:00"} className={`${inputClass} w-28 text-center shrink-0`} />
               </div>
               <div className="flex items-center gap-3">
-                <input name="slackEveningEnabled" type="checkbox" defaultChecked={settings?.slackEveningEnabled ?? true} className="accent-[#1a2e4a] w-4 h-4" />
-                <label className="text-sm text-gray-700 flex-1">저녁 내일 일정 미리보기</label>
-                <input name="slackEveningTime" type="time" defaultValue={settings?.slackEveningTime ?? "19:00"} className={`${inputClass} w-28 text-center`} />
+                <input name="slackEveningEnabled" type="checkbox" defaultChecked={settings?.slackEveningEnabled ?? true} className="accent-[#1a2e4a] w-4 h-4 shrink-0" />
+                <span className="text-sm text-gray-700 whitespace-nowrap">저녁 내일 일정</span>
+                <input name="slackEveningTime" type="time" defaultValue={settings?.slackEveningTime ?? "19:00"} className={`${inputClass} w-28 text-center shrink-0`} />
               </div>
               <div className="flex items-center gap-3">
-                <input name="slackDistributionEnabled" type="checkbox" defaultChecked={settings?.slackDistributionEnabled ?? true} className="accent-[#1a2e4a] w-4 h-4" />
-                <label className="text-sm text-gray-700">새 거래처 배분 알림</label>
+                <input name="slackDistributionEnabled" type="checkbox" defaultChecked={settings?.slackDistributionEnabled ?? true} className="accent-[#1a2e4a] w-4 h-4 shrink-0" />
+                <span className="text-sm text-gray-700 whitespace-nowrap">새 거래처 배분 알림</span>
               </div>
             </div>
           </div>
