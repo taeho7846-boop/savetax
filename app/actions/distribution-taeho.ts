@@ -3,6 +3,29 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { sendSlackDM } from "@/lib/slack";
+
+async function notifyDistribution(assignedUserId: number, clientNames: string[], clientType: string) {
+  try {
+    const settings = await prisma.settings.findUnique({ where: { userId: assignedUserId }, select: { slackDistributionEnabled: true } });
+    if (settings?.slackDistributionEnabled === false) return;
+    const slackUser = await prisma.slackUser.findFirst({ where: { userId: assignedUserId } });
+    if (!slackUser) return;
+    const user = await prisma.user.findUnique({ where: { id: assignedUserId }, select: { name: true } });
+    const typeLabel = clientType.includes("corporate") ? "법인" : "개인";
+    const lines = [
+      `🆕 *${user?.name}님, 새 거래처가 배분되었습니다!*`,
+      "",
+      `📋 *${typeLabel}* ${clientNames.length}건`,
+      ...clientNames.map(n => `  • ${n}`),
+      "",
+      "배분 현황은 홈페이지에서 확인해주세요!",
+    ];
+    await sendSlackDM(slackUser.slackId, lines.join("\n"));
+  } catch (e) {
+    console.error("[Slack 배분 알림 실패]", e);
+  }
+}
 
 const TARGET_NAMES = ["김태호", "이휘언"];
 
@@ -82,6 +105,7 @@ export async function addTaehoDistribution(
         data: { clientName: name.trim(), clientType: ct, assignedUserId: forceUserId, batchId },
       });
     }
+    await notifyDistribution(forceUserId, names, ct);
     revalidatePath("/distribution-taeho");
     return;
   }
@@ -134,6 +158,7 @@ export async function addTaehoDistribution(
             data: { clientName: name.trim(), clientType: ct, assignedUserId: candidate.id, batchId },
           });
         }
+        await notifyDistribution(candidate.id, names, ct);
         found = true;
         break;
       }
@@ -145,6 +170,7 @@ export async function addTaehoDistribution(
         data: { clientName: name.trim(), clientType: ct, assignedUserId: nextPerson.id, batchId },
       });
     }
+    await notifyDistribution(nextPerson.id, names, ct);
   }
 
   revalidatePath("/distribution-taeho");
