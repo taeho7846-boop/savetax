@@ -83,9 +83,22 @@ export async function POST(req: NextRequest) {
 
       if (sendMorning && morningEnabled) {
         const todayStr = kst.dateStr;
-        const todayStart = new Date(todayStr + "T00:00:00+09:00");
-        const todayEnd = new Date(todayStr + "T23:59:59+09:00");
+        const today = new Date(todayStr + "T00:00:00+09:00");
+        const todayTs = today.getTime();
+        const dayMs = 86400000;
+        function daysDiff(from: Date) {
+          const d = new Date(from);
+          d.setHours(0, 0, 0, 0);
+          return Math.floor((todayTs - d.getTime()) / dayMs);
+        }
+        function isPostponed(cp: any) {
+          if (!cp.postponedUntil) return false;
+          const until = new Date(cp.postponedUntil);
+          until.setHours(0, 0, 0, 0);
+          return until.getTime() > todayTs;
+        }
 
+        // 1. 오늘의 스케줄
         const schedules = await prisma.schedule.findMany({
           where: {
             userId,
@@ -97,17 +110,64 @@ export async function POST(req: NextRequest) {
           orderBy: { startTime: "asc" },
         });
 
-        const tasks = await prisma.task.findMany({
+        // 2. 오늘의 업무 (수임 프로세스 기반)
+        const commissions = await prisma.commissionProcess.findMany({
           where: {
-            isDeleted: false,
-            assignedUserId: userId,
-            status: { notIn: ["done", "hold"] },
-            dueDate: { lte: todayEnd },
+            completedAt: null,
+            client: { isDeleted: false, assignedUserId: userId },
           },
-          include: { client: { select: { name: true } } },
-          orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
+          include: {
+            client: { select: { name: true } },
+            happyCalls: { orderBy: { calledAt: "desc" } },
+          },
         });
 
+        const todayTasks: { type: string; clientName: string; label: string }[] = [];
+
+        for (const cp of commissions) {
+          const clientName = cp.client.name;
+          const noAnswerCalls = cp.happyCalls.filter((h: any) => h.result === "no_answer");
+          const connected = cp.happyCalls.find((h: any) => h.result === "connected");
+
+          // 이관자료 대기
+          if (cp.transferRequested && !cp.transferReceivedAt) {
+            const daysEl = daysDiff(new Date(cp.createdAt));
+            if (daysEl >= 3 && !isPostponed(cp)) {
+              const daysSinceReq = cp.lastTransferRequestAt ? daysDiff(new Date(cp.lastTransferRequestAt)) : null;
+              if (daysSinceReq === null || daysSinceReq >= 1) {
+                todayTasks.push({ type: "이관자료", clientName, label: `이관자료 요청 (D+${daysEl})` });
+              }
+            }
+          }
+
+          // 자료수집 단계
+          if (connected && !(cp.hasIdCard && cp.hasHometaxCredentials)) {
+            const dfc = daysDiff(new Date(cp.connectedAt!));
+            const daysSinceReq = cp.lastDataRequestAt ? daysDiff(new Date(cp.lastDataRequestAt)) : null;
+            if (!isPostponed(cp)) {
+              if (cp.dataRequestCount === 0 && dfc >= 2) {
+                todayTasks.push({ type: "자료수집", clientName, label: `1차 자료 요청 (D+${dfc})` });
+              } else if (cp.dataRequestCount > 0 && daysSinceReq !== null && daysSinceReq >= 2) {
+                todayTasks.push({ type: "자료수집", clientName, label: `${cp.dataRequestCount + 1}차 자료 요청 (D+${dfc})` });
+              }
+            }
+            continue;
+          }
+
+          if (connected && cp.hasIdCard && cp.hasHometaxCredentials) continue;
+
+          // 해피콜 단계
+          if (!connected && noAnswerCalls.length < 3) {
+            const baseDate = cp.happyCalls[0] ? new Date(cp.happyCalls[0].calledAt) : new Date(cp.createdAt);
+            const daysElapsed = daysDiff(baseDate);
+            if (daysElapsed >= 1 && !isPostponed(cp)) {
+              const nextAttempt = noAnswerCalls.length + 1;
+              todayTasks.push({ type: "해피콜", clientName, label: `${nextAttempt}차 해피콜 (D+${daysElapsed})` });
+            }
+          }
+        }
+
+        // 3. 메시지 구성
         const lines: string[] = [];
         lines.push(`🌅 *${userName}님, 좋은 아침이에요!* (${todayStr})`);
         lines.push("");
@@ -123,28 +183,14 @@ export async function POST(req: NextRequest) {
         }
         lines.push("");
 
-        if (tasks.length > 0) {
-          const overdue = tasks.filter(t => t.dueDate && t.dueDate < todayStart);
-          const todayTasks = tasks.filter(t => t.dueDate && t.dueDate >= todayStart);
-          if (overdue.length > 0) {
-            lines.push(`🔴 *지연된 업무* (${overdue.length}건)`);
-            for (const t of overdue) {
-              const client = t.client?.name ? ` [${t.client.name}]` : "";
-              const p = t.priority === "urgent" ? "🚨" : t.priority === "high" ? "❗" : "";
-              lines.push(`  • ${p}${t.title}${client}`);
-            }
-            lines.push("");
-          }
-          if (todayTasks.length > 0) {
-            lines.push(`✅ *오늘 할 일* (${todayTasks.length}건)`);
-            for (const t of todayTasks) {
-              const client = t.client?.name ? ` [${t.client.name}]` : "";
-              const p = t.priority === "urgent" ? "🚨" : t.priority === "high" ? "❗" : "";
-              lines.push(`  • ${p}${t.title}${client}`);
-            }
+        if (todayTasks.length > 0) {
+          lines.push(`📋 *오늘의 업무* (${todayTasks.length}건)`);
+          for (const t of todayTasks) {
+            const icon = t.type === "해피콜" ? "📞" : t.type === "자료수집" ? "📂" : "📦";
+            lines.push(`  • ${icon} ${t.label} [${t.clientName}]`);
           }
         } else {
-          lines.push("✅ *오늘 할 일* — 없음");
+          lines.push("📋 *오늘의 업무* — 없음");
         }
         lines.push("");
         lines.push("오늘도 화이팅! 💪");
