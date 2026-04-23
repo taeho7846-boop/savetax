@@ -24,26 +24,26 @@ function calcMinTax(computedTax: number): number {
 // 감면 적용 + 최저한세 반영
 function applyReduction(
   computedTax: number,
-  startupRate: number, // 0, 25, 50, 75, 100
-  smeRate: number, // 0, 10, 20, 30
-): { startupReduction: number; smeReduction: number; afterReduction: number; minTax: number; hitMinTax: boolean; finalTax: number } {
+  startupRate: number,
+  smeRate: number,
+  investCredit: number,
+  employmentCredit: number,
+): { startupReduction: number; smeReduction: number; investCredit: number; employmentCredit: number; afterReduction: number; minTax: number; hitMinTax: boolean; finalTax: number } {
   const startupReduction = Math.round(computedTax * startupRate / 100);
   const afterStartup = computedTax - startupReduction;
   const smeReduction = Math.round(afterStartup * smeRate / 100);
-  const afterReduction = Math.max(afterStartup - smeReduction, 0);
+  const afterSme = afterStartup - smeReduction;
+  const afterReduction = Math.max(afterSme - investCredit - employmentCredit, 0);
 
-  // 최저한세
   const minTax = calcMinTax(computedTax);
 
-  // 창업중소기업 100%는 최저한세 적용 배제
   if (startupRate === 100) {
-    return { startupReduction, smeReduction, afterReduction, minTax: 0, hitMinTax: false, finalTax: afterReduction };
+    return { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax: 0, hitMinTax: false, finalTax: afterReduction };
   }
 
-  // 나머지는 최저한세 이상 납부
   const hitMinTax = afterReduction < minTax;
   const finalTax = Math.max(afterReduction, minTax);
-  return { startupReduction, smeReduction, afterReduction, minTax, hitMinTax, finalTax };
+  return { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax };
 }
 
 function fmt(n: number): string {
@@ -81,6 +81,8 @@ type CalcResult = {
   computedTax: number;
   startupReduction: number;
   smeReduction: number;
+  investCredit: number;
+  employmentCredit: number;
   afterReduction: number;
   minTax: number;
   hitMinTax: boolean;
@@ -94,16 +96,35 @@ function calculate(
   expense: number,
   startupRate: number,
   smeRate: number,
+  investCreditAmt: number = 0,
+  employmentCreditAmt: number = 0,
 ): CalcResult {
   const income = Math.max(revenue - expense, 0);
-  const deduction = 1500000; // 기본공제
+  const deduction = 1500000;
   const taxBase = Math.max(income - deduction, 0);
   const taxRate = getTaxRateLabel(taxBase);
   const computedTax = Math.round(calcTax(taxBase));
-  const { startupReduction, smeReduction, afterReduction, minTax, hitMinTax, finalTax } = applyReduction(computedTax, startupRate, smeRate);
+  const { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax } = applyReduction(computedTax, startupRate, smeRate, investCreditAmt, employmentCreditAmt);
   const localTax = Math.round(finalTax * 0.1);
   const totalTax = finalTax + localTax;
-  return { revenue, expense, income, deduction, taxBase, taxRate, computedTax, startupReduction, smeReduction, afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax };
+  return { revenue, expense, income, deduction, taxBase, taxRate, computedTax, startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax };
+}
+
+function calculateFromIncome(
+  incomeAmt: number,
+  startupRate: number,
+  smeRate: number,
+  investCreditAmt: number = 0,
+  employmentCreditAmt: number = 0,
+): CalcResult {
+  const deduction = 1500000;
+  const taxBase = Math.max(incomeAmt - deduction, 0);
+  const taxRate = getTaxRateLabel(taxBase);
+  const computedTax = Math.round(calcTax(taxBase));
+  const { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax } = applyReduction(computedTax, startupRate, smeRate, investCreditAmt, employmentCreditAmt);
+  const localTax = Math.round(finalTax * 0.1);
+  const totalTax = finalTax + localTax;
+  return { revenue: 0, expense: 0, income: incomeAmt, deduction, taxBase, taxRate, computedTax, startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax };
 }
 
 function ResultCard({ result, label, color }: { result: CalcResult; label: string; color: "blue" | "green" }) {
@@ -124,14 +145,16 @@ function ResultCard({ result, label, color }: { result: CalcResult; label: strin
 
       {/* 상세 */}
       <div className="text-xs space-y-0.5">
-        <Row label="매출액" value={result.revenue} />
-        <Row label="비용" value={result.expense} sub />
+        {result.revenue > 0 && <Row label="매출액" value={result.revenue} />}
+        {result.expense > 0 && <Row label="비용" value={result.expense} sub />}
         <RowBold label="사업소득금액" value={result.income} />
         <Row label="기본공제" value={result.deduction} sub />
         <RowBold label="과세표준" value={result.taxBase} note={result.taxRate} />
         <Row label="산출세액" value={result.computedTax} />
         {result.startupReduction > 0 && <Row label="창업중소기업 감면" value={result.startupReduction} sub red />}
         {result.smeReduction > 0 && <Row label="중소기업특별 감면" value={result.smeReduction} sub red />}
+        {result.investCredit > 0 && <Row label="통합투자 세액공제" value={result.investCredit} sub red />}
+        {result.employmentCredit > 0 && <Row label="고용증대 세액공제" value={result.employmentCredit} sub red />}
         {(result.startupReduction > 0 || result.smeReduction > 0) && (
           <Row label="감면 후 세액" value={result.afterReduction} />
         )}
@@ -184,19 +207,40 @@ function RowBold({ label, value, note }: { label: string; value: number; note?: 
   );
 }
 
-export function BizTaxCalcModal({ onClose }: { onClose: () => void }) {
-  const [revenue, setRevenue] = useState("");
+type BizTaxCalcProps = {
+  onClose: () => void;
+  initialRevenue?: string;
+  initialIncome?: string;
+  clientName?: string;
+  onApply?: (finalTax: number) => void;
+};
+
+export function BizTaxCalcModal({ onClose, initialRevenue, initialIncome, clientName, onApply }: BizTaxCalcProps) {
+  const [revenue, setRevenue] = useState(initialRevenue ? numInput(initialRevenue) : "");
   const [expense, setExpense] = useState("");
-  const [extraExpense, setExtraExpense] = useState(""); // 가공경비
+  const [income, setIncome] = useState(initialIncome ? numInput(initialIncome) : "");
+  const [useIncome, setUseIncome] = useState(!!initialIncome); // 종합소득금액 직접 입력 모드
+  const [extraExpense, setExtraExpense] = useState("");
   const [startupRate, setStartupRate] = useState(0);
   const [smeRate, setSmeRate] = useState(0);
+  const [investCreditInput, setInvestCreditInput] = useState("");
+  const [employmentCreditInput, setEmploymentCreditInput] = useState("");
 
   const revenueNum = parse(revenue);
   const expenseNum = parse(expense);
+  const incomeNum = parse(income);
   const extraNum = parse(extraExpense);
+  const investCreditNum = parse(investCreditInput);
+  const employmentCreditNum = parse(employmentCreditInput);
 
-  const base = calculate(revenueNum, expenseNum, startupRate, smeRate);
-  const withExtra = extraNum > 0 ? calculate(revenueNum, expenseNum + extraNum, startupRate, smeRate) : null;
+  const base = useIncome
+    ? calculateFromIncome(incomeNum, startupRate, smeRate, investCreditNum, employmentCreditNum)
+    : calculate(revenueNum, expenseNum, startupRate, smeRate, investCreditNum, employmentCreditNum);
+  const withExtra = extraNum > 0
+    ? (useIncome
+      ? calculateFromIncome(incomeNum, startupRate, smeRate, investCreditNum, employmentCreditNum) // 가공경비는 매출-비용 모드에서만
+      : calculate(revenueNum, expenseNum + extraNum, startupRate, smeRate, investCreditNum, employmentCreditNum))
+    : null;
   const taxDiff = withExtra ? base.totalTax - withExtra.totalTax : 0;
 
   return (
@@ -211,44 +255,89 @@ export function BizTaxCalcModal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xl">📊</span>
-              <h2 className="text-white font-semibold text-lg">사업소득세 간이계산기</h2>
+              <h2 className="text-white font-semibold text-lg">
+                {clientName ? `${clientName} — 세액계산` : "사업소득세 간이계산기"}
+              </h2>
             </div>
-            <button onClick={onClose} className="text-white/60 hover:text-white text-2xl leading-none">&times;</button>
+            <div className="flex items-center gap-2">
+              {onApply && base.finalTax > 0 && (
+                <button
+                  onClick={() => { onApply(base.finalTax); onClose(); }}
+                  className="text-xs px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                >
+                  결정세액 반영
+                </button>
+              )}
+              <button onClick={onClose} className="text-white/60 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
           </div>
-          <p className="text-white/50 text-xs mt-1">2026년 세율 기준 · 프로토타입</p>
+          <p className="text-white/50 text-xs mt-1">2026년 세율 기준</p>
         </div>
 
         <div className="px-6 py-5 space-y-5">
+          {/* 입력 모드 전환 */}
+          <div className="flex bg-gray-100 rounded-xl p-1">
+            <button
+              onClick={() => setUseIncome(false)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${!useIncome ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500"}`}
+            >
+              매출 - 비용
+            </button>
+            <button
+              onClick={() => setUseIncome(true)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${useIncome ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500"}`}
+            >
+              종합소득금액 직접 입력
+            </button>
+          </div>
+
           {/* 입력 영역 */}
-          <div className="grid grid-cols-2 gap-3">
+          {useIncome ? (
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">매출액</label>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">종합소득금액</label>
               <div className="relative">
                 <input
                   type="text"
-                  value={revenue}
-                  onChange={e => setRevenue(numInput(e.target.value))}
-                  placeholder="100,000,000"
+                  value={income}
+                  onChange={e => setIncome(numInput(e.target.value))}
+                  placeholder="40,000,000"
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
                   autoFocus
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
               </div>
             </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">비용 (경비)</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={expense}
-                  onChange={e => setExpense(numInput(e.target.value))}
-                  placeholder="60,000,000"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">매출액</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={revenue}
+                    onChange={e => setRevenue(numInput(e.target.value))}
+                    placeholder="100,000,000"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
+                    autoFocus
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">비용 (경비)</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={expense}
+                    onChange={e => setExpense(numInput(e.target.value))}
+                    placeholder="60,000,000"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* 세액감면 */}
           <div className="grid grid-cols-2 gap-3">
@@ -278,6 +367,36 @@ export function BizTaxCalcModal({ onClose }: { onClose: () => void }) {
                 <option value={20}>20% 감면</option>
                 <option value={30}>30% 감면</option>
               </select>
+            </div>
+          </div>
+
+          {/* 세액공제 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">통합투자 세액공제</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={investCreditInput}
+                  onChange={e => setInvestCreditInput(numInput(e.target.value))}
+                  placeholder="금액 입력"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">고용증대 세액공제</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={employmentCreditInput}
+                  onChange={e => setEmploymentCreditInput(numInput(e.target.value))}
+                  placeholder="금액 입력"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+              </div>
             </div>
           </div>
 
