@@ -4,6 +4,7 @@ import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { IncomeTaxCalcModal } from "./IncomeTaxCalcModal";
+import { BizTaxCalcModal } from "./BizTaxCalcModal";
 
 type ClientResult = {
   id: number;
@@ -67,6 +68,7 @@ const MENUS = [
 // 빌트인 도구 (모달)
 const TOOLS = [
   { name: "근로소득세 계산기", keywords: "근로소득세, 계산기, 급여, 세금, 원천세, tax calculator", icon: "🧮", key: "income-tax-calc" },
+  { name: "사업소득세 계산기", keywords: "사업소득세, 종합소득세, 종소세, 사업소득, 계산기, 가공경비", icon: "📊", key: "biz-tax-calc" },
 ];
 
 // 빌트인 외부 사이트 (검색어로 필터)
@@ -331,6 +333,9 @@ export function GlobalSearch() {
 
   if (activeTool === "income-tax-calc") {
     return <IncomeTaxCalcModal onClose={() => setActiveTool(null)} />;
+  }
+  if (activeTool === "biz-tax-calc") {
+    return <BizTaxCalcModal onClose={() => setActiveTool(null)} />;
   }
 
   if (!open) return null;
