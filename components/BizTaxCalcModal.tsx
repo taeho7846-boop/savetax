@@ -210,6 +210,8 @@ function RowBold({ label, value, note }: { label: string; value: number; note?: 
 type BizTaxCalcProps = {
   onClose: () => void;
   clientName?: string;
+  clientId?: number;
+  taxYear?: string;
   loadData?: {
     currSales: string | null;
     currIncome: string | null;
@@ -217,19 +219,72 @@ type BizTaxCalcProps = {
     aiSme: string | null;
   };
   onApply?: (finalTax: number) => void;
+  onSaved?: () => void;
 };
 
-export function BizTaxCalcModal({ onClose, clientName, loadData, onApply }: BizTaxCalcProps) {
+export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadData, onApply, onSaved }: BizTaxCalcProps) {
   const [revenue, setRevenue] = useState("");
   const [expense, setExpense] = useState("");
   const [income, setIncome] = useState("");
   const [useIncome, setUseIncome] = useState(false);
-  const [loaded, setLoaded] = useState(false); // 종합소득금액 직접 입력 모드
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedOnce, setSavedOnce] = useState(false);
+
+  // 저장된 설정 불러오기
+  useState(() => {
+    if (!clientId || !taxYear) return;
+    fetch(`/api/income-tax/calc-setting?clientId=${clientId}&taxYear=${taxYear}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.setting) {
+          const s = data.setting;
+          if (s.revenue) setRevenue(numInput(s.revenue));
+          if (s.expense) setExpense(numInput(s.expense));
+          if (s.income) setIncome(numInput(s.income));
+          setUseIncome(s.useIncome || false);
+          setStartupRate(s.startupRate || 0);
+          setSmeRate(s.smeRate || 0);
+          if (s.investCredit) setInvestCreditInput(numInput(s.investCredit));
+          if (s.employmentCredit) setEmploymentCreditInput(numInput(s.employmentCredit));
+          if (s.extraExpense) setExtraExpense(numInput(s.extraExpense));
+          setSavedOnce(true);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {});
+  }); // 종합소득금액 직접 입력 모드
   const [extraExpense, setExtraExpense] = useState("");
   const [startupRate, setStartupRate] = useState(0);
   const [smeRate, setSmeRate] = useState(0);
   const [investCreditInput, setInvestCreditInput] = useState("");
   const [employmentCreditInput, setEmploymentCreditInput] = useState("");
+
+  async function handleSave() {
+    if (!clientId || !taxYear) return;
+    setSaving(true);
+    try {
+      await fetch("/api/income-tax/calc-setting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId, taxYear,
+          revenue: revenue.replace(/,/g, "") || null,
+          expense: expense.replace(/,/g, "") || null,
+          income: income.replace(/,/g, "") || null,
+          useIncome,
+          startupRate, smeRate,
+          investCredit: investCreditInput.replace(/,/g, "") || null,
+          employmentCredit: employmentCreditInput.replace(/,/g, "") || null,
+          extraExpense: extraExpense.replace(/,/g, "") || null,
+        }),
+      });
+      setSavedOnce(true);
+      onSaved?.();
+      alert("저장 완료!");
+    } catch { alert("저장 실패"); }
+    finally { setSaving(false); }
+  }
 
   function handleLoad() {
     if (!loadData) return;
@@ -277,12 +332,25 @@ export function BizTaxCalcModal({ onClose, clientName, loadData, onApply }: BizT
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              {onApply && base.finalTax > 0 && (
+              {onApply && (useIncome ? incomeNum > 0 : revenueNum > 0) && (
                 <button
-                  onClick={() => { onApply(base.finalTax); onClose(); }}
+                  onClick={() => {
+                    const tax = withExtra ? withExtra.finalTax : base.finalTax;
+                    onApply(tax);
+                    onClose();
+                  }}
                   className="text-xs px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600"
                 >
                   결정세액 반영
+                </button>
+              )}
+              {clientId && taxYear && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="text-xs px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {saving ? "저장 중..." : "💾 저장"}
                 </button>
               )}
               <button onClick={onClose} className="text-white/60 hover:text-white text-2xl leading-none">&times;</button>

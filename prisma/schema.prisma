@@ -416,6 +416,25 @@ model SlackUser {
   user      User   @relation(fields: [userId], references: [id])
 }
 
+model IncomeTaxCalcSetting {
+  id                Int     @id @default(autoincrement())
+  clientId          Int
+  taxYear           String
+  revenue           String?
+  expense           String?
+  income            String?
+  useIncome         Boolean @default(false)
+  startupRate       Int     @default(0)
+  smeRate           Int     @default(0)
+  investCredit      String?
+  employmentCredit  String?
+  extraExpense      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([clientId, taxYear])
+}
+
 model TaxReductionCode {
   id              Int    @id @default(autoincrement())
   bizCode         String @unique  // 업종코드 6자리

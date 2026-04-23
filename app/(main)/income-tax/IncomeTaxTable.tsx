@@ -92,6 +92,17 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
     aiStartup: string | null;
     aiSme: string | null;
   } | null>(null);
+  const [savedCalcIds, setSavedCalcIds] = useState<Set<number>>(new Set());
+
+  // 저장된 세액계산 거래처 목록 조회
+  useState(() => {
+    fetch(`/api/income-tax/calc-setting?list=1&taxYear=${taxYear}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.clientIds) setSavedCalcIds(new Set(data.clientIds));
+      })
+      .catch(() => {});
+  });
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
@@ -303,10 +314,14 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                             aiStartup: client.aiStartupReduction ?? null,
                             aiSme: client.aiSmeReduction ?? null,
                           })}
-                          className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 shrink-0"
+                          className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                            savedCalcIds.has(client.id)
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                          }`}
                           title="세액계산"
                         >
-                          계산
+                          {savedCalcIds.has(client.id) ? "✓계산" : "계산"}
                         </button>
                       </div>
                     </td>
@@ -465,6 +480,8 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
         <BizTaxCalcModal
           onClose={() => setTaxCalcModal(null)}
           clientName={taxCalcModal.clientName}
+          clientId={taxCalcModal.clientId}
+          taxYear={taxYear}
           loadData={{
             currSales: taxCalcModal.currSales,
             currIncome: taxCalcModal.currIncome,
@@ -474,6 +491,9 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
           onApply={(finalTax) => {
             handleFieldBlur(taxCalcModal.clientId, "currTax", String(finalTax));
             setTaxCalcModal(null);
+          }}
+          onSaved={() => {
+            setSavedCalcIds(prev => new Set(prev).add(taxCalcModal.clientId));
           }}
         />
       )}
