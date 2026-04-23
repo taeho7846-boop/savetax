@@ -59,6 +59,10 @@ const HEADER_MAP: Record<string, string> = {
   무료기장개월: "freeMonths",
   원천세유형: "withholdingType",
   cms상태: "cmsStatus",
+  업종코드: "bizType",
+  주업종코드: "bizType",
+  업태: "bizCategory",
+  종목: "bizItem",
   구글드라이브: "_skip",
   담당직원: "_assignedUser",
 };
