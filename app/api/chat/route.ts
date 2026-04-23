@@ -192,6 +192,17 @@ const tools: Anthropic.Tool[] = [
     },
   },
   {
+    name: "check_tax_reduction",
+    description: "업종코드를 입력하면 창업중소기업세액감면(창중감)과 중소기업특별세액감면(중특감) 적용 여부를 조회합니다. 사용자가 업종코드를 알려주면 호출하세요.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        bizCode: { type: "string", description: "업종코드 6자리 (예: 525101)" },
+      },
+      required: ["bizCode"],
+    },
+  },
+  {
     name: "upload_to_drive",
     description: "파일(이미지/문서)을 거래처의 구글 드라이브 특정 폴더에 업로드합니다. 사용자가 파일과 함께 거래처명, 폴더명을 알려주면 호출하세요. 폴더명을 모르면 사용자에게 물어보세요 (0.기본정보 / 1.원천세 / 2.부가가치세 / 3.종합소득세 or 법인세 / 4.이관자료).",
     input_schema: {
@@ -778,6 +789,21 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     } catch (e: any) {
       return `❌ 조회 실패: ${e.message || "알 수 없는 오류"}`;
     }
+  }
+
+  if (name === "check_tax_reduction") {
+    const bizCode = String(input.bizCode || "").trim();
+    if (!bizCode) return "⚠️ 업종코드를 입력해주세요.";
+
+    const record = await prisma.taxReductionCode.findUnique({ where: { bizCode } });
+    if (!record) {
+      // 앞자리 매칭 시도 (5자리)
+      const partial = await prisma.taxReductionCode.findFirst({ where: { bizCode: { startsWith: bizCode.slice(0, 5) } } });
+      if (!partial) return `❌ 업종코드 **${bizCode}**를 찾을 수 없습니다. 6자리 코드를 확인해주세요.`;
+      return `⚠️ 정확한 코드 **${bizCode}**는 없지만, 유사 코드 **${partial.bizCode}** 기준:\n\n- 창업중소기업 세액감면: **${partial.startupReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**\n- 중소기업특별 세액감면: **${partial.smeReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**\n\n정확한 업종코드를 확인해주세요.`;
+    }
+
+    return `📋 업종코드 **${bizCode}** 감면 판단 결과:\n\n- 창업중소기업 세액감면(창중감): **${record.startupReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**\n- 중소기업특별 세액감면(중특감): **${record.smeReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**`;
   }
 
   if (name === "save_idcard_to_commission") {

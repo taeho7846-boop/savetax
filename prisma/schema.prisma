@@ -416,6 +416,13 @@ model SlackUser {
   user      User   @relation(fields: [userId], references: [id])
 }
 
+model TaxReductionCode {
+  id              Int    @id @default(autoincrement())
+  bizCode         String @unique  // 업종코드 6자리
+  startupReduction String @default("X")  // 창중감 O/X
+  smeReduction    String @default("X")  // 중특감 O/X
+}
+
 model SettlementBookkeeping {
   id               Int      @id @default(autoincrement())
   yearMonth        String
