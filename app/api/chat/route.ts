@@ -803,7 +803,10 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       return `⚠️ 정확한 코드 **${bizCode}**는 없지만, 유사 코드 **${partial.bizCode}** 기준:\n\n- 창업중소기업 세액감면: **${partial.startupReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**\n- 중소기업특별 세액감면: **${partial.smeReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**\n\n정확한 업종코드를 확인해주세요.`;
     }
 
-    return `📋 업종코드 **${bizCode}** 감면 판단 결과:\n\n- 창업중소기업 세액감면(창중감): **${record.startupReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**\n- 중소기업특별 세액감면(중특감): **${record.smeReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**`;
+    const cats = [record.categoryL, record.categoryM, record.categoryS, record.categoryD, record.categoryDD].filter(Boolean);
+    const catInfo = cats.length > 0 ? `\n\n📂 **업종 분류**\n${record.categoryL ? `- 대분류: ${record.categoryL}` : ""}${record.categoryM ? `\n- 중분류: ${record.categoryM}` : ""}${record.categoryS ? `\n- 소분류: ${record.categoryS}` : ""}${record.categoryD ? `\n- 세분류: ${record.categoryD}` : ""}${record.categoryDD && record.categoryDD !== record.categoryD ? `\n- 세세분류: ${record.categoryDD}` : ""}` : "";
+
+    return `📋 업종코드 **${bizCode}** 감면 판단 결과:\n\n- 창업중소기업 세액감면(창중감): **${record.startupReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**\n- 중소기업특별 세액감면(중특감): **${record.smeReduction === "O" ? "적용 가능 ✅" : "적용 불가 ❌"}**${catInfo}`;
   }
 
   if (name === "save_idcard_to_commission") {

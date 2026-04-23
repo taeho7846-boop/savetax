@@ -421,6 +421,11 @@ model TaxReductionCode {
   bizCode         String @unique  // 업종코드 6자리
   startupReduction String @default("X")  // 창중감 O/X
   smeReduction    String @default("X")  // 중특감 O/X
+  categoryL       String?  // 대분류
+  categoryM       String?  // 중분류
+  categoryS       String?  // 소분류
+  categoryD       String?  // 세분류
+  categoryDD      String?  // 세세분류
 }
 
 model SettlementBookkeeping {

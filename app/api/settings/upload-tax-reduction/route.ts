@@ -41,27 +41,57 @@ export async function POST(req: NextRequest) {
       create: { userId: session.id, taxReductionExcelPath: filePath },
     });
 
-    // 결과 시트 파싱 → DB 저장
+    // 결과 시트 + 연계표 파싱 → DB 저장
     const wb = XLSX.read(buffer, { type: "buffer" });
+
+    // 1) 연계표에서 업종코드 → 분류 정보 매핑
+    const categoryMap = new Map<string, { categoryL: string; categoryM: string; categoryS: string; categoryD: string; categoryDD: string }>();
+    const wsLink = wb.Sheets["연계표"];
+    if (wsLink) {
+      const linkData: any[] = XLSX.utils.sheet_to_json(wsLink, { header: 1, defval: "" });
+      for (let i = 5; i < linkData.length; i++) {
+        const row = linkData[i];
+        const code = String(row[2] || "").trim();
+        if (code && code.length >= 5) {
+          categoryMap.set(code, {
+            categoryL: String(row[4] || "").trim(),
+            categoryM: String(row[6] || "").trim(),
+            categoryS: String(row[8] || "").trim(),
+            categoryD: String(row[10] || "").trim(),
+            categoryDD: String(row[11] || "").trim(),
+          });
+        }
+      }
+    }
+
+    // 2) 결과 시트에서 감면 O/X
     const ws = wb.Sheets["결과"];
     if (ws) {
       const data: any[] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-      // 기존 데이터 삭제 후 새로 넣기
       await prisma.taxReductionCode.deleteMany({});
-      const records: { bizCode: string; startupReduction: string; smeReduction: string }[] = [];
+      const records: any[] = [];
       for (let i = 1; i < data.length; i++) {
         const code = String(data[i][0] || "").trim();
         const startup = String(data[i][1] || "X").trim();
         const sme = String(data[i][2] || "X").trim();
         if (code && code.length >= 5) {
-          records.push({ bizCode: code, startupReduction: startup, smeReduction: sme });
+          const cat = categoryMap.get(code);
+          records.push({
+            bizCode: code,
+            startupReduction: startup,
+            smeReduction: sme,
+            categoryL: cat?.categoryL || null,
+            categoryM: cat?.categoryM || null,
+            categoryS: cat?.categoryS || null,
+            categoryD: cat?.categoryD || null,
+            categoryDD: cat?.categoryDD || null,
+          });
         }
       }
-      // 배치로 삽입
       for (let i = 0; i < records.length; i += 100) {
         await prisma.taxReductionCode.createMany({ data: records.slice(i, i + 100), skipDuplicates: true });
       }
-      console.log(`[감면코드] ${records.length}건 DB 저장 완료`);
+      console.log(`[감면코드] ${records.length}건 DB 저장 (분류 정보 포함)`);
     }
 
     revalidatePath("/settings");
