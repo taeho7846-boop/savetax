@@ -97,7 +97,9 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
   const [extraTabs, setExtraTabs] = useState<IncomeTab[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addModal, setAddModal] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addType, setAddType] = useState<"business" | "employment" | "other">("business");
 
   // 소득공제
   const [deductPersons, setDeductPersons] = useState(0); // 인적공제 명수
@@ -183,12 +185,13 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
   }
 
   // 탭 추가
-  function addTab(type: "business" | "employment" | "other") {
-    const names = { business: "추가 사업소득", employment: "근로소득", other: "기타소득" };
-    const tab = newTab(type, names[type]);
+  function handleAddTab() {
+    if (!addName.trim()) return alert("이름을 입력해주세요.");
+    const tab = newTab(addType, addName.trim());
     setExtraTabs(prev => [...prev, tab]);
     setActiveTab(tab.id);
-    setAddMenuOpen(false);
+    setAddModal(false);
+    setAddName("");
   }
 
   function removeTab(id: string) {
@@ -355,19 +358,10 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
             <TabBtn key={t.id} label={t.name} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}
               onClose={() => removeTab(t.id)} />
           ))}
-          <div className="relative shrink-0">
-            <button
-              onClick={(e) => { e.stopPropagation(); setAddMenuOpen(!addMenuOpen); }}
-              className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-white rounded-lg ml-1 text-xl font-bold border border-transparent hover:border-gray-300"
-            >+</button>
-            {addMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 min-w-[150px]">
-                <button onClick={() => addTab("business")} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50">📋 사업소득</button>
-                <button onClick={() => addTab("employment")} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50">💼 근로소득</button>
-                <button onClick={() => addTab("other")} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50">📄 기타소득</button>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setAddModal(true); }}
+            className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-white rounded-lg ml-1 text-xl font-bold border border-transparent hover:border-gray-300 shrink-0"
+          >+</button>
         </div>
 
         {/* 탭 내용 */}
@@ -452,6 +446,52 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
             <OtherTabContent tab={currentExtra} onChange={updates => updateExtra(currentExtra.id, updates)} />
           )}
         </div>
+
+        {/* 소득 추가 모달 */}
+        {addModal && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-50 rounded-2xl" onClick={() => setAddModal(false)}>
+            <div className="bg-white rounded-xl shadow-xl p-5 w-80" onClick={e => e.stopPropagation()}>
+              <h3 className="font-semibold text-gray-900 mb-4">소득 추가</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">이름</label>
+                  <input
+                    type="text"
+                    value={addName}
+                    onChange={e => setAddName(e.target.value)}
+                    placeholder="예: OO사업장, 근로소득"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">소득 종류</label>
+                  <div className="flex gap-2">
+                    {([["business", "사업소득"], ["employment", "근로소득"], ["other", "기타소득"]] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => setAddType(key)}
+                        className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                          addType === key ? "bg-[#1a2e4a] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        }`}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={handleAddTab}
+                  className="flex-1 py-2 bg-[#1a2e4a] text-white text-sm font-medium rounded-lg hover:bg-[#243d61]"
+                >확인</button>
+                <button
+                  onClick={() => setAddModal(false)}
+                  className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg"
+                >취소</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
