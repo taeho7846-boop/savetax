@@ -419,7 +419,7 @@ export function BizTaxCalcModal({ onClose, initialRevenue, initialIncome, client
         </div>
 
         {/* 결과 */}
-        {revenueNum > 0 && (
+        {(useIncome ? incomeNum > 0 : revenueNum > 0) && (
           <div className="px-6 pb-6">
             {withExtra ? (
               <>
