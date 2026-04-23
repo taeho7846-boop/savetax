@@ -368,48 +368,68 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
         <div className="flex-1 overflow-y-auto p-5">
           {/* ── 종합소득 탭 ── */}
           {activeTab === "summary" && (
-            <div className="space-y-4">
-              {/* 소득 합산 */}
-              <Section title="종합소득금액">
-                <SummaryRow label="사업장소득" value={mainIncome} />
-                {extraBizIncomes.map(b => <SummaryRow key={b.id} label={b.name} value={b.income} />)}
-                {employmentIncomes.map(e => <SummaryRow key={e.id} label="근로소득" value={e.income} />)}
-                {otherIncomes.filter(o => o.taxType === "combined").map(o => <SummaryRow key={o.id} label="기타소득(종합)" value={o.income} />)}
-                <div className="flex justify-between py-1.5 bg-blue-50 -mx-2 px-2 rounded font-medium text-sm">
-                  <span>종합소득금액</span>
-                  <span className="font-bold">{fmt(totalIncome)}원</span>
+            <div className="space-y-5">
+              {/* 소득 합산 카드 */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700">종합소득금액</h3>
                 </div>
-              </Section>
+                <div className="px-4 py-3 space-y-1">
+                  <SummaryRow label="사업장소득" value={mainIncome} />
+                  {extraBizIncomes.map(b => <SummaryRow key={b.id} label={b.name} value={b.income} />)}
+                  {employmentIncomes.map(e => <SummaryRow key={e.id} label="근로소득" value={e.income} />)}
+                  {otherIncomes.filter(o => o.taxType === "combined").map(o => <SummaryRow key={o.id} label="기타소득(종합)" value={o.income} />)}
+                </div>
+                <div className="flex justify-between px-4 py-3 bg-blue-50 border-t border-blue-100">
+                  <span className="text-sm font-semibold text-blue-800">종합소득금액</span>
+                  <span className="text-lg font-bold text-blue-900">{fmt(totalIncome)}원</span>
+                </div>
+              </div>
 
-              {/* 소득공제 */}
-              <Section title="소득공제">
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div><span className="text-gray-500">기본공제</span><div className="font-medium mt-0.5">1,500,000원</div></div>
-                  <NumField label="인적공제 (명)" value={String(deductPersons)} onChange={v => setDeductPersons(parseInt(v) || 0)} suffix="명" small />
-                  <NumField label="70세이상 (명)" value={String(deductElderly)} onChange={v => setDeductElderly(parseInt(v) || 0)} suffix="명" small />
-                  <NumField label="장애인 (명)" value={String(deductDisabled)} onChange={v => setDeductDisabled(parseInt(v) || 0)} suffix="명" small />
-                  <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                    <input type="checkbox" checked={deductWoman} onChange={e => setDeductWoman(e.target.checked)} className="accent-[#1a2e4a]" />
-                    부녀자 (50만)
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                    <input type="checkbox" checked={deductSingleParent} onChange={e => setDeductSingleParent(e.target.checked)} className="accent-[#1a2e4a]" />
-                    한부모 (100만)
-                  </label>
-                  <div className="col-span-3">
+              {/* 소득공제 카드 */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700">소득공제</h3>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-gray-500">기본공제</span>
+                      <span className="text-xs font-semibold text-gray-800">1,500,000원</span>
+                    </div>
+                    <NumField label="인적공제" value={String(deductPersons)} onChange={v => setDeductPersons(parseInt(v) || 0)} suffix="명" small />
+                    <NumField label="70세이상" value={String(deductElderly)} onChange={v => setDeductElderly(parseInt(v) || 0)} suffix="명" small />
+                    <NumField label="장애인" value={String(deductDisabled)} onChange={v => setDeductDisabled(parseInt(v) || 0)} suffix="명" small />
+                  </div>
+                  <div className="flex items-center gap-6 mt-3">
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2">
+                      <input type="checkbox" checked={deductWoman} onChange={e => setDeductWoman(e.target.checked)} className="accent-[#1a2e4a] w-3.5 h-3.5" />
+                      부녀자 (50만원)
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2">
+                      <input type="checkbox" checked={deductSingleParent} onChange={e => setDeductSingleParent(e.target.checked)} className="accent-[#1a2e4a] w-3.5 h-3.5" />
+                      한부모가족 (100만원)
+                    </label>
+                  </div>
+                  <div className="mt-3">
                     <NumField label="노란우산공제" value={deductUmbrella} onChange={setDeductUmbrella} suffix="원" />
                   </div>
                 </div>
-                <div className="flex justify-between py-1.5 bg-gray-50 -mx-2 px-2 rounded text-xs font-medium mt-2">
-                  <span>소득공제 합계</span>
-                  <span>-{fmt(totalDeduction)}원</span>
+                <div className="flex justify-between px-4 py-2.5 bg-gray-50 border-t border-gray-200">
+                  <span className="text-xs font-semibold text-gray-600">소득공제 합계</span>
+                  <span className="text-sm font-bold text-gray-800">-{fmt(totalDeduction)}원</span>
                 </div>
-              </Section>
+              </div>
 
-              {/* 가공경비 */}
-              <Section title="가공경비 (선택)">
-                <NumField label="" value={extraExpense} onChange={setExtraExpense} suffix="원" placeholder="가공경비 금액 입력" />
-              </Section>
+              {/* 가공경비 카드 */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700">가공경비 <span className="font-normal text-gray-400">(선택)</span></h3>
+                </div>
+                <div className="px-4 py-3">
+                  <NumField label="" value={extraExpense} onChange={setExtraExpense} suffix="원" placeholder="가공경비 금액 입력" />
+                </div>
+              </div>
 
               {/* 세액 계산 결과 */}
               {totalIncome > 0 && (
@@ -420,10 +440,13 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
               )}
 
               {extraResult && (
-                <div className="bg-amber-50 rounded-xl p-3">
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-amber-800">가공경비 효과 (절감액)</span>
-                    <span className="text-lg font-bold text-amber-700">{fmt(baseResult.finalPayment - extraResult.finalPayment)}원</span>
+                    <div>
+                      <div className="text-sm font-semibold text-amber-800">가공경비 효과</div>
+                      <div className="text-[11px] text-amber-600 mt-0.5">가공경비 {fmt(extraExpNum)}원 대비 절감률 {extraExpNum > 0 ? ((( baseResult.finalPayment - extraResult.finalPayment) / extraExpNum) * 100).toFixed(1) : 0}%</div>
+                    </div>
+                    <span className="text-2xl font-bold text-amber-700">{fmt(baseResult.finalPayment - extraResult.finalPayment)}원</span>
                   </div>
                 </div>
               )}
@@ -513,21 +536,12 @@ function TabBtn({ label, active, onClick, onClose, color }: { label: string; act
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
 function SummaryRow({ label, value }: { label: string; value: number }) {
   if (value === 0) return null;
   return (
-    <div className="flex justify-between py-1 border-b border-gray-100 text-xs">
-      <span className="text-gray-600">{label}</span>
-      <span className="font-medium">{fmt(value)}원</span>
+    <div className="flex justify-between py-1.5 border-b border-gray-100 text-sm">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium text-gray-800">{fmt(value)}원</span>
     </div>
   );
 }
@@ -552,29 +566,40 @@ function NumField({ label, value, onChange, suffix, placeholder, small }: {
 }
 
 function ResultBlock({ result, totalIncome, label, color }: { result: any; totalIncome: number; label: string; color: "blue" | "green" }) {
-  const bg = color === "blue" ? "from-blue-50 to-indigo-50" : "from-emerald-50 to-teal-50";
+  const bgCard = color === "blue" ? "from-blue-50 to-indigo-50 border-blue-200" : "from-emerald-50 to-teal-50 border-emerald-200";
   const textColor = color === "blue" ? "text-[#1a2e4a]" : "text-emerald-700";
 
   return (
-    <div>
-      <div className="text-[10px] font-semibold text-gray-400 uppercase mb-1">{label}</div>
-      <div className={`bg-gradient-to-r ${bg} rounded-xl p-3 mb-2`}>
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+        <span className="text-xs font-semibold text-gray-500 uppercase">{label}</span>
+      </div>
+      <div className={`bg-gradient-to-r ${bgCard} px-4 py-3 border-b`}>
         <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-600">{result.finalPayment >= 0 ? "납부할 세액" : "환급 세액"}</span>
-          <span className={`text-xl font-bold ${result.finalPayment < 0 ? "text-blue-600" : textColor}`}>{fmt(Math.abs(result.finalPayment))}원</span>
+          <span className="text-sm font-medium text-gray-600">{result.finalPayment >= 0 ? "납부할 세액" : "환급 세액"}</span>
+          <span className={`text-2xl font-bold ${result.finalPayment < 0 ? "text-blue-600" : textColor}`}>{fmt(Math.abs(result.finalPayment))}원</span>
         </div>
       </div>
-      <div className="text-[11px] space-y-0.5">
+      <div className="px-4 py-3 text-[11px] space-y-1">
         <Row label="과세표준" value={result.taxBase} note={result.taxRate} bold />
         <Row label="산출세액" value={result.computedTax} />
         {result.totalReduction > 0 && <Row label="세액감면" value={result.totalReduction} sub />}
         {result.totalCredit > 0 && <Row label="세액공제" value={result.totalCredit} sub />}
         {result.hitMinTax && <Row label="최저한세" value={result.minTax} note="적용" highlight />}
+        <div className="border-t border-gray-100 pt-1 mt-1" />
         <Row label="결정세액" value={result.finalTax} bold />
-        <Row label="지방소득세" value={result.localTax} />
+        <Row label="지방소득세 (10%)" value={result.localTax} />
         <Row label="총 세액" value={result.totalTax} bold />
-        {result.prepaidTotal > 0 && <Row label="기납부세액" value={result.prepaidTotal} sub />}
-        <Row label={result.finalPayment >= 0 ? "납부" : "환급"} value={Math.abs(result.finalPayment)} bold highlight={result.finalPayment < 0} />
+        {result.prepaidTotal > 0 && (
+          <>
+            <div className="border-t border-gray-100 pt-1 mt-1" />
+            <Row label="기납부세액" value={result.prepaidTotal} sub />
+          </>
+        )}
+        <div className={`flex justify-between py-2 mt-1 -mx-4 px-4 ${result.finalPayment < 0 ? "bg-blue-50" : "bg-gray-50"} border-t`}>
+          <span className="font-semibold text-gray-700">{result.finalPayment >= 0 ? "최종 납부" : "최종 환급"}</span>
+          <span className={`font-bold text-base ${result.finalPayment < 0 ? "text-blue-600" : "text-gray-900"}`}>{fmt(Math.abs(result.finalPayment))}원</span>
+        </div>
       </div>
     </div>
   );
