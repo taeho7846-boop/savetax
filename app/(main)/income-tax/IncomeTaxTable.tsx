@@ -272,7 +272,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                 const showCompletionCells = !hasGroup || isFirstInGroup;
 
                 return (
-                  <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : isFirstInGroup && hasGroup ? { borderTop: "2.5px solid #6b7280" } : undefined}>
+                  <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }}>
                     {/* 고객사명 */}
                     <td className="px-3 py-2 text-[#1a2e4a] font-medium sticky left-0 bg-white z-10 border-r border-gray-100">
                       <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
