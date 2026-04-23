@@ -429,6 +429,7 @@ model IncomeTaxCalcSetting {
   investCredit      String?
   employmentCredit  String?
   extraExpense      String?
+  fullData          String?  // 전체 설정 JSON
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

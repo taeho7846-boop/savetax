@@ -34,14 +34,14 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { clientId, taxYear, revenue, expense, income, useIncome, startupRate, smeRate, investCredit, employmentCredit, extraExpense } = body;
+  const { clientId, taxYear, revenue, expense, income, useIncome, startupRate, smeRate, investCredit, employmentCredit, extraExpense, fullData } = body;
 
   if (!clientId || !taxYear) return NextResponse.json({ error: "clientId, taxYear 필요" }, { status: 400 });
 
   const setting = await prisma.incomeTaxCalcSetting.upsert({
     where: { clientId_taxYear: { clientId, taxYear } },
-    update: { revenue, expense, income, useIncome, startupRate, smeRate, investCredit, employmentCredit, extraExpense },
-    create: { clientId, taxYear, revenue, expense, income, useIncome, startupRate, smeRate, investCredit, employmentCredit, extraExpense },
+    update: { revenue, expense, income, useIncome, startupRate, smeRate, investCredit, employmentCredit, extraExpense, fullData },
+    create: { clientId, taxYear, revenue, expense, income, useIncome, startupRate, smeRate, investCredit, employmentCredit, extraExpense, fullData },
   });
 
   return NextResponse.json({ ok: true, setting });

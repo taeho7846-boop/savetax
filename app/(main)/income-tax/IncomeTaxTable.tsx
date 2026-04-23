@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo } from "@/app/actions/income-tax";
-import { BizTaxCalcModal } from "@/components/BizTaxCalcModal";
+import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -477,7 +477,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
 
       {/* 세액계산 모달 */}
       {taxCalcModal && (
-        <BizTaxCalcModal
+        <ComprehensiveTaxCalcModal
           onClose={() => setTaxCalcModal(null)}
           clientName={taxCalcModal.clientName}
           clientId={taxCalcModal.clientId}
