@@ -51,6 +51,7 @@ export default async function IncomeTaxPage({
       ceoName: true,
       residentNumber: true,
       bizCategory: true,
+      bizType: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       incomeTaxRecords: {
         where: { taxYear },
@@ -61,7 +62,7 @@ export default async function IncomeTaxPage({
 
   // BigInt → string 변환 (JSON 직렬화용)
   // 업종코드별 감면 판단 조회
-  const bizCodes = [...new Set(clients.map(c => c.bizCategory).filter(Boolean))] as string[];
+  const bizCodes = [...new Set(clients.map(c => c.bizType).filter(Boolean))] as string[];
   const reductionCodes = bizCodes.length > 0
     ? await prisma.taxReductionCode.findMany({ where: { bizCode: { in: bizCodes } }, select: { bizCode: true, startupReduction: true, smeReduction: true } })
     : [];
@@ -76,7 +77,7 @@ export default async function IncomeTaxPage({
   });
 
   const serialized = grouped.map(({ assignedUser, ...c }) => {
-    const reduction = c.bizCategory ? reductionMap.get(c.bizCategory) : undefined;
+    const reduction = c.bizType ? reductionMap.get(c.bizType) : undefined;
     return {
     ...c,
     assignedUserName: assignedUser?.name ?? null,
