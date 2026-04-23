@@ -26,23 +26,24 @@ function applyReduction(
   computedTax: number,
   startupRate: number, // 0, 25, 50, 75, 100
   smeRate: number, // 0, 10, 20, 30
-): { startupReduction: number; smeReduction: number; minTax: number; finalTax: number } {
+): { startupReduction: number; smeReduction: number; afterReduction: number; minTax: number; hitMinTax: boolean; finalTax: number } {
   const startupReduction = Math.round(computedTax * startupRate / 100);
   const afterStartup = computedTax - startupReduction;
   const smeReduction = Math.round(afterStartup * smeRate / 100);
-  const afterAll = afterStartup - smeReduction;
+  const afterReduction = Math.max(afterStartup - smeReduction, 0);
 
   // 최저한세
   const minTax = calcMinTax(computedTax);
 
   // 창업중소기업 100%는 최저한세 적용 배제
   if (startupRate === 100) {
-    return { startupReduction, smeReduction, minTax: 0, finalTax: Math.max(afterAll, 0) };
+    return { startupReduction, smeReduction, afterReduction, minTax: 0, hitMinTax: false, finalTax: afterReduction };
   }
 
   // 나머지는 최저한세 이상 납부
-  const finalTax = Math.max(afterAll, minTax);
-  return { startupReduction, smeReduction, minTax, finalTax };
+  const hitMinTax = afterReduction < minTax;
+  const finalTax = Math.max(afterReduction, minTax);
+  return { startupReduction, smeReduction, afterReduction, minTax, hitMinTax, finalTax };
 }
 
 function fmt(n: number): string {
@@ -80,7 +81,9 @@ type CalcResult = {
   computedTax: number;
   startupReduction: number;
   smeReduction: number;
+  afterReduction: number;
   minTax: number;
+  hitMinTax: boolean;
   finalTax: number;
   localTax: number;
   totalTax: number;
@@ -97,10 +100,10 @@ function calculate(
   const taxBase = Math.max(income - deduction, 0);
   const taxRate = getTaxRateLabel(taxBase);
   const computedTax = Math.round(calcTax(taxBase));
-  const { startupReduction, smeReduction, minTax, finalTax } = applyReduction(computedTax, startupRate, smeRate);
+  const { startupReduction, smeReduction, afterReduction, minTax, hitMinTax, finalTax } = applyReduction(computedTax, startupRate, smeRate);
   const localTax = Math.round(finalTax * 0.1);
   const totalTax = finalTax + localTax;
-  return { revenue, expense, income, deduction, taxBase, taxRate, computedTax, startupReduction, smeReduction, minTax, finalTax, localTax, totalTax };
+  return { revenue, expense, income, deduction, taxBase, taxRate, computedTax, startupReduction, smeReduction, afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax };
 }
 
 function ResultCard({ result, label, color }: { result: CalcResult; label: string; color: "blue" | "green" }) {
@@ -129,8 +132,26 @@ function ResultCard({ result, label, color }: { result: CalcResult; label: strin
         <Row label="산출세액" value={result.computedTax} />
         {result.startupReduction > 0 && <Row label="창업중소기업 감면" value={result.startupReduction} sub red />}
         {result.smeReduction > 0 && <Row label="중소기업특별 감면" value={result.smeReduction} sub red />}
-        {result.minTax > 0 && <Row label="최저한세" value={result.minTax} note="하한" />}
-        <RowBold label="결정세액 (소득세)" value={result.finalTax} />
+        {(result.startupReduction > 0 || result.smeReduction > 0) && (
+          <Row label="감면 후 세액" value={result.afterReduction} />
+        )}
+        {result.minTax > 0 && (
+          <div className={`flex items-center justify-between py-1.5 border-b border-gray-100 ${result.hitMinTax ? "bg-red-50/50 -mx-1.5 px-1.5 rounded" : ""}`}>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-500">최저한세</span>
+              {result.hitMinTax && <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">적용</span>}
+            </div>
+            <span className="font-medium text-gray-700">{fmt(result.minTax)}원</span>
+          </div>
+        )}
+        <div className={`flex items-center justify-between py-1.5 -mx-1.5 px-1.5 rounded border-b border-gray-100 ${result.hitMinTax ? "bg-red-50/80" : "bg-gray-50/80"}`}>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium text-gray-700">결정세액 (소득세)</span>
+            {result.hitMinTax && <span className="text-[10px] text-red-500">= 최저한세</span>}
+            {(result.startupReduction > 0 || result.smeReduction > 0) && !result.hitMinTax && <span className="text-[10px] text-blue-500">= 감면 후 세액</span>}
+          </div>
+          <span className="font-bold text-gray-900">{fmt(result.finalTax)}원</span>
+        </div>
         <Row label="지방소득세 (10%)" value={result.localTax} />
       </div>
     </div>
