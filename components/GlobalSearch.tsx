@@ -3,6 +3,7 @@
 import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
+import { IncomeTaxCalcModal } from "./IncomeTaxCalcModal";
 
 type ClientResult = {
   id: number;
@@ -63,6 +64,11 @@ const MENUS = [
   { name: "설정", keywords: "설정, settings", icon: "⚙️", path: "/settings" },
 ];
 
+// 빌트인 도구 (모달)
+const TOOLS = [
+  { name: "근로소득세 계산기", keywords: "근로소득세, 계산기, 급여, 세금, 원천세, tax calculator", icon: "🧮", key: "income-tax-calc" },
+];
+
 // 빌트인 외부 사이트 (검색어로 필터)
 const BUILTIN_SITES = [
   { name: "세무대리인 홈택스 로그인", keywords: "세무대리인, 홈택스, 로그인, agent", url: "", group: "홈택스", agentLogin: true },
@@ -84,6 +90,7 @@ export function GlobalSearch() {
   const [bookmarks, setBookmarks] = useState<BookmarkResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<SelectedClient>(null);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -310,7 +317,21 @@ export function GlobalSearch() {
       })
     : [];
 
-  const hasResults = clients.length > 0 || bookmarks.length > 0 || filteredBuiltinSites.length > 0 || filteredMenus.length > 0;
+  // 도구 필터
+  const filteredTools = !isActionMode && query.trim()
+    ? TOOLS.filter((t) => {
+        const q = query.toLowerCase();
+        return t.name.toLowerCase().includes(q) || t.keywords.toLowerCase().includes(q);
+      })
+    : [];
+
+  const hasResults = clients.length > 0 || bookmarks.length > 0 || filteredBuiltinSites.length > 0 || filteredMenus.length > 0 || filteredTools.length > 0;
+
+  if (!open && !activeTool) return null;
+
+  if (activeTool === "income-tax-calc") {
+    return <IncomeTaxCalcModal onClose={() => setActiveTool(null)} />;
+  }
 
   if (!open) return null;
 
@@ -434,6 +455,29 @@ export function GlobalSearch() {
                           {menu.icon}
                         </div>
                         <div className="font-medium">{menu.name}</div>
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                )}
+
+                {/* 도구 */}
+                {filteredTools.length > 0 && (
+                  <Command.Group heading={
+                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      도구
+                    </span>
+                  }>
+                    {filteredTools.map((tool) => (
+                      <Command.Item
+                        key={tool.key}
+                        value={`tool-${tool.key}`}
+                        onSelect={() => { setOpen(false); setActiveTool(tool.key); }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
+                          {tool.icon}
+                        </div>
+                        <div className="font-medium">{tool.name}</div>
                       </Command.Item>
                     ))}
                   </Command.Group>
