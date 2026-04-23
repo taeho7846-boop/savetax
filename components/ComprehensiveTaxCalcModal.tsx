@@ -72,6 +72,22 @@ function newTab(type: "business" | "employment" | "other", name: string): Income
   };
 }
 
+type Dependent = {
+  id: string;
+  name: string;
+  residentNumber: string; // 앞 6자리
+  isDisabled: boolean;
+};
+
+function isElderly(residentNumber: string, taxYear: string): boolean {
+  if (residentNumber.length < 6) return false;
+  const yy = parseInt(residentNumber.slice(0, 2));
+  // 7자리면 뒷자리 첫번째로 세기 판단, 6자리면 1900년대 가정
+  const birthYear = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
+  const cutoff = parseInt(taxYear) - 69; // 70세이상
+  return birthYear <= cutoff;
+}
+
 type Props = {
   onClose: () => void;
   clientName: string;
@@ -102,11 +118,10 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
   const [addType, setAddType] = useState<"business" | "employment" | "other">("business");
 
   // 소득공제
-  const [deductPersons, setDeductPersons] = useState(0); // 인적공제 명수
-  const [deductElderly, setDeductElderly] = useState(0); // 70세이상
-  const [deductDisabled, setDeductDisabled] = useState(0); // 장애인
-  const [deductWoman, setDeductWoman] = useState(false); // 부녀자
-  const [deductSingleParent, setDeductSingleParent] = useState(false); // 한부모
+  const [dependents, setDependents] = useState<Dependent[]>([]);
+  const [deductWoman, setDeductWoman] = useState(false);
+  const [deductSingleParent, setDeductSingleParent] = useState(false);
+  const [deductPension, setDeductPension] = useState(""); // 국민연금보험료
   const [deductUmbrella, setDeductUmbrella] = useState(""); // 노란우산공제
 
   // 가공경비
@@ -122,12 +137,11 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
             const saved = JSON.parse(data.setting.fullData);
             if (saved.mainTab) setMainTab(saved.mainTab);
             if (saved.extraTabs) setExtraTabs(saved.extraTabs);
+            if (saved.dependents) setDependents(saved.dependents);
             if (saved.deductions) {
-              setDeductPersons(saved.deductions.persons || 0);
-              setDeductElderly(saved.deductions.elderly || 0);
-              setDeductDisabled(saved.deductions.disabled || 0);
               setDeductWoman(saved.deductions.woman || false);
               setDeductSingleParent(saved.deductions.singleParent || false);
+              setDeductPension(saved.deductions.pension || "");
               setDeductUmbrella(saved.deductions.umbrella || "");
             }
             if (saved.extraExpense) setExtraExpense(saved.extraExpense);
@@ -156,10 +170,10 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
     setSaving(true);
     try {
       const fullData = JSON.stringify({
-        mainTab, extraTabs,
+        mainTab, extraTabs, dependents,
         deductions: {
-          persons: deductPersons, elderly: deductElderly, disabled: deductDisabled,
-          woman: deductWoman, singleParent: deductSingleParent, umbrella: deductUmbrella,
+          woman: deductWoman, singleParent: deductSingleParent,
+          pension: deductPension, umbrella: deductUmbrella,
         },
         extraExpense,
       });
@@ -236,14 +250,17 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
   const totalIncomeWithExtra = mainIncomeWithExtra + extraBizTotal + employmentTotal + otherCombinedTotal;
 
   // 소득공제 합계
-  const basicDeduct = 1500000;
-  const personDeduct = deductPersons * 1500000;
-  const elderlyDeduct = deductElderly * 1000000;
-  const disabledDeduct = deductDisabled * 2000000;
+  const basicDeduct = 1500000; // 본인
+  const elderlyCount = dependents.filter(d => isElderly(d.residentNumber, taxYear)).length;
+  const disabledCount = dependents.filter(d => d.isDisabled).length;
+  const personDeduct = dependents.length * 1500000;
+  const elderlyDeduct = elderlyCount * 1000000;
+  const disabledDeduct = disabledCount * 2000000;
   const womanDeduct = deductWoman ? 500000 : 0;
   const singleParentDeduct = deductSingleParent ? 1000000 : 0;
+  const pensionDeduct = parse(deductPension);
   const umbrellaDeduct = parse(deductUmbrella);
-  const totalDeduction = basicDeduct + personDeduct + elderlyDeduct + disabledDeduct + womanDeduct + singleParentDeduct + umbrellaDeduct;
+  const totalDeduction = basicDeduct + personDeduct + elderlyDeduct + disabledDeduct + womanDeduct + singleParentDeduct + pensionDeduct + umbrellaDeduct;
 
   function calcResult(incomeTotal: number) {
     const taxBase = Math.max(incomeTotal - totalDeduction, 0);
@@ -392,27 +409,76 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
                 <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
                   <h3 className="text-sm font-semibold text-gray-700">소득공제</h3>
                 </div>
-                <div className="px-4 py-3">
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-xs text-gray-500">기본공제</span>
-                      <span className="text-xs font-semibold text-gray-800">1,500,000원</span>
-                    </div>
-                    <NumField label="인적공제" value={String(deductPersons)} onChange={v => setDeductPersons(parseInt(v) || 0)} suffix="명" small />
-                    <NumField label="70세이상" value={String(deductElderly)} onChange={v => setDeductElderly(parseInt(v) || 0)} suffix="명" small />
-                    <NumField label="장애인" value={String(deductDisabled)} onChange={v => setDeductDisabled(parseInt(v) || 0)} suffix="명" small />
+                <div className="px-4 py-3 space-y-4">
+                  {/* 기본공제 (본인) */}
+                  <div className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-2">
+                    <span className="text-xs font-medium text-blue-700">기본공제 (본인)</span>
+                    <span className="text-xs font-bold text-blue-800">1,500,000원</span>
                   </div>
-                  <div className="flex items-center gap-6 mt-3">
-                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2">
+
+                  {/* 인적공제 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-600">추가 인적공제</span>
+                      <button
+                        onClick={() => setDependents(prev => [...prev, { id: `dep_${Date.now()}`, name: "", residentNumber: "", isDisabled: false }])}
+                        className="text-[10px] px-2 py-1 bg-[#1a2e4a] text-white rounded-lg hover:bg-[#243d61]"
+                      >+ 추가</button>
+                    </div>
+                    {dependents.length === 0 && (
+                      <div className="text-xs text-gray-400 text-center py-2">추가 인적공제 대상이 없습니다</div>
+                    )}
+                    {dependents.map((dep, idx) => {
+                      const elderly = isElderly(dep.residentNumber, taxYear);
+                      return (
+                        <div key={dep.id} className="flex items-center gap-2 mb-2 bg-gray-50 rounded-lg px-3 py-2">
+                          <span className="text-xs text-gray-400 w-4 shrink-0">{idx + 1}</span>
+                          <input
+                            type="text" value={dep.name} placeholder="이름"
+                            onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, name: e.target.value } : d))}
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-20 focus:outline-none focus:ring-1 focus:ring-[#1a2e4a]/30"
+                          />
+                          <input
+                            type="text" value={dep.residentNumber} placeholder="주민번호 앞6자리"
+                            maxLength={6}
+                            onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, residentNumber: e.target.value.replace(/\D/g, "") } : d))}
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-[#1a2e4a]/30"
+                          />
+                          {elderly && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded shrink-0">70+</span>}
+                          <label className="flex items-center gap-1 text-[10px] text-gray-500 shrink-0 cursor-pointer">
+                            <input type="checkbox" checked={dep.isDisabled}
+                              onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, isDisabled: e.target.checked } : d))}
+                              className="accent-[#1a2e4a] w-3 h-3" />
+                            장애인
+                          </label>
+                          <div className="flex-1" />
+                          <span className="text-[10px] text-gray-400 shrink-0">
+                            {fmt(1500000 + (elderly ? 1000000 : 0) + (dep.isDisabled ? 2000000 : 0))}원
+                          </span>
+                          <button
+                            onClick={() => setDependents(prev => prev.filter(d => d.id !== dep.id))}
+                            className="text-gray-300 hover:text-red-500 text-sm shrink-0"
+                          >✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 부녀자 / 한부모 */}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2 flex-1">
                       <input type="checkbox" checked={deductWoman} onChange={e => setDeductWoman(e.target.checked)} className="accent-[#1a2e4a] w-3.5 h-3.5" />
                       부녀자 (50만원)
                     </label>
-                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2">
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2 flex-1">
                       <input type="checkbox" checked={deductSingleParent} onChange={e => setDeductSingleParent(e.target.checked)} className="accent-[#1a2e4a] w-3.5 h-3.5" />
                       한부모가족 (100만원)
                     </label>
                   </div>
-                  <div className="mt-3">
+
+                  {/* 국민연금 + 노란우산 */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumField label="국민연금보험료" value={deductPension} onChange={setDeductPension} suffix="원" />
                     <NumField label="노란우산공제" value={deductUmbrella} onChange={setDeductUmbrella} suffix="원" />
                   </div>
                 </div>
