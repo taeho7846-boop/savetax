@@ -209,22 +209,39 @@ function RowBold({ label, value, note }: { label: string; value: number; note?: 
 
 type BizTaxCalcProps = {
   onClose: () => void;
-  initialRevenue?: string;
-  initialIncome?: string;
   clientName?: string;
+  loadData?: {
+    currSales: string | null;
+    currIncome: string | null;
+    aiStartup: string | null;
+    aiSme: string | null;
+  };
   onApply?: (finalTax: number) => void;
 };
 
-export function BizTaxCalcModal({ onClose, initialRevenue, initialIncome, clientName, onApply }: BizTaxCalcProps) {
-  const [revenue, setRevenue] = useState(initialRevenue ? numInput(initialRevenue) : "");
+export function BizTaxCalcModal({ onClose, clientName, loadData, onApply }: BizTaxCalcProps) {
+  const [revenue, setRevenue] = useState("");
   const [expense, setExpense] = useState("");
-  const [income, setIncome] = useState(initialIncome ? numInput(initialIncome) : "");
-  const [useIncome, setUseIncome] = useState(!!initialIncome); // 종합소득금액 직접 입력 모드
+  const [income, setIncome] = useState("");
+  const [useIncome, setUseIncome] = useState(false);
+  const [loaded, setLoaded] = useState(false); // 종합소득금액 직접 입력 모드
   const [extraExpense, setExtraExpense] = useState("");
   const [startupRate, setStartupRate] = useState(0);
   const [smeRate, setSmeRate] = useState(0);
   const [investCreditInput, setInvestCreditInput] = useState("");
   const [employmentCreditInput, setEmploymentCreditInput] = useState("");
+
+  function handleLoad() {
+    if (!loadData) return;
+    const sales = parse(loadData.currSales || "0");
+    const inc = parse(loadData.currIncome || "0");
+    const exp = Math.max(sales - inc, 0);
+    setRevenue(sales > 0 ? numInput(String(sales)) : "");
+    setExpense(exp > 0 ? numInput(String(exp)) : "");
+    setIncome(inc > 0 ? numInput(String(inc)) : "");
+    setUseIncome(false);
+    setLoaded(true);
+  }
 
   const revenueNum = parse(revenue);
   const expenseNum = parse(expense);
@@ -272,6 +289,29 @@ export function BizTaxCalcModal({ onClose, initialRevenue, initialIncome, client
             </div>
           </div>
           <p className="text-white/50 text-xs mt-1">2026년 세율 기준</p>
+          {loadData && (
+            <div className="flex items-center gap-2 mt-2">
+              {!loaded && (
+                <button
+                  onClick={handleLoad}
+                  className="text-xs px-3 py-1.5 bg-white/20 text-white rounded-lg hover:bg-white/30"
+                >
+                  📥 당기 데이터 불러오기
+                </button>
+              )}
+              {loaded && <span className="text-xs text-white/50">✅ 불러오기 완료</span>}
+              {loadData.aiStartup && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${loadData.aiStartup === "O" ? "bg-green-500/30 text-green-200" : "bg-red-500/30 text-red-200"}`}>
+                  창중감 {loadData.aiStartup === "O" ? "가능" : "불가"}
+                </span>
+              )}
+              {loadData.aiSme && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${loadData.aiSme === "O" ? "bg-green-500/30 text-green-200" : "bg-red-500/30 text-red-200"}`}>
+                  중특감 {loadData.aiSme === "O" ? "가능" : "불가"}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="px-6 py-5 space-y-5">

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo } from "@/app/actions/income-tax";
+import { BizTaxCalcModal } from "@/components/BizTaxCalcModal";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -83,6 +84,14 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
   const [editClientId, setEditClientId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [userFilter, setUserFilter] = useState<string | null>(null);
+  const [taxCalcModal, setTaxCalcModal] = useState<{
+    clientId: number;
+    clientName: string;
+    currSales: string | null;
+    currIncome: string | null;
+    aiStartup: string | null;
+    aiSme: string | null;
+  } | null>(null);
 
   function handleYearChange(delta: number) {
     const y = parseInt(taxYear) + delta;
@@ -281,9 +290,25 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                   <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }}>
                     {/* 고객사명 */}
                     <td className="px-3 py-2 text-[#1a2e4a] font-medium sticky left-0 bg-white z-10 border-r border-gray-100">
-                      <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
-                        {client.name}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
+                          {client.name}
+                        </button>
+                        <button
+                          onClick={() => setTaxCalcModal({
+                            clientId: client.id,
+                            clientName: client.name,
+                            currSales: r.currSales,
+                            currIncome: r.currIncome,
+                            aiStartup: client.aiStartupReduction ?? null,
+                            aiSme: client.aiSmeReduction ?? null,
+                          })}
+                          className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 shrink-0"
+                          title="세액계산"
+                        >
+                          계산
+                        </button>
+                      </div>
                     </td>
                     {/* 대표자 */}
                     <td className="px-2 py-2 text-left text-xs text-gray-600">
@@ -433,6 +458,24 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
             </div>
           </div>
         </div>
+      )}
+
+      {/* 세액계산 모달 */}
+      {taxCalcModal && (
+        <BizTaxCalcModal
+          onClose={() => setTaxCalcModal(null)}
+          clientName={taxCalcModal.clientName}
+          loadData={{
+            currSales: taxCalcModal.currSales,
+            currIncome: taxCalcModal.currIncome,
+            aiStartup: taxCalcModal.aiStartup,
+            aiSme: taxCalcModal.aiSme,
+          }}
+          onApply={(finalTax) => {
+            handleFieldBlur(taxCalcModal.clientId, "currTax", String(finalTax));
+            setTaxCalcModal(null);
+          }}
+        />
       )}
 
       {/* 고객사 수정 모달 */}
