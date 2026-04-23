@@ -38,6 +38,9 @@ type Client = {
   clientType: string;
   ceoName?: string | null;
   residentNumber?: string | null;
+  bizCategory?: string | null;
+  aiStartupReduction?: string | null;
+  aiSmeReduction?: string | null;
   assignedUserName?: string | null;
   incomeTaxRecords: ITRecord[];
 };
@@ -200,6 +203,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
               <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-yellow-200`} colSpan={1}>가결산</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-purple-200`} colSpan={3}>전기</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["당기"]} border-b border-emerald-200`} colSpan={3}>당기</th>
+              <th className="px-3 py-1.5 bg-indigo-50 border-b border-indigo-200" colSpan={2}>AI판단</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["감면"]} border-b border-orange-200`} colSpan={5}>감면</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-green-200`} colSpan={3}>완료</th>
               <th className={`px-3 py-1.5 bg-rose-50 border-b border-rose-200`} colSpan={1}>조정료</th>
@@ -227,6 +231,8 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
               <th className="px-2 py-2 text-center text-gray-600 font-medium">매출</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">종합<br/>소득</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">결정<br/>세액</th>
+              <th className="px-2 py-2 text-center text-gray-600 font-medium bg-indigo-50/50">창중감</th>
+              <th className="px-2 py-2 text-center text-gray-600 font-medium bg-indigo-50/50">중특감</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">기장<br/>공제</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">창중감</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium">중특감</th>
@@ -241,7 +247,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
           <tbody className="divide-y divide-gray-100">
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={26} className="text-center py-12 text-gray-500 text-sm">
+                <td colSpan={28} className="text-center py-12 text-gray-500 text-sm">
                   {clients.length === 0 ? "거래처가 없습니다" : "검색 결과가 없습니다"}
                 </td>
               </tr>
@@ -340,6 +346,26 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                     <NumberCell value={r.currTax} onSave={(v) => handleFieldBlur(client.id, "currTax", v)} colorType="tax" />
 
                     {/* 감면 체크 */}
+                    {/* AI판단 */}
+                    <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
+                      {client.aiStartupReduction === "O" ? (
+                        <span className="text-green-600">O</span>
+                      ) : client.aiStartupReduction === "X" ? (
+                        <span className="text-red-500">X</span>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
+                      {client.aiSmeReduction === "O" ? (
+                        <span className="text-green-600">O</span>
+                      ) : client.aiSmeReduction === "X" ? (
+                        <span className="text-red-500">X</span>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+
                     <CheckCell checked={r.bookkeepingCredit} onToggle={() => handleToggle(client.id, "bookkeepingCredit")} disabled={isPending} />
                     <CheckCell checked={r.startupReduction} onToggle={() => handleToggle(client.id, "startupReduction")} disabled={isPending} />
                     <CheckCell checked={r.smeReduction} onToggle={() => handleToggle(client.id, "smeReduction")} disabled={isPending} />

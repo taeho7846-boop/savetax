@@ -50,6 +50,7 @@ export default async function IncomeTaxPage({
       clientType: true,
       ceoName: true,
       residentNumber: true,
+      bizCategory: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       incomeTaxRecords: {
         where: { taxYear },
@@ -59,6 +60,13 @@ export default async function IncomeTaxPage({
   });
 
   // BigInt → string 변환 (JSON 직렬화용)
+  // 업종코드별 감면 판단 조회
+  const bizCodes = [...new Set(clients.map(c => c.bizCategory).filter(Boolean))] as string[];
+  const reductionCodes = bizCodes.length > 0
+    ? await prisma.taxReductionCode.findMany({ where: { bizCode: { in: bizCodes } }, select: { bizCode: true, startupReduction: true, smeReduction: true } })
+    : [];
+  const reductionMap = new Map(reductionCodes.map(r => [r.bizCode, r]));
+
   // 같은 대표자(이름+주민등록번호)끼리 묶어서 정렬
   const grouped = [...clients].sort((a, b) => {
     const keyA = (a.ceoName || "") + (a.residentNumber || "");
@@ -67,9 +75,13 @@ export default async function IncomeTaxPage({
     return a.name.localeCompare(b.name, "ko");
   });
 
-  const serialized = grouped.map(({ assignedUser, ...c }) => ({
+  const serialized = grouped.map(({ assignedUser, ...c }) => {
+    const reduction = c.bizCategory ? reductionMap.get(c.bizCategory) : undefined;
+    return {
     ...c,
     assignedUserName: assignedUser?.name ?? null,
+    aiStartupReduction: reduction?.startupReduction ?? null,
+    aiSmeReduction: reduction?.smeReduction ?? null,
     incomeTaxRecords: c.incomeTaxRecords.map(r => ({
       ...r,
       prevSales: r.prevSales?.toString() ?? null,
@@ -80,7 +92,8 @@ export default async function IncomeTaxPage({
       currTax: r.currTax?.toString() ?? null,
       adjustmentFee: r.adjustmentFee?.toString() ?? null,
     })),
-  }));
+  };
+  });
 
   return (
     <div className="flex flex-col h-full">
