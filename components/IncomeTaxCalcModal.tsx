@@ -2,44 +2,42 @@
 
 import { useState } from "react";
 
-// 2026년 근로소득 간이세액표 기준 (월급여 기준, 부양가족 수별)
-// 실제 간이세액표는 구간이 매우 많으므로 여기서는 간략 계산 공식 사용
-function calcIncomeTax(monthlySalary: number, dependents: number): number {
-  // 비과세(식대 등) 제외한 과세 급여
+// 2026년 요율
+const RATES = {
+  pension: 0.045,        // 국민연금 4.5% (→ 2026년 9.5%의 근로자 부담분은 추후 확인)
+  pensionCap: 265500,    // 국민연금 월 상한
+  health: 0.03595,       // 건강보험 7.19%의 근로자 부담 3.595%
+  longcare: 0.1295,      // 장기요양 = 건강보험의 12.95%
+  employment: 0.009,     // 고용보험 0.9%
+};
+
+function calcIncomeTax(monthlySalary: number, dependents: number, isCeo: boolean): number {
   const taxable = monthlySalary;
   if (taxable <= 1060000) return 0;
 
-  // 근로소득공제
+  // 근로소득공제 (연간)
+  const annual = taxable * 12;
   let deduction = 0;
-  if (taxable <= 5000000) deduction = taxable * 0.7;
-  else if (taxable <= 15000000) deduction = 3500000 + (taxable - 5000000) * 0.4;
-  else if (taxable <= 45000000) deduction = 7500000 + (taxable - 15000000) * 0.15;
-  else if (taxable <= 100000000) deduction = 12000000 + (taxable - 45000000) * 0.05;
-  else deduction = 14750000 + (taxable - 100000000) * 0.02;
+  if (annual <= 5000000) deduction = annual * 0.7;
+  else if (annual <= 15000000) deduction = 3500000 + (annual - 5000000) * 0.4;
+  else if (annual <= 45000000) deduction = 7500000 + (annual - 15000000) * 0.15;
+  else if (annual <= 100000000) deduction = 12000000 + (annual - 45000000) * 0.05;
+  else deduction = 14750000 + (annual - 100000000) * 0.02;
 
-  const earned = taxable * 12 - deduction;
+  const earned = annual - deduction;
   if (earned <= 0) return 0;
 
-  // 인적공제 (기본 150만원 x 부양가족 수)
   const personalDeduction = 1500000 * Math.max(dependents, 1);
-
-  // 국민연금 공제 (월 상한 약 265,500원)
-  const pensionMonthly = Math.min(Math.round(taxable * 0.045), 265500);
+  const pensionMonthly = Math.min(Math.round(taxable * RATES.pension), RATES.pensionCap);
   const pensionYearly = pensionMonthly * 12;
-
-  // 건강보험 공제
-  const healthMonthly = Math.round(taxable * 0.03545);
-  const longcareMonthly = Math.round(healthMonthly * 0.1295);
+  const healthMonthly = Math.round(taxable * RATES.health);
+  const longcareMonthly = Math.round(healthMonthly * RATES.longcare);
   const insuranceYearly = (healthMonthly + longcareMonthly) * 12;
+  const employmentYearly = isCeo ? 0 : Math.round(taxable * RATES.employment) * 12;
 
-  // 고용보험
-  const employmentYearly = Math.round(taxable * 0.009) * 12;
-
-  // 과세표준
-  const taxBase = Math.max(earned - personalDeduction - pensionYearly - insuranceYearly - employmentYearly - 700000, 0); // 표준세액공제 70만원
+  const taxBase = Math.max(earned - personalDeduction - pensionYearly - insuranceYearly - employmentYearly - 700000, 0);
   if (taxBase <= 0) return 0;
 
-  // 소득세율 (2026년 기준)
   let tax = 0;
   if (taxBase <= 14000000) tax = taxBase * 0.06;
   else if (taxBase <= 50000000) tax = 840000 + (taxBase - 14000000) * 0.15;
@@ -50,64 +48,64 @@ function calcIncomeTax(monthlySalary: number, dependents: number): number {
   else if (taxBase <= 1000000000) tax = 174060000 + (taxBase - 500000000) * 0.42;
   else tax = 384060000 + (taxBase - 1000000000) * 0.45;
 
-  // 근로소득세액공제
   let taxCredit = 0;
   if (tax <= 500000) taxCredit = tax * 0.55;
   else taxCredit = 275000 + (tax - 500000) * 0.3;
   if (taxCredit > 660000) taxCredit = 660000;
 
   const finalTax = Math.max(tax - taxCredit, 0);
-  return Math.round(finalTax / 12 / 10) * 10; // 월 세액 (10원 단위)
+  return Math.round(finalTax / 12 / 10) * 10;
 }
 
 function fmt(n: number): string {
   return n.toLocaleString("ko-KR");
 }
 
+function pct(n: number, base: number): string {
+  if (base === 0) return "";
+  return ((n / base) * 100).toFixed(2) + "%";
+}
+
 export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
   const [salary, setSalary] = useState("");
-  const [nonTaxable, setNonTaxable] = useState("200000"); // 비과세 (식대 등)
+  const [nonTaxable, setNonTaxable] = useState("200,000");
   const [dependents, setDependents] = useState(1);
+  const [type, setType] = useState<"worker" | "ceo">("worker");
 
   const salaryNum = parseInt(salary.replace(/,/g, "")) || 0;
   const nonTaxableNum = parseInt(nonTaxable.replace(/,/g, "")) || 0;
   const taxableSalary = Math.max(salaryNum - nonTaxableNum, 0);
+  const isCeo = type === "ceo";
 
-  // 4대보험
-  const pension = Math.min(Math.round(taxableSalary * 0.045), 265500);
-  const health = Math.round(taxableSalary * 0.03545);
-  const longcare = Math.round(health * 0.1295);
-  const employment = Math.round(taxableSalary * 0.009);
+  // 4대보험 (2026년 요율)
+  const pension = Math.min(Math.round(taxableSalary * RATES.pension), RATES.pensionCap);
+  const health = Math.round(taxableSalary * RATES.health);
+  const longcare = Math.round(health * RATES.longcare);
+  const employment = isCeo ? 0 : Math.round(taxableSalary * RATES.employment);
   const insuranceTotal = pension + health + longcare + employment;
 
   // 소득세/지방소득세
-  const incomeTax = calcIncomeTax(taxableSalary, dependents);
+  const incomeTax = calcIncomeTax(taxableSalary, dependents, isCeo);
   const localTax = Math.round(incomeTax * 0.1 / 10) * 10;
   const taxTotal = incomeTax + localTax;
 
-  // 총 공제 & 실수령
   const totalDeduction = insuranceTotal + taxTotal;
   const netPay = salaryNum - totalDeduction;
 
-  function handleSalaryChange(v: string) {
+  function handleNumInput(v: string, setter: (s: string) => void) {
     const num = v.replace(/[^\d]/g, "");
-    setSalary(num ? parseInt(num).toLocaleString("ko-KR") : "");
-  }
-
-  function handleNonTaxableChange(v: string) {
-    const num = v.replace(/[^\d]/g, "");
-    setNonTaxable(num ? parseInt(num).toLocaleString("ko-KR") : "");
+    setter(num ? parseInt(num).toLocaleString("ko-KR") : "");
   }
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="bg-gradient-to-r from-[#1a2e4a] to-[#2a4a6a] px-6 py-4">
+        <div className="bg-gradient-to-r from-[#1a2e4a] to-[#2a4a6a] px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xl">🧮</span>
@@ -115,18 +113,38 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
             </div>
             <button onClick={onClose} className="text-white/60 hover:text-white text-2xl leading-none">&times;</button>
           </div>
-          <p className="text-white/50 text-xs mt-1">간이세액표 기준 예상 계산</p>
+          <p className="text-white/50 text-xs mt-1">2026년 요율 기준 예상 계산</p>
         </div>
 
         {/* 입력 */}
         <div className="px-6 py-5 space-y-4">
+          {/* 근로자/법인대표 선택 */}
+          <div className="flex bg-gray-100 rounded-xl p-1">
+            <button
+              onClick={() => setType("worker")}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                type === "worker" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              근로자
+            </button>
+            <button
+              onClick={() => setType("ceo")}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                type === "ceo" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              법인 대표
+            </button>
+          </div>
+
           <div>
             <label className="text-xs font-medium text-gray-500 mb-1.5 block">월 급여 (세전)</label>
             <div className="relative">
               <input
                 type="text"
                 value={salary}
-                onChange={e => handleSalaryChange(e.target.value)}
+                onChange={e => handleNumInput(e.target.value, setSalary)}
                 placeholder="3,000,000"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-lg font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 focus:border-[#1a2e4a] text-right pr-10"
                 autoFocus
@@ -142,7 +160,7 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
                 <input
                   type="text"
                   value={nonTaxable}
-                  onChange={e => handleNonTaxableChange(e.target.value)}
+                  onChange={e => handleNumInput(e.target.value, setNonTaxable)}
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
@@ -180,46 +198,46 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
 
             {/* 상세 내역 */}
             <div className="space-y-1">
-              <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                <span className="text-xs text-gray-500">국민연금</span>
-                <span className="text-xs font-medium text-gray-700">{fmt(pension)}원</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                <span className="text-xs text-gray-500">건강보험</span>
-                <span className="text-xs font-medium text-gray-700">{fmt(health)}원</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                <span className="text-xs text-gray-500">장기요양보험</span>
-                <span className="text-xs font-medium text-gray-700">{fmt(longcare)}원</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                <span className="text-xs text-gray-500">고용보험</span>
-                <span className="text-xs font-medium text-gray-700">{fmt(employment)}원</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-gray-100 bg-gray-50/50 -mx-2 px-2 rounded">
-                <span className="text-xs font-medium text-gray-600">4대보험 소계</span>
+              <Row label="국민연금" rate={`${(RATES.pension * 100).toFixed(1)}%`} amount={pension} />
+              <Row label="건강보험" rate={`${(RATES.health * 100).toFixed(2)}%`} amount={health} />
+              <Row label="장기요양보험" rate={`건보 ${(RATES.longcare * 100).toFixed(2)}%`} amount={longcare} />
+              {!isCeo && <Row label="고용보험" rate={`${(RATES.employment * 100).toFixed(1)}%`} amount={employment} />}
+              <div className="flex items-center justify-between py-1.5 bg-gray-50/50 -mx-2 px-2 rounded border-b border-gray-100">
+                <span className="text-xs font-medium text-gray-600">{isCeo ? "3대보험 소계" : "4대보험 소계"}</span>
                 <span className="text-xs font-bold text-gray-800">{fmt(insuranceTotal)}원</span>
               </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-gray-100 mt-1">
-                <span className="text-xs text-gray-500">소득세</span>
-                <span className="text-xs font-medium text-gray-700">{fmt(incomeTax)}원</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                <span className="text-xs text-gray-500">지방소득세</span>
-                <span className="text-xs font-medium text-gray-700">{fmt(localTax)}원</span>
-              </div>
+              <Row label="소득세" rate="" amount={incomeTax} className="mt-1" />
+              <Row label="지방소득세" rate="소득세 10%" amount={localTax} />
               <div className="flex items-center justify-between py-1.5 bg-gray-50/50 -mx-2 px-2 rounded">
                 <span className="text-xs font-medium text-gray-600">세금 소계</span>
                 <span className="text-xs font-bold text-gray-800">{fmt(taxTotal)}원</span>
               </div>
             </div>
 
+            {isCeo && (
+              <div className="mt-3 px-3 py-2 bg-amber-50 rounded-lg">
+                <p className="text-[11px] text-amber-700">법인 대표는 고용보험 가입 대상이 아닙니다</p>
+              </div>
+            )}
+
             <p className="text-[10px] text-gray-400 mt-3 text-center">
-              * 간이세액표 기준 예상치이며, 실제 세액과 다를 수 있습니다
+              * 2026년 요율 기준 예상치이며, 실제 세액과 다를 수 있습니다
             </p>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Row({ label, rate, amount, className = "" }: { label: string; rate: string; amount: number; className?: string }) {
+  return (
+    <div className={`flex items-center justify-between py-1.5 border-b border-gray-100 ${className}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-gray-500">{label}</span>
+        {rate && <span className="text-[10px] text-gray-400">{rate}</span>}
+      </div>
+      <span className="text-xs font-medium text-gray-700">{fmt(amount)}원</span>
     </div>
   );
 }
