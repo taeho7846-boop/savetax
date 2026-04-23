@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
-    const filename = `${commissionId}.${ext}`;
+    const filename = `${commissionId}_${Date.now()}.${ext}`;
     const uploadDir = path.join(process.cwd(), "public", "uploads", "idcards");
 
     console.log("[idcard] uploadDir:", uploadDir);

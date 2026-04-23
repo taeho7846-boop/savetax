@@ -838,7 +838,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
       } catch {}
     }
 
-    const filename = `${commission.id}.${ext}`;
+    const filename = `${commission.id}_${Date.now()}.${ext}`;
     const filePath = path.join(uploadDir, filename);
     await writeFile(filePath, buffer);
 
