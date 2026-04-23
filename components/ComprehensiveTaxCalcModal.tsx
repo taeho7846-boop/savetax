@@ -75,18 +75,40 @@ function newTab(type: "business" | "employment" | "other", name: string): Income
 type Dependent = {
   id: string;
   name: string;
+  relation: "spouse" | "child" | "parent" | "other"; // 배우자/자녀/부모/기타
   residentNumber: string; // 앞 6자리
   isDisabled: boolean;
 };
 
-function isElderly(residentNumber: string, taxYear: string): boolean {
-  if (residentNumber.length < 6) return false;
+function getBirthYear(residentNumber: string): number | null {
+  if (residentNumber.length < 6) return null;
   const yy = parseInt(residentNumber.slice(0, 2));
-  // 7자리면 뒷자리 첫번째로 세기 판단, 6자리면 1900년대 가정
-  const birthYear = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
-  const cutoff = parseInt(taxYear) - 69; // 70세이상
-  return birthYear <= cutoff;
+  return yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
 }
+
+function isElderly(residentNumber: string, taxYear: string): boolean {
+  const birthYear = getBirthYear(residentNumber);
+  if (!birthYear) return false;
+  return birthYear <= parseInt(taxYear) - 70; // 만 70세이상
+}
+
+function isChildTaxCredit(residentNumber: string, taxYear: string): boolean {
+  const birthYear = getBirthYear(residentNumber);
+  if (!birthYear) return false;
+  const year = parseInt(taxYear);
+  return birthYear >= year - 20 && birthYear <= year - 8; // 만 8세~만 20세
+}
+
+function calcChildCredit(count: number): number {
+  if (count <= 0) return 0;
+  if (count === 1) return 150000;
+  if (count === 2) return 300000;
+  return 300000 + (count - 2) * 300000; // 3명 이상: 30만 + 초과 1명당 30만
+}
+
+const RELATION_LABELS: Record<string, string> = {
+  spouse: "배우자", child: "자녀", parent: "부모", other: "기타",
+};
 
 type Props = {
   onClose: () => void;
@@ -293,6 +315,10 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
     for (const biz of extraBizIncomes) { totalCredit += biz.investCredit + biz.employmentCredit; }
     // 근로소득세액공제
     for (const emp of employmentIncomes) { totalCredit += emp.credit; }
+    // 자녀세액공제
+    const childCreditCount = dependents.filter(d => d.relation === "child" && isChildTaxCredit(d.residentNumber, taxYear)).length;
+    const childCreditAmt = calcChildCredit(childCreditCount);
+    totalCredit += childCreditAmt;
 
     const afterReduction = Math.max(computedTax - totalReduction - totalCredit, 0);
 
@@ -313,7 +339,7 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
     const totalTax = finalTax + localTax;
     const finalPayment = totalTax - prepaidTotal;
 
-    return { taxBase, taxRate, computedTax, totalReduction, totalCredit, afterReduction, minTax, hitMinTax, hasStartup100, finalTax, localTax, prepaidTotal, totalTax, finalPayment };
+    return { taxBase, taxRate, computedTax, totalReduction, totalCredit, childCreditAmt, afterReduction, minTax, hitMinTax, hasStartup100, finalTax, localTax, prepaidTotal, totalTax, finalPayment };
   }
 
   const baseResult = calcResult(totalIncome);
@@ -421,7 +447,7 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-gray-600">추가 인적공제</span>
                       <button
-                        onClick={() => setDependents(prev => [...prev, { id: `dep_${Date.now()}`, name: "", residentNumber: "", isDisabled: false }])}
+                        onClick={() => setDependents(prev => [...prev, { id: `dep_${Date.now()}`, name: "", relation: "child", residentNumber: "", isDisabled: false }])}
                         className="text-[10px] px-2 py-1 bg-[#1a2e4a] text-white rounded-lg hover:bg-[#243d61]"
                       >+ 추가</button>
                     </div>
@@ -430,21 +456,33 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
                     )}
                     {dependents.map((dep, idx) => {
                       const elderly = isElderly(dep.residentNumber, taxYear);
+                      const childCredit = dep.relation === "child" && isChildTaxCredit(dep.residentNumber, taxYear);
                       return (
-                        <div key={dep.id} className="flex items-center gap-2 mb-2 bg-gray-50 rounded-lg px-3 py-2">
+                        <div key={dep.id} className="flex items-center gap-1.5 mb-2 bg-gray-50 rounded-lg px-3 py-2">
                           <span className="text-xs text-gray-400 w-4 shrink-0">{idx + 1}</span>
                           <input
                             type="text" value={dep.name} placeholder="이름"
                             onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, name: e.target.value } : d))}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-20 focus:outline-none focus:ring-1 focus:ring-[#1a2e4a]/30"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-16 focus:outline-none focus:ring-1 focus:ring-[#1a2e4a]/30"
                           />
+                          <select
+                            value={dep.relation}
+                            onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, relation: e.target.value as Dependent["relation"] } : d))}
+                            className="border border-gray-200 rounded-lg px-1 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#1a2e4a]/30"
+                          >
+                            <option value="child">자녀</option>
+                            <option value="spouse">배우자</option>
+                            <option value="parent">부모</option>
+                            <option value="other">기타</option>
+                          </select>
                           <input
-                            type="text" value={dep.residentNumber} placeholder="주민번호 앞6자리"
+                            type="text" value={dep.residentNumber} placeholder="앞6자리"
                             maxLength={6}
                             onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, residentNumber: e.target.value.replace(/\D/g, "") } : d))}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-[#1a2e4a]/30"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-20 focus:outline-none focus:ring-1 focus:ring-[#1a2e4a]/30"
                           />
                           {elderly && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded shrink-0">70+</span>}
+                          {childCredit && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded shrink-0">자녀공제</span>}
                           <label className="flex items-center gap-1 text-[10px] text-gray-500 shrink-0 cursor-pointer">
                             <input type="checkbox" checked={dep.isDisabled}
                               onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, isDisabled: e.target.checked } : d))}
@@ -651,7 +689,8 @@ function ResultBlock({ result, totalIncome, label, color }: { result: any; total
         <Row label="과세표준" value={result.taxBase} note={result.taxRate} bold />
         <Row label="산출세액" value={result.computedTax} />
         {result.totalReduction > 0 && <Row label="세액감면" value={result.totalReduction} sub />}
-        {result.totalCredit > 0 && <Row label="세액공제" value={result.totalCredit} sub />}
+        {result.childCreditAmt > 0 && <Row label="자녀세액공제" value={result.childCreditAmt} sub />}
+        {(result.totalCredit - (result.childCreditAmt || 0)) > 0 && <Row label="기타 세액공제" value={result.totalCredit - (result.childCreditAmt || 0)} sub />}
         {result.hitMinTax && <Row label="최저한세" value={result.minTax} note="적용" highlight />}
         <div className="border-t border-gray-100 pt-1 mt-1" />
         <Row label="결정세액" value={result.finalTax} bold />
