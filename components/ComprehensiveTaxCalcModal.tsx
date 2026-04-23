@@ -333,10 +333,11 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
             </div>
           </div>
           <div className="flex items-center gap-2 mt-2">
-            {!loaded && loadData.currSales && (
-              <button onClick={handleLoad} className="text-xs px-3 py-1 bg-white/20 text-white rounded-lg hover:bg-white/30">📥 불러오기</button>
+            {loadData.currSales && (
+              <button onClick={handleLoad} className="text-xs px-3 py-1 bg-white/20 text-white rounded-lg hover:bg-white/30">
+                {loaded ? "📥 다시 불러오기" : "📥 불러오기"}
+              </button>
             )}
-            {loaded && <span className="text-xs text-white/50">✅ 불러오기 완료</span>}
             {loadData.aiStartup && (
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${loadData.aiStartup === "O" ? "bg-green-500/30 text-green-200" : "bg-red-500/30 text-red-200"}`}>
                 창중감 {loadData.aiStartup === "O" ? "가능" : "불가"}
