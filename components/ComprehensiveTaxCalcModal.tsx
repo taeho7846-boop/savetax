@@ -75,7 +75,8 @@ function newTab(type: "business" | "employment" | "other", name: string): Income
 type Dependent = {
   id: string;
   name: string;
-  relation: "spouse" | "child" | "parent" | "other"; // 배우자/자녀/부모/기타
+  relation: "spouse" | "father" | "mother" | "child" | "other"; // 배우자/부/모/자녀/기타
+  birthOrder: number; // 출생순서 (자녀인 경우 1=첫째, 2=둘째...)
   residentNumber: string; // 앞 6자리
   isDisabled: boolean;
 };
@@ -101,14 +102,20 @@ function isChildTaxCredit(residentNumber: string, taxYear: string): boolean {
 
 function calcChildCredit(count: number): number {
   if (count <= 0) return 0;
-  if (count === 1) return 150000;
-  if (count === 2) return 300000;
-  return 300000 + (count - 2) * 300000; // 3명 이상: 30만 + 초과 1명당 30만
+  if (count === 1) return 250000; // 25만원
+  if (count === 2) return 550000; // 55만원
+  return 550000 + (count - 2) * 400000; // 55만 + 초과 1명당 40만
 }
 
 const RELATION_LABELS: Record<string, string> = {
-  spouse: "배우자", child: "자녀", parent: "부모", other: "기타",
+  spouse: "배우자", father: "부", mother: "모", child: "자녀", other: "기타",
 };
+
+function calcBirthCredit(order: number): number {
+  if (order === 1) return 300000; // 첫째 30만
+  if (order === 2) return 500000; // 둘째 50만
+  return 700000; // 셋째 이상 70만
+}
 
 type Props = {
   onClose: () => void;
@@ -146,6 +153,12 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
   const [deductPension, setDeductPension] = useState(""); // 국민연금보험료
   const [deductUmbrella, setDeductUmbrella] = useState(""); // 노란우산공제
 
+  // 세액공제
+  const [pensionSaving, setPensionSaving] = useState("");
+  const [retirementPension, setRetirementPension] = useState("");
+  const [marriageCredit, setMarriageCredit] = useState(false);
+  const [bookkeepingCredit, setBookkeepingCredit] = useState(false); // 기장세액공제
+
   // 가공경비
   const [extraExpense, setExtraExpense] = useState("");
 
@@ -165,6 +178,12 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
               setDeductSingleParent(saved.deductions.singleParent || false);
               setDeductPension(saved.deductions.pension || "");
               setDeductUmbrella(saved.deductions.umbrella || "");
+            }
+            if (saved.credits) {
+              setPensionSaving(saved.credits.pensionSaving || "");
+              setRetirementPension(saved.credits.retirementPension || "");
+              setMarriageCredit(saved.credits.marriageCredit || false);
+              setBookkeepingCredit(saved.credits.bookkeepingCredit || false);
             }
             if (saved.extraExpense) setExtraExpense(saved.extraExpense);
             setLoaded(true);
@@ -196,6 +215,9 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
         deductions: {
           woman: deductWoman, singleParent: deductSingleParent,
           pension: deductPension, umbrella: deductUmbrella,
+        },
+        credits: {
+          pensionSaving, retirementPension, marriageCredit, bookkeepingCredit,
         },
         extraExpense,
       });
@@ -315,10 +337,38 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
     for (const biz of extraBizIncomes) { totalCredit += biz.investCredit + biz.employmentCredit; }
     // 근로소득세액공제
     for (const emp of employmentIncomes) { totalCredit += emp.credit; }
-    // 자녀세액공제
+    // 자녀세액공제 (기본)
     const childCreditCount = dependents.filter(d => d.relation === "child" && isChildTaxCredit(d.residentNumber, taxYear)).length;
     const childCreditAmt = calcChildCredit(childCreditCount);
     totalCredit += childCreditAmt;
+
+    // 자녀세액공제 (출산)
+    const birthCreditAmt = dependents
+      .filter(d => d.relation === "child" && d.birthOrder > 0 && getBirthYear(d.residentNumber) === parseInt(taxYear))
+      .reduce((sum, d) => sum + calcBirthCredit(d.birthOrder), 0);
+    totalCredit += birthCreditAmt;
+
+    // 혼인세액공제
+    const marriageCreditAmt = marriageCredit ? 500000 : 0;
+    totalCredit += marriageCreditAmt;
+
+    // 기장세액공제 (산출세액 × 사업소득금액/종합소득금액 × 20%, 한도 100만원)
+    let bookkeepingCreditAmt = 0;
+    if (bookkeepingCredit && incomeTotal > 0) {
+      const mainIncomeAmt = incomeTotal === totalIncomeWithExtra ? mainIncomeWithExtra : mainIncome;
+      bookkeepingCreditAmt = Math.min(Math.round(computedTax * (mainIncomeAmt / incomeTotal) * 0.2), 1000000);
+      totalCredit += bookkeepingCreditAmt;
+    }
+
+    // 연금계좌세액공제
+    const pSaving = parse(pensionSaving);
+    const rPension = parse(retirementPension);
+    const pensionTotal = pSaving + rPension;
+    const pensionLimit = 6000000 + Math.min(rPension, 3000000); // 600만 + min(퇴직연금, 300만)
+    const pensionBase = Math.min(pensionTotal, pensionLimit);
+    const pensionRate = incomeTotal <= 45000000 ? 0.15 : 0.12;
+    const pensionCreditAmt = Math.round(pensionBase * pensionRate);
+    totalCredit += pensionCreditAmt;
 
     const afterReduction = Math.max(computedTax - totalReduction - totalCredit, 0);
 
@@ -339,7 +389,7 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
     const totalTax = finalTax + localTax;
     const finalPayment = totalTax - prepaidTotal;
 
-    return { taxBase, taxRate, computedTax, totalReduction, totalCredit, childCreditAmt, afterReduction, minTax, hitMinTax, hasStartup100, finalTax, localTax, prepaidTotal, totalTax, finalPayment };
+    return { taxBase, taxRate, computedTax, totalReduction, totalCredit, childCreditAmt, birthCreditAmt, marriageCreditAmt, bookkeepingCreditAmt, pensionCreditAmt, afterReduction, minTax, hitMinTax, hasStartup100, finalTax, localTax, prepaidTotal, totalTax, finalPayment };
   }
 
   const baseResult = calcResult(totalIncome);
@@ -447,7 +497,7 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-gray-600">추가 인적공제</span>
                       <button
-                        onClick={() => setDependents(prev => [...prev, { id: `dep_${Date.now()}`, name: "", relation: "child", residentNumber: "", isDisabled: false }])}
+                        onClick={() => setDependents(prev => [...prev, { id: `dep_${Date.now()}`, name: "", relation: "child", residentNumber: "", isDisabled: false, birthOrder: 0 }])}
                         className="text-[10px] px-2 py-1 bg-[#1a2e4a] text-white rounded-lg hover:bg-[#243d61]"
                       >+ 추가</button>
                     </div>
@@ -472,7 +522,8 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
                           >
                             <option value="child">자녀</option>
                             <option value="spouse">배우자</option>
-                            <option value="parent">부모</option>
+                            <option value="father">부</option>
+                            <option value="mother">모</option>
                             <option value="other">기타</option>
                           </select>
                           <input
@@ -483,6 +534,21 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
                           />
                           {elderly && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded shrink-0">70+</span>}
                           {childCredit && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded shrink-0">자녀공제</span>}
+                          {dep.relation === "child" && getBirthYear(dep.residentNumber) === parseInt(taxYear) && (
+                            <select
+                              value={dep.birthOrder}
+                              onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, birthOrder: parseInt(e.target.value) } : d))}
+                              className="border border-gray-200 rounded px-1 py-0.5 text-[10px] focus:outline-none"
+                            >
+                              <option value={0}>출산순서</option>
+                              <option value={1}>첫째</option>
+                              <option value={2}>둘째</option>
+                              <option value={3}>셋째+</option>
+                            </select>
+                          )}
+                          {dep.birthOrder > 0 && getBirthYear(dep.residentNumber) === parseInt(taxYear) && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-pink-100 text-pink-700 rounded shrink-0">출산{fmt(calcBirthCredit(dep.birthOrder))}원</span>
+                          )}
                           <label className="flex items-center gap-1 text-[10px] text-gray-500 shrink-0 cursor-pointer">
                             <input type="checkbox" checked={dep.isDisabled}
                               onChange={e => setDependents(prev => prev.map(d => d.id === dep.id ? { ...d, isDisabled: e.target.checked } : d))}
@@ -523,6 +589,40 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
                 <div className="flex justify-between px-4 py-2.5 bg-gray-50 border-t border-gray-200">
                   <span className="text-xs font-semibold text-gray-600">소득공제 합계</span>
                   <span className="text-sm font-bold text-gray-800">-{fmt(totalDeduction)}원</span>
+                </div>
+              </div>
+
+              {/* 세액공제 카드 */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700">세액공제</h3>
+                </div>
+                <div className="px-4 py-3 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2 flex-1">
+                      <input type="checkbox" checked={marriageCredit} onChange={e => setMarriageCredit(e.target.checked)} className="accent-[#1a2e4a] w-3.5 h-3.5" />
+                      혼인세액공제 (50만원)
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 rounded-lg px-3 py-2 flex-1">
+                      <input type="checkbox" checked={bookkeepingCredit} onChange={e => setBookkeepingCredit(e.target.checked)} className="accent-[#1a2e4a] w-3.5 h-3.5" />
+                      기장세액공제 (간편장부→복식부기)
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumField label="연금저축 납입액" value={pensionSaving} onChange={setPensionSaving} suffix="원" />
+                    <NumField label="퇴직연금 납입액" value={retirementPension} onChange={setRetirementPension} suffix="원" />
+                  </div>
+                  {(parse(pensionSaving) > 0 || parse(retirementPension) > 0) && (() => {
+                    const ps = parse(pensionSaving), rp = parse(retirementPension);
+                    const limit = 6000000 + Math.min(rp, 3000000);
+                    const base = Math.min(ps + rp, limit);
+                    const rate = totalIncome <= 45000000 ? 15 : 12;
+                    return (
+                      <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-700">
+                        연금계좌세액공제: {fmt(base)}원 × {rate}% = <strong>{fmt(Math.round(base * rate / 100))}원</strong>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -689,8 +789,12 @@ function ResultBlock({ result, totalIncome, label, color }: { result: any; total
         <Row label="과세표준" value={result.taxBase} note={result.taxRate} bold />
         <Row label="산출세액" value={result.computedTax} />
         {result.totalReduction > 0 && <Row label="세액감면" value={result.totalReduction} sub />}
-        {result.childCreditAmt > 0 && <Row label="자녀세액공제" value={result.childCreditAmt} sub />}
-        {(result.totalCredit - (result.childCreditAmt || 0)) > 0 && <Row label="기타 세액공제" value={result.totalCredit - (result.childCreditAmt || 0)} sub />}
+        {result.childCreditAmt > 0 && <Row label="자녀세액공제 (기본)" value={result.childCreditAmt} sub />}
+        {result.birthCreditAmt > 0 && <Row label="자녀세액공제 (출산)" value={result.birthCreditAmt} sub />}
+        {result.marriageCreditAmt > 0 && <Row label="혼인세액공제" value={result.marriageCreditAmt} sub />}
+        {result.bookkeepingCreditAmt > 0 && <Row label="기장세액공제" value={result.bookkeepingCreditAmt} sub />}
+        {result.pensionCreditAmt > 0 && <Row label="연금계좌세액공제" value={result.pensionCreditAmt} sub />}
+        {(() => { const etc = result.totalCredit - (result.childCreditAmt||0) - (result.birthCreditAmt||0) - (result.marriageCreditAmt||0) - (result.bookkeepingCreditAmt||0) - (result.pensionCreditAmt||0); return etc > 0 ? <Row label="기타 세액공제" value={etc} sub /> : null; })()}
         {result.hitMinTax && <Row label="최저한세" value={result.minTax} note="적용" highlight />}
         <div className="border-t border-gray-100 pt-1 mt-1" />
         <Row label="결정세액" value={result.finalTax} bold />
