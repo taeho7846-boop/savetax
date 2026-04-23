@@ -52,6 +52,7 @@ type IncomeTab = {
   employmentCredit: string;
   prepaidTax: string;
   // 근로소득
+  grossSalary: string; // 총급여액
   taxBase: string;
   earnedIncomeCredit: string;
   // 기타소득
@@ -67,7 +68,7 @@ function newTab(type: "business" | "employment" | "other", name: string): Income
     name, type,
     revenue: "", expense: "", startupRate: 0, smeRate: 0,
     investCredit: "", employmentCredit: "", prepaidTax: "",
-    taxBase: "", earnedIncomeCredit: "",
+    grossSalary: "", taxBase: "", earnedIncomeCredit: "",
     otherIncome: "", otherExpense: "", otherIncomeAmount: "", otherTaxType: "separate",
   };
 }
@@ -105,6 +106,32 @@ function calcChildCredit(count: number): number {
   if (count === 1) return 250000; // 25만원
   if (count === 2) return 550000; // 55만원
   return 550000 + (count - 2) * 400000; // 55만 + 초과 1명당 40만
+}
+
+function calcEarnedIncomeCredit(earnedTax: number, grossSalary: number): number {
+  if (earnedTax <= 0) return 0;
+
+  // 산출세액 기준 공제액
+  let creditAmt: number;
+  if (earnedTax <= 1300000) {
+    creditAmt = Math.round(earnedTax * 0.55);
+  } else {
+    creditAmt = 715000 + Math.round((earnedTax - 1300000) * 0.3);
+  }
+
+  // 한도
+  let limit: number;
+  if (grossSalary <= 33000000) {
+    limit = 740000;
+  } else if (grossSalary <= 70000000) {
+    limit = Math.max(740000 - Math.round((grossSalary - 33000000) * 8 / 1000), 660000);
+  } else if (grossSalary <= 120000000) {
+    limit = Math.max(660000 - Math.round((grossSalary - 70000000) * 0.5), 500000);
+  } else {
+    limit = Math.max(500000 - Math.round((grossSalary - 120000000) * 0.5), 200000);
+  }
+
+  return Math.min(creditAmt, limit);
 }
 
 const RELATION_LABELS: Record<string, string> = {
@@ -332,11 +359,25 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
       }
     }
 
+    // 표준세액공제
+    const standardCredit = 70000;
+
     // 세액공제 (고정 금액)
-    let totalCredit = parse(mainTab.investCredit) + parse(mainTab.employmentCredit);
+    let totalCredit = standardCredit + parse(mainTab.investCredit) + parse(mainTab.employmentCredit);
     for (const biz of extraBizIncomes) { totalCredit += biz.investCredit + biz.employmentCredit; }
-    // 근로소득세액공제
-    for (const emp of employmentIncomes) { totalCredit += emp.credit; }
+
+    // 근로소득세액공제 (자동계산)
+    let earnedIncomeCreditTotal = 0;
+    for (const emp of employmentIncomes) {
+      if (emp.income > 0 && incomeTotal > 0) {
+        const earnedTax = Math.round(computedTax * (emp.income / incomeTotal));
+        const empTab = extraTabs.find(t => t.id === emp.id);
+        const grossSalary = empTab ? parse(empTab.grossSalary) : 0;
+        const credit = calcEarnedIncomeCredit(earnedTax, grossSalary);
+        earnedIncomeCreditTotal += credit;
+      }
+    }
+    totalCredit += earnedIncomeCreditTotal;
     // 자녀세액공제 (기본)
     const childCreditCount = dependents.filter(d => d.relation === "child" && isChildTaxCredit(d.residentNumber, taxYear)).length;
     const childCreditAmt = calcChildCredit(childCreditCount);
@@ -389,7 +430,7 @@ export function ComprehensiveTaxCalcModal({ onClose, clientName, clientId, taxYe
     const totalTax = finalTax + localTax;
     const finalPayment = totalTax - prepaidTotal;
 
-    return { taxBase, taxRate, computedTax, totalReduction, totalCredit, childCreditAmt, birthCreditAmt, marriageCreditAmt, bookkeepingCreditAmt, pensionCreditAmt, afterReduction, minTax, hitMinTax, hasStartup100, finalTax, localTax, prepaidTotal, totalTax, finalPayment };
+    return { taxBase, taxRate, computedTax, totalReduction, totalCredit, standardCredit, childCreditAmt, birthCreditAmt, marriageCreditAmt, bookkeepingCreditAmt, earnedIncomeCreditTotal, pensionCreditAmt, afterReduction, minTax, hitMinTax, hasStartup100, finalTax, localTax, prepaidTotal, totalTax, finalPayment };
   }
 
   const baseResult = calcResult(totalIncome);
@@ -789,12 +830,14 @@ function ResultBlock({ result, totalIncome, label, color }: { result: any; total
         <Row label="과세표준" value={result.taxBase} note={result.taxRate} bold />
         <Row label="산출세액" value={result.computedTax} />
         {result.totalReduction > 0 && <Row label="세액감면" value={result.totalReduction} sub />}
+        <Row label="표준세액공제" value={result.standardCredit} sub />
         {result.childCreditAmt > 0 && <Row label="자녀세액공제 (기본)" value={result.childCreditAmt} sub />}
         {result.birthCreditAmt > 0 && <Row label="자녀세액공제 (출산)" value={result.birthCreditAmt} sub />}
         {result.marriageCreditAmt > 0 && <Row label="혼인세액공제" value={result.marriageCreditAmt} sub />}
         {result.bookkeepingCreditAmt > 0 && <Row label="기장세액공제" value={result.bookkeepingCreditAmt} sub />}
+        {result.earnedIncomeCreditTotal > 0 && <Row label="근로소득세액공제" value={result.earnedIncomeCreditTotal} sub />}
         {result.pensionCreditAmt > 0 && <Row label="연금계좌세액공제" value={result.pensionCreditAmt} sub />}
-        {(() => { const etc = result.totalCredit - (result.childCreditAmt||0) - (result.birthCreditAmt||0) - (result.marriageCreditAmt||0) - (result.bookkeepingCreditAmt||0) - (result.pensionCreditAmt||0); return etc > 0 ? <Row label="기타 세액공제" value={etc} sub /> : null; })()}
+        {(() => { const etc = result.totalCredit - (result.standardCredit||0) - (result.childCreditAmt||0) - (result.birthCreditAmt||0) - (result.marriageCreditAmt||0) - (result.bookkeepingCreditAmt||0) - (result.earnedIncomeCreditTotal||0) - (result.pensionCreditAmt||0); return etc > 0 ? <Row label="기타 세액공제" value={etc} sub /> : null; })()}
         {result.hitMinTax && <Row label="최저한세" value={result.minTax} note="적용" highlight />}
         <div className="border-t border-gray-100 pt-1 mt-1" />
         <Row label="결정세액" value={result.finalTax} bold />
@@ -884,9 +927,12 @@ function EmploymentTabContent({ tab, onChange }: { tab: IncomeTab; onChange: (u:
         <input type="text" value={tab.name} onChange={e => onChange({ name: e.target.value })}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-full" />
       </div>
-      <NumField label="과세표준" value={tab.taxBase} onChange={v => onChange({ taxBase: v })} suffix="원" />
-      <NumField label="근로소득세액공제" value={tab.earnedIncomeCredit} onChange={v => onChange({ earnedIncomeCredit: v })} suffix="원" />
+      <NumField label="총급여액" value={tab.grossSalary} onChange={v => onChange({ grossSalary: v })} suffix="원" />
+      <NumField label="과세표준 (근로소득금액)" value={tab.taxBase} onChange={v => onChange({ taxBase: v })} suffix="원" />
       <NumField label="기납부세액" value={tab.prepaidTax} onChange={v => onChange({ prepaidTax: v })} suffix="원" />
+      <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-700">
+        근로소득세액공제는 종합소득 탭에서 자동 계산됩니다
+      </div>
     </div>
   );
 }
