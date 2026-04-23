@@ -66,16 +66,50 @@ function pct(n: number, base: number): string {
   return ((n / base) * 100).toFixed(2) + "%";
 }
 
+// 세전 급여로 공제액 계산
+function calcDeductions(gross: number, nonTax: number, deps: number, isCeo: boolean) {
+  const taxable = Math.max(gross - nonTax, 0);
+  const pension = Math.min(Math.round(taxable * RATES.pension), RATES.pensionCap);
+  const health = Math.round(taxable * RATES.health);
+  const longcare = Math.round(health * RATES.longcare);
+  const employment = isCeo ? 0 : Math.round(taxable * RATES.employment);
+  const insuranceTotal = pension + health + longcare + employment;
+  const incomeTax = calcIncomeTax(taxable, deps, isCeo);
+  const localTax = Math.round(incomeTax * 0.1 / 10) * 10;
+  const taxTotal = incomeTax + localTax;
+  const totalDeduction = insuranceTotal + taxTotal;
+  return { pension, health, longcare, employment, insuranceTotal, incomeTax, localTax, taxTotal, totalDeduction, netPay: gross - totalDeduction };
+}
+
+// 세후→세전 역산 (이분탐색)
+function reverseCalc(targetNet: number, nonTax: number, deps: number, isCeo: boolean): number {
+  let lo = targetNet;
+  let hi = targetNet * 2;
+  for (let i = 0; i < 100; i++) {
+    const mid = Math.round((lo + hi) / 2);
+    const { netPay } = calcDeductions(mid, nonTax, deps, isCeo);
+    if (Math.abs(netPay - targetNet) <= 10) return mid;
+    if (netPay < targetNet) lo = mid;
+    else hi = mid;
+  }
+  return Math.round((lo + hi) / 2);
+}
+
 export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
   const [salary, setSalary] = useState("");
   const [nonTaxable, setNonTaxable] = useState("200,000");
   const [dependents, setDependents] = useState(1);
   const [type, setType] = useState<"worker" | "ceo">("worker");
+  const [mode, setMode] = useState<"gross" | "net">("gross"); // gross: 세전→세후, net: 세후→세전
 
-  const salaryNum = parseInt(salary.replace(/,/g, "")) || 0;
+  const inputNum = parseInt(salary.replace(/,/g, "")) || 0;
   const nonTaxableNum = parseInt(nonTaxable.replace(/,/g, "")) || 0;
-  const taxableSalary = Math.max(salaryNum - nonTaxableNum, 0);
   const isCeo = type === "ceo";
+
+  // 모드에 따라 세전 급여 결정
+  const grossSalary = mode === "gross" ? inputNum : reverseCalc(inputNum, nonTaxableNum, dependents, isCeo);
+  const salaryNum = grossSalary;
+  const taxableSalary = Math.max(salaryNum - nonTaxableNum, 0);
 
   // 4대보험 (2026년 요율)
   const pension = Math.min(Math.round(taxableSalary * RATES.pension), RATES.pensionCap);
@@ -138,8 +172,30 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
+          {/* 세전/세후 모드 */}
+          <div className="flex bg-gray-100 rounded-xl p-1">
+            <button
+              onClick={() => { setMode("gross"); setSalary(""); }}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                mode === "gross" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              세전 → 세후
+            </button>
+            <button
+              onClick={() => { setMode("net"); setSalary(""); }}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                mode === "net" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              세후 → 세전 (넷트제)
+            </button>
+          </div>
+
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-1.5 block">월 급여 (세전)</label>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+              {mode === "gross" ? "월 급여 (세전)" : "희망 실수령액 (세후)"}
+            </label>
             <div className="relative">
               <input
                 type="text"
@@ -182,19 +238,36 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 결과 */}
-        {salaryNum > 0 && (
+        {inputNum > 0 && (
           <div className="px-6 pb-6">
-            {/* 실수령액 */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600">예상 실수령액</span>
-                <span className="text-2xl font-bold text-[#1a2e4a]">{fmt(netPay)}원</span>
+            {/* 결과 카드 */}
+            {mode === "net" ? (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">필요 세전 급여</span>
+                  <span className="text-2xl font-bold text-emerald-700">{fmt(grossSalary)}원</span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-gray-400">실수령액</span>
+                  <span className="text-sm text-gray-600 font-medium">{fmt(netPay)}원</span>
+                </div>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="text-xs text-gray-400">총 공제액</span>
+                  <span className="text-sm text-red-500 font-medium">-{fmt(totalDeduction)}원</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-gray-400">총 공제액</span>
-                <span className="text-sm text-red-500 font-medium">-{fmt(totalDeduction)}원</span>
+            ) : (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">예상 실수령액</span>
+                  <span className="text-2xl font-bold text-[#1a2e4a]">{fmt(netPay)}원</span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-gray-400">총 공제액</span>
+                  <span className="text-sm text-red-500 font-medium">-{fmt(totalDeduction)}원</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 상세 내역 */}
             <div className="space-y-1">
