@@ -122,6 +122,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
+  const isPreview = req.nextUrl.searchParams.get("mode") !== "apply";
+
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) {
@@ -164,6 +166,7 @@ export async function POST(req: NextRequest) {
   let updated = 0;
   let skipped = 0;
   let errors: string[] = [];
+  const changes: { clientName: string; bizNumber: string; fields: { field: string; from: string; to: string }[] }[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -299,10 +302,35 @@ export async function POST(req: NextRequest) {
       delete updateData._assignedUser;
 
       if (Object.keys(updateData).length > 0) {
-        await prisma.client.update({
-          where: { id: existing.id },
-          data: updateData,
-        });
+        // 변경 내역 수집
+        const fieldChanges: { field: string; from: string; to: string }[] = [];
+        const FIELD_LABELS: Record<string, string> = {
+          ceoName: "대표자명", residentNumber: "주민번호", phone: "연락처", address: "주소",
+          clientType: "구분", taxationType: "과세유형", hometaxId: "홈택스ID", hometaxPw: "홈택스PW",
+          monthlyFee: "기장료", firstWithdrawalMonth: "최초출금월", bankName: "은행", bankAccount: "계좌",
+          openDate: "개업일", contractDate: "계약일", affiliation: "소속", notes: "특이사항",
+          taxTypes: "신고유형", laborTypes: "인건비", accountingProgram: "회계프로그램",
+          contactMethod: "소통방법", halfYearTax: "6개월납", withholdingType: "원천세유형",
+          cmsStatus: "CMS상태", assignedUserId: "담당직원", freeMonths: "무료기장",
+          bizType: "업종코드", bizCategory: "업태", bizItem: "종목",
+          corporateNumber: "법인등록번호", email: "이메일", name: "고객사명",
+        };
+        for (const [field, newVal] of Object.entries(updateData)) {
+          const oldVal = (existing as any)[field];
+          fieldChanges.push({
+            field: FIELD_LABELS[field] || field,
+            from: oldVal != null ? String(oldVal) : "",
+            to: String(newVal),
+          });
+        }
+        changes.push({ clientName: existing.name, bizNumber: rawBiz, fields: fieldChanges });
+
+        if (!isPreview) {
+          await prisma.client.update({
+            where: { id: existing.id },
+            data: updateData,
+          });
+        }
         updated++;
       } else {
         skipped++;
@@ -323,6 +351,8 @@ export async function POST(req: NextRequest) {
     updated,
     skipped,
     errors,
+    changes,
+    isPreview,
     message: parts.join(", ") || "변경사항 없음",
   });
 }

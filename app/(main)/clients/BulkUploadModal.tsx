@@ -35,50 +35,78 @@ export function BulkUpdateButton() {
   );
 }
 
+type FieldChange = { field: string; from: string; to: string };
+type ChangeItem = { clientName: string; bizNumber: string; fields: FieldChange[] };
 type WithdrawalChange = { clientId: number; clientName: string; bizNumber: string; currentValue: string | null; newValue: string };
 
 function BulkUpdateModal({ onClose }: { onClose: () => void }) {
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{ updated: number; skipped: number; errors: string[]; message: string } | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [preview, setPreview] = useState<{ updated: number; skipped: number; errors: string[]; changes: ChangeItem[] } | null>(null);
+  const [applied, setApplied] = useState(false);
   const [withdrawalPreview, setWithdrawalPreview] = useState<WithdrawalChange[] | null>(null);
   const [applyingWithdrawal, setApplyingWithdrawal] = useState(false);
+  const [savedFile, setSavedFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  async function handleUpload() {
+  async function handlePreview() {
     const file = fileRef.current?.files?.[0];
     if (!file) return alert("파일을 선택해주세요.");
 
     setUploading(true);
-    setResult(null);
+    setPreview(null);
+    setApplied(false);
     setWithdrawalPreview(null);
+    setSavedFile(file);
 
     const fd = new FormData();
     fd.append("file", file);
 
     try {
-      // 1) 기존 일괄수정 (빈칸 채우기)
-      const res = await fetch("/api/clients/bulk-update", { method: "POST", body: fd });
+      const res = await fetch("/api/clients/bulk-update?mode=preview", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
-        setResult(data);
-        router.refresh();
+        setPreview(data);
       } else {
-        setResult({ updated: 0, skipped: 0, errors: [data.error], message: data.error });
-      }
-
-      // 2) 최초출금월 미리보기 (덮어쓰기 대상)
-      const fd2 = new FormData();
-      fd2.append("file", file);
-      const res2 = await fetch("/api/clients/bulk-update-preview", { method: "POST", body: fd2 });
-      const data2 = await res2.json();
-      if (res2.ok && data2.changes?.length > 0) {
-        setWithdrawalPreview(data2.changes);
+        setPreview({ updated: 0, skipped: 0, errors: [data.error], changes: [] });
       }
     } catch {
-      setResult({ updated: 0, skipped: 0, errors: ["네트워크 오류"], message: "네트워크 오류" });
+      setPreview({ updated: 0, skipped: 0, errors: ["네트워크 오류"], changes: [] });
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleApply() {
+    if (!savedFile) return;
+    setApplying(true);
+
+    const fd = new FormData();
+    fd.append("file", savedFile);
+
+    try {
+      const res = await fetch("/api/clients/bulk-update?mode=apply", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok) {
+        setApplied(true);
+        router.refresh();
+
+        // 최초출금월 미리보기
+        const fd2 = new FormData();
+        fd2.append("file", savedFile);
+        const res2 = await fetch("/api/clients/bulk-update-preview", { method: "POST", body: fd2 });
+        const data2 = await res2.json();
+        if (res2.ok && data2.changes?.length > 0) {
+          setWithdrawalPreview(data2.changes);
+        }
+      } else {
+        alert(data.error || "적용 실패");
+      }
+    } catch {
+      alert("네트워크 오류");
+    } finally {
+      setApplying(false);
     }
   }
 
@@ -106,7 +134,7 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900">거래처 일괄수정</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
@@ -123,33 +151,91 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
             </a>
           </div>
           <p className="text-xs text-gray-500 mb-3">
-            사업자등록번호로 기존 거래처를 매칭하여 비어있는 항목만 채웁니다.<br />
-            최초출금월은 미리보기 후 덮어쓰기 가능합니다.
+            사업자등록번호로 기존 거래처를 매칭하여 비어있는 항목만 채웁니다.
           </p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,.xls"
-            className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-300 file:text-sm file:bg-white file:text-gray-700 hover:file:bg-gray-100"
-          />
+          <div className="flex gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="flex-1 text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-300 file:text-sm file:bg-white file:text-gray-700 hover:file:bg-gray-100"
+            />
+            <button
+              onClick={handlePreview}
+              disabled={uploading}
+              className="px-4 py-2 bg-[#1a2e4a] text-white text-sm rounded-lg hover:bg-[#243d61] disabled:opacity-50 shrink-0"
+            >
+              {uploading ? "분석 중..." : "미리보기"}
+            </button>
+          </div>
         </div>
 
-        <div className="bg-blue-50 rounded-lg p-3 mb-4">
-          <p className="text-xs text-blue-700">
-            <span className="font-medium">지원하는 헤더:</span> 사업자등록번호, 고객사명, 대표자명, 주민등록번호, 연락처, 구분, 과세유형, 신고유형, 인건비, 주소, 홈택스ID, 홈택스PW, 기장료, 무료기장, 최초출금월, 은행, 계좌번호, 회계프로그램, 소통방법, 소속, 담당직원, 마이박스링크, 법인등록번호, 이메일, 특이사항
-          </p>
-        </div>
+        {/* 미리보기 결과 */}
+        {preview && !applied && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-medium text-gray-700">
+                변경 예정 <span className="text-blue-600">{preview.updated}건</span> · 건너뜀 {preview.skipped}건
+                {preview.errors.length > 0 && <span className="text-red-500"> · 오류 {preview.errors.length}건</span>}
+              </div>
+              {preview.changes.length > 0 && (
+                <button
+                  onClick={handleApply}
+                  disabled={applying}
+                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {applying ? "적용 중..." : `${preview.updated}건 적용하기`}
+                </button>
+              )}
+            </div>
 
-        {result && (
-          <div className={`rounded-lg p-4 mb-4 text-sm ${result.updated > 0 ? "bg-green-50 text-green-800" : "bg-yellow-50 text-yellow-800"}`}>
-            <div className="font-medium mb-1">{result.message}</div>
-            {result.errors.length > 0 && (
-              <ul className="text-xs mt-2 space-y-1">
-                {result.errors.map((e, i) => (
-                  <li key={i} className="text-red-600">{e}</li>
-                ))}
-              </ul>
+            {preview.changes.length > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">거래처</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">사업자번호</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">변경 항목</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">기존</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">변경</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {preview.changes.map((c, ci) =>
+                      c.fields.map((f, fi) => (
+                        <tr key={`${ci}-${fi}`} className="hover:bg-blue-50/30">
+                          {fi === 0 && (
+                            <>
+                              <td className="px-3 py-1.5 font-medium text-gray-900" rowSpan={c.fields.length}>{c.clientName}</td>
+                              <td className="px-3 py-1.5 text-gray-500" rowSpan={c.fields.length}>{c.bizNumber}</td>
+                            </>
+                          )}
+                          <td className="px-3 py-1.5 text-gray-700">{f.field}</td>
+                          <td className="px-3 py-1.5 text-gray-400">{f.from || <span className="text-gray-300">비어있음</span>}</td>
+                          <td className="px-3 py-1.5 text-blue-600 font-medium">{f.to}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             )}
+
+            {preview.errors.length > 0 && (
+              <details className="mt-3">
+                <summary className="text-xs text-red-500 cursor-pointer">오류 {preview.errors.length}건 보기</summary>
+                <ul className="text-xs mt-1 space-y-0.5 text-red-600 max-h-32 overflow-y-auto">
+                  {preview.errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+
+        {applied && (
+          <div className="rounded-lg p-4 mb-4 bg-green-50 text-green-800 text-sm font-medium">
+            ✅ {preview?.updated}건 업데이트 완료!
           </div>
         )}
 
@@ -191,25 +277,6 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        <div className="flex gap-2">
-          <button
-            onClick={handleUpload}
-            disabled={uploading}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-              uploading
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-[#1a2e4a] text-white hover:bg-[#243d61]"
-            }`}
-          >
-            {uploading ? "업로드 중..." : "업로드"}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-          >
-            닫기
-          </button>
-        </div>
       </div>
     </div>
   );
