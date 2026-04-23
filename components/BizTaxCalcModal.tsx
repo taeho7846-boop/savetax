@@ -6,13 +6,13 @@ import { useState } from "react";
 function calcTax(taxBase: number): number {
   if (taxBase <= 0) return 0;
   if (taxBase <= 14000000) return taxBase * 0.06;
-  if (taxBase <= 50000000) return 1260000 + (taxBase - 14000000) * 0.15;
-  if (taxBase <= 88000000) return 5760000 + (taxBase - 50000000) * 0.24;
-  if (taxBase <= 150000000) return 15440000 + (taxBase - 88000000) * 0.35;
-  if (taxBase <= 300000000) return 19940000 + (taxBase - 150000000) * 0.38;
-  if (taxBase <= 500000000) return 25940000 + (taxBase - 300000000) * 0.40;
-  if (taxBase <= 1000000000) return 35940000 + (taxBase - 500000000) * 0.42;
-  return 65940000 + (taxBase - 1000000000) * 0.45;
+  if (taxBase <= 50000000) return 840000 + (taxBase - 14000000) * 0.15;
+  if (taxBase <= 88000000) return 6240000 + (taxBase - 50000000) * 0.24;
+  if (taxBase <= 150000000) return 15360000 + (taxBase - 88000000) * 0.35;
+  if (taxBase <= 300000000) return 37060000 + (taxBase - 150000000) * 0.38;
+  if (taxBase <= 500000000) return 94060000 + (taxBase - 300000000) * 0.40;
+  if (taxBase <= 1000000000) return 174060000 + (taxBase - 500000000) * 0.42;
+  return 384060000 + (taxBase - 1000000000) * 0.45;
 }
 
 // 최저한세 계산
