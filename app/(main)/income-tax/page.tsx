@@ -48,16 +48,26 @@ export default async function IncomeTaxPage({
       id: true,
       name: true,
       clientType: true,
+      ceoName: true,
+      residentNumber: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       incomeTaxRecords: {
         where: { taxYear },
       },
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ ceoName: "asc" }, { name: "asc" }],
   });
 
   // BigInt → string 변환 (JSON 직렬화용)
-  const serialized = clients.map(({ assignedUser, ...c }) => ({
+  // 같은 대표자(이름+주민등록번호)끼리 묶어서 정렬
+  const grouped = [...clients].sort((a, b) => {
+    const keyA = (a.ceoName || "") + (a.residentNumber || "");
+    const keyB = (b.ceoName || "") + (b.residentNumber || "");
+    if (keyA !== keyB) return keyA.localeCompare(keyB, "ko");
+    return a.name.localeCompare(b.name, "ko");
+  });
+
+  const serialized = grouped.map(({ assignedUser, ...c }) => ({
     ...c,
     assignedUserName: assignedUser?.name ?? null,
     incomeTaxRecords: c.incomeTaxRecords.map(r => ({

@@ -36,6 +36,8 @@ type Client = {
   id: number;
   name: string;
   clientType: string;
+  ceoName?: string | null;
+  residentNumber?: string | null;
   assignedUserName?: string | null;
   incomeTaxRecords: ITRecord[];
 };
@@ -193,7 +195,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
           <thead className="sticky top-0 z-10">
             {/* 그룹 헤더 */}
             <tr>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-gray-200`} colSpan={showAssignedUser ? 5 : 4}>기본</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-gray-200`} colSpan={showAssignedUser ? 6 : 5}>기본</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["준비"]} border-b border-blue-200`} colSpan={6}>준비</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-yellow-200`} colSpan={1}>가결산</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-purple-200`} colSpan={3}>전기</th>
@@ -205,6 +207,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
             {/* 세부 헤더 */}
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="px-3 py-2 text-left text-gray-700 font-medium sticky left-0 bg-gray-50 z-20 min-w-[100px]">고객사명</th>
+              <th className="px-2 py-2 text-left text-gray-600 font-medium min-w-[60px]">대표자</th>
               <th className="px-2 py-2 text-center text-gray-600 font-medium w-10">메모</th>
               {showAssignedUser && (
                 <th className="px-2 py-2 text-center text-gray-600 font-medium">담당자</th>
@@ -243,16 +246,42 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                 </td>
               </tr>
             ) : (
-              filteredClients.map((client) => {
+              filteredClients.map((client, idx) => {
                 const r = getRecord(client);
+                // 그룹핑: 같은 대표자(이름+주민번호)인지 확인
+                const groupKey = (client.ceoName || "") + (client.residentNumber || "");
+                const prevClient = idx > 0 ? filteredClients[idx - 1] : null;
+                const prevGroupKey = prevClient ? (prevClient.ceoName || "") + (prevClient.residentNumber || "") : "";
+                const isFirstInGroup = !prevClient || groupKey !== prevGroupKey || !groupKey;
+                const nextClient = idx < filteredClients.length - 1 ? filteredClients[idx + 1] : null;
+                const nextGroupKey = nextClient ? (nextClient.ceoName || "") + (nextClient.residentNumber || "") : "";
+                const isLastInGroup = !nextClient || groupKey !== nextGroupKey || !groupKey;
+                const hasGroup = groupKey && (
+                  (!isFirstInGroup) ||
+                  (nextClient && nextGroupKey === groupKey)
+                );
+                // 그룹 크기 계산 (첫 번째일 때만)
+                let groupSize = 1;
+                if (isFirstInGroup && groupKey) {
+                  for (let gi = idx + 1; gi < filteredClients.length; gi++) {
+                    const gk = (filteredClients[gi].ceoName || "") + (filteredClients[gi].residentNumber || "");
+                    if (gk === groupKey) groupSize++;
+                    else break;
+                  }
+                }
+                const showCompletionCells = !hasGroup || isFirstInGroup;
+
                 return (
-                  <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`}>
+                  <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"} ${hasGroup && !isLastInGroup ? "border-b-0" : ""}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #e5e7eb" } : undefined}>
                     {/* 고객사명 */}
                     <td className="px-3 py-2 text-[#1a2e4a] font-medium sticky left-0 bg-white z-10 border-r border-gray-100">
                       <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
                         {client.name}
                       </button>
-                      <span className="ml-1 text-[10px] text-gray-400">{client.clientType === "corporate" ? "법인" : "개인"}</span>
+                    </td>
+                    {/* 대표자 */}
+                    <td className="px-2 py-2 text-left text-xs text-gray-600">
+                      {isFirstInGroup ? (client.ceoName ?? <span className="text-gray-300">-</span>) : ""}
                     </td>
                     {/* 메모 */}
                     <td className="px-1 py-2 text-center">
@@ -317,10 +346,20 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                     <CheckCell checked={r.investCredit} onToggle={() => handleToggle(client.id, "investCredit")} disabled={isPending} />
                     <CheckCell checked={r.employmentCredit} onToggle={() => handleToggle(client.id, "employmentCredit")} disabled={isPending} />
 
-                    {/* 완료 */}
-                    <CheckCell checked={r.depositReceived} onToggle={() => handleToggle(client.id, "depositReceived")} disabled={isPending} />
-                    <CheckCell checked={r.filingDone} onToggle={() => handleToggle(client.id, "filingDone")} disabled={isPending} />
-                    <CheckCell checked={r.paymentSent} onToggle={() => handleToggle(client.id, "paymentSent")} disabled={isPending} />
+                    {/* 완료: 그룹의 첫 번째 행에만 체크박스 */}
+                    {showCompletionCells ? (
+                      <>
+                        <CheckCell checked={r.depositReceived} onToggle={() => handleToggle(client.id, "depositReceived")} disabled={isPending} />
+                        <CheckCell checked={r.filingDone} onToggle={() => handleToggle(client.id, "filingDone")} disabled={isPending} />
+                        <CheckCell checked={r.paymentSent} onToggle={() => handleToggle(client.id, "paymentSent")} disabled={isPending} />
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-2 py-2" />
+                        <td className="px-2 py-2" />
+                        <td className="px-2 py-2" />
+                      </>
+                    )}
 
                     {/* 조정료 */}
                     <NumberCell value={r.adjustmentFee} onSave={(v) => handleFieldBlur(client.id, "adjustmentFee", v)} />
