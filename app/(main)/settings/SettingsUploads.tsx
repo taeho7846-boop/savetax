@@ -11,6 +11,7 @@ interface Props {
   healthExcelPath: string | null;
   tiNormalExcelPath: string | null;
   tiBulkExcelPath: string | null;
+  taxReductionExcelPath: string | null;
 }
 
 function UploadSection({
@@ -151,7 +152,7 @@ function UploadSection({
   );
 }
 
-export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath }: Props) {
+export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath, taxReductionExcelPath }: Props) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6">
       <h2 className="text-sm font-semibold text-gray-700">파일</h2>
@@ -235,6 +236,20 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
             currentPath={tiBulkExcelPath}
             uploadUrl="/api/settings/upload-ti-bulk"
             deleteUrl="/api/settings/upload-ti-bulk"
+            accept=".xlsx,.xls"
+            isImage={false}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-xs font-semibold text-gray-400 mb-4">세액감면 판단</h3>
+        <div className="grid grid-cols-2 gap-6">
+          <UploadSection
+            label="감면 판단 엑셀 (업종코드)"
+            currentPath={taxReductionExcelPath}
+            uploadUrl="/api/settings/upload-tax-reduction"
+            deleteUrl="/api/settings/upload-tax-reduction"
             accept=".xlsx,.xls"
             isImage={false}
           />

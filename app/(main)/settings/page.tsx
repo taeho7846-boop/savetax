@@ -259,6 +259,7 @@ export default async function SettingsPage() {
             healthExcelPath={settings?.healthExcelPath ?? null}
             tiNormalExcelPath={settings?.tiNormalExcelPath ?? null}
             tiBulkExcelPath={settings?.tiBulkExcelPath ?? null}
+            taxReductionExcelPath={settings?.taxReductionExcelPath ?? null}
           />
         </div>
       </div>

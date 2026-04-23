@@ -160,6 +160,7 @@ model Settings {
   alimtalkHappyCallCorp   String?
   alimtalkDocRemind       String?
   alimtalkFeeRemind       String?
+  taxReductionExcelPath   String?
   slackMorningEnabled     Boolean @default(true)
   slackMorningTime        String  @default("08:00")
   slackEveningEnabled     Boolean @default(true)
