@@ -310,7 +310,7 @@ export default function CommissionBoard({
           payload.residentNumber = data.residentNumber;
           payload.phone = data.phone;
         } else {
-          const serverOrigin = window.location.origin.replace("https://", "http://");
+          const serverOrigin = window.location.origin;
           payload.residentNumber = data.residentNumber;
           payload.ceoName = data.ceoName;
           payload.agentIdCardUrl = data.agentIdCardPath ? `${serverOrigin}${data.agentIdCardPath}` : "";
