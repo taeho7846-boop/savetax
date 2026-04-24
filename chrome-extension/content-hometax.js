@@ -170,13 +170,10 @@
     // 로그인 버튼
     const loginBtn = document.getElementById("mf_txppWframe_trigger41");
     if (loginBtn) {
+      // storage에 완료 시그널 저장 → background.js가 onChanged로 감지
       await chrome.storage.local.set({ savetax_login_done: true });
+      console.log("SaveTax: [법인] 관리번호 로그인 클릭 (background.js가 탭 처리)");
       loginBtn.click();
-      console.log("SaveTax: [법인] 관리번호 로그인 클릭 완료");
-      // background.js에 완료 알림 (background는 페이지 리로드에 영향 안 받음)
-      setTimeout(() => {
-        chrome.runtime.sendMessage({ type: "corp-login-done" }).catch(() => {});
-      }, 2000);
     }
   } catch (e) {
     console.error("SaveTax: [법인] 관리번호 입력 실패:", e);

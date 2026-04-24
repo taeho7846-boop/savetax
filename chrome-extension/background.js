@@ -1,5 +1,33 @@
 // 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
+// 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  if (changes.savetax_login_done && changes.savetax_login_done.newValue === true) {
+    console.log("SaveTax BG: savetax_login_done 감지!");
+    // 3초 대기 후 처리 (페이지 리로드 완료 대기)
+    setTimeout(async () => {
+      // 기장수임 등 후속 작업이 있으면 건너뛰기
+      const next = await chrome.storage.local.get("savetax_corp_next");
+      if (next.savetax_corp_next) {
+        console.log("SaveTax BG: 후속 작업 있음, reopen 건너뛰기");
+        return;
+      }
+      try {
+        const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
+        for (const tab of tabs) {
+          await chrome.tabs.remove(tab.id);
+        }
+        await chrome.tabs.create({ url: "https://hometax.go.kr" });
+        await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent"]);
+        console.log("SaveTax BG: 법인 로그인 완료 → 탭 닫고 새 탭 열기 완료");
+      } catch (e) {
+        console.error("SaveTax BG: reopen 실패:", e);
+      }
+    }, 3000);
+  }
+});
+
 // 확장 프로그램 시작 시 버전 체크
 const SERVER = "http://64.176.227.99";
 const CHECK_INTERVAL = 60 * 60 * 1000; // 1시간마다
@@ -545,28 +573,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  // 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭
-  if (msg.type === "corp-login-done") {
-    (async () => {
-      try {
-        // 홈택스 탭 찾아서 닫기
-        const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
-        for (const tab of tabs) {
-          await chrome.tabs.remove(tab.id);
-        }
-        // 새 탭으로 홈택스 열기
-        await chrome.tabs.create({ url: "https://hometax.go.kr" });
-        await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent"]);
-        console.log("SaveTax BG: 법인 로그인 완료 → 탭 닫고 새 탭");
-        sendResponse({ ok: true });
-      } catch (e) {
-        sendResponse({ ok: false, error: e.message });
-      }
-    })();
-    return true;
-  }
-
   // 홈택스 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
+
   if (msg.type === "hometax-reopen") {
     (async () => {
       try {
