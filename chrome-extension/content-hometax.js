@@ -1,3 +1,17 @@
+// suppress-alert.js(MAIN)가 설정한 savetax_login_done 쿠키 감시 → chrome.storage로 전달
+(function watchLoginDoneCookie() {
+  const interval = setInterval(() => {
+    const match = document.cookie.match(/savetax_login_done=([^;]+)/);
+    if (match) {
+      clearInterval(interval);
+      document.cookie = "savetax_login_done=; path=/; max-age=0";
+      chrome.storage.local.set({ savetax_login_done: Date.now() });
+      console.log("SaveTax: login_done 쿠키 감지 → chrome.storage 전달");
+    }
+  }, 500);
+  setTimeout(() => clearInterval(interval), 120000);
+})();
+
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
 (async function () {
   // 팝업 페이지에서만 실행 (popup.html)
