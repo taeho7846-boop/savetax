@@ -684,10 +684,18 @@
       await doLogin(creds.id, creds.pw);
       console.log("SaveTax: corp_login - 로그인 완료");
 
-      // 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
-      // 관리번호 로그인까지 완료될 때까지 대기 후 reopen
-      await new Promise(r => setTimeout(r, 20000));
-      chrome.runtime.sendMessage({ type: "hometax-reopen" });
+      // 로그인 완료 → 관리번호 로그인 완료까지 대기 후 탭 닫고 새 탭
+      console.log("SaveTax: corp_login - 관리번호 로그인 완료 대기 중...");
+      for (let w = 0; w < 120; w++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const done = await chrome.storage.local.get("savetax_login_done");
+        if (done.savetax_login_done) {
+          console.log("SaveTax: corp_login - 관리번호 로그인 완료 확인!");
+          await new Promise(r => setTimeout(r, 2000));
+          chrome.runtime.sendMessage({ type: "hometax-reopen" });
+          break;
+        }
+      }
 
     } catch (e) {
       console.error("SaveTax 법인 로그인 실패:", e);
