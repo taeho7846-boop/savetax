@@ -171,14 +171,12 @@
     const loginBtn = document.getElementById("mf_txppWframe_trigger41");
     if (loginBtn) {
       await chrome.storage.local.set({ savetax_login_done: true });
-      console.log("SaveTax: [법인] 로그인 완료 시그널 storage 저장");
       loginBtn.click();
-      console.log("SaveTax: [법인] 관리번호 로그인 클릭");
+      console.log("SaveTax: [법인] 관리번호 로그인 클릭 완료");
 
-      // corp_login 모드면 탭 닫고 새 탭 열기
-      const reopenFlag = await chrome.storage.local.get("savetax_corp_reopen");
-      if (reopenFlag.savetax_corp_reopen) {
-        await chrome.storage.local.remove("savetax_corp_reopen");
+      // 다음 액션(기장수임 등)이 없으면 탭 닫고 새 탭 열기
+      const nextAction = await chrome.storage.local.get("savetax_corp_next");
+      if (!nextAction.savetax_corp_next) {
         console.log("SaveTax: [법인] 관리번호 로그인 완료 → 탭 닫고 새 탭");
         await new Promise(r => setTimeout(r, 2000));
         chrome.runtime.sendMessage({ type: "hometax-reopen" });
