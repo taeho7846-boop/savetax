@@ -270,12 +270,19 @@ export function GlobalSearch() {
         const res = await fetch("/api/settings/agent-credentials");
         const data = await res.json();
         if (data.id && data.pw) {
-          const creds = btoa(unescape(encodeURIComponent(JSON.stringify({
+          const isCorp = !!data.agentNumber;
+          const credData: Record<string, string> = {
+            mode: isCorp ? "corp_login" : "login",
             id: data.id,
             pw: data.pw,
             certName: data.certName || "",
             certPw: data.certPw || "",
-          }))));
+          };
+          if (isCorp) {
+            credData.agentNumber = data.agentNumber;
+            credData.agentPw = data.pw;
+          }
+          const creds = btoa(unescape(encodeURIComponent(JSON.stringify(credData)))).replace(/=/g, "");
           window.open(
             `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
             "_blank"

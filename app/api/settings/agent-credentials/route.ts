@@ -8,7 +8,7 @@ export async function GET() {
 
   const settings = await prisma.settings.findUnique({
     where: { userId: session.id },
-    select: { agentHometaxId: true, agentHometaxPw: true, certName: true, certPassword: true },
+    select: { agentHometaxId: true, agentHometaxPw: true, certName: true, certPassword: true, agentNumber: true },
   });
 
   if (!settings?.agentHometaxId || !settings?.agentHometaxPw) {
@@ -20,5 +20,6 @@ export async function GET() {
     pw: settings.agentHometaxPw,
     certName: settings.certName,
     certPw: settings.certPassword,
+    agentNumber: settings.agentNumber,
   });
 }
