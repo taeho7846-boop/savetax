@@ -545,6 +545,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭
+  if (msg.type === "corp-login-done") {
+    (async () => {
+      try {
+        // 홈택스 탭 찾아서 닫기
+        const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
+        for (const tab of tabs) {
+          await chrome.tabs.remove(tab.id);
+        }
+        // 새 탭으로 홈택스 열기
+        await chrome.tabs.create({ url: "https://hometax.go.kr" });
+        await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent"]);
+        console.log("SaveTax BG: 법인 로그인 완료 → 탭 닫고 새 탭");
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
   // 홈택스 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
   if (msg.type === "hometax-reopen") {
     (async () => {

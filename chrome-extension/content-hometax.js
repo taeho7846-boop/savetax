@@ -172,9 +172,11 @@
     if (loginBtn) {
       await chrome.storage.local.set({ savetax_login_done: true });
       loginBtn.click();
-      console.log("SaveTax: [법인] 관리번호 로그인 클릭 완료 → 2초 후 탭 닫기");
-      await new Promise(r => setTimeout(r, 2000));
-      chrome.runtime.sendMessage({ type: "hometax-reopen" });
+      console.log("SaveTax: [법인] 관리번호 로그인 클릭 완료");
+      // background.js에 완료 알림 (background는 페이지 리로드에 영향 안 받음)
+      setTimeout(() => {
+        chrome.runtime.sendMessage({ type: "corp-login-done" }).catch(() => {});
+      }, 2000);
     }
   } catch (e) {
     console.error("SaveTax: [법인] 관리번호 입력 실패:", e);
