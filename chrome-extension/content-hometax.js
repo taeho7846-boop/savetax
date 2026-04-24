@@ -170,8 +170,8 @@
     // 로그인 버튼
     const loginBtn = document.getElementById("mf_txppWframe_trigger41");
     if (loginBtn) {
-      // storage에 완료 시그널 저장 → background.js가 onChanged로 감지
-      await chrome.storage.local.set({ savetax_login_done: true });
+      // storage에 완료 시그널 저장 (타임스탬프) → background.js가 onChanged로 감지
+      await chrome.storage.local.set({ savetax_login_done: Date.now() });
       console.log("SaveTax: [법인] 관리번호 로그인 클릭 (background.js가 탭 처리)");
       loginBtn.click();
     }

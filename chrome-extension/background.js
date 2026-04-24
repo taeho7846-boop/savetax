@@ -3,7 +3,7 @@
 // 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  if (changes.savetax_login_done && changes.savetax_login_done.newValue === true) {
+  if (changes.savetax_login_done && changes.savetax_login_done.newValue) {
     console.log("SaveTax BG: savetax_login_done 감지!");
     // 3초 대기 후 처리 (페이지 리로드 완료 대기)
     setTimeout(async () => {
