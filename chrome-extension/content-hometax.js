@@ -668,6 +668,10 @@
   // ============================================================
   if (mode === "corp_login") {
     try {
+      // 이전 세션 시그널 초기화
+      await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent", "savetax_corp_cert"]);
+      console.log("SaveTax: corp_login - 이전 시그널 초기화 완료");
+
       if (await checkLogout()) return;
 
       // 1. suppress-alert.js(MAIN, document_start)가 hash에서 이미 cookie 설정 완료
