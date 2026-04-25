@@ -1,6 +1,7 @@
 // 기존 구글 드라이브 폴더를 거래처에 연결 (driveFolderId가 없는 거래처만)
 // 사용: cd /root/savetax && npx tsx scripts/link-existing-drive-folders.ts [--dry-run]
 
+import "dotenv/config";
 import { PrismaClient } from "../app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
