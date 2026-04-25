@@ -15,6 +15,7 @@ const prisma = new PrismaClient({ adapter });
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || "";
 const API = "https://www.googleapis.com/drive/v3";
 const DRY_RUN = process.argv.includes("--dry-run");
+const REVERT = process.argv.includes("--revert");
 
 let authClient: GoogleAuth | null = null;
 function getAuth(): GoogleAuth {
@@ -71,11 +72,14 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`모드: ${DRY_RUN ? "DRY RUN (DB 변경 없음)" : "실제 연결"}`);
-  console.log("미연결 거래처 조회 중...");
+  const mode = REVERT ? "REVERT (driveFolderId → NULL)" : DRY_RUN ? "DRY RUN (DB 변경 없음)" : "실제 연결";
+  console.log(`모드: ${mode}`);
+  console.log(REVERT ? "연결된 거래처 조회 중..." : "미연결 거래처 조회 중...");
 
   const clients = await prisma.client.findMany({
-    where: { isDeleted: false, driveFolderId: null, assignedUserId: { not: null } },
+    where: REVERT
+      ? { isDeleted: false, driveFolderId: { not: null }, assignedUserId: { not: null } }
+      : { isDeleted: false, driveFolderId: null, assignedUserId: { not: null } },
     include: { assignedUser: { select: { name: true } } },
     orderBy: [{ assignedUser: { name: "asc" } }, { name: "asc" }],
   });
@@ -117,6 +121,16 @@ async function main() {
       continue;
     }
 
+    if (REVERT) {
+      // 현재 DB 값이 우리가 매칭한 폴더 ID와 일치할 때만 NULL 처리 (방금 스크립트로 연결한 것만 정확히 되돌림)
+      if (c.driveFolderId === clientFolderId) {
+        await prisma.client.update({ where: { id: c.id }, data: { driveFolderId: null } });
+        console.log(`  ↩ ${c.name} (${clientFolderId} → NULL)`);
+        linked++;
+      }
+      continue;
+    }
+
     if (DRY_RUN) {
       console.log(`  ✓ ${c.name} → ${clientFolderId} (DRY RUN)`);
     } else {
@@ -127,7 +141,7 @@ async function main() {
   }
 
   console.log("\n=== 결과 ===");
-  console.log(`연결 ${DRY_RUN ? "예정" : "성공"}: ${linked}건`);
+  console.log(`${REVERT ? "되돌림" : DRY_RUN ? "연결 예정" : "연결 성공"}: ${linked}건`);
   console.log(`폴더 없음: ${notFound}건`);
   console.log(`담당자 없음: ${managerMissing}건`);
   if (notFoundList.length > 0) {
