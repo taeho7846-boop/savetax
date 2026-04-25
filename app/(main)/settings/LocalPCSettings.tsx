@@ -52,21 +52,21 @@ export function LocalPCSettings() {
         </p>
         <div className="flex gap-2 flex-wrap">
           <a
-            href="/launcher/install.bat"
+            href="/launcher/install.bat?v=3"
             download
             className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-[8px] bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors font-bold"
           >
             ⬇ install.bat
           </a>
           <a
-            href="/launcher/install.ps1"
+            href="/launcher/install.ps1?v=3"
             download
             className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-[8px] bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors font-bold"
           >
             ⬇ install.ps1
           </a>
           <a
-            href="/launcher/launcher.ps1"
+            href="/launcher/launcher.ps1?v=3"
             download
             className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-[8px] bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors font-bold"
           >
