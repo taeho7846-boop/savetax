@@ -4,6 +4,7 @@ import { getBookmarks } from "@/app/actions/bookmarks";
 import SettingsUploads from "./SettingsUploads";
 import { WimembersButton } from "./WimembersButton";
 import { BookmarkManager } from "./BookmarkManager";
+import { LocalPCSettings } from "./LocalPCSettings";
 
 const inputClass = "w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]";
 
@@ -225,6 +226,9 @@ export default async function SettingsPage() {
 
           {/* 검색 북마크 */}
           <BookmarkManager bookmarks={bookmarks} isAdmin={isAdmin} />
+
+          {/* 내 PC 연동 */}
+          <LocalPCSettings />
 
           {/* 크롬 확장 프로그램 */}
           <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">

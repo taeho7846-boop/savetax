@@ -231,8 +231,15 @@ export function GlobalSearch() {
     }
   }
 
-  // 구글드라이브 열기
-  async function openClientDrive(clientId: number) {
+  // 구글드라이브 열기 — 로컬 기본 경로 설정 시 파일탐색기, 아니면 웹 드라이브
+  async function openClientDrive(clientId: number, clientName: string) {
+    const basePath = typeof window !== "undefined" ? localStorage.getItem("savetax-drive-base-path") : null;
+    if (basePath) {
+      const sep = basePath.endsWith("\\") ? "" : "\\";
+      const fullPath = `${basePath}${sep}${clientName}`;
+      window.location.href = `savetax-app://folder?path=${encodeURIComponent(fullPath)}`;
+      return;
+    }
     try {
       const res = await fetch(`/api/clients/${clientId}/drive-folder`);
       const data = await res.json();
@@ -253,7 +260,7 @@ export function GlobalSearch() {
     if (action.custom && action.key === "로그인") {
       doHometaxLogin(selectedClient.id);
     } else if (action.custom && action.key === "드라이브") {
-      openClientDrive(selectedClient.id);
+      openClientDrive(selectedClient.id, selectedClient.name);
     } else if (action.path) {
       router.push(action.path(selectedClient.id));
     }
