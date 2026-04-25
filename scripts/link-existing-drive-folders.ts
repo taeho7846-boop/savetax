@@ -16,6 +16,8 @@ const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || "";
 const API = "https://www.googleapis.com/drive/v3";
 const DRY_RUN = process.argv.includes("--dry-run");
 const REVERT = process.argv.includes("--revert");
+const managerArgIdx = process.argv.indexOf("--manager");
+const MANAGER_FILTER = managerArgIdx >= 0 ? process.argv[managerArgIdx + 1] : null;
 
 let authClient: GoogleAuth | null = null;
 function getAuth(): GoogleAuth {
@@ -76,10 +78,15 @@ async function main() {
   console.log(`모드: ${mode}`);
   console.log(REVERT ? "연결된 거래처 조회 중..." : "미연결 거래처 조회 중...");
 
+  const baseWhere = REVERT
+    ? { isDeleted: false, driveFolderId: { not: null }, assignedUserId: { not: null } }
+    : { isDeleted: false, driveFolderId: null, assignedUserId: { not: null } };
+  const where = MANAGER_FILTER
+    ? { ...baseWhere, assignedUser: { name: MANAGER_FILTER } }
+    : baseWhere;
+  if (MANAGER_FILTER) console.log(`매니저 필터: ${MANAGER_FILTER}`);
   const clients = await prisma.client.findMany({
-    where: REVERT
-      ? { isDeleted: false, driveFolderId: { not: null }, assignedUserId: { not: null } }
-      : { isDeleted: false, driveFolderId: null, assignedUserId: { not: null } },
+    where,
     include: { assignedUser: { select: { name: true } } },
     orderBy: [{ assignedUser: { name: "asc" } }, { name: "asc" }],
   });
