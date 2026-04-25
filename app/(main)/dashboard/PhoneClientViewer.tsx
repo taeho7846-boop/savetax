@@ -1622,6 +1622,7 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1676,6 +1677,24 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
     }
   }
 
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) loadFile(file);
+  }
+
   async function send() {
     const text = input.trim();
     if ((!text && !imagePreview) || loading) return;
@@ -1716,7 +1735,19 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div
+      className={`relative flex flex-col h-full bg-white ${isDragging ? "ring-2 ring-[#3182F6] ring-inset" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-[#F5F9FF]/95 flex flex-col items-center justify-center pointer-events-none">
+          <PaperclipIcon width={36} height={36} className="text-[#3182F6] mb-2" />
+          <div className="text-[#3182F6] font-bold text-[13px]">이미지를 여기에 놓으세요</div>
+          <div className="text-[#8B95A1] text-[11px] mt-1">신분증 · 사업자등록증 등</div>
+        </div>
+      )}
       <div className="sticky top-0 bg-white border-b border-[#F2F4F6] px-3 py-2 flex items-center gap-2 z-10">
         <button onClick={onHome} className="text-[#3182F6] text-[13px] font-[500]">
           ← 홈
