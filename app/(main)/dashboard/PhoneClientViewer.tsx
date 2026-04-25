@@ -627,6 +627,8 @@ function HomeView({
           if (draggingApp) moveAppTo(draggingApp, "home");
         }}
         className={`absolute inset-0 z-0 ${
+          draggingApp ? "" : "pointer-events-none"
+        } ${
           draggingApp && appPositions[draggingApp] === "dock"
             ? "ring-2 ring-white/40 ring-inset"
             : ""
@@ -1061,7 +1063,7 @@ function SearchView({
       } else {
         const target = flat[activeIdx];
         if (!target) return;
-        if (target.kind === "client") enterActionMode(target.client);
+        if (target.kind === "client") onSelectClient(target.client.id);
         else if (target.kind === "site") onOpenSite(target.site);
         else if (target.kind === "bookmark") onOpenBookmark(target.bookmark);
       }
@@ -1172,7 +1174,7 @@ function SearchView({
                       <button
                         key={c.id}
                         data-idx={flatIdx}
-                        onClick={() => enterActionMode(c)}
+                        onClick={() => onSelectClient(c.id)}
                         onMouseEnter={() => setActiveIdx(flatIdx)}
                         className={`w-full text-left px-4 py-3 transition-colors ${
                           active ? "bg-[#E8F3FF]" : "hover:bg-[#F9FAFB]"
