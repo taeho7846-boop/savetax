@@ -2,11 +2,15 @@
 // 사용: cd /root/savetax && npx tsx scripts/link-existing-drive-folders.ts [--dry-run]
 
 import { PrismaClient } from "../app/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 import { GoogleAuth } from "google-auth-library";
 import * as fs from "fs";
 import * as path from "path";
 
-const prisma = new PrismaClient();
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || "" });
+const adapter = new PrismaPg(pool as any);
+const prisma = new PrismaClient({ adapter });
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || "";
 const API = "https://www.googleapis.com/drive/v3";
 const DRY_RUN = process.argv.includes("--dry-run");
