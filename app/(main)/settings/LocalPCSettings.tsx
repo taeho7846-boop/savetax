@@ -47,8 +47,8 @@ export function LocalPCSettings() {
       <div className="border border-[#F2F4F6] rounded-[10px] p-3 mb-3 bg-[#F9FAFB]">
         <div className="text-[12px] font-bold text-[#333D4B] mb-1.5">1단계: 런처 설치 (PC당 1회)</div>
         <p className="text-[11px] text-[#6B7684] mb-2 leading-relaxed">
-          아래 두 파일을 같은 폴더에 다운받고 <code className="px-1 py-0.5 bg-white rounded text-[10.5px]">install.bat</code>{" "}
-          더블클릭하면 설치됩니다.
+          아래 <strong>3개 파일</strong>을 같은 폴더에 다운받고{" "}
+          <code className="px-1 py-0.5 bg-white rounded text-[10.5px]">install.bat</code> 더블클릭하면 설치됩니다.
         </p>
         <div className="flex gap-2 flex-wrap">
           <a
@@ -57,6 +57,13 @@ export function LocalPCSettings() {
             className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-[8px] bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors font-bold"
           >
             ⬇ install.bat
+          </a>
+          <a
+            href="/launcher/install.ps1"
+            download
+            className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-[8px] bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors font-bold"
+          >
+            ⬇ install.ps1
           </a>
           <a
             href="/launcher/launcher.ps1"
