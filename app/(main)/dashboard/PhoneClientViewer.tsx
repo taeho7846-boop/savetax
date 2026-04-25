@@ -19,6 +19,7 @@ import {
   BotIcon,
   KakaoTalkIcon,
   CalendarIcon,
+  PaperclipIcon,
 } from "@/components/icons";
 import { getSchedules } from "@/app/actions/schedule";
 
@@ -1614,14 +1615,16 @@ function PhoneScheduleView({ onHome }: { onHome: () => void }) {
 }
 
 // ========== AI 챗봇 (폰 내부) ==========
-type ChatMsg = { role: "user" | "assistant"; content: string };
+type ChatMsg = { role: "user" | "assistant"; content: string; image?: string };
 
 function PhoneChatbotView({ onHome }: { onHome: () => void }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -1633,20 +1636,67 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
     }
   }, [messages, loading]);
 
+  async function loadFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      alert("이미지 파일만 업로드 가능합니다.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("10MB 이하 이미지만 업로드 가능합니다.");
+      return;
+    }
+    try {
+      const dataUrl = await compressImage(file, 1600);
+      setImagePreview(dataUrl);
+    } catch {
+      alert("이미지 처리 실패");
+    }
+  }
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) loadFile(file);
+  }
+
+  function clearImage() {
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) loadFile(file);
+        break;
+      }
+    }
+  }
+
   async function send() {
     const text = input.trim();
-    if (!text || loading) return;
+    if ((!text && !imagePreview) || loading) return;
+    const currentImage = imagePreview;
     setInput("");
-    const newUserMsg: ChatMsg = { role: "user", content: text };
+    const newUserMsg: ChatMsg = {
+      role: "user",
+      content: text || "📎 이미지 분석 요청",
+      image: currentImage || undefined,
+    };
     setMessages((p) => [...p, newUserMsg]);
+    clearImage();
     setLoading(true);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: text,
+          message: text || "이 이미지를 분석해주세요.",
           history: messages.map((m) => ({ role: m.role, content: m.content })),
+          image: currentImage || undefined,
         }),
       });
       const data = await res.json();
@@ -1685,12 +1735,21 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-[#F9FAFB]">
         {messages.length === 0 && !loading && (
-          <div className="text-center py-12">
+          <div className="text-center py-10">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#A855F7] to-[#6D28D9] flex items-center justify-center mx-auto mb-3">
               <BotIcon width={22} height={22} strokeWidth={2.2} className="text-white" />
             </div>
             <div className="text-[13px] text-[#4E5968] font-[500]">무엇이든 물어보세요</div>
-            <div className="text-[11px] text-[#8B95A1] mt-1">세무 질문, 메모 정리, 번역 등</div>
+            <div className="text-[11px] text-[#8B95A1] mt-1">세무 질문, 신분증/사업자등록증 업로드</div>
+            <div className="flex flex-wrap gap-1.5 justify-center mt-4 px-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-[11px] px-2.5 py-1 rounded-full border border-[#A3CAFD] text-[#3182F6] bg-[#F5F9FF] hover:bg-[#E8F3FF] transition-colors inline-flex items-center gap-1"
+              >
+                <PaperclipIcon width={11} height={11} />
+                사업자등록증으로 거래처 등록
+              </button>
+            </div>
           </div>
         )}
         {messages.map((m, i) => (
@@ -1702,6 +1761,9 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
                   : "bg-white border border-[#F2F4F6] text-[#191F28]"
               }`}
             >
+              {m.image && (
+                <img src={m.image} alt="업로드 이미지" className="max-w-full max-h-32 rounded-[8px] mb-1.5 border border-white/20" />
+              )}
               {m.role === "assistant" ? (
                 <div className="prose prose-sm max-w-none [&>*]:my-1 [&_p]:my-1 [&_pre]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_h1]:text-[14px] [&_h2]:text-[13px] [&_h3]:text-[12.5px] [&_code]:text-[11.5px]">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
@@ -1725,28 +1787,57 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
         )}
       </div>
 
-      <div className="border-t border-[#F2F4F6] p-2 flex gap-2 items-end bg-white">
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          placeholder="메시지... (Enter 전송, Shift+Enter 줄바꿈)"
-          rows={1}
-          className="flex-1 resize-none px-3 py-2 text-[12.5px] bg-[#F9FAFB] border border-[#F2F4F6] rounded-[12px] focus:outline-none focus:border-[#3182F6] max-h-24 leading-[1.4]"
-        />
-        <button
-          onClick={send}
-          disabled={loading || !input.trim()}
-          className="px-3 py-2 bg-[#3182F6] text-white rounded-[12px] text-[12px] font-bold disabled:opacity-50 shrink-0 hover:bg-[#1B64DA] transition-colors"
-        >
-          전송
-        </button>
+      <div className="border-t border-[#F2F4F6] p-2 bg-white">
+        {imagePreview && (
+          <div className="mb-2 relative inline-block">
+            <img src={imagePreview} alt="미리보기" className="max-h-20 rounded-[8px] border border-[#E5E8EB]" />
+            <button
+              onClick={clearImage}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#E02E2E] text-white rounded-full text-[10px] flex items-center justify-center hover:bg-[#DC2626] shadow"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        <div className="flex gap-1.5 items-end">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+            className="text-[#8B95A1] hover:text-[#3182F6] p-2 rounded-[10px] transition-colors shrink-0 disabled:opacity-40 flex items-center"
+            title="이미지 업로드 (신분증, 사업자등록증 등)"
+          >
+            <PaperclipIcon width={16} height={16} />
+          </button>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            onPaste={handlePaste}
+            placeholder={imagePreview ? "이미지 설명 (예: 쇠터닭갈비 대표자신분증)" : "메시지... (이미지 붙여넣기 가능)"}
+            rows={1}
+            className="flex-1 resize-none px-3 py-2 text-[12.5px] bg-[#F9FAFB] border border-[#F2F4F6] rounded-[12px] focus:outline-none focus:border-[#3182F6] max-h-24 leading-[1.4]"
+          />
+          <button
+            onClick={send}
+            disabled={loading || (!input.trim() && !imagePreview)}
+            className="px-3 py-2 bg-[#3182F6] text-white rounded-[12px] text-[12px] font-bold disabled:opacity-50 shrink-0 hover:bg-[#1B64DA] transition-colors"
+          >
+            전송
+          </button>
+        </div>
       </div>
     </div>
   );
