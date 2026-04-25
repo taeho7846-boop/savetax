@@ -41,7 +41,7 @@ try {
             } else {
                 Write-Log "Folder not found: $path"
                 Add-Type -AssemblyName PresentationFramework
-                [System.Windows.MessageBox]::Show("폴더를 찾을 수 없습니다:`n$path", "Savetax Launcher", 'OK', 'Warning') | Out-Null
+                [System.Windows.MessageBox]::Show("Folder not found:`n$path", "Savetax Launcher", 'OK', 'Warning') | Out-Null
             }
         }
         'launch' {
@@ -53,7 +53,7 @@ try {
             } else {
                 Write-Log "App not found: $path"
                 Add-Type -AssemblyName PresentationFramework
-                [System.Windows.MessageBox]::Show("앱을 찾을 수 없습니다:`n$path", "Savetax Launcher", 'OK', 'Warning') | Out-Null
+                [System.Windows.MessageBox]::Show("App not found:`n$path", "Savetax Launcher", 'OK', 'Warning') | Out-Null
             }
         }
         default {
