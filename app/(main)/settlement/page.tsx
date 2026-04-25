@@ -74,20 +74,20 @@ function Header({ year, mon, yearMonth, tab, prevYM, nextYM }: {
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-900">Savetax 정산</h1>
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
-          <Link href={`/settlement?ym=${prevYM}&tab=${tab}`} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">◀</Link>
-          <span className="text-sm font-medium text-gray-800 min-w-[100px] text-center">{year}년 {parseInt(mon)}월</span>
-          <Link href={`/settlement?ym=${nextYM}&tab=${tab}`} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">▶</Link>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">Savetax 정산</h1>
+        <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
+          <Link href={`/settlement?ym=${prevYM}&tab=${tab}`} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</Link>
+          <span className="text-sm font-medium text-[#191F28] min-w-[100px] text-center">{year}년 {parseInt(mon)}월</span>
+          <Link href={`/settlement?ym=${nextYM}&tab=${tab}`} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</Link>
         </div>
       </div>
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
+      <div className="flex gap-1 mb-6 border-b border-[#E5E8EB]">
         <Link
           href={`/settlement?ym=${yearMonth}&tab=bookkeeping`}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "bookkeeping"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "border-[#3182F6] text-[#191F28]"
+              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
           }`}
         >
           기장
@@ -96,8 +96,8 @@ function Header({ year, mon, yearMonth, tab, prevYM, nextYM }: {
           href={`/settlement?ym=${yearMonth}&tab=oneoff`}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "oneoff"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "border-[#3182F6] text-[#191F28]"
+              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
           }`}
         >
           단건
@@ -106,8 +106,8 @@ function Header({ year, mon, yearMonth, tab, prevYM, nextYM }: {
           href={`/settlement?ym=${yearMonth}&tab=refund`}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "refund"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "border-[#3182F6] text-[#191F28]"
+              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
           }`}
         >
           환불

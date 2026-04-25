@@ -26,23 +26,23 @@ export default async function NewTaskPage({
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/tasks" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link href="/tasks" className="text-[#8B95A1] hover:text-[#4E5968] text-sm">
           ← 업무 목록
         </Link>
-        <h1 className="text-xl font-bold text-gray-800">업무 등록</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">업무 등록</h1>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 max-w-2xl">
+      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6 max-w-2xl">
         <form action={createTask} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 고객사
               </label>
               <select
                 name="clientId"
                 defaultValue={preselectedClientId}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
               >
                 <option value="">고객사 없음</option>
                 {clients.map((c) => (
@@ -54,24 +54,24 @@ export default async function NewTaskPage({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                업무명 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
+                업무명 <span className="text-[#E02E2E]">*</span>
               </label>
               <input
                 name="title"
                 required
                 placeholder="예: 2025년 1기 부가세 신고"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 업무 유형
               </label>
               <select
                 name="taskType"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
               >
                 <option value="">선택 안 함</option>
                 <option value="vat">부가가치세</option>
@@ -85,12 +85,12 @@ export default async function NewTaskPage({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 담당자
               </label>
               <select
                 name="assignedUserId"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
               >
                 <option value="">미배정</option>
                 {users.map((u) => (
@@ -102,23 +102,23 @@ export default async function NewTaskPage({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 마감일
               </label>
               <input
                 name="dueDate"
                 type="date"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 우선순위
               </label>
               <select
                 name="priority"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
               >
                 <option value="normal">보통</option>
                 <option value="high">높음</option>
@@ -127,12 +127,12 @@ export default async function NewTaskPage({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 상태
               </label>
               <select
                 name="status"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
               >
                 <option value="scheduled">예정</option>
                 <option value="in_progress">진행중</option>
@@ -144,26 +144,26 @@ export default async function NewTaskPage({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[#333D4B] mb-1">
               메모
             </label>
             <textarea
               name="notes"
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6] resize-none"
             />
           </div>
 
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
-              className="bg-[#1a2e4a] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+              className="bg-[#3182F6] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors"
             >
               등록
             </button>
             <Link
               href="/tasks"
-              className="border border-gray-300 text-gray-600 text-sm px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              className="border border-[#D1D6DB] text-[#4E5968] text-sm px-6 py-2 rounded-lg hover:bg-[#F9FAFB] transition-colors"
             >
               취소
             </Link>

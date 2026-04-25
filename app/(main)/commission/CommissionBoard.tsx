@@ -62,21 +62,21 @@ type AvailableClient = {
 
 function getStage(c: CommissionData) {
   if (c.completedAt)
-    return { label: "완료", cls: "bg-green-100 text-green-700" };
+    return { label: "완료", cls: "bg-[#E7F7EE] text-[#15803D]" };
   if (c.happyCalls.length === 0)
-    return { label: "해피콜 대기", cls: "bg-gray-100 text-gray-500" };
+    return { label: "해피콜 대기", cls: "bg-[#F2F4F6] text-[#6B7684]" };
   if (!c.hasIdCard || !c.hasHometaxCredentials)
-    return { label: "서류수집 중", cls: "bg-yellow-100 text-yellow-700" };
+    return { label: "서류수집 중", cls: "bg-[#FFF4D0] text-[#B08809]" };
   if (!c.hometaxCommissionDone)
-    return { label: "수임 대기", cls: "bg-blue-100 text-blue-700" };
+    return { label: "수임 대기", cls: "bg-[#E8F3FF] text-[#1B64DA]" };
   if (!c.wihagoDone)
     return { label: "위하고 대기", cls: "bg-violet-100 text-violet-700" };
   const hasWage = (c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득");
   if (hasWage && (!c.nationalPensionDone || !c.healthInsuranceDone))
-    return { label: "EDI 대기", cls: "bg-orange-100 text-orange-700" };
+    return { label: "EDI 대기", cls: "bg-[#FEF3C7] text-[#92400E]" };
   return {
     label: "완료처리 필요",
-    cls: "bg-green-50 text-green-600 border border-green-200",
+    cls: "bg-[#F1FBF4] text-[#16A865] border border-[#BBF7D0]",
   };
 }
 
@@ -105,8 +105,8 @@ function Pill({
       disabled={disabled}
       className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
         checked
-          ? "bg-[#1a2e4a] text-white"
-          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+          ? "bg-[#3182F6] text-white"
+          : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
       } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
     >
       {checked ? "✓ " : ""}
@@ -390,14 +390,14 @@ export default function CommissionBoard({
     <div>
       {/* 기존 고객 가져오기 배너 */}
       {availableClients.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
-          <div className="text-sm text-amber-800">
+        <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
+          <div className="text-sm text-[#92400E]">
             <span className="font-medium">{availableClients.length}명</span>의 고객이 아직 수임 목록에 없습니다.
           </div>
           <button
             onClick={doBulkImport}
             disabled={importing}
-            className="text-sm font-medium text-amber-700 hover:text-amber-900 underline disabled:opacity-50"
+            className="text-sm font-medium text-[#B45309] hover:text-[#78350F] underline disabled:opacity-50"
           >
             {importing ? "가져오는 중..." : "전체 가져오기"}
           </button>
@@ -411,15 +411,15 @@ export default function CommissionBoard({
             onClick={() => setStageFilter(null)}
             className={`rounded-lg px-4 py-2.5 border shadow-sm flex items-baseline gap-1.5 transition-colors cursor-pointer ${
               stageFilter === null
-                ? "bg-[#1a2e4a] border-[#1a2e4a]"
-                : "bg-white border-gray-100 hover:border-gray-300"
+                ? "bg-[#3182F6] border-[#3182F6]"
+                : "bg-white border-[#F2F4F6] hover:border-[#D1D6DB]"
             }`}
           >
-            <span className={`text-xs ${stageFilter === null ? "text-white/70" : "text-gray-500"}`}>전체</span>
-            <span className={`text-xl font-bold ${stageFilter === null ? "text-white" : "text-[#1a2e4a]"}`}>
+            <span className={`text-xs ${stageFilter === null ? "text-white/70" : "text-[#6B7684]"}`}>전체</span>
+            <span className={`text-xl font-bold ${stageFilter === null ? "text-white" : "text-[#191F28]"}`}>
               {commissions.length}
             </span>
-            <span className={`text-xs ${stageFilter === null ? "text-white/50" : "text-gray-400"}`}>건</span>
+            <span className={`text-xs ${stageFilter === null ? "text-white/50" : "text-[#8B95A1]"}`}>건</span>
           </button>
           {Object.entries(stageCounts).map(([label, count]) => (
             <button
@@ -427,18 +427,18 @@ export default function CommissionBoard({
               onClick={() => setStageFilter(stageFilter === label ? null : label)}
               className={`rounded-lg px-3 py-2.5 border shadow-sm flex items-baseline gap-1.5 transition-colors cursor-pointer ${
                 stageFilter === label
-                  ? "bg-[#1a2e4a] border-[#1a2e4a]"
-                  : "bg-white border-gray-100 hover:border-gray-300"
+                  ? "bg-[#3182F6] border-[#3182F6]"
+                  : "bg-white border-[#F2F4F6] hover:border-[#D1D6DB]"
               }`}
             >
-              <span className={`text-xs ${stageFilter === label ? "text-white/70" : "text-gray-500"}`}>{label}</span>
-              <span className={`text-sm font-bold ${stageFilter === label ? "text-white" : "text-gray-700"}`}>{count}</span>
+              <span className={`text-xs ${stageFilter === label ? "text-white/70" : "text-[#6B7684]"}`}>{label}</span>
+              <span className={`text-sm font-bold ${stageFilter === label ? "text-white" : "text-[#333D4B]"}`}>{count}</span>
             </button>
           ))}
         </div>
         <button
           onClick={() => setModal("add")}
-          className="bg-[#1a2e4a] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-[#243d61] transition-colors"
+          className="bg-[#3182F6] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-[#1B64DA] transition-colors"
         >
           + 수임 추가
         </button>
@@ -451,48 +451,48 @@ export default function CommissionBoard({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="거래처명, 대표자, 사업자번호 검색..."
-          className="w-full max-w-sm px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a]/40"
+          className="w-full max-w-sm px-3 py-2 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] text-sm focus:outline-none focus:border-[#3182F6]/40"
         />
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/60">
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[130px]">
+            <tr className="border-b border-[#F2F4F6] bg-[#F9FAFB]/60">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[130px]">
                 거래처
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[110px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[110px]">
                 연락처
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[150px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
                 해피콜
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[150px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
                 서류
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[95px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[95px]">
                 홈택스 수임
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[150px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
                 위하고
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[110px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[110px]">
                 인건비
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[130px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[130px]">
                 4대보험 EDI
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[110px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[110px]">
                 현재 단계
               </th>
-              <th className="px-4 py-3 text-center text-xs text-gray-500 font-medium min-w-[80px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[80px]">
                 액션
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-[#F2F4F6]">
             {(() => {
               const q = searchQuery.trim().toLowerCase();
               const filtered = commissions.filter((c) => {
@@ -504,14 +504,14 @@ export default function CommissionBoard({
               <tr>
                 <td
                   colSpan={9}
-                  className="px-4 py-14 text-center text-gray-400 text-sm"
+                  className="px-4 py-14 text-center text-[#8B95A1] text-sm"
                 >
                   {stageFilter
                     ? `'${stageFilter}' 상태의 수임이 없습니다.`
                     : <>진행 중인 수임이 없습니다.{" "}
                         <button
                           onClick={() => setModal("add")}
-                          className="text-[#1a2e4a] underline"
+                          className="text-[#191F28] underline"
                         >
                           수임 추가
                         </button>
@@ -530,7 +530,7 @@ export default function CommissionBoard({
                 return (
                   <tr
                     key={c.id}
-                    className={`hover:bg-gray-50/40 transition-colors ${
+                    className={`hover:bg-[#F9FAFB]/40 transition-colors ${
                       loading ? "opacity-60" : ""
                     }`}
                   >
@@ -538,29 +538,29 @@ export default function CommissionBoard({
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => { setAutoResult(null); setModal({ type: "idcard", id: c.id, clientId: c.client.id, clientName: c.client.name }); setEditingClientId(c.client.id); }}
-                        className="font-medium text-gray-800 hover:text-[#1a2e4a] hover:underline flex items-center gap-1 mx-auto"
+                        className="font-medium text-[#191F28] hover:text-[#191F28] hover:underline flex items-center gap-1 mx-auto"
                       >
                         {c.client.name}
                         {(c.id in localIdCards ? localIdCards[c.id] : c.idCardPath) ? (
-                          <span className="text-green-500 text-xs">📄</span>
+                          <span className="text-[#1AB266] text-xs">📄</span>
                         ) : (
-                          <span className="text-gray-300 text-xs">📄</span>
+                          <span className="text-[#B0B8C1] text-xs">📄</span>
                         )}
                       </button>
                       {c.client.ceoName && (
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-[#8B95A1]">
                           {c.client.ceoName}
                         </div>
                       )}
-                      <div className="text-xs text-gray-300 mt-0.5">
-                        {c.client.assignedUser && <span className="text-blue-500 mr-1">{c.client.assignedUser.name}</span>}
+                      <div className="text-xs text-[#B0B8C1] mt-0.5">
+                        {c.client.assignedUser && <span className="text-[#3182F6] mr-1">{c.client.assignedUser.name}</span>}
                         {fmtDate(c.createdAt)} 등록
                       </div>
                     </td>
 
                     {/* 연락처 */}
                     <td className="px-4 py-3 text-center">
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-[#4E5968]">
                         {c.client.phone || "-"}
                       </span>
                     </td>
@@ -572,25 +572,25 @@ export default function CommissionBoard({
                           <button
                             type="button"
                             onClick={() => setModal({ type: "happycall-history", id: c.id, clientName: c.client.name, calls: c.happyCalls })}
-                            className="text-xs text-gray-500 leading-relaxed text-left hover:bg-gray-50 rounded px-1.5 py-1 -mx-1.5 transition-colors"
+                            className="text-xs text-[#6B7684] leading-relaxed text-left hover:bg-[#F9FAFB] rounded px-1.5 py-1 -mx-1.5 transition-colors"
                           >
-                            <span className="font-semibold text-gray-700">
+                            <span className="font-bold text-[#333D4B]">
                               {c.happyCalls.length}차
                             </span>
                             {" · "}
                             {RESULT_LABELS[lastCall!.result] ?? lastCall!.result}
                             <br />
-                            <span className="text-gray-400">
+                            <span className="text-[#8B95A1]">
                               {fmtDate(lastCall!.calledAt)}
                             </span>
                             {lastCall?.notes && (
-                              <div className="text-gray-400 truncate max-w-[120px]">
+                              <div className="text-[#8B95A1] truncate max-w-[120px]">
                                 {lastCall.notes}
                               </div>
                             )}
                           </button>
                         ) : (
-                          <div className="text-xs text-gray-300">
+                          <div className="text-xs text-[#B0B8C1]">
                             기록 없음
                           </div>
                         )}
@@ -601,7 +601,7 @@ export default function CommissionBoard({
                             setCallNotes("");
                           }}
                           disabled={loading}
-                          className="text-xs text-[#1a2e4a] hover:underline"
+                          className="text-xs text-[#191F28] hover:underline"
                         >
                           + 해피콜 기록
                         </button>
@@ -650,7 +650,7 @@ export default function CommissionBoard({
                           disabled={loading}
                         />
                         {c.hometaxCommissionAt && (
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-[#8B95A1]">
                             {fmtDate(c.hometaxCommissionAt)}
                           </div>
                         )}
@@ -666,7 +666,7 @@ export default function CommissionBoard({
                             doSetWihagoType(c.id, e.target.value || null)
                           }
                           disabled={loading}
-                          className="text-xs border border-gray-200 rounded-md px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-[#1a2e4a] bg-white"
+                          className="text-xs border border-[#E5E8EB] rounded-md px-2 py-1 text-[#4E5968] focus:outline-none focus:ring-1 focus:ring-[#3182F6] bg-white"
                         >
                           <option value="">유형 선택</option>
                           <option value="new">신규</option>
@@ -683,7 +683,7 @@ export default function CommissionBoard({
                           />
                           {!c.wihagoDone && (
                             wehagoProgress?.id === c.id ? (
-                              <div className="flex items-center gap-1 text-[9px] text-purple-600">
+                              <div className="flex items-center gap-1 text-[9px] text-[#3182F6]">
                                 <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -742,7 +742,7 @@ export default function CommissionBoard({
                                   }
                                 }}
                                 disabled={loading || wehagoProgress !== null}
-                                className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 disabled:opacity-50 whitespace-nowrap"
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] border border-[#A3CAFD] disabled:opacity-50 whitespace-nowrap"
                               >
                                 자동
                               </button>
@@ -750,7 +750,7 @@ export default function CommissionBoard({
                           )}
                         </div>
                         {c.wihagoAt && (
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-[#8B95A1]">
                             {fmtDate(c.wihagoAt)}
                           </div>
                         )}
@@ -764,13 +764,13 @@ export default function CommissionBoard({
                           const types = (c.client.laborTypes ?? "").split(",").map(t => t.trim());
                           const tags = [
                             types.includes("근로소득") && (
-                              <span key="근로소득" className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">근로소득</span>
+                              <span key="근로소득" className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#FEF2F2] text-[#DC2626]">근로소득</span>
                             ),
                             types.includes("일용직") && (
-                              <span key="일용직" className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-600">일용직</span>
+                              <span key="일용직" className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#E7F7EE] text-[#16A865]">일용직</span>
                             ),
                           ].filter(Boolean);
-                          return tags.length > 0 ? tags : <span className="text-xs text-gray-300">-</span>;
+                          return tags.length > 0 ? tags : <span className="text-xs text-[#B0B8C1]">-</span>;
                         })()}
                       </div>
                     </td>
@@ -786,7 +786,7 @@ export default function CommissionBoard({
                             disabled={loading}
                           />
                           {c.nationalPensionAt && (
-                            <div className="text-xs text-gray-400">{fmtDate(c.nationalPensionAt)}</div>
+                            <div className="text-xs text-[#8B95A1]">{fmtDate(c.nationalPensionAt)}</div>
                           )}
                           <Pill
                             checked={c.healthInsuranceDone}
@@ -795,11 +795,11 @@ export default function CommissionBoard({
                             disabled={loading}
                           />
                           {c.healthInsuranceAt && (
-                            <div className="text-xs text-gray-400">{fmtDate(c.healthInsuranceAt)}</div>
+                            <div className="text-xs text-[#8B95A1]">{fmtDate(c.healthInsuranceAt)}</div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-300">-</span>
+                        <span className="text-xs text-[#B0B8C1]">-</span>
                       )}
                     </td>
 
@@ -820,21 +820,21 @@ export default function CommissionBoard({
                             setModal({ type: "notes", id: c.id });
                             setNotesValue(c.notes ?? "");
                           }}
-                          className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                          className="text-xs text-[#8B95A1] hover:text-[#333D4B] transition-colors"
                         >
                           {c.notes ? "📝 메모" : "📝 메모 추가"}
                         </button>
                         <button
                           onClick={() => doMarkComplete(c.id)}
                           disabled={loading}
-                          className="text-xs text-green-600 hover:text-green-700 font-medium transition-colors"
+                          className="text-xs text-[#16A865] hover:text-[#15803D] font-medium transition-colors"
                         >
                           ✓ 완료처리
                         </button>
                         <button
                           onClick={() => doRemove(c.id)}
                           disabled={loading}
-                          className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                          className="text-xs text-[#B0B8C1] hover:text-[#F87171] transition-colors"
                         >
                           제거
                         </button>
@@ -854,45 +854,45 @@ export default function CommissionBoard({
         <div className="mt-6">
           <button
             onClick={() => setShowCompleted((v) => !v)}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-3"
+            className="flex items-center gap-2 text-sm text-[#6B7684] hover:text-[#333D4B] mb-3"
           >
             <span>{showCompleted ? "▾" : "▸"}</span>
             <span>완료된 수임 ({completed.length}건)</span>
           </button>
 
           {showCompleted && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-x-auto opacity-80">
+            <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-x-auto opacity-80">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/60">
-                    <th className="px-4 py-2.5 text-center text-xs text-gray-400 font-medium">거래처</th>
-                    <th className="px-4 py-2.5 text-center text-xs text-gray-400 font-medium">완료일</th>
-                    <th className="px-4 py-2.5 text-center text-xs text-gray-400 font-medium">해피콜</th>
-                    <th className="px-4 py-2.5 text-center text-xs text-gray-400 font-medium">위하고</th>
-                    <th className="px-4 py-2.5 text-center text-xs text-gray-400 font-medium">인건비</th>
-                    <th className="px-4 py-2.5 text-center text-xs text-gray-400 font-medium">EDI</th>
-                    <th className="px-4 py-2.5 text-center text-xs text-gray-400 font-medium">다시 진행</th>
+                  <tr className="border-b border-[#F2F4F6] bg-[#F9FAFB]/60">
+                    <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">거래처</th>
+                    <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">완료일</th>
+                    <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">해피콜</th>
+                    <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">위하고</th>
+                    <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">인건비</th>
+                    <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">EDI</th>
+                    <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">다시 진행</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-[#F2F4F6]">
                   {completed.map((c) => (
-                    <tr key={c.id} className="hover:bg-gray-50/40">
+                    <tr key={c.id} className="hover:bg-[#F9FAFB]/40">
                       <td className="px-4 py-2.5 text-center">
-                        <div className="font-medium text-gray-600">{c.client.name}</div>
+                        <div className="font-medium text-[#4E5968]">{c.client.name}</div>
                         {c.client.ceoName && (
-                          <div className="text-xs text-gray-400">{c.client.ceoName}</div>
+                          <div className="text-xs text-[#8B95A1]">{c.client.ceoName}</div>
                         )}
                         {c.client.assignedUser && (
-                          <div className="text-[10px] text-blue-500">{c.client.assignedUser.name}</div>
+                          <div className="text-[10px] text-[#3182F6]">{c.client.assignedUser.name}</div>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-gray-500 text-center">
+                      <td className="px-4 py-2.5 text-xs text-[#6B7684] text-center">
                         {fmtDate(c.completedAt)}
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-gray-500 text-center">
+                      <td className="px-4 py-2.5 text-xs text-[#6B7684] text-center">
                         {c.happyCalls.length}차
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-gray-500 text-center">
+                      <td className="px-4 py-2.5 text-xs text-[#6B7684] text-center">
                         {c.wihagoType === "new" ? "신규" : c.wihagoType === "transfer" ? "이관" : "-"}
                       </td>
                       <td className="px-4 py-2.5 text-center">
@@ -901,35 +901,35 @@ export default function CommissionBoard({
                             const types = (c.client.laborTypes ?? "").split(",").map(t => t.trim());
                             const tags = [
                               types.includes("근로소득") && (
-                                <span key="근로소득" className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">근로소득</span>
+                                <span key="근로소득" className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#FEF2F2] text-[#DC2626]">근로소득</span>
                               ),
                               types.includes("일용직") && (
-                                <span key="일용직" className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-600">일용직</span>
+                                <span key="일용직" className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#E7F7EE] text-[#16A865]">일용직</span>
                               ),
                             ].filter(Boolean);
-                            return tags.length > 0 ? tags : <span className="text-xs text-gray-300">-</span>;
+                            return tags.length > 0 ? tags : <span className="text-xs text-[#B0B8C1]">-</span>;
                           })()}
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         {(c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득") ? (
                           <div className="flex flex-col gap-0.5 items-center text-xs">
-                            <span className={c.nationalPensionDone ? "text-gray-500" : "text-orange-400"}>
+                            <span className={c.nationalPensionDone ? "text-[#6B7684]" : "text-[#D97706]"}>
                               국민연금 {c.nationalPensionDone ? "✓" : "미완료"}
                             </span>
-                            <span className={c.healthInsuranceDone ? "text-gray-500" : "text-orange-400"}>
+                            <span className={c.healthInsuranceDone ? "text-[#6B7684]" : "text-[#D97706]"}>
                               건강보험 {c.healthInsuranceDone ? "✓" : "미완료"}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-300">-</span>
+                          <span className="text-xs text-[#B0B8C1]">-</span>
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         <button
                           onClick={() => doRestore(c.id)}
                           disabled={loadingId === c.id}
-                          className="text-xs text-blue-400 hover:text-blue-600 font-medium transition-colors disabled:opacity-50"
+                          className="text-xs text-[#60A5FA] hover:text-[#3182F6] font-medium transition-colors disabled:opacity-50"
                         >
                           ↩ 진행중으로
                         </button>
@@ -949,37 +949,37 @@ export default function CommissionBoard({
           <div className="bg-white rounded-xl shadow-xl p-6 w-96 max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-gray-800">해피콜 이력</h3>
-                <p className="text-xs text-gray-400">{modal.clientName}</p>
+                <h3 className="font-bold text-[#191F28]">해피콜 이력</h3>
+                <p className="text-xs text-[#8B95A1]">{modal.clientName}</p>
               </div>
-              <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+              <button onClick={() => setModal(null)} className="text-[#8B95A1] hover:text-[#4E5968] text-xl">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3">
               {modal.calls.map((call, i) => (
-                <div key={call.id} className="border border-gray-100 rounded-lg px-4 py-3">
+                <div key={call.id} className="border border-[#F2F4F6] rounded-lg px-4 py-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-[#1a2e4a]">{call.attemptNo}차</span>
+                    <span className="text-xs font-bold text-[#191F28]">{call.attemptNo}차</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      call.result === "connected" ? "bg-green-100 text-green-700" :
-                      call.result === "callback" ? "bg-amber-100 text-amber-700" :
-                      "bg-gray-100 text-gray-600"
+                      call.result === "connected" ? "bg-[#E7F7EE] text-[#15803D]" :
+                      call.result === "callback" ? "bg-[#FEF3C7] text-[#B45309]" :
+                      "bg-[#F2F4F6] text-[#4E5968]"
                     }`}>
                       {RESULT_LABELS[call.result] ?? call.result}
                     </span>
-                    <span className="text-[10px] text-gray-400 ml-auto">{fmtDate(call.calledAt)}</span>
+                    <span className="text-[10px] text-[#8B95A1] ml-auto">{fmtDate(call.calledAt)}</span>
                   </div>
                   {call.notes && (
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{call.notes}</p>
+                    <p className="text-sm text-[#333D4B] whitespace-pre-wrap">{call.notes}</p>
                   )}
                   {!call.notes && (
-                    <p className="text-xs text-gray-300">메모 없음</p>
+                    <p className="text-xs text-[#B0B8C1]">메모 없음</p>
                   )}
                 </div>
               ))}
             </div>
             <button
               onClick={() => setModal(null)}
-              className="mt-4 w-full py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200"
+              className="mt-4 w-full py-2 rounded-lg text-sm text-[#4E5968] bg-[#F2F4F6] hover:bg-[#E5E8EB]"
             >
               닫기
             </button>
@@ -999,10 +999,10 @@ export default function CommissionBoard({
               className="bg-white rounded-xl p-6 w-80 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-semibold text-gray-800 mb-4">해피콜 기록</h3>
+              <h3 className="font-bold text-[#191F28] mb-4">해피콜 기록</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-gray-500 mb-2 block">
+                  <label className="text-xs text-[#6B7684] mb-2 block">
                     통화 결과
                   </label>
                   <div className="flex gap-2">
@@ -1016,8 +1016,8 @@ export default function CommissionBoard({
                         onClick={() => setCallResult(o.v)}
                         className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                           callResult === o.v
-                            ? "bg-[#1a2e4a] text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            ? "bg-[#3182F6] text-white"
+                            : "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"
                         }`}
                       >
                         {o.l}
@@ -1026,27 +1026,27 @@ export default function CommissionBoard({
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-2 block">
+                  <label className="text-xs text-[#6B7684] mb-2 block">
                     메모 (선택)
                   </label>
                   <textarea
                     value={callNotes}
                     onChange={(e) => setCallNotes(e.target.value)}
                     rows={2}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 resize-none"
+                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6] resize-none"
                     placeholder="요청사항, 특이사항 등..."
                   />
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setModal(null)}
-                    className="flex-1 py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200"
+                    className="flex-1 py-2 rounded-lg text-sm text-[#4E5968] bg-[#F2F4F6] hover:bg-[#E5E8EB]"
                   >
                     취소
                   </button>
                   <button
                     onClick={() => doHappyCall(modal.id)}
-                    className="flex-1 py-2 rounded-lg text-sm text-white bg-[#1a2e4a] hover:bg-[#243d61] font-medium"
+                    className="flex-1 py-2 rounded-lg text-sm text-white bg-[#3182F6] hover:bg-[#1B64DA] font-medium"
                   >
                     저장
                   </button>
@@ -1068,24 +1068,24 @@ export default function CommissionBoard({
               className="bg-white rounded-xl p-6 w-80 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-semibold text-gray-800 mb-4">메모</h3>
+              <h3 className="font-bold text-[#191F28] mb-4">메모</h3>
               <textarea
                 value={notesValue}
                 onChange={(e) => setNotesValue(e.target.value)}
                 rows={4}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 resize-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6] resize-none"
                 placeholder="특이사항, 요청사항, 진행 내용 등..."
               />
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setModal(null)}
-                  className="flex-1 py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200"
+                  className="flex-1 py-2 rounded-lg text-sm text-[#4E5968] bg-[#F2F4F6] hover:bg-[#E5E8EB]"
                 >
                   취소
                 </button>
                 <button
                   onClick={() => doSaveNotes(modal.id)}
-                  className="flex-1 py-2 rounded-lg text-sm text-white bg-[#1a2e4a] hover:bg-[#243d61] font-medium"
+                  className="flex-1 py-2 rounded-lg text-sm text-white bg-[#3182F6] hover:bg-[#1B64DA] font-medium"
                 >
                   저장
                 </button>
@@ -1110,8 +1110,8 @@ export default function CommissionBoard({
               className="bg-white rounded-xl p-6 w-96 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-semibold text-gray-800 mb-0.5">대표자 신분증</h3>
-              <p className="text-xs text-gray-400 mb-4">{modal.clientName}</p>
+              <h3 className="font-bold text-[#191F28] mb-0.5">대표자 신분증</h3>
+              <p className="text-xs text-[#8B95A1] mb-4">{modal.clientName}</p>
 
               {currentPath && (
                 <div className="mb-4">
@@ -1119,21 +1119,21 @@ export default function CommissionBoard({
                     <img
                       src={currentPath}
                       alt="신분증"
-                      className="w-full rounded-lg mb-2 max-h-52 object-contain bg-gray-50"
+                      className="w-full rounded-lg mb-2 max-h-52 object-contain bg-[#F9FAFB]"
                     />
                   )}
-                  <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between bg-[#F9FAFB] rounded-lg px-3 py-2">
                     <a
                       href={currentPath}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-blue-500 hover:underline truncate max-w-[240px]"
+                      className="text-sm text-[#3182F6] hover:underline truncate max-w-[240px]"
                     >
                       📄 파일 보기
                     </a>
                     <button
                       onClick={() => doDeleteIdCard(modal.id)}
-                      className="text-xs text-red-400 hover:text-red-600 ml-3 shrink-0"
+                      className="text-xs text-[#F87171] hover:text-[#DC2626] ml-3 shrink-0"
                     >
                       삭제
                     </button>
@@ -1166,19 +1166,19 @@ export default function CommissionBoard({
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors outline-none ${
                   dragOver
-                    ? "border-[#1a2e4a] bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50 focus:border-blue-300 focus:bg-blue-50/30"
+                    ? "border-[#3182F6] bg-[#F5F9FF]"
+                    : "border-[#E5E8EB] hover:border-[#D1D6DB] hover:bg-[#F9FAFB] focus:border-blue-300 focus:bg-[#F5F9FF]/30"
                 }`}
               >
                 {uploading ? (
-                  <div className="text-sm text-gray-500">업로드 중...</div>
+                  <div className="text-sm text-[#6B7684]">업로드 중...</div>
                 ) : (
                   <>
                     <div className="text-2xl mb-2">📎</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-[#6B7684]">
                       {currentPath ? "새 파일로 교체" : "파일을 끌어다 놓거나 클릭"}
                     </div>
-                    <div className="text-xs text-gray-400 mt-1">드래그 · 클릭 · Ctrl+V 붙여넣기</div>
+                    <div className="text-xs text-[#8B95A1] mt-1">드래그 · 클릭 · Ctrl+V 붙여넣기</div>
                   </>
                 )}
               </div>
@@ -1195,15 +1195,15 @@ export default function CommissionBoard({
               />
 
               {/* 홈택스수임신청서 */}
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="text-xs text-gray-400 mb-2">서류 출력</div>
+              <div className="mt-4 pt-4 border-t border-[#F2F4F6]">
+                <div className="text-xs text-[#8B95A1] mb-2">서류 출력</div>
                 <button
                   onClick={() => doAutoAction(modal.clientId, "commission-form")}
                   disabled={autoLoading !== null}
                   className={`w-full py-2 rounded-lg text-xs font-medium transition-colors mb-2 ${
                     autoLoading === "commission-form"
-                      ? "bg-[#1a2e4a] text-white opacity-70"
-                      : "bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                      ? "bg-[#3182F6] text-white opacity-70"
+                      : "bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] border border-[#A3CAFD]"
                   } disabled:cursor-not-allowed`}
                 >
                   {autoLoading === "commission-form" ? "생성 중..." : "📄 홈택스수임신청서 PDF"}
@@ -1211,8 +1211,8 @@ export default function CommissionBoard({
               </div>
 
               {/* 홈택스 */}
-              <div className="pt-3 border-t border-gray-100">
-                <div className="text-xs text-gray-400 mb-2">홈택스</div>
+              <div className="pt-3 border-t border-[#F2F4F6]">
+                <div className="text-xs text-[#8B95A1] mb-2">홈택스</div>
                 <div className="flex gap-2">
                   {(
                     [
@@ -1227,8 +1227,8 @@ export default function CommissionBoard({
                       disabled={autoLoading !== null}
                       className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                         autoLoading === key
-                          ? "bg-[#1a2e4a] text-white opacity-70"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          ? "bg-[#3182F6] text-white opacity-70"
+                          : "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"
                       } disabled:cursor-not-allowed`}
                     >
                       {autoLoading === key ? "실행 중..." : label}
@@ -1239,8 +1239,8 @@ export default function CommissionBoard({
                   <div
                     className={`mt-2 px-3 py-2 rounded-lg text-xs ${
                       autoResult.ok
-                        ? "bg-green-50 text-green-700"
-                        : "bg-red-50 text-red-600"
+                        ? "bg-[#F1FBF4] text-[#15803D]"
+                        : "bg-[#FEF2F2] text-[#DC2626]"
                     }`}
                   >
                     {autoResult.ok ? "✓ " : "✕ "}
@@ -1260,8 +1260,8 @@ export default function CommissionBoard({
               </div>
 
               {/* 4대보험 */}
-              <div className="pt-3 border-t border-gray-100">
-                <div className="text-xs text-gray-400 mb-2">4대보험</div>
+              <div className="pt-3 border-t border-[#F2F4F6]">
+                <div className="text-xs text-[#8B95A1] mb-2">4대보험</div>
                 <div className="flex gap-2">
                   {(
                     [
@@ -1276,10 +1276,10 @@ export default function CommissionBoard({
                       disabled={!enabled || autoLoading !== null}
                       className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                         autoLoading === key
-                          ? "bg-[#1a2e4a] text-white opacity-70"
+                          ? "bg-[#3182F6] text-white opacity-70"
                           : enabled
-                            ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            ? "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"
+                            : "bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed"
                       } disabled:cursor-not-allowed`}
                     >
                       {autoLoading === key ? "생성 중..." : label}
@@ -1290,7 +1290,7 @@ export default function CommissionBoard({
 
               <button
                 onClick={() => setModal(null)}
-                className="mt-3 w-full py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200"
+                className="mt-3 w-full py-2 rounded-lg text-sm text-[#4E5968] bg-[#F2F4F6] hover:bg-[#E5E8EB]"
               >
                 닫기
               </button>
@@ -1312,17 +1312,17 @@ export default function CommissionBoard({
             className="bg-white rounded-xl p-6 w-96 max-h-[70vh] flex flex-col shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-semibold text-gray-800 mb-3">수임 추가</h3>
+            <h3 className="font-bold text-[#191F28] mb-3">수임 추가</h3>
             <input
               value={addSearch}
               onChange={(e) => setAddSearch(e.target.value)}
               placeholder="거래처명 또는 대표자명 검색..."
               autoFocus
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 mb-3"
+              className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6] mb-3"
             />
             <div className="overflow-y-auto flex-1 -mx-1">
               {filteredClients.length === 0 ? (
-                <div className="text-center text-gray-400 text-sm py-8">
+                <div className="text-center text-[#8B95A1] text-sm py-8">
                   {availableClients.length === 0
                     ? "모든 고객사가 수임 관리 중입니다"
                     : "검색 결과 없음"}
@@ -1332,19 +1332,19 @@ export default function CommissionBoard({
                   <button
                     key={client.id}
                     onClick={() => doAdd(client.id)}
-                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 flex items-center justify-between group"
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-[#F9FAFB] flex items-center justify-between group"
                   >
                     <div>
-                      <div className="text-sm font-medium text-gray-800">
+                      <div className="text-sm font-medium text-[#191F28]">
                         {client.name}
                       </div>
                       {client.ceoName && (
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-[#8B95A1]">
                           {client.ceoName}
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-[#1a2e4a] opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-xs text-[#191F28] opacity-0 group-hover:opacity-100 transition-opacity">
                       추가 →
                     </span>
                   </button>
@@ -1356,7 +1356,7 @@ export default function CommissionBoard({
                 setModal(null);
                 setAddSearch("");
               }}
-              className="mt-3 w-full py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200"
+              className="mt-3 w-full py-2 rounded-lg text-sm text-[#4E5968] bg-[#F2F4F6] hover:bg-[#E5E8EB]"
             >
               닫기
             </button>

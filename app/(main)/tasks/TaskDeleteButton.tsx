@@ -17,7 +17,7 @@ export function TaskDeleteButton({ taskId }: { taskId: number }) {
     <button
       onClick={handleDelete}
       disabled={isPending}
-      className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50"
+      className="text-xs text-[#E02E2E] hover:text-[#B91C1C] hover:underline disabled:opacity-50"
     >
       삭제
     </button>

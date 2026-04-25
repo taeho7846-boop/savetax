@@ -92,50 +92,40 @@ export default async function TasksPage({
     caution: "주의",
   };
   const MEMO_TYPE_COLORS: Record<string, string> = {
-    general: "bg-gray-100 text-gray-600",
-    handover: "bg-blue-100 text-blue-600",
-    caution: "bg-red-100 text-red-600",
+    general: "bg-[#F2F4F6] text-[#4E5968]",
+    handover: "bg-[#E8F3FF] text-[#3182F6]",
+    caution: "bg-[#FEF2F2] text-[#DC2626]",
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800">업무/메모</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">업무/메모</h1>
         <UnifiedCreateButton />
       </div>
 
-      {/* 유형 선택 */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
-        <Link
-          href={`/tasks?itemType=all&tab=${tab}`}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            itemType === "all"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          전체
-        </Link>
-        <Link
-          href={`/tasks?itemType=task&tab=${tab}`}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            itemType === "task"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          업무
-        </Link>
-        <Link
-          href="/tasks?itemType=memo"
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            itemType === "memo"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          메모
-        </Link>
+      {/* 유형 선택 — Toss pill 탭 */}
+      <div className="inline-flex gap-0.5 mb-4 p-1 bg-[#F2F4F6] rounded-[12px]">
+        {[
+          { key: "all", label: "전체", href: `/tasks?itemType=all&tab=${tab}` },
+          { key: "task", label: "업무", href: `/tasks?itemType=task&tab=${tab}` },
+          { key: "memo", label: "메모", href: "/tasks?itemType=memo" },
+        ].map(t => {
+          const active = itemType === t.key;
+          return (
+            <Link
+              key={t.key}
+              href={t.href}
+              className={`px-4 py-1.5 text-[13px] rounded-[10px] transition-all ${
+                active
+                  ? "bg-white text-[#191F28] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                  : "text-[#6B7684] hover:text-[#191F28] font-[500]"
+              }`}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
       </div>
 
       {/* 업무 서브탭 (업무 또는 전체일 때만) */}
@@ -145,8 +135,8 @@ export default async function TasksPage({
             href={`/tasks?itemType=${itemType}&tab=active`}
             className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
               isActiveTab
-                ? "bg-[#1a2e4a] text-white"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                ? "bg-[#3182F6] text-white"
+                : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
             }`}
           >
             진행중
@@ -155,8 +145,8 @@ export default async function TasksPage({
             href={`/tasks?itemType=${itemType}&tab=done`}
             className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
               !isActiveTab
-                ? "bg-[#1a2e4a] text-white"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                ? "bg-[#3182F6] text-white"
+                : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
             }`}
           >
             완료
@@ -173,13 +163,13 @@ export default async function TasksPage({
           defaultValue={q}
           placeholder="업무명, 고객사명 검색"
           autoComplete="off"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm flex-1 focus:outline-none focus:border-[#3182F6]"
         />
         {itemType !== "memo" && isActiveTab && (
           <select
             name="status"
             defaultValue={status}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
           >
             <option value="">전체 상태</option>
             <option value="scheduled">예정</option>
@@ -192,7 +182,7 @@ export default async function TasksPage({
           <select
             name="type"
             defaultValue={type}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
           >
             <option value="">전체 유형</option>
             <option value="vat">부가가치세</option>
@@ -206,7 +196,7 @@ export default async function TasksPage({
         )}
         <button
           type="submit"
-          className="bg-gray-100 border border-gray-300 text-gray-700 text-sm px-4 py-2 rounded-lg hover:bg-gray-200"
+          className="bg-[#3182F6] text-white text-[13px] font-bold px-5 py-2 rounded-[10px] hover:bg-[#1B64DA] transition-colors"
         >
           검색
         </button>
@@ -214,23 +204,23 @@ export default async function TasksPage({
 
       {/* 업무 목록 */}
       {itemType !== "memo" && tasks.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-6">
+        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden mb-6">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6]">
               <tr>
-                {itemType === "all" && <th className="text-center px-3 py-3 text-gray-600 font-medium min-w-[60px]">구분</th>}
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">고객사</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">업무</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">유형</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">생성일</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">
+                {itemType === "all" && <th className="text-center px-3 py-3 text-[#4E5968] font-medium min-w-[60px]">구분</th>}
+                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">고객사</th>
+                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">업무</th>
+                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">유형</th>
+                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">생성일</th>
+                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">
                   {isActiveTab ? "마감일" : "완료일"}
                 </th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">상태</th>
-                <th className="text-center px-4 py-3 text-gray-600 font-medium w-16">관리</th>
+                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">상태</th>
+                <th className="text-center px-4 py-3 text-[#4E5968] font-medium w-16">관리</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-[#F2F4F6]">
               {tasks.map((task) => {
                 const isOverdue =
                   task.dueDate &&
@@ -239,41 +229,41 @@ export default async function TasksPage({
                 return (
                   <tr
                     key={`task-${task.id}`}
-                    className={`hover:bg-gray-50 transition-colors ${isOverdue ? "bg-red-50" : ""}`}
+                    className={`hover:bg-[#F9FAFB] transition-colors ${isOverdue ? "bg-[#FEF2F2]" : ""}`}
                   >
                     {itemType === "all" && (
                       <td className="px-3 py-3 text-center">
-                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium whitespace-nowrap">업무</span>
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#E8F3FF] text-[#1B64DA] font-medium whitespace-nowrap">업무</span>
                       </td>
                     )}
                     <td className="px-4 py-3">
                       {task.clientId ? (
-                        <Link href={`/clients/${task.clientId}`} className="text-[#1a2e4a] hover:underline font-medium">
+                        <Link href={`/clients/${task.clientId}`} className="text-[#191F28] hover:underline font-medium">
                           {task.client?.name ?? "고객사 없음"}
                         </Link>
                       ) : (
-                        <span className="text-gray-500">고객사 없음</span>
+                        <span className="text-[#6B7684]">고객사 없음</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-gray-800 whitespace-pre-wrap break-words">{task.title}</div>
+                      <div className="text-[#191F28] whitespace-pre-wrap break-words">{task.title}</div>
                       {task.notes && (
-                        <div className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap break-words">{task.notes}</div>
+                        <div className="text-xs text-[#8B95A1] mt-0.5 whitespace-pre-wrap break-words">{task.notes}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-[#6B7684]">
                       {task.taskType ? TASK_TYPE_LABELS[task.taskType] || task.taskType : "-"}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-[#6B7684]">
                       {new Date(task.createdAt).toLocaleDateString("ko-KR")}
                     </td>
                     <td className="px-4 py-3">
                       {isActiveTab ? (
-                        <span className={isOverdue ? "text-red-600 font-medium" : "text-gray-600"}>
+                        <span className={isOverdue ? "text-[#DC2626] font-medium" : "text-[#4E5968]"}>
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString("ko-KR") : "-"}
                         </span>
                       ) : (
-                        <span className="text-gray-600">
+                        <span className="text-[#4E5968]">
                           {task.completedAt ? new Date(task.completedAt).toLocaleDateString("ko-KR") : "-"}
                         </span>
                       )}
@@ -296,31 +286,31 @@ export default async function TasksPage({
       {itemType !== "task" && memos.length > 0 && (
         <div className="space-y-3">
           {itemType === "all" && (
-            <h3 className="text-sm font-medium text-gray-500 mt-2">메모</h3>
+            <h3 className="text-sm font-medium text-[#6B7684] mt-2">메모</h3>
           )}
           {memos.map((memo) => (
-            <div key={`memo-${memo.id}`} className="bg-white rounded-lg shadow-sm border border-gray-100 px-5 py-4">
+            <div key={`memo-${memo.id}`} className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] px-5 py-4">
               <div className="flex items-center gap-2 mb-2">
                 {itemType === "all" && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">메모</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] font-medium">메모</span>
                 )}
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${MEMO_TYPE_COLORS[memo.memoType] ?? MEMO_TYPE_COLORS.general}`}>
                   {MEMO_TYPE_LABELS[memo.memoType] ?? memo.memoType}
                 </span>
                 {memo.client && (
-                  <Link href={`/clients/${memo.clientId}`} className="text-xs text-[#1a2e4a] hover:underline font-medium">
+                  <Link href={`/clients/${memo.clientId}`} className="text-xs text-[#191F28] hover:underline font-medium">
                     {memo.client.name}
                   </Link>
                 )}
-                <span className="text-xs text-gray-400 ml-auto">{memo.author.name}</span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-[#8B95A1] ml-auto">{memo.author.name}</span>
+                <span className="text-xs text-[#8B95A1]">
                   {new Date(memo.createdAt).toLocaleDateString("ko-KR")}
                 </span>
               </div>
               {memo.title && (
-                <div className="text-sm font-medium text-gray-800 mb-1">{memo.title}</div>
+                <div className="text-sm font-medium text-[#191F28] mb-1">{memo.title}</div>
               )}
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{memo.content}</p>
+              <p className="text-sm text-[#333D4B] whitespace-pre-wrap">{memo.content}</p>
               <div className="mt-2">
                 <MemoDeleteButton memoId={memo.id} />
               </div>
@@ -331,18 +321,21 @@ export default async function TasksPage({
 
       {/* 빈 상태 */}
       {itemType === "task" && tasks.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 py-12 text-center text-gray-400">
-          등록된 업무가 없습니다
+        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] py-14 text-center">
+          <div className="text-[14px] text-[#4E5968] font-[500]">아직 등록된 업무가 없어요</div>
+          <div className="text-[12px] text-[#8B95A1] mt-1">우측 상단에서 새 업무를 추가할 수 있어요</div>
         </div>
       )}
       {itemType === "memo" && memos.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 py-12 text-center text-gray-400">
-          등록된 메모가 없습니다
+        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] py-14 text-center">
+          <div className="text-[14px] text-[#4E5968] font-[500]">등록된 메모가 없어요</div>
+          <div className="text-[12px] text-[#8B95A1] mt-1">고객사별 참고사항을 빠르게 남겨보세요</div>
         </div>
       )}
       {itemType === "all" && tasks.length === 0 && memos.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 py-12 text-center text-gray-400">
-          등록된 업무/메모가 없습니다
+        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] py-14 text-center">
+          <div className="text-[14px] text-[#4E5968] font-[500]">아직 등록된 업무나 메모가 없어요</div>
+          <div className="text-[12px] text-[#8B95A1] mt-1">우측 상단에서 첫 업무를 추가해보세요</div>
         </div>
       )}
     </div>

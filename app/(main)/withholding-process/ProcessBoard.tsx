@@ -37,9 +37,9 @@ type Client = {
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; description: string }> = {
   A: {
     label: "유형 A",
-    color: "text-blue-700",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
+    color: "text-[#1B64DA]",
+    bg: "bg-[#F5F9FF]",
+    border: "border-[#A3CAFD]",
     description: "매월 변동",
   },
   B: {
@@ -51,16 +51,16 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; bo
   },
   C: {
     label: "유형 C",
-    color: "text-amber-700",
-    bg: "bg-amber-50",
-    border: "border-amber-200",
+    color: "text-[#B45309]",
+    bg: "bg-[#FFFBEB]",
+    border: "border-[#FDE68A]",
     description: "매월 동일, 납부서 불필요",
   },
   D: {
     label: "유형 D",
-    color: "text-gray-600",
-    bg: "bg-gray-50",
-    border: "border-gray-200",
+    color: "text-[#4E5968]",
+    bg: "bg-[#F9FAFB]",
+    border: "border-[#E5E8EB]",
     description: "1인사업자 (원천세 없음)",
   },
 };
@@ -142,26 +142,26 @@ export function ProcessBoard({
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-900">원천세 프로세스</h1>
-          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-1">
-            <button onClick={() => navigate(-1)} className="px-2 py-1 text-gray-500 hover:text-gray-900 text-sm">
+          <h1 className="text-lg font-bold text-[#191F28]">원천세 프로세스</h1>
+          <div className="flex items-center gap-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1">
+            <button onClick={() => navigate(-1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] text-sm">
               ◀
             </button>
-            <span className="text-sm font-semibold text-gray-800 px-2">
+            <span className="text-sm font-bold text-[#191F28] px-2">
               {year}년 {month}월
             </span>
-            <button onClick={() => navigate(1)} className="px-2 py-1 text-gray-500 hover:text-gray-900 text-sm">
+            <button onClick={() => navigate(1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] text-sm">
               ▶
             </button>
           </div>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-[#6B7684]">
             진행: {doneSteps} / {totalSteps}
           </span>
-          {isPending && <span className="text-xs text-blue-500 animate-pulse">저장 중...</span>}
+          {isPending && <span className="text-xs text-[#3182F6] animate-pulse">저장 중...</span>}
         </div>
         <div className="flex items-center gap-2">
           {unclassifiedCount > 0 && (
-            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+            <span className="text-xs text-[#D97706] bg-[#FFFBEB] border border-[#FDE68A] rounded-lg px-2 py-1">
               유형 미지정 거래처 {unclassifiedCount}개
             </span>
           )}
@@ -170,7 +170,7 @@ export function ProcessBoard({
             placeholder="거래처 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm w-48 focus:outline-none focus:border-[#3182F6]"
           />
         </div>
       </div>
@@ -195,25 +195,25 @@ export function ProcessBoard({
             <div className={`${config.bg} px-4 py-2.5 flex items-center justify-between`}>
               <div className="flex items-center gap-2">
                 <span className={`font-bold text-sm ${config.color}`}>{config.label}</span>
-                <span className="text-xs text-gray-500">{config.description}</span>
-                <span className="text-xs text-gray-400">({typeClients.length}개)</span>
+                <span className="text-xs text-[#6B7684]">{config.description}</span>
+                <span className="text-xs text-[#8B95A1]">({typeClients.length}개)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <div className="flex items-center gap-1.5 text-xs text-[#6B7684]">
                   {steps.map((s) => (
                     <span key={s} className="flex items-center gap-0.5">
                       {STEP_LABELS[s]?.icon} {STEP_LABELS[s]?.label}
                     </span>
                   ))}
                 </div>
-                <span className="text-xs font-medium text-gray-500 ml-2">
+                <span className="text-xs font-medium text-[#6B7684] ml-2">
                   {groupDone}/{groupTotal}
                 </span>
               </div>
             </div>
 
             {/* 거래처 목록 */}
-            <div className="divide-y divide-gray-100 bg-white">
+            <div className="divide-y divide-[#F2F4F6] bg-white">
               {typeClients.map((client) => {
                 const allDone = steps.every((s) =>
                   client.withholdingProcesses.some((p) => p.step === s && p.done)
@@ -223,16 +223,16 @@ export function ProcessBoard({
                   <div
                     key={client.id}
                     className={`flex items-center px-4 py-2.5 gap-4 transition-colors ${
-                      allDone ? "bg-green-50/50" : "hover:bg-gray-50"
+                      allDone ? "bg-[#F1FBF4]/50" : "hover:bg-[#F9FAFB]"
                     }`}
                   >
                     {/* 거래처명 */}
                     <div className="w-40 flex-shrink-0">
-                      <span className={`text-sm font-medium ${allDone ? "text-green-700" : "text-gray-900"}`}>
+                      <span className={`text-sm font-medium ${allDone ? "text-[#15803D]" : "text-[#191F28]"}`}>
                         {allDone && "✓ "}{client.name}
                       </span>
                       {showAssignedUser && client.assignedUser && (
-                        <span className="text-xs text-gray-400 ml-1">
+                        <span className="text-xs text-[#8B95A1] ml-1">
                           ({client.assignedUser.name})
                         </span>
                       )}
@@ -243,7 +243,7 @@ export function ProcessBoard({
                       {client.laborTypes?.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
                         <span
                           key={t}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600"
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-[#F2F4F6] text-[#4E5968]"
                         >
                           {t}
                         </span>
@@ -275,11 +275,11 @@ export function ProcessBoard({
                               type="checkbox"
                               checked={done}
                               onChange={() => handleToggle(client.id, step)}
-                              className="accent-[#1a2e4a] w-4 h-4"
+                              className="accent-[#3182F6] w-4 h-4"
                             />
                             <span
                               className={`text-xs ${
-                                done ? "text-green-600 line-through" : "text-gray-700"
+                                done ? "text-[#16A865] line-through" : "text-[#333D4B]"
                               }`}
                             >
                               {STEP_LABELS[step]?.icon} {STEP_LABELS[step]?.label}
@@ -302,8 +302,8 @@ export function ProcessBoard({
           <div className={`${TYPE_CONFIG.D.bg} px-4 py-2.5 flex items-center justify-between`}>
             <div className="flex items-center gap-2">
               <span className={`font-bold text-sm ${TYPE_CONFIG.D.color}`}>{TYPE_CONFIG.D.label}</span>
-              <span className="text-xs text-gray-500">{TYPE_CONFIG.D.description}</span>
-              <span className="text-xs text-gray-400">({groups.D.length}개)</span>
+              <span className="text-xs text-[#6B7684]">{TYPE_CONFIG.D.description}</span>
+              <span className="text-xs text-[#8B95A1]">({groups.D.length}개)</span>
             </div>
           </div>
 
@@ -311,25 +311,25 @@ export function ProcessBoard({
             {/* 미안내 */}
             {dNotNotified.length > 0 && (
               <div>
-                <div className="px-4 py-1.5 bg-red-50 border-b border-red-100">
-                  <span className="text-xs font-semibold text-red-600">
+                <div className="px-4 py-1.5 bg-[#FEF2F2] border-b border-red-100">
+                  <span className="text-xs font-bold text-[#DC2626]">
                     미안내 ({dNotNotified.length}개)
                   </span>
                 </div>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#F2F4F6]">
                   {dNotNotified.map((client) => (
-                    <div key={client.id} className="flex items-center px-4 py-2.5 gap-4 hover:bg-gray-50">
+                    <div key={client.id} className="flex items-center px-4 py-2.5 gap-4 hover:bg-[#F9FAFB]">
                       <div className="w-40 flex-shrink-0">
-                        <span className="text-sm font-medium text-gray-900">{client.name}</span>
+                        <span className="text-sm font-medium text-[#191F28]">{client.name}</span>
                         {showAssignedUser && client.assignedUser && (
-                          <span className="text-xs text-gray-400 ml-1">
+                          <span className="text-xs text-[#8B95A1] ml-1">
                             ({client.assignedUser.name})
                           </span>
                         )}
                       </div>
                       <button
                         onClick={() => handleDNotify(client.id)}
-                        className="text-xs bg-[#1a2e4a] text-white px-3 py-1 rounded-lg hover:bg-[#243d61] transition-colors"
+                        className="text-xs bg-[#3182F6] text-white px-3 py-1 rounded-lg hover:bg-[#1B64DA] transition-colors"
                       >
                         📨 최초 안내 발송 완료
                       </button>
@@ -342,14 +342,14 @@ export function ProcessBoard({
             {/* 안내 완료 */}
             {dNotified.length > 0 && (
               <div>
-                <div className="px-4 py-1.5 bg-green-50 border-b border-green-100">
-                  <span className="text-xs font-semibold text-green-600">
+                <div className="px-4 py-1.5 bg-[#F1FBF4] border-b border-green-100">
+                  <span className="text-xs font-bold text-[#16A865]">
                     안내 완료 ({dNotified.length}개)
                   </span>
                 </div>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[#F2F4F6]">
                   {dNotified.map((client) => (
-                    <div key={client.id} className="flex items-center px-4 py-2.5 gap-4 text-gray-400">
+                    <div key={client.id} className="flex items-center px-4 py-2.5 gap-4 text-[#8B95A1]">
                       <div className="w-40 flex-shrink-0">
                         <span className="text-sm">✓ {client.name}</span>
                         {showAssignedUser && client.assignedUser && (
@@ -370,7 +370,7 @@ export function ProcessBoard({
 
       {/* 빈 상태 */}
       {filtered.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-[#8B95A1]">
           <p className="text-sm">원천세 유형이 지정된 거래처가 없습니다.</p>
           <p className="text-xs mt-1">고객사 편집에서 원천세 유형(A/B/C/D)을 지정해주세요.</p>
         </div>

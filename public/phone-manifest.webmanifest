@@ -1,0 +1,26 @@
+{
+  "name": "Savetax Phone",
+  "short_name": "Savetax",
+  "description": "세무 업무 빠른 보조 — 고객사 검색·메모·일정·AI",
+  "start_url": "/phone",
+  "scope": "/phone",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "minimal-ui", "standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "/phone/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/phone/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

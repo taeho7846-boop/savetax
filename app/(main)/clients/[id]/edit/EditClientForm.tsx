@@ -47,14 +47,14 @@ function CopyWrap({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={handleCopy}
-          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100"
+          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#F2F4F6]"
         >
           {copied ? (
-            <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4 text-[#1AB266]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           ) : (
-            <svg className="w-4 h-4 text-gray-400 hover:text-[#1a2e4a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4 text-[#8B95A1] hover:text-[#191F28]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
               <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
             </svg>
@@ -140,18 +140,18 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 행1: 고객사명 / 사업자등록번호 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">
-            고객사명 <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">
+            고객사명 <span className="text-[#E02E2E]">*</span>
           </label>
           <CopyWrap><input
             name="name"
             required
             defaultValue={client.name}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
           /></CopyWrap>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">사업자등록번호</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">사업자등록번호</label>
           <CopyWrap><BizNumberInput defaultValue={client.bizNumber ?? ""} /></CopyWrap>
         </div>
       </div>
@@ -159,19 +159,19 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 행2: 대표자명 / 주민등록번호 / 연락처 */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">대표자명</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">대표자명</label>
           <CopyWrap><input
             name="ceoName"
             defaultValue={client.ceoName ?? ""}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
           /></CopyWrap>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">주민등록번호</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">주민등록번호</label>
           <CopyWrap><ResidentNumberInput defaultValue={client.residentNumber ?? ""} /></CopyWrap>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">연락처</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">연락처</label>
           <CopyWrap><PhoneInput defaultValue={client.phone ?? ""} /></CopyWrap>
         </div>
       </div>
@@ -179,22 +179,22 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 행3: 구분 / 과세유형 / 신고유형 */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">구분</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">구분</label>
           <select
             name="clientType"
             defaultValue={client.clientType}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none"
           >
             <option value="individual">개인</option>
             <option value="corporate">법인</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">과세유형</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">과세유형</label>
           <select
             name="taxationType"
             defaultValue={client.taxationType ?? "과세"}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none"
           >
             <option value="과세">과세</option>
             <option value="면세">면세</option>
@@ -204,7 +204,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">신고 유형</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">신고 유형</label>
           <div className="flex gap-2">
             {[
               { value: "기장대리", label: "기장" },
@@ -218,7 +218,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
                   defaultChecked={currentTaxTypes.includes(opt.value)}
                   className="hidden peer"
                 />
-                <span className="peer-checked:bg-[#1a2e4a] peer-checked:text-white border border-gray-300 peer-checked:border-[#1a2e4a] rounded-md px-3 py-1.5 text-sm text-gray-700 select-none hover:border-[#1a2e4a] transition-colors">
+                <span className="peer-checked:bg-[#3182F6] peer-checked:text-white border border-[#D1D6DB] peer-checked:border-[#3182F6] rounded-md px-3 py-1.5 text-sm text-[#333D4B] select-none hover:border-[#3182F6] transition-colors">
                   {opt.label}
                 </span>
               </label>
@@ -230,33 +230,33 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 업종코드 / 업태 / 종목 */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">업종코드</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">업종코드</label>
           <input
             name="bizType"
             type="text"
             defaultValue={client.bizType ?? ""}
             placeholder="예: 940909"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">업태</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">업태</label>
           <input
             name="bizCategory"
             type="text"
             defaultValue={client.bizCategory ?? ""}
             placeholder="예: 서비스업"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">종목</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">종목</label>
           <input
             name="bizItem"
             type="text"
             defaultValue={client.bizItem ?? ""}
             placeholder="예: 세무사업"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
           />
         </div>
       </div>
@@ -264,7 +264,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 회계프로그램 / 업무소통방법 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">회계프로그램</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">회계프로그램</label>
           <CheckboxGroup
             name="accountingProgram"
             options={["위하고", "세무사랑"]}
@@ -276,7 +276,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">업무소통방법</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">업무소통방법</label>
           <CheckboxGroup
             name="contactMethod"
             options={["메일", "카톡", "문자"]}
@@ -292,12 +292,12 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 행4: 인건비 / 개업년월일 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-2">인건비</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-2">인건비</label>
           <CheckboxGroup name="laborType" options={["1인사업자", "근로소득", "사업소득", "일용직"]} defaultValues={currentLaborTypes} />
         </div>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">개업년월일</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">개업년월일</label>
             <DateInput name="openDate" defaultValue={client.openDate} />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -306,9 +306,9 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
               name="halfYearTax"
               value="true"
               defaultChecked={client.halfYearTax ?? false}
-              className="accent-[#1a2e4a] w-4 h-4"
+              className="accent-[#3182F6] w-4 h-4"
             />
-            <span className="text-sm font-medium text-gray-800">6개월납</span>
+            <span className="text-sm font-medium text-[#191F28]">6개월납</span>
           </label>
         </div>
       </div>
@@ -316,15 +316,15 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 계약일자 / 원천세 유형 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">계약일자</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">계약일자</label>
           <DateInput name="contractDate" defaultValue={client.contractDate} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">원천세 유형</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">원천세 유형</label>
           <select
             name="withholdingType"
             defaultValue={client.withholdingType ?? ""}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
           >
             <option value="">미지정</option>
             <option value="A">A — 매월 변동</option>
@@ -339,11 +339,11 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       <div className="grid grid-cols-2 gap-4">
         {currentUserRole !== "employee" ? (
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">담당 직원</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">담당 직원</label>
             <select
               name="assignedUserId"
               defaultValue={client.assignedUserId ?? ""}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none"
             >
               <option value="">미배정</option>
               {users.map((u) => (
@@ -353,11 +353,11 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           </div>
         ) : <div />}
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1">소속</label>
+          <label className="block text-sm font-medium text-[#191F28] mb-1">소속</label>
           <select
             name="affiliation"
             defaultValue={client.affiliation ?? ""}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none"
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none"
           >
             <option value="">미선택</option>
             {(affiliationOptions ?? ["세이브택스"]).map((opt) => (
@@ -368,34 +368,34 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       </div>
 
       {/* 홈택스 */}
-      <div className="border-t border-gray-100 pt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">홈택스 계정</p>
+      <div className="border-t border-[#F2F4F6] pt-4">
+        <p className="text-xs font-bold text-[#6B7684] uppercase tracking-wide mb-3">홈택스 계정</p>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">홈택스 ID</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">홈택스 ID</label>
             <CopyWrap><input
               name="hometaxId"
               defaultValue={client.hometaxId ?? ""}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             /></CopyWrap>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">홈택스 PW</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">홈택스 PW</label>
             <CopyWrap><input
               name="hometaxPw"
               defaultValue={client.hometaxPw ?? ""}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             /></CopyWrap>
           </div>
         </div>
       </div>
 
       {/* 기장료 / 출금 정보 */}
-      <div className="border-t border-gray-100 pt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">청구 정보</p>
+      <div className="border-t border-[#F2F4F6] pt-4">
+        <p className="text-xs font-bold text-[#6B7684] uppercase tracking-wide mb-3">청구 정보</p>
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">월 기장료</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">월 기장료</label>
             <CopyWrap><div className="relative">
               <input
                 name="monthlyFee"
@@ -403,18 +403,18 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
                 min="0"
                 defaultValue={client.monthlyFee ?? ""}
                 placeholder="0"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 pr-8 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8B95A1]">원</span>
             </div></CopyWrap>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">무료 기장</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">무료 기장</label>
             <div className="relative">
               <select
                 name="freeMonths"
                 defaultValue={client.freeMonths ?? 2}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
               >
                 <option value="">미설정</option>
                 <option value="0">0개월</option>
@@ -425,32 +425,32 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">최초 출금월</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">최초 출금월</label>
             <input
               name="firstWithdrawalMonth"
               type="month"
               defaultValue={client.firstWithdrawalMonth ?? ""}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">출금 은행</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">출금 은행</label>
             <CopyWrap><input
               name="bankName"
               defaultValue={client.bankName ?? ""}
               placeholder="예) 국민은행"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             /></CopyWrap>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">출금 계좌번호</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">출금 계좌번호</label>
             <CopyWrap><input
               name="bankAccount"
               defaultValue={client.bankAccount ?? ""}
               placeholder="계좌번호 입력"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             /></CopyWrap>
           </div>
         </div>
@@ -458,34 +458,34 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
 
       {/* 주소 / 특이사항 */}
       <div>
-        <label className="block text-sm font-medium text-gray-800 mb-1">주소</label>
+        <label className="block text-sm font-medium text-[#191F28] mb-1">주소</label>
         <CopyWrap><input
           name="address"
           defaultValue={client.address ?? ""}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
         /></CopyWrap>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-800 mb-1">특이사항</label>
+        <label className="block text-sm font-medium text-[#191F28] mb-1">특이사항</label>
         <CopyWrap><textarea
           name="notes"
           rows={6}
           defaultValue={client.notes ?? ""}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
         /></CopyWrap>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-800 mb-1">위하고 급여자료입력 URL</label>
+        <label className="block text-sm font-medium text-[#191F28] mb-1">위하고 급여자료입력 URL</label>
         <div className="flex gap-2">
           <div className="flex-1">
             <input
               name="wehagoPayrollUrl"
               placeholder="위하고 급여자료입력 화면 URL을 붙여넣으세요"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             />
           </div>
         </div>
-        <p className="text-xs text-gray-400 mt-1">URL 입력 시 위하고 cno, cd_com, color가 자동 파싱됩니다.</p>
+        <p className="text-xs text-[#8B95A1] mt-1">URL 입력 시 위하고 cno, cd_com, color가 자동 파싱됩니다.</p>
       </div>
 
       {/* 모달에서는 숨기고 헤더에 표시 */}
@@ -494,13 +494,13 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         <div className="flex gap-3 pt-2">
           <button
             type="submit"
-            className="bg-[#1a2e4a] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+            className="bg-[#3182F6] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors"
           >
             저장
           </button>
           <Link
             href="/clients"
-            className="border border-gray-300 text-gray-700 text-sm px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            className="border border-[#D1D6DB] text-[#333D4B] text-sm px-6 py-2 rounded-lg hover:bg-[#F9FAFB] transition-colors"
           >
             취소
           </Link>

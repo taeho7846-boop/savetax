@@ -4,19 +4,20 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toggleWithholdingTask, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
+import { PinIcon } from "@/components/icons";
 // 프로세스 단계도 withholdingRecords 테이블을 사용
 
 const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }> = {
-  "근로소득": { border: "border-red-400", text: "text-red-600", bg: "bg-red-50" },
-  "사업소득": { border: "border-blue-400", text: "text-blue-600", bg: "bg-blue-50" },
-  "일용직": { border: "border-green-500", text: "text-green-700", bg: "bg-green-50" },
+  "근로소득": { border: "border-red-400", text: "text-[#DC2626]", bg: "bg-[#FEF2F2]" },
+  "사업소득": { border: "border-blue-400", text: "text-[#3182F6]", bg: "bg-[#F5F9FF]" },
+  "일용직": { border: "border-green-500", text: "text-[#15803D]", bg: "bg-[#F1FBF4]" },
 };
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; description: string }> = {
-  A: { label: "A", color: "text-red-700", bg: "bg-red-50", border: "border-red-200", description: "매월 변동" },
-  B: { label: "B", color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", description: "매월 동일, 납부서 필요" },
-  C: { label: "C", color: "text-green-700", bg: "bg-green-50", border: "border-green-200", description: "매월 동일, 납부서 불필요" },
-  D: { label: "D", color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200", description: "1인사업자 (원천세 없음)" },
+  A: { label: "A", color: "text-[#B91C1C]", bg: "bg-[#FEF2F2]", border: "border-[#FECACA]", description: "매월 변동" },
+  B: { label: "B", color: "text-[#1B64DA]", bg: "bg-[#F5F9FF]", border: "border-[#A3CAFD]", description: "매월 동일, 납부서 필요" },
+  C: { label: "C", color: "text-[#15803D]", bg: "bg-[#F1FBF4]", border: "border-[#BBF7D0]", description: "매월 동일, 납부서 불필요" },
+  D: { label: "D", color: "text-[#4E5968]", bg: "bg-[#F9FAFB]", border: "border-[#E5E8EB]", description: "1인사업자 (원천세 없음)" },
 };
 
 // 프로세스 단계 (공통)
@@ -206,26 +207,26 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     <>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold text-gray-900">원천세</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">원천세</h1>
         <div className="flex items-center gap-4">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="고객사명 검색"
             autoComplete="off"
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm w-48 focus:outline-none focus:border-[#3182F6]"
           />
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleVerify} className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={verifyLoading}
-            className="text-xs px-3 py-1.5 rounded-lg font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB] disabled:opacity-50"
           >
             {verifyLoading ? "검증중..." : "신고 검증"}
           </button>
           {checkedIds.size > 0 && (
             <div className="flex items-center gap-2">
-              <div className="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-lg">
+              <div className="text-sm text-[#3182F6] font-medium bg-[#F5F9FF] px-3 py-1 rounded-lg">
                 {checkedIds.size}개 선택
               </div>
               <button
@@ -308,64 +309,64 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                   alert(`${selectedClients.length}개 거래처 위멤버스 일괄 처리 완료!`);
                   setCheckedIds(new Set());
                 }}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700"
+                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#3182F6] text-white hover:bg-[#1B64DA]"
               >
                 일괄 위멤버스
               </button>
             </div>
           )}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
-              <span className="text-xs text-gray-500">원천세 신고</span>
-              <span className="text-sm font-bold text-[#1a2e4a]">{taxFilingDone}</span>
-              <span className="text-xs text-gray-400">/</span>
-              <span className="text-sm font-medium text-gray-600">{taxFilingTotal}</span>
+            <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5">
+              <span className="text-xs text-[#6B7684]">원천세 신고</span>
+              <span className="text-sm font-bold text-[#191F28]">{taxFilingDone}</span>
+              <span className="text-xs text-[#8B95A1]">/</span>
+              <span className="text-sm font-medium text-[#4E5968]">{taxFilingTotal}</span>
               {taxFilingTotal > 0 && (
-                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden ml-1">
-                  <div className="h-full bg-[#1a2e4a] rounded-full transition-all" style={{ width: `${Math.round(taxFilingDone / taxFilingTotal * 100)}%` }} />
+                <div className="w-16 h-1.5 bg-[#F2F4F6] rounded-full overflow-hidden ml-1">
+                  <div className="h-full bg-[#3182F6] rounded-full transition-all" style={{ width: `${Math.round(taxFilingDone / taxFilingTotal * 100)}%` }} />
                 </div>
               )}
             </div>
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-[#8B95A1]">
               프로세스 {doneProcess}/{totalProcess}
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
-            <button onClick={() => handleMonthChange(-1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">◀</button>
-            <span className="text-sm font-medium text-gray-800 min-w-[100px] text-center">{year}년 {parseInt(mon)}월</span>
-            <button onClick={() => handleMonthChange(1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">▶</button>
+          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
+            <button onClick={() => handleMonthChange(-1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</button>
+            <span className="text-sm font-medium text-[#191F28] min-w-[100px] text-center">{year}년 {parseInt(mon)}월</span>
+            <button onClick={() => handleMonthChange(1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</button>
           </div>
         </div>
       </div>
 
       {/* 통합 테이블 */}
-      <div className="flex-1 overflow-y-auto bg-white rounded-lg shadow-sm border border-gray-100">
+      <div className="flex-1 overflow-y-auto bg-white rounded-lg shadow-sm border border-[#F2F4F6]">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+          <thead className="bg-[#F9FAFB] border-b border-[#E5E8EB] sticky top-0 z-10">
             <tr>
               <th className="px-2 py-3 w-9"></th>
-              <th className="text-left px-4 py-3 text-gray-700 font-semibold text-xs whitespace-nowrap">고객사명</th>
-              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs w-10">메모</th>
-              {showAssignedUser && <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs whitespace-nowrap">담당자</th>}
-              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs whitespace-nowrap">신고없음</th>
-              <th className="text-center px-3 py-3 text-gray-700 font-semibold text-xs whitespace-nowrap">인건비</th>
-              <th className="text-center px-2 py-3 text-gray-500 font-medium text-xs whitespace-nowrap">6개월납</th>
+              <th className="text-left px-4 py-3 text-[#333D4B] font-bold text-xs whitespace-nowrap">고객사명</th>
+              <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs w-10">메모</th>
+              {showAssignedUser && <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs whitespace-nowrap">담당자</th>}
+              <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs whitespace-nowrap">신고없음</th>
+              <th className="text-center px-3 py-3 text-[#333D4B] font-bold text-xs whitespace-nowrap">인건비</th>
+              <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs whitespace-nowrap">6개월납</th>
               {ALL_PROCESS_STEPS.map(step => (
                 <th key={step} className="text-center px-3 py-3 whitespace-nowrap">
-                  <span className="text-[11px] font-semibold text-gray-600">{step}</span>
+                  <span className="text-[11px] font-bold text-[#4E5968]">{step}</span>
                 </th>
               ))}
-              {extraColumns.length > 0 && <th className="w-[1px] px-0 bg-gray-200"></th>}
+              {extraColumns.length > 0 && <th className="w-[1px] px-0 bg-[#E5E8EB]"></th>}
               {extraColumns.map(col => (
                 <th key={col.key} className="text-center px-2 py-3">
-                  <span className="text-[10px] font-medium text-gray-400 leading-tight block whitespace-pre-line">{col.label}</span>
+                  <span className="text-[10px] font-medium text-[#8B95A1] leading-tight block whitespace-pre-line">{col.label}</span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {groups.length === 0 && (
-              <tr><td colSpan={99} className="text-center py-12 text-gray-400">해당하는 거래처가 없습니다</td></tr>
+              <tr><td colSpan={99} className="text-center py-12 text-[#8B95A1]">해당하는 거래처가 없습니다</td></tr>
             )}
             {groups.map((group) => {
               const cfg = group.config;
@@ -374,7 +375,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 <React.Fragment key={group.type || "unassigned"}>
                   {/* 그룹 헤더 행 */}
                   <tr
-                    className={`${cfg ? cfg.bg : "bg-gray-100"} cursor-pointer select-none`}
+                    className={`${cfg ? cfg.bg : "bg-[#F2F4F6]"} cursor-pointer select-none`}
                     onClick={() => setCollapsedGroups(prev => {
                       const next = new Set(prev);
                       const key = group.type || "unassigned";
@@ -382,16 +383,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                       return next;
                     })}
                   >
-                    <td colSpan={totalCols} className="px-4 py-2 border-t border-b border-gray-200">
+                    <td colSpan={totalCols} className="px-4 py-2 border-t border-b border-[#E5E8EB]">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-400 w-3">{collapsedGroups.has(group.type || "unassigned") ? "▶" : "▼"}</span>
+                        <span className="text-[10px] text-[#8B95A1] w-3">{collapsedGroups.has(group.type || "unassigned") ? "▶" : "▼"}</span>
                         {cfg && (
                           <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold border ${cfg.border} ${cfg.color}`}>
                             {group.type}
                           </span>
                         )}
-                        <span className={`text-xs font-semibold ${cfg ? cfg.color : "text-gray-500"}`}>{group.label}</span>
-                        <span className="text-[10px] text-gray-400">{group.clients.length}개</span>
+                        <span className={`text-xs font-bold ${cfg ? cfg.color : "text-[#6B7684]"}`}>{group.label}</span>
+                        <span className="text-[10px] text-[#8B95A1]">{group.clients.length}개</span>
                       </div>
                     </td>
                   </tr>
@@ -412,7 +413,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
 
                     return (
-                      <tr key={client.id} className={`border-b border-gray-50 transition-colors ${checkedIds.has(client.id) ? "bg-blue-100" : allStepsDone ? "bg-green-50/40" : "hover:bg-blue-50/30"}`}>
+                      <tr key={client.id} className={`border-b border-[#F2F4F6] transition-colors ${checkedIds.has(client.id) ? "bg-[#E8F3FF]" : allStepsDone ? "bg-[#F1FBF4]/40" : "hover:bg-[#F5F9FF]/30"}`}>
                         <td className="px-2 py-2">
                           <input
                             type="checkbox"
@@ -430,10 +431,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                               setLastCheckedIdx(currentIdx);
                             }}
                             onChange={() => {}}
-                            className="accent-[#1a2e4a] w-3.5 h-3.5 cursor-pointer"
+                            className="accent-[#3182F6] w-3.5 h-3.5 cursor-pointer"
                           />
                         </td>
-                        <td className="px-4 py-2 text-[#1a2e4a] font-medium">
+                        <td className="px-4 py-2 text-[#191F28] font-medium">
                           <div className="flex items-center gap-1 truncate">
                             {client.name}
                             {client.accountingProgram?.split(",").map(p => p.trim()).map(p => (
@@ -458,7 +459,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                   {laborList.includes("사업소득") && (
                                     <button
                                       onClick={() => window.open(`${baseUrl}/SWBU0102?${params}`, "_blank")}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 whitespace-nowrap shrink-0"
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-[#FFFBEB] text-[#D97706] hover:bg-[#FEF3C7] border border-[#FDE68A] whitespace-nowrap shrink-0"
                                       title="위하고 사업소득자료입력"
                                     >
                                       사업
@@ -539,14 +540,14 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                           alert("위멤버스 업로드 실패: " + String(err));
                                         }
                                       }}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 whitespace-nowrap shrink-0"
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] border border-[#A3CAFD] whitespace-nowrap shrink-0"
                                       title="위멤버스 다운로드+업로드"
                                     >
                                       위멤버스
                                     </button>
                                   )}
                                   {doneMap.has("위멤버스완료") && (
-                                    <span className="ml-0.5 text-[9px] text-green-600 font-bold">✓</span>
+                                    <span className="ml-0.5 text-[9px] text-[#16A865] font-bold">✓</span>
                                   )}
                                 </>
                               );
@@ -556,15 +557,15 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                         <td className="px-1 py-2 text-center">
                           {monthMemo ? (
                             <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: monthMemo })}>
-                              <span className="text-amber-500 text-xs">📌</span>
-                              <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#1a2e4a] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{monthMemo}</div>
+                              <PinIcon width={12} height={12} className="text-[#F59E0B]" />
+                              <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#3182F6] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{monthMemo}</div>
                             </span>
                           ) : (
-                            <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-gray-200 hover:text-amber-500 text-xs">+</button>
+                            <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-[#D1D6DB] hover:text-[#F59E0B] text-xs">+</button>
                           )}
                         </td>
                         {showAssignedUser && (
-                          <td className="px-1 py-2 text-center text-[10px] text-gray-500 truncate">{client.assignedUser?.name ?? "-"}</td>
+                          <td className="px-1 py-2 text-center text-[10px] text-[#6B7684] truncate">{client.assignedUser?.name ?? "-"}</td>
                         )}
                         {/* 신고없음 */}
                         <td className="px-2 py-2 text-center">
@@ -600,7 +601,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                   className={`border rounded px-1 py-0.5 text-[9px] font-medium transition-all ${
                                     isActive
                                       ? `${s.border} ${s.text} ${s.bg}`
-                                      : "border-dashed border-gray-300 text-gray-300 bg-white"
+                                      : "border-dashed border-[#D1D6DB] text-[#B0B8C1] bg-white"
                                   } ${!isBase && isActive ? "ring-1 ring-offset-1 ring-blue-400" : ""} hover:opacity-80 cursor-pointer`}
                                   title={isActive ? `${t} 이번달 제외` : `${t} 이번달 추가`}
                                 >
@@ -608,22 +609,22 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                 </button>
                               );
                             })}
-                            {hasOverride && <span className="text-[9px] text-blue-500" title="이번달 인건비가 기본값과 다릅니다">✎</span>}
+                            {hasOverride && <span className="text-[9px] text-[#3182F6]" title="이번달 인건비가 기본값과 다릅니다">✎</span>}
                           </div>
                         </td>
                         {/* 6개월납 */}
                         <td className="px-2 py-2 text-center">
                           {client.halfYearTax ? (
-                            <span className="bg-orange-50 text-orange-600 border border-orange-300 rounded px-1.5 py-0.5 text-[9px] font-medium">6개월</span>
+                            <span className="bg-[#FFFBEB] text-[#B45309] border border-orange-300 rounded px-1.5 py-0.5 text-[9px] font-medium">6개월</span>
                           ) : (
-                            <span className="text-gray-200 text-[10px]">-</span>
+                            <span className="text-[#D1D6DB] text-[10px]">-</span>
                           )}
                         </td>
                         {/* 프로세스 단계 */}
                         {ALL_PROCESS_STEPS.map(step => (
                           <td key={step} className="px-2 py-2 text-center">
                             {isSkipped ? (
-                              <span className="text-gray-200 text-[10px]">-</span>
+                              <span className="text-[#D1D6DB] text-[10px]">-</span>
                             ) : steps.has(step) ? (
                               <div className="flex justify-center">
                                 <button
@@ -631,8 +632,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                   disabled={isPending}
                                   className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all text-[10px] font-bold ${
                                     doneMap.has(step)
-                                      ? `${cfg?.bg || "bg-gray-100"} ${cfg?.border || "border-gray-300"} ${cfg?.color || "text-gray-600"}`
-                                      : "border-gray-200 text-gray-300 hover:border-gray-400"
+                                      ? `${cfg?.bg || "bg-[#F2F4F6]"} ${cfg?.border || "border-[#D1D6DB]"} ${cfg?.color || "text-[#4E5968]"}`
+                                      : "border-[#E5E8EB] text-[#B0B8C1] hover:border-[#8B95A1]"
                                   }`}
                                   title={step}
                                 >
@@ -640,27 +641,27 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-gray-200 text-[10px]">-</span>
+                              <span className="text-[#D1D6DB] text-[10px]">-</span>
                             )}
                           </td>
                         ))}
                         {/* 구분선 */}
-                        {extraColumns.length > 0 && <td className="w-[1px] px-0 bg-gray-100"></td>}
+                        {extraColumns.length > 0 && <td className="w-[1px] px-0 bg-[#F2F4F6]"></td>}
                         {/* 추가 체크리스트 */}
                         {extraColumns.map(col => (
                           <td key={col.key} className="px-1 py-2 text-center">
                             {isSkipped || client.withholdingType === "D" ? (
-                              <span className="text-gray-200 text-[10px]">-</span>
+                              <span className="text-[#D1D6DB] text-[10px]">-</span>
                             ) : requiredExtraKeys.has(col.key) ? (
                               <input
                                 type="checkbox"
                                 checked={doneMap.has(col.key)}
                                 onChange={() => handleToggle(client.id, col.key)}
                                 disabled={isPending}
-                                className="accent-[#1a2e4a] w-3.5 h-3.5 cursor-pointer"
+                                className="accent-[#3182F6] w-3.5 h-3.5 cursor-pointer"
                               />
                             ) : (
-                              <span className="text-gray-200 text-[10px]">-</span>
+                              <span className="text-[#D1D6DB] text-[10px]">-</span>
                             )}
                           </td>
                         ))}
@@ -680,24 +681,24 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-bold text-gray-900">이번달 특이사항</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{memoModal.clientName}</p>
+                <h3 className="text-base font-bold text-[#191F28]">이번달 특이사항</h3>
+                <p className="text-xs text-[#8B95A1] mt-0.5">{memoModal.clientName}</p>
               </div>
-              <button onClick={() => setMemoModal(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+              <button onClick={() => setMemoModal(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
             </div>
             <textarea
               defaultValue={memoModal.value}
               placeholder="이번달 특이사항을 입력하세요..."
               rows={4}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a] resize-none mb-4"
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] resize-none mb-4"
               id="memo-textarea"
               autoFocus
             />
             <div className="flex gap-2 justify-end">
               {memoModal.value && (
-                <button onClick={() => { startTransition(() => setWithholdingMemo(memoModal.clientId, yearMonth, "")); setMemoModal(null); }} className="text-sm text-red-500 hover:text-red-700 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors">삭제</button>
+                <button onClick={() => { startTransition(() => setWithholdingMemo(memoModal.clientId, yearMonth, "")); setMemoModal(null); }} className="text-sm text-[#E02E2E] hover:text-[#B91C1C] px-4 py-2 rounded-lg hover:bg-[#FEF2F2] transition-colors">삭제</button>
               )}
-              <button onClick={() => setMemoModal(null)} className="text-sm text-gray-500 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">취소</button>
+              <button onClick={() => setMemoModal(null)} className="text-sm text-[#6B7684] px-4 py-2 rounded-lg hover:bg-[#F2F4F6] transition-colors">취소</button>
               <button
                 onClick={() => {
                   const val = (document.getElementById("memo-textarea") as HTMLTextAreaElement)?.value ?? "";
@@ -705,7 +706,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                   setMemoModal(null);
                 }}
                 disabled={isPending}
-                className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
+                className="text-sm bg-[#3182F6] text-white px-5 py-2 rounded-lg hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
               >저장</button>
             </div>
           </div>
@@ -717,39 +718,39 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-gray-900">원천세 신고 검증 결과</h3>
-              <button onClick={() => setVerifyResult(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+              <h3 className="text-base font-bold text-[#191F28]">원천세 신고 검증 결과</h3>
+              <button onClick={() => setVerifyResult(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
             </div>
 
             <div className="flex gap-3 mb-4">
-              <div className="flex-1 bg-gray-50 rounded-lg p-3 text-center">
-                <div className="text-xs text-gray-500">엑셀 신고건수</div>
-                <div className="text-lg font-bold text-gray-800">{verifyResult.excelCount}</div>
+              <div className="flex-1 bg-[#F9FAFB] rounded-lg p-3 text-center">
+                <div className="text-xs text-[#6B7684]">엑셀 신고건수</div>
+                <div className="text-lg font-bold text-[#191F28]">{verifyResult.excelCount}</div>
               </div>
-              <div className="flex-1 bg-gray-50 rounded-lg p-3 text-center">
-                <div className="text-xs text-gray-500">시스템 대상</div>
-                <div className="text-lg font-bold text-gray-800">{verifyResult.clientCount}</div>
+              <div className="flex-1 bg-[#F9FAFB] rounded-lg p-3 text-center">
+                <div className="text-xs text-[#6B7684]">시스템 대상</div>
+                <div className="text-lg font-bold text-[#191F28]">{verifyResult.clientCount}</div>
               </div>
             </div>
 
             {verifyResult.allMatch ? (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                <span className="text-green-700 font-medium">모두 일치합니다</span>
+              <div className="bg-[#F1FBF4] border border-[#BBF7D0] rounded-lg p-4 text-center">
+                <span className="text-[#15803D] font-medium">모두 일치합니다</span>
               </div>
             ) : (
               <div className="space-y-4">
                 {verifyResult.checkedNotInExcel.length > 0 && (
                   <div>
-                    <div className="text-sm font-medium text-red-600 mb-2">
+                    <div className="text-sm font-medium text-[#DC2626] mb-2">
                       체크했는데 신고 안 됨 ({verifyResult.checkedNotInExcel.length}건)
                     </div>
-                    <div className="bg-red-50 border border-red-200 rounded-lg divide-y divide-red-100">
+                    <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-lg divide-y divide-red-100">
                       {verifyResult.checkedNotInExcel.map((c, i) => (
                         <div key={i} className="px-3 py-2 flex items-center justify-between">
-                          <span className="text-sm text-gray-800">{c.name}</span>
+                          <span className="text-sm text-[#191F28]">{c.name}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{c.bizNumber}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-600">{c.type}</span>
+                            <span className="text-xs text-[#8B95A1]">{c.bizNumber}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF2F2] text-[#DC2626]">{c.type}</span>
                           </div>
                         </div>
                       ))}
@@ -758,16 +759,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 )}
                 {verifyResult.notCheckedButInExcel.length > 0 && (
                   <div>
-                    <div className="text-sm font-medium text-amber-600 mb-2">
+                    <div className="text-sm font-medium text-[#D97706] mb-2">
                       체크 안 했는데 신고 됨 ({verifyResult.notCheckedButInExcel.length}건)
                     </div>
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg divide-y divide-amber-100">
+                    <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-lg divide-y divide-amber-100">
                       {verifyResult.notCheckedButInExcel.map((c, i) => (
                         <div key={i} className="px-3 py-2 flex items-center justify-between">
-                          <span className="text-sm text-gray-800">{c.name}</span>
+                          <span className="text-sm text-[#191F28]">{c.name}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{c.bizNumber}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-600">{c.type}</span>
+                            <span className="text-xs text-[#8B95A1]">{c.bizNumber}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#D97706]">{c.type}</span>
                           </div>
                         </div>
                       ))}

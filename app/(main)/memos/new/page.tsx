@@ -19,23 +19,23 @@ export default async function NewMemoPage({
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/memos" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link href="/memos" className="text-[#8B95A1] hover:text-[#4E5968] text-sm">
           ← 메모 목록
         </Link>
-        <h1 className="text-xl font-bold text-gray-800">메모 작성</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">메모 작성</h1>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 max-w-2xl">
+      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6 max-w-2xl">
         <form action={createMemo} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 고객사 (선택)
               </label>
               <select
                 name="clientId"
                 defaultValue={preselectedClientId}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
               >
                 <option value="">전체 공통</option>
                 {clients.map((c) => (
@@ -47,12 +47,12 @@ export default async function NewMemoPage({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#333D4B] mb-1">
                 메모 유형
               </label>
               <select
                 name="memoType"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
               >
                 <option value="general">일반</option>
                 <option value="handover">인수인계</option>
@@ -62,14 +62,14 @@ export default async function NewMemoPage({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              내용 <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-[#333D4B] mb-1">
+              내용 <span className="text-[#E02E2E]">*</span>
             </label>
             <textarea
               name="content"
               required
               rows={6}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6] resize-none"
               placeholder="메모 내용을 입력하세요"
             />
           </div>
@@ -77,13 +77,13 @@ export default async function NewMemoPage({
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
-              className="bg-[#1a2e4a] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+              className="bg-[#3182F6] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors"
             >
               저장
             </button>
             <Link
               href="/memos"
-              className="border border-gray-300 text-gray-600 text-sm px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              className="border border-[#D1D6DB] text-[#4E5968] text-sm px-6 py-2 rounded-lg hover:bg-[#F9FAFB] transition-colors"
             >
               취소
             </Link>

@@ -14,11 +14,11 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export const STATUS_COLORS: Record<string, string> = {
-  scheduled: "bg-blue-100 text-blue-700",
-  in_progress: "bg-yellow-100 text-yellow-700",
-  done: "bg-green-100 text-green-700",
-  hold: "bg-gray-100 text-gray-700",
-  delayed: "bg-red-100 text-red-700",
+  scheduled: "bg-[#eff6ff] text-[#1e40af]",
+  in_progress: "bg-[#fffbeb] text-[#92400e]",
+  done: "bg-[#ecfdf5] text-[#065f46]",
+  hold: "bg-white text-[#4E5968]",
+  delayed: "bg-[#fef2f2] text-[#dc2626]",
 };
 
 export const TASK_TYPE_LABELS: Record<string, string> = {

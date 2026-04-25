@@ -50,12 +50,12 @@ export function WimembersButton() {
       <button
         onClick={handleClick}
         disabled={loading}
-        className="inline-flex items-center gap-2 bg-[#1a2e4a] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors disabled:opacity-50"
+        className="inline-flex items-center gap-2 bg-[#3182F6] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors disabled:opacity-50"
       >
         {loading ? "생성 중..." : "위멤버스 폴더 일괄 생성"}
       </button>
       {progress && (
-        <p className="mt-2 text-xs text-gray-500">{progress}</p>
+        <p className="mt-2 text-xs text-[#6B7684]">{progress}</p>
       )}
     </div>
   );

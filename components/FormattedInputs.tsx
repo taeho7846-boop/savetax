@@ -30,7 +30,7 @@ export function ResidentNumberInput({ defaultValue }: { defaultValue?: string })
       onChange={(e) => {
         e.target.value = formatResidentNumber(e.target.value);
       }}
-      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
     />
   );
 }
@@ -46,7 +46,7 @@ export function BizNumberInput({ defaultValue }: { defaultValue?: string }) {
         const formatted = formatBizNumber(e.target.value);
         e.target.value = formatted;
       }}
-      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
     />
   );
 }
@@ -62,7 +62,7 @@ export function PhoneInput({ defaultValue }: { defaultValue?: string }) {
         const formatted = formatPhone(e.target.value);
         e.target.value = formatted;
       }}
-      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
     />
   );
 }

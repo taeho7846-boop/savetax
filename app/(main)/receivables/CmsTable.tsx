@@ -176,8 +176,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   }
 
   function SortIcon({ col }: { col: SortCol }) {
-    if (sortCol !== col) return <span className="text-gray-300 ml-0.5">↕</span>;
-    return <span className="text-[#1a2e4a] ml-0.5">{sortDir === "asc" ? "↑" : "↓"}</span>;
+    if (sortCol !== col) return <span className="text-[#B0B8C1] ml-0.5">↕</span>;
+    return <span className="text-[#191F28] ml-0.5">{sortDir === "asc" ? "↑" : "↓"}</span>;
   }
 
   function handleCycle(clientId: number) {
@@ -282,15 +282,15 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         disabled={isPending || checkedIds.size === 0}
         className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
           checkedIds.size > 0
-            ? "bg-[#1a2e4a] text-white hover:bg-[#243d61]"
-            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]"
+            : "bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed"
         } disabled:opacity-50`}
       >
         {isPending ? "처리 중..." : `일괄등록${checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}`}
       </button>
 
       {/* CMS 엑셀 검증 업로드 */}
-      <label className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 cursor-pointer">
+      <label className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-[#3182F6] text-white hover:bg-[#1B64DA] cursor-pointer">
         {verifyLoading ? "분석 중..." : "CMS 검증"}
         <input
           ref={fileInputRef}
@@ -307,15 +307,15 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
           type="month"
           value={tiMonth}
           onChange={(e) => setTiMonth(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-1.5 text-sm focus:outline-none focus:border-[#3182F6]"
         />
         <button
           onClick={handleTaxInvoice}
           disabled={isPending || checkedIds.size === 0}
           className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
             checkedIds.size > 0
-              ? "bg-green-600 text-white hover:bg-green-700"
-              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              ? "bg-[#16A865] text-white hover:bg-[#15803D]"
+              : "bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed"
           } disabled:opacity-50`}
         >
           T/I 발행{checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}
@@ -331,47 +331,47 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
           onClick={e => e.stopPropagation()}
         >
           {/* 모달 헤더 */}
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">CMS 등록 검증 결과</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h2 className="text-lg font-bold text-[#191F28]">CMS 등록 검증 결과</h2>
+              <p className="text-sm text-[#6B7684] mt-0.5">
                 내 거래처 {verifyResult.totalClients}건 중 {verifyResult.matched}건 엑셀 매칭
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleVerifyExcelDownload()}
-                className="text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
+                className="text-sm bg-[#16A865] text-white px-3 py-1.5 rounded-lg hover:bg-[#15803D] transition-colors"
               >
                 엑셀 다운로드
               </button>
-              <button onClick={() => setVerifyResult(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+              <button onClick={() => setVerifyResult(null)} className="text-[#8B95A1] hover:text-[#4E5968] text-2xl leading-none">&times;</button>
             </div>
           </div>
 
           {/* 요약 카드 */}
           <div className="px-6 py-3 grid grid-cols-4 gap-3">
-            <div className="bg-orange-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-orange-600">{verifyResult.needsUpdate.length}</div>
-              <div className="text-xs text-orange-600 mt-1">변경 필요</div>
+            <div className="bg-[#FFFBEB] rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-[#B45309]">{verifyResult.needsUpdate.length}</div>
+              <div className="text-xs text-[#B45309] mt-1">변경 필요</div>
             </div>
-            <div className="bg-green-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-green-600">{verifyResult.alreadyDone.length}</div>
-              <div className="text-xs text-green-600 mt-1">이미 일치</div>
+            <div className="bg-[#F1FBF4] rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-[#16A865]">{verifyResult.alreadyDone.length}</div>
+              <div className="text-xs text-[#16A865] mt-1">이미 일치</div>
             </div>
-            <div className="bg-red-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-red-600">{verifyResult.failed.length}</div>
-              <div className="text-xs text-red-600 mt-1">등록실패</div>
+            <div className="bg-[#FEF2F2] rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-[#DC2626]">{verifyResult.failed.length}</div>
+              <div className="text-xs text-[#DC2626] mt-1">등록실패</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-600">{verifyResult.notInExcel.length}</div>
-              <div className="text-xs text-gray-600 mt-1">엑셀에 없음</div>
+            <div className="bg-[#F9FAFB] rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-[#4E5968]">{verifyResult.notInExcel.length}</div>
+              <div className="text-xs text-[#4E5968] mt-1">엑셀에 없음</div>
             </div>
           </div>
 
           {/* 디버그 정보 (임시) */}
           {(verifyResult as any).debug && (
-            <div className="mx-6 mt-2 p-3 bg-gray-100 rounded-lg text-xs text-gray-600">
+            <div className="mx-6 mt-2 p-3 bg-[#F2F4F6] rounded-lg text-xs text-[#4E5968]">
               <div><strong>상호 컬럼:</strong> {(verifyResult as any).debug.tradeNameKey || "없음"} / <strong>회원명 컬럼:</strong> {(verifyResult as any).debug.memberNameKey || "없음"} / <strong>상태 컬럼:</strong> {(verifyResult as any).debug.statusKey || "없음"}</div>
               <div><strong>엑셀 행수:</strong> {(verifyResult as any).debug.totalRows} → <strong>이름 있는 행:</strong> {(verifyResult as any).debug.excelMapSize}</div>
               <div><strong>엑셀 샘플:</strong> {(verifyResult as any).debug.excelSampleNames?.join(", ")}</div>
@@ -384,42 +384,42 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             {/* 1. 변경 필요 (등록성공인데 우리 시스템에서 미등록/등록요청중) */}
             {verifyResult.needsUpdate.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-orange-700 mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-orange-500" />
+                <h3 className="text-sm font-bold text-[#92400E] mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
                   변경 필요 — CMS 등록성공이나 시스템 미반영
                 </h3>
                 <div className="border border-orange-200 rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-orange-50">
+                    <thead className="bg-[#FFFBEB]">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                        <th className="px-3 py-2 text-center text-gray-700">대표자</th>
-                        <th className="px-3 py-2 text-center text-gray-700">CMS 상태</th>
-                        <th className="px-3 py-2 text-center text-gray-700">현재 시스템</th>
-                        <th className="px-3 py-2 text-center text-gray-700">변경</th>
+                        <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">CMS 상태</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">현재 시스템</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">변경</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-orange-100">
                       {verifyResult.needsUpdate.map(item => (
-                        <tr key={item.clientId} className={updatedIds.has(item.clientId) ? "bg-green-50" : ""}>
-                          <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
-                          <td className="px-3 py-2 text-center text-gray-600">{item.ceoName || "-"}</td>
+                        <tr key={item.clientId} className={updatedIds.has(item.clientId) ? "bg-[#F1FBF4]" : ""}>
+                          <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                          <td className="px-3 py-2 text-center text-[#4E5968]">{item.ceoName || "-"}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full">{item.excelStatus}</span>
+                            <span className="text-xs text-[#15803D] bg-[#E7F7EE] px-2 py-0.5 rounded-full">{item.excelStatus}</span>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              item.currentStatus === "pending" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
+                              item.currentStatus === "pending" ? "bg-[#FEF3C7] text-[#B45309]" : "bg-[#F2F4F6] text-[#6B7684]"
                             }`}>{statusLabel(item.currentStatus)}</span>
                           </td>
                           <td className="px-3 py-2 text-center">
                             {updatedIds.has(item.clientId) ? (
-                              <span className="text-xs text-green-600 font-medium">완료</span>
+                              <span className="text-xs text-[#16A865] font-medium">완료</span>
                             ) : (
                               <button
                                 onClick={() => handleUpdateSingle(item.clientId, "done")}
                                 disabled={isPending}
-                                className="text-xs px-3 py-1 rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+                                className="text-xs px-3 py-1 rounded-lg bg-[#F59E0B] text-white hover:bg-[#B45309] disabled:opacity-50"
                               >
                                 등록으로 변경
                               </button>
@@ -436,49 +436,49 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             {/* 2. 등록실패 */}
             {verifyResult.failed.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                <h3 className="text-sm font-bold text-[#B91C1C] mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#E02E2E]" />
                   등록실패 — CMS 사이트에서 실패 처리된 건
                 </h3>
-                <div className="border border-red-200 rounded-lg overflow-hidden">
+                <div className="border border-[#FECACA] rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-red-50">
+                    <thead className="bg-[#FEF2F2]">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                        <th className="px-3 py-2 text-center text-gray-700">대표자</th>
-                        <th className="px-3 py-2 text-center text-gray-700">실패 사유</th>
-                        <th className="px-3 py-2 text-center text-gray-700">현재 시스템</th>
-                        <th className="px-3 py-2 text-center text-gray-700">변경</th>
+                        <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">실패 사유</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">현재 시스템</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">변경</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-red-100">
                       {verifyResult.failed.map(item => (
-                        <tr key={item.clientId} className={updatedIds.has(item.clientId) ? "bg-green-50" : ""}>
-                          <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
-                          <td className="px-3 py-2 text-center text-gray-600">{item.ceoName || "-"}</td>
+                        <tr key={item.clientId} className={updatedIds.has(item.clientId) ? "bg-[#F1FBF4]" : ""}>
+                          <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                          <td className="px-3 py-2 text-center text-[#4E5968]">{item.ceoName || "-"}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className="text-xs text-red-700 bg-red-100 px-2 py-0.5 rounded-full">{item.excelStatus}</span>
+                            <span className="text-xs text-[#B91C1C] bg-[#FEF2F2] px-2 py-0.5 rounded-full">{item.excelStatus}</span>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              item.currentStatus === "done" ? "bg-green-100 text-green-700"
-                              : item.currentStatus === "pending" ? "bg-amber-100 text-amber-700"
-                              : "bg-gray-100 text-gray-500"
+                              item.currentStatus === "done" ? "bg-[#E7F7EE] text-[#15803D]"
+                              : item.currentStatus === "pending" ? "bg-[#FEF3C7] text-[#B45309]"
+                              : "bg-[#F2F4F6] text-[#6B7684]"
                             }`}>{statusLabel(item.currentStatus)}</span>
                           </td>
                           <td className="px-3 py-2 text-center">
                             {updatedIds.has(item.clientId) ? (
-                              <span className="text-xs text-green-600 font-medium">완료</span>
+                              <span className="text-xs text-[#16A865] font-medium">완료</span>
                             ) : item.currentStatus !== "none" ? (
                               <button
                                 onClick={() => handleUpdateSingle(item.clientId, "none")}
                                 disabled={isPending}
-                                className="text-xs px-3 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+                                className="text-xs px-3 py-1 rounded-lg bg-[#E02E2E] text-white hover:bg-[#DC2626] disabled:opacity-50"
                               >
                                 미등록으로 변경
                               </button>
                             ) : (
-                              <span className="text-xs text-gray-400">변경 불필요</span>
+                              <span className="text-xs text-[#8B95A1]">변경 불필요</span>
                             )}
                           </td>
                         </tr>
@@ -492,33 +492,33 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             {/* 3. 일시정지 */}
             {verifyResult.paused.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-gray-400" />
+                <h3 className="text-sm font-bold text-[#333D4B] mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#8B95A1]" />
                   일시정지
                 </h3>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-[#F9FAFB]">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                        <th className="px-3 py-2 text-center text-gray-700">대표자</th>
-                        <th className="px-3 py-2 text-center text-gray-700">상태</th>
-                        <th className="px-3 py-2 text-center text-gray-700">현재 시스템</th>
+                        <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">상태</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">현재 시스템</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-[#F2F4F6]">
                       {verifyResult.paused.map(item => (
                         <tr key={item.clientId}>
-                          <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
-                          <td className="px-3 py-2 text-center text-gray-600">{item.ceoName || "-"}</td>
+                          <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                          <td className="px-3 py-2 text-center text-[#4E5968]">{item.ceoName || "-"}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className="text-xs text-gray-700 bg-gray-200 px-2 py-0.5 rounded-full">{item.excelStatus}</span>
+                            <span className="text-xs text-[#333D4B] bg-[#E5E8EB] px-2 py-0.5 rounded-full">{item.excelStatus}</span>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              item.currentStatus === "done" ? "bg-green-100 text-green-700"
-                              : item.currentStatus === "pending" ? "bg-amber-100 text-amber-700"
-                              : "bg-gray-100 text-gray-500"
+                              item.currentStatus === "done" ? "bg-[#E7F7EE] text-[#15803D]"
+                              : item.currentStatus === "pending" ? "bg-[#FEF3C7] text-[#B45309]"
+                              : "bg-[#F2F4F6] text-[#6B7684]"
                             }`}>{statusLabel(item.currentStatus)}</span>
                           </td>
                         </tr>
@@ -532,26 +532,26 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             {/* 4. 이미 일치 */}
             {verifyResult.alreadyDone.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                <h3 className="text-sm font-bold text-[#15803D] mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#1AB266]" />
                   이미 일치 — CMS 등록성공 + 시스템 등록 완료
                 </h3>
-                <div className="border border-green-200 rounded-lg overflow-hidden">
+                <div className="border border-[#BBF7D0] rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-green-50">
+                    <thead className="bg-[#F1FBF4]">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                        <th className="px-3 py-2 text-center text-gray-700">대표자</th>
-                        <th className="px-3 py-2 text-center text-gray-700">CMS 상태</th>
+                        <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">CMS 상태</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-green-100">
                       {verifyResult.alreadyDone.map(item => (
                         <tr key={item.clientId}>
-                          <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
-                          <td className="px-3 py-2 text-center text-gray-600">{item.ceoName || "-"}</td>
+                          <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                          <td className="px-3 py-2 text-center text-[#4E5968]">{item.ceoName || "-"}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full">{item.excelStatus}</span>
+                            <span className="text-xs text-[#15803D] bg-[#E7F7EE] px-2 py-0.5 rounded-full">{item.excelStatus}</span>
                           </td>
                         </tr>
                       ))}
@@ -564,29 +564,29 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             {/* 5. 엑셀에 없는 내 거래처 */}
             {verifyResult.notInExcel.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-gray-300" />
+                <h3 className="text-sm font-bold text-[#6B7684] mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#D1D6DB]" />
                   엑셀에 없음 — CMS 미등록 추정 ({verifyResult.notInExcel.length}건)
                 </h3>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-[#F9FAFB]">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                        <th className="px-3 py-2 text-center text-gray-700">대표자</th>
-                        <th className="px-3 py-2 text-center text-gray-700">현재 시스템</th>
+                        <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
+                        <th className="px-3 py-2 text-center text-[#333D4B]">현재 시스템</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-[#F2F4F6]">
                       {verifyResult.notInExcel.map(item => (
                         <tr key={item.clientId}>
-                          <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
-                          <td className="px-3 py-2 text-center text-gray-600">{item.ceoName || "-"}</td>
+                          <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                          <td className="px-3 py-2 text-center text-[#4E5968]">{item.ceoName || "-"}</td>
                           <td className="px-3 py-2 text-center">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              item.currentStatus === "done" ? "bg-green-100 text-green-700"
-                              : item.currentStatus === "pending" ? "bg-amber-100 text-amber-700"
-                              : "bg-gray-100 text-gray-500"
+                              item.currentStatus === "done" ? "bg-[#E7F7EE] text-[#15803D]"
+                              : item.currentStatus === "pending" ? "bg-[#FEF3C7] text-[#B45309]"
+                              : "bg-[#F2F4F6] text-[#6B7684]"
                             }`}>{statusLabel(item.currentStatus)}</span>
                           </td>
                         </tr>
@@ -601,16 +601,16 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       </div>
     )}
 
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b border-gray-100">
+        <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6]">
           <tr>
             <th className="px-3 py-3 w-10">
               <input
                 type="checkbox"
                 checked={rows.length > 0 && checkedIds.size === rows.length}
                 onChange={toggleAll}
-                className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                className="accent-[#3182F6] w-4 h-4 cursor-pointer"
               />
             </th>
             {([
@@ -618,47 +618,47 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               { key: "ceoName" as SortCol, label: "대표자명" },
               { key: "monthlyFee" as SortCol, label: "월 기장료" },
             ]).map(({ key, label }) => (
-              <th key={key} className="text-center px-4 py-3 text-gray-700 font-medium">
+              <th key={key} className="text-center px-4 py-3 text-[#333D4B] font-medium">
                 <button
                   onClick={() => handleSort(key)}
-                  className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
+                  className="flex items-center justify-center mx-auto hover:text-[#191F28]"
                 >
                   {label}
                   <SortIcon col={key} />
                 </button>
               </th>
             ))}
-            <th className="text-center px-3 py-3 text-gray-500 font-medium text-xs">출금정보</th>
+            <th className="text-center px-3 py-3 text-[#6B7684] font-medium text-xs">출금정보</th>
 
-            <th className="text-center px-4 py-3 text-gray-700 font-medium">
+            <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
               <div className="relative inline-block" ref={filterRef}>
                 <button
                   onClick={() => setFilterOpen((o) => !o)}
-                  className={`flex items-center gap-1 mx-auto hover:text-[#1a2e4a] ${monthFilter.length > 0 ? "text-[#1a2e4a] font-semibold" : ""}`}
+                  className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${monthFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
                 >
                   최초 출금월
                   {monthFilter.length > 0 && (
-                    <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                    <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
                       {monthFilter.length}
                     </span>
                   )}
-                  <span className="text-gray-400 text-[10px]">▼</span>
+                  <span className="text-[#8B95A1] text-[10px]">▼</span>
                 </button>
                 {filterOpen && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[140px] max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[140px] max-h-60 overflow-y-auto">
                     {allMonths.length === 0 ? (
-                      <p className="text-xs text-gray-400 px-2 py-1">데이터 없음</p>
+                      <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
                     ) : (
                       allMonths.map((m) => (
                         <label
                           key={m}
-                          className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-700 whitespace-nowrap"
+                          className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap"
                         >
                           <input
                             type="checkbox"
                             checked={monthFilter.includes(m)}
                             onChange={() => toggleMonth(m)}
-                            className="accent-[#1a2e4a]"
+                            className="accent-[#3182F6]"
                           />
                           {m}
                         </label>
@@ -667,7 +667,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                     {monthFilter.length > 0 && (
                       <button
                         onClick={() => setMonthFilter([])}
-                        className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1 pt-1 border-t border-gray-100"
+                        className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]"
                       >
                         초기화
                       </button>
@@ -677,47 +677,47 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               </div>
             </th>
 
-            <th className="text-center px-4 py-3 text-gray-700 font-medium">
+            <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
               <div className="relative inline-block" ref={affFilterRef}>
                 <button
                   onClick={() => setAffFilterOpen(o => !o)}
-                  className={`flex items-center gap-1 mx-auto hover:text-[#1a2e4a] ${affFilter.length > 0 ? "text-[#1a2e4a] font-semibold" : ""}`}
+                  className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${affFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
                 >
                   소속
                   {affFilter.length > 0 && (
-                    <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{affFilter.length}</span>
+                    <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{affFilter.length}</span>
                   )}
-                  <span className="text-gray-400 text-[10px]">▼</span>
+                  <span className="text-[#8B95A1] text-[10px]">▼</span>
                 </button>
                 {affFilterOpen && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[120px]">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[120px]">
                     {affOptions.length === 0 ? (
-                      <p className="text-xs text-gray-400 px-2 py-1">데이터 없음</p>
+                      <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
                     ) : (
                       affOptions.map(aff => (
-                        <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-700 whitespace-nowrap">
+                        <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap">
                           <input
                             type="checkbox"
                             checked={affFilter.includes(aff)}
                             onChange={() => setAffFilter(prev => prev.includes(aff) ? prev.filter(v => v !== aff) : [...prev, aff])}
-                            className="accent-[#1a2e4a]"
+                            className="accent-[#3182F6]"
                           />
                           {aff}
                         </label>
                       ))
                     )}
                     {affFilter.length > 0 && (
-                      <button onClick={() => setAffFilter([])} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1 pt-1 border-t border-gray-100">초기화</button>
+                      <button onClick={() => setAffFilter([])} className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]">초기화</button>
                     )}
                   </div>
                 )}
               </div>
             </th>
 
-            <th className="text-center px-4 py-3 text-gray-700 font-medium">
+            <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
               <button
                 onClick={() => handleSort("cmsStatus")}
-                className="flex items-center justify-center mx-auto hover:text-[#1a2e4a]"
+                className="flex items-center justify-center mx-auto hover:text-[#191F28]"
               >
                 CMS 등록여부
                 <SortIcon col="cmsStatus" />
@@ -725,10 +725,10 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-[#F2F4F6]">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={8} className="text-center py-12 text-gray-500">
+              <td colSpan={8} className="text-center py-12 text-[#6B7684]">
                 {monthFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
               </td>
             </tr>
@@ -743,10 +743,10 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 key={client.id}
                 className={`transition-colors ${
                   isOverdue
-                    ? "bg-orange-50 hover:bg-orange-100"
+                    ? "bg-[#FFFBEB] hover:bg-[#FEF3C7]"
                     : checkedIds.has(client.id)
-                    ? "bg-blue-50/50 hover:bg-blue-50"
-                    : "hover:bg-blue-50/50"
+                    ? "bg-[#F5F9FF]/50 hover:bg-[#F5F9FF]"
+                    : "hover:bg-[#F5F9FF]/50"
                 }`}
               >
                 <td className="px-3 py-3">
@@ -755,38 +755,38 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                     checked={checkedIds.has(client.id)}
                     onClick={(e) => { e.stopPropagation(); toggleCheck(client.id, e as unknown as React.MouseEvent); }}
                     onChange={() => {}}
-                    className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                    className="accent-[#3182F6] w-4 h-4 cursor-pointer"
                   />
                 </td>
-                <td className="px-4 py-3 text-center text-[#1a2e4a] font-medium">{client.name}</td>
-                <td className="px-4 py-3 text-center text-gray-800">{client.ceoName || <span className="text-gray-400">-</span>}</td>
-                <td className="px-4 py-3 text-center text-gray-800">
-                  {client.monthlyFee != null ? `${client.monthlyFee.toLocaleString()}원` : <span className="text-gray-400">-</span>}
+                <td className="px-4 py-3 text-center text-[#191F28] font-medium">{client.name}</td>
+                <td className="px-4 py-3 text-center text-[#191F28]">{client.ceoName || <span className="text-[#8B95A1]">-</span>}</td>
+                <td className="px-4 py-3 text-center text-[#191F28]">
+                  {client.monthlyFee != null ? `${client.monthlyFee.toLocaleString()}원` : <span className="text-[#8B95A1]">-</span>}
                 </td>
                 <td className="px-3 py-3 text-center">
                   {client.bankName || client.bankAccount ? (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-[#6B7684]">
                       <span>{client.bankName || "-"}</span>
                       {client.bankAccount && (
-                        <div className="text-[10px] text-gray-400">{client.bankAccount}</div>
+                        <div className="text-[10px] text-[#8B95A1]">{client.bankAccount}</div>
                       )}
                     </div>
                   ) : (
-                    <span className="text-[10px] text-red-400">미입력</span>
+                    <span className="text-[10px] text-[#F87171]">미입력</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-center text-gray-800">{client.firstWithdrawalMonth || <span className="text-gray-400">-</span>}</td>
-                <td className="px-4 py-3 text-center text-xs text-gray-600">{client.affiliation || <span className="text-gray-300">-</span>}</td>
+                <td className="px-4 py-3 text-center text-[#191F28]">{client.firstWithdrawalMonth || <span className="text-[#8B95A1]">-</span>}</td>
+                <td className="px-4 py-3 text-center text-xs">{client.affiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.affiliation ? <span className="text-[#4E5968]">{client.affiliation}</span> : <span className="text-[#B0B8C1]">-</span>}</td>
                 <td className="px-4 py-3 text-center">
                   <button
                     onClick={() => handleCycle(client.id)}
                     disabled={isPending}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       client.cmsStatus === "done"
-                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                        ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
                         : client.cmsStatus === "pending"
-                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        ? "bg-[#FEF3C7] text-[#B45309] hover:bg-[#FDE68A]"
+                        : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
                     }`}
                   >
                     {client.cmsStatus === "done" ? "등록" : client.cmsStatus === "pending" ? "등록요청중" : "미등록"}

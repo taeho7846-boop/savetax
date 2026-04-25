@@ -139,11 +139,11 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="bg-gradient-to-r from-[#1a2e4a] to-[#2a4a6a] px-6 py-4 sticky top-0 z-10">
+        <div className="bg-gradient-to-r from-[#3182F6] to-[#2a4a6a] px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xl">🧮</span>
-              <h2 className="text-white font-semibold text-lg">근로소득세 계산기</h2>
+              <h2 className="text-white font-bold text-lg">근로소득세 계산기</h2>
             </div>
             <button onClick={onClose} className="text-white/60 hover:text-white text-2xl leading-none">&times;</button>
           </div>
@@ -153,11 +153,11 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
         {/* 입력 */}
         <div className="px-6 py-5 space-y-4">
           {/* 근로자/법인대표 선택 */}
-          <div className="flex bg-gray-100 rounded-xl p-1">
+          <div className="flex bg-[#F2F4F6] rounded-xl p-1">
             <button
               onClick={() => setType("worker")}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                type === "worker" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                type === "worker" ? "bg-white text-[#3182F6] shadow-sm" : "text-[#6B7684] hover:text-[#333D4B]"
               }`}
             >
               근로자
@@ -165,7 +165,7 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => setType("ceo")}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                type === "ceo" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                type === "ceo" ? "bg-white text-[#3182F6] shadow-sm" : "text-[#6B7684] hover:text-[#333D4B]"
               }`}
             >
               법인 대표
@@ -173,11 +173,11 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* 세전/세후 모드 */}
-          <div className="flex bg-gray-100 rounded-xl p-1">
+          <div className="flex bg-[#F2F4F6] rounded-xl p-1">
             <button
               onClick={() => { setMode("gross"); setSalary(""); }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                mode === "gross" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                mode === "gross" ? "bg-white text-[#3182F6] shadow-sm" : "text-[#6B7684] hover:text-[#333D4B]"
               }`}
             >
               세전 → 세후
@@ -185,7 +185,7 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => { setMode("net"); setSalary(""); }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                mode === "net" ? "bg-white text-[#1a2e4a] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                mode === "net" ? "bg-white text-[#3182F6] shadow-sm" : "text-[#6B7684] hover:text-[#333D4B]"
               }`}
             >
               세후 → 세전 (넷트제)
@@ -193,7 +193,7 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+            <label className="text-xs font-medium text-[#6B7684] mb-1.5 block">
               {mode === "gross" ? "월 급여 (세전)" : "희망 실수령액 (세후)"}
             </label>
             <div className="relative">
@@ -202,32 +202,32 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
                 value={salary}
                 onChange={e => handleNumInput(e.target.value, setSalary)}
                 placeholder="3,000,000"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-lg font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 focus:border-[#1a2e4a] text-right pr-10"
+                className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-lg font-bold text-[#191F28] focus:outline-none focus:border-[#3182F6] text-right pr-10"
                 autoFocus
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[#8B95A1]">원</span>
             </div>
           </div>
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs font-medium text-gray-500 mb-1.5 block">비과세 (식대 등)</label>
+              <label className="text-xs font-medium text-[#6B7684] mb-1.5 block">비과세 (식대 등)</label>
               <div className="relative">
                 <input
                   type="text"
                   value={nonTaxable}
                   onChange={e => handleNumInput(e.target.value, setNonTaxable)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 text-right pr-8"
+                  className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] text-right pr-8"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8B95A1]">원</span>
               </div>
             </div>
             <div className="w-28">
-              <label className="text-xs font-medium text-gray-500 mb-1.5 block">부양가족 수</label>
+              <label className="text-xs font-medium text-[#6B7684] mb-1.5 block">부양가족 수</label>
               <select
                 value={dependents}
                 onChange={e => setDependents(parseInt(e.target.value))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30"
+                className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
                   <option key={n} value={n}>{n}명</option>
@@ -244,27 +244,27 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
             {mode === "net" ? (
               <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-600">필요 세전 급여</span>
+                  <span className="text-sm font-medium text-[#4E5968]">필요 세전 급여</span>
                   <span className="text-2xl font-bold text-emerald-700">{fmt(grossSalary)}원</span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-400">실수령액</span>
-                  <span className="text-sm text-gray-600 font-medium">{fmt(netPay)}원</span>
+                  <span className="text-xs text-[#8B95A1]">실수령액</span>
+                  <span className="text-sm text-[#4E5968] font-medium">{fmt(netPay)}원</span>
                 </div>
                 <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-xs text-gray-400">총 공제액</span>
-                  <span className="text-sm text-red-500 font-medium">-{fmt(totalDeduction)}원</span>
+                  <span className="text-xs text-[#8B95A1]">총 공제액</span>
+                  <span className="text-sm text-[#E02E2E] font-medium">-{fmt(totalDeduction)}원</span>
                 </div>
               </div>
             ) : (
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-600">예상 실수령액</span>
-                  <span className="text-2xl font-bold text-[#1a2e4a]">{fmt(netPay)}원</span>
+                  <span className="text-sm font-medium text-[#4E5968]">예상 실수령액</span>
+                  <span className="text-2xl font-bold text-[#3182F6]">{fmt(netPay)}원</span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-400">총 공제액</span>
-                  <span className="text-sm text-red-500 font-medium">-{fmt(totalDeduction)}원</span>
+                  <span className="text-xs text-[#8B95A1]">총 공제액</span>
+                  <span className="text-sm text-[#E02E2E] font-medium">-{fmt(totalDeduction)}원</span>
                 </div>
               </div>
             )}
@@ -275,25 +275,25 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
               <Row label="건강보험" rate={`${(RATES.health * 100).toFixed(2)}%`} amount={health} />
               <Row label="장기요양보험" rate={`건보 ${(RATES.longcare * 100).toFixed(2)}%`} amount={longcare} />
               {!isCeo && <Row label="고용보험" rate={`${(RATES.employment * 100).toFixed(1)}%`} amount={employment} />}
-              <div className="flex items-center justify-between py-1.5 bg-gray-50/50 -mx-2 px-2 rounded border-b border-gray-100">
-                <span className="text-xs font-medium text-gray-600">{isCeo ? "3대보험 소계" : "4대보험 소계"}</span>
-                <span className="text-xs font-bold text-gray-800">{fmt(insuranceTotal)}원</span>
+              <div className="flex items-center justify-between py-1.5 bg-[#F9FAFB]/50 -mx-2 px-2 rounded border-b border-[#F2F4F6]">
+                <span className="text-xs font-medium text-[#4E5968]">{isCeo ? "3대보험 소계" : "4대보험 소계"}</span>
+                <span className="text-xs font-bold text-[#191F28]">{fmt(insuranceTotal)}원</span>
               </div>
               <Row label="소득세" rate="" amount={incomeTax} className="mt-1" />
               <Row label="지방소득세" rate="소득세 10%" amount={localTax} />
-              <div className="flex items-center justify-between py-1.5 bg-gray-50/50 -mx-2 px-2 rounded">
-                <span className="text-xs font-medium text-gray-600">세금 소계</span>
-                <span className="text-xs font-bold text-gray-800">{fmt(taxTotal)}원</span>
+              <div className="flex items-center justify-between py-1.5 bg-[#F9FAFB]/50 -mx-2 px-2 rounded">
+                <span className="text-xs font-medium text-[#4E5968]">세금 소계</span>
+                <span className="text-xs font-bold text-[#191F28]">{fmt(taxTotal)}원</span>
               </div>
             </div>
 
             {isCeo && (
-              <div className="mt-3 px-3 py-2 bg-amber-50 rounded-lg">
-                <p className="text-[11px] text-amber-700">법인 대표는 고용보험 가입 대상이 아닙니다</p>
+              <div className="mt-3 px-3 py-2 bg-[#FFFBEB] rounded-lg">
+                <p className="text-[11px] text-[#B45309]">법인 대표는 고용보험 가입 대상이 아닙니다</p>
               </div>
             )}
 
-            <p className="text-[10px] text-gray-400 mt-3 text-center">
+            <p className="text-[10px] text-[#8B95A1] mt-3 text-center">
               * 2026년 요율 기준 예상치이며, 실제 세액과 다를 수 있습니다
             </p>
           </div>
@@ -305,12 +305,12 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
 
 function Row({ label, rate, amount, className = "" }: { label: string; rate: string; amount: number; className?: string }) {
   return (
-    <div className={`flex items-center justify-between py-1.5 border-b border-gray-100 ${className}`}>
+    <div className={`flex items-center justify-between py-1.5 border-b border-[#F2F4F6] ${className}`}>
       <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500">{label}</span>
-        {rate && <span className="text-[10px] text-gray-400">{rate}</span>}
+        <span className="text-xs text-[#6B7684]">{label}</span>
+        {rate && <span className="text-[10px] text-[#8B95A1]">{rate}</span>}
       </div>
-      <span className="text-xs font-medium text-gray-700">{fmt(amount)}원</span>
+      <span className="text-xs font-medium text-[#333D4B]">{fmt(amount)}원</span>
     </div>
   );
 }

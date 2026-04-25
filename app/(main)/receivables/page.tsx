@@ -113,17 +113,17 @@ export default async function ReceivablesPage({
     <div>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-900">채권 관리</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">채권 관리</h1>
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
+      <div className="flex gap-1 mb-6 border-b border-[#E5E8EB]">
         <Link
           href={`/receivables?year=${year}&tab=receivables`}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "receivables"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "border-[#3182F6] text-[#191F28]"
+              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
           }`}
         >
           채권
@@ -132,8 +132,8 @@ export default async function ReceivablesPage({
           href={`/receivables?year=${year}&tab=cms`}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "cms"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "border-[#3182F6] text-[#191F28]"
+              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
           }`}
         >
           CMS
@@ -149,16 +149,16 @@ export default async function ReceivablesPage({
         <div className="flex items-center gap-2">
           <Link
             href={`/receivables?year=${year - 1}&tab=receivables`}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+            className="px-3 py-1.5 text-sm border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] hover:bg-[#F9FAFB] text-[#4E5968]"
           >
             ← {year - 1}년
           </Link>
-          <span className="px-4 py-1.5 text-sm font-bold text-[#1a2e4a] bg-[#f0f4f8] rounded-lg">
+          <span className="px-4 py-1.5 text-sm font-bold text-[#191F28] bg-[#f0f4f8] rounded-lg">
             {year}년
           </span>
           <Link
             href={`/receivables?year=${year + 1}&tab=receivables`}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+            className="px-3 py-1.5 text-sm border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] hover:bg-[#F9FAFB] text-[#4E5968]"
           >
             {year + 1}년 →
           </Link>
@@ -173,18 +173,18 @@ export default async function ReceivablesPage({
           defaultValue={q}
           placeholder="고객사명 검색"
           autoComplete="off"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 flex-1 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] flex-1 focus:outline-none focus:border-[#3182F6]"
         />
         <button
           type="submit"
-          className="bg-gray-100 border border-gray-300 text-gray-800 text-sm px-4 py-2 rounded-lg hover:bg-gray-200"
+          className="bg-[#F2F4F6] border border-[#D1D6DB] text-[#191F28] text-sm px-4 py-2 rounded-lg hover:bg-[#E5E8EB]"
         >
           검색
         </button>
         {q && (
           <Link
             href={`/receivables?year=${year}`}
-            className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50"
+            className="border border-[#D1D6DB] text-[#4E5968] text-sm px-4 py-2 rounded-lg hover:bg-[#F9FAFB]"
           >
             초기화
           </Link>
@@ -199,7 +199,7 @@ export default async function ReceivablesPage({
       />
 
       {clients.length === 0 && (
-        <p className="text-center text-sm text-gray-400 mt-4">
+        <p className="text-center text-sm text-[#8B95A1] mt-4">
           고객사 수정에서 <strong>월 기장료</strong>와 <strong>최초 출금월</strong>을 입력하면 여기에 표시됩니다.
         </p>
       )}

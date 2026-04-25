@@ -1,9 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 import Link from "next/link";
-import { CmsPendingCard } from "./CmsPendingCard";
 import { FeedbackBoard } from "./FeedbackBoard";
 import { getFeedbacks } from "@/app/actions/feedback";
 import { TempMemoBox } from "./TempMemoBox";
@@ -13,11 +11,12 @@ import { getNotices } from "@/app/actions/notice";
 import { KnowledgeBoard } from "./KnowledgeBoard";
 import { getKnowledges } from "@/app/actions/knowledge";
 import { DashboardTabs } from "./DashboardTabs";
-import { TransferDocsCard } from "./TransferDocsCard";
-import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard, TransferRequestCard } from "./ProcessCards";
+import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard } from "./ProcessCards";
 import type { TransferItem } from "./ProcessCards";
-import { NewDistributionCard } from "./NewDistributionCard";
+import { TopStripPills } from "./TopStripPills";
 import { UnpaidCard } from "./UnpaidCard";
+import { PhoneClientViewer } from "./PhoneClientViewer";
+import { PhonePopupButton } from "./PhonePopupButton";
 
 export default async function DashboardPage({
   searchParams,
@@ -99,7 +98,7 @@ export default async function DashboardPage({
       getTempMemos(),
       prisma.client.findMany({
         where: { isDeleted: false, assignedUserId: session.id },
-        select: { id: true, name: true },
+        select: { id: true, name: true, bizNumber: true, ceoName: true, phone: true, laborTypes: true },
         orderBy: { name: "asc" },
       }),
       getNotices(),
@@ -322,146 +321,126 @@ export default async function DashboardPage({
     }
   }
 
+  // 이름 추출 (성 제외, 한국 복성 8개 예외 처리)
+  const getFirstName = (n?: string | null) => {
+    if (!n) return "";
+    const compound = ["남궁", "황보", "선우", "제갈", "사공", "서문", "독고", "동방"];
+    return compound.some((s) => n.startsWith(s)) ? n.slice(2) : n.slice(1);
+  };
+  const firstName = getFirstName(session.name);
+
+  // 시간대 인사 (KST 기준)
+  const kstHour = (new Date().getUTCHours() + 9) % 24;
+  const greeting =
+    kstHour < 11
+      ? "좋은 아침이에요"
+      : kstHour < 14
+      ? "점심은 드셨나요"
+      : kstHour < 18
+      ? "오후도 힘내요"
+      : kstHour < 22
+      ? "고생 많으셨어요"
+      : "늦게까지 수고하세요";
+
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-800 mb-5">대시보드</h1>
+      {/* 히어로: 개인화 인사 */}
+      {activeTab === "overview" ? (
+        <div className="mb-5">
+          <div className="text-[13.5px] text-[#6B7684] font-[500]">
+            {firstName}님, {greeting}
+          </div>
+          <div className="text-[28px] font-bold text-[#191F28] mt-1 tracking-tight leading-[1.3]">
+            {todayTasks.length > 0 ? (
+              <>
+                오늘 처리할 업무{" "}
+                <span className="text-[#3182F6]">{todayTasks.length}건</span>
+                이에요
+              </>
+            ) : (
+              "오늘 할 일을 모두 완료했어요"
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6">
+          <div className="text-[13.5px] text-[#6B7684] font-[500]">
+            {firstName}님, {greeting}
+          </div>
+        </div>
+      )}
 
       {/* 서브탭 */}
       <DashboardTabs activeTab={activeTab} tempMemoCount={tempMemosData.length} />
 
       {/* 현황 탭 */}
-      {activeTab === "overview" && (
+      {activeTab === "overview" && (() => {
+        const userName = session.name || "";
+        const filteredDist = userName === "이휘언"
+          ? newDistributions.filter((d: any) => d.clientType?.startsWith("taeho_"))
+          : newDistributions.filter((d: any) => !d.clientType?.startsWith("taeho_"));
+        return (
         <>
-          {/* 알림 행 (2분할) */}
-          {/* 배분 알림 필터: taeho_ 건은 세무회계태호 배분 전용 → 김태호는 taeho_ 건 제외 */}
-          {(() => {
-            const userName = session.name || "";
-            // 세무회계태호 배분 대상: 김태호, 이휘언
-            // 김태호 → taeho_ 건 제외 (Savetax 배분 건만)
-            // 이휘언 → taeho_ 건만
-            // 그 외 → taeho_ 건 제외
-            const filteredDist = userName === "이휘언"
-              ? newDistributions.filter((d: any) => d.clientType?.startsWith("taeho_"))
-              : newDistributions.filter((d: any) => !d.clientType?.startsWith("taeho_"));
-            return (filteredDist.length > 0 || tempMemosData.length > 0) && (
-            <div className="grid grid-cols-2 gap-4 mb-5">
-              {tempMemosData.length > 0 ? (
-                <Link href="/dashboard?tab=memo" className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 hover:bg-purple-100 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">💬</span>
-                    <span className="text-sm font-medium text-purple-800">텔레그램 메모 {tempMemosData.length}건</span>
-                    <span className="text-xs text-purple-500 ml-auto">정리하기 →</span>
-                  </div>
-                </Link>
-              ) : <div />}
-              {filteredDist.length > 0 ? (
-                <NewDistributionCard count={filteredDist.length} ids={filteredDist.map((d: any) => d.id)} />
-              ) : <div />}
-            </div>
-          );
-          })()}
+          {/* 통계 바 + 액션 알림 Pills (한 줄) */}
+          <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] mb-6 px-5 py-3 flex items-center gap-5 flex-wrap">
+            <Link href="/clients" className="flex items-center gap-2 group">
+              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">관리 고객사</span>
+              <span className="text-[18px] font-bold text-[#191F28] group-hover:text-[#3182F6] transition-colors tracking-tight">{totalClients}</span>
+            </Link>
+            <div className="w-px h-5 bg-[#E5E8EB]" />
+            <Link href="/tasks" className="flex items-center gap-2 group">
+              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">진행중 업무</span>
+              <span className="text-[18px] font-bold text-[#191F28] group-hover:text-[#3182F6] transition-colors tracking-tight">{totalTasks}</span>
+            </Link>
+            <div className="w-px h-5 bg-[#E5E8EB]" />
+            <Link href="/tasks" className="flex items-center gap-2 group">
+              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">마감 임박</span>
+              <span className={`text-[18px] font-bold transition-colors tracking-tight ${urgentTasks.length > 0 ? "text-[#D97706]" : "text-[#8B95A1]"}`}>{urgentTasks.length}</span>
+            </Link>
+            <div className="w-px h-5 bg-[#E5E8EB]" />
+            <Link href="/tasks?status=delayed" className="flex items-center gap-2 group">
+              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">지연 업무</span>
+              <span className={`text-[18px] font-bold transition-colors tracking-tight ${delayedTasks > 0 ? "text-[#DC2626]" : "text-[#8B95A1]"}`}>{delayedTasks}</span>
+            </Link>
 
-          {/* 이관자료: 수신 + 요청 2분할 */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <TransferDocsCard />
-            <TransferRequestCard items={transferItems} />
-          </div>
-
-          {/* 요약 카드 */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-              <div className="text-sm text-gray-500">관리 고객사</div>
-              <div className="text-3xl font-bold text-[#1a2e4a] mt-1">{totalClients}</div>
-              <div className="text-xs text-gray-400 mt-1">전체</div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-              <div className="text-sm text-gray-500">진행중 업무</div>
-              <div className="text-3xl font-bold text-[#1a2e4a] mt-1">{totalTasks}</div>
-              <div className="text-xs text-gray-400 mt-1">미완료 전체</div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-              <div className="text-sm text-gray-500">마감 임박</div>
-              <div className="text-3xl font-bold text-orange-500 mt-1">{urgentTasks.length}</div>
-              <div className="text-xs text-gray-400 mt-1">3일 이내</div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-              <div className="text-sm text-gray-500">지연 업무</div>
-              <div className="text-3xl font-bold text-red-500 mt-1">{delayedTasks}</div>
-              <div className="text-xs text-gray-400 mt-1">즉시 확인 필요</div>
-            </div>
-            <CmsPendingCard
-              prevClients={cmsPrev}
-              currentClients={cmsCurrent}
-              nextClients={cmsNext}
-              prevYM={prevYM}
-              currentYM={currentYM}
-              nextYM={nextYM}
+            {/* 구분선 + 알림 Pills (hover 처리) */}
+            <div className="w-px h-5 bg-[#E5E8EB] ml-auto" />
+            <TopStripPills
+              cmsPrev={cmsPrev}
+              cmsCurrent={cmsCurrent}
+              cmsNext={cmsNext}
+              transferItems={transferItems}
+              distributionIds={filteredDist.map((d: any) => d.id)}
             />
           </div>
 
-          {/* 프로세스 카드 */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <TodayTasksCard items={todayTasks} />
-            <HappyCallCard items={happyCallItems} />
-            <DataCollectCard items={dataCollectItems} />
-            <ExcludeRequestCard items={excludeItems} />
-            <UnpaidCard clients={unpaidClients} />
-          </div>
+          {/* 70/30 분할: 좌측 Do + 우측 Phone Viewer */}
+          <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-6">
+            <div className="space-y-6 min-w-0">
+              {/* 오늘의 업무 — 인터랙티브 */}
+              <TodayTasksCard items={todayTasks} />
 
-          <div className="grid grid-cols-2 gap-6">
-            {/* 미루기 카드 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-                <span className="text-base">⏰</span>
-                <h2 className="font-medium text-gray-700">미루기</h2>
-                {postponedItems.length > 0 && (
-                  <span className="bg-orange-400 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{postponedItems.length}</span>
-                )}
+              {/* 프로세스 카드 3-col */}
+              <div className="grid grid-cols-3 gap-4">
+                <HappyCallCard items={happyCallItems} />
+                <DataCollectCard items={dataCollectItems} />
+                <ExcludeRequestCard items={excludeItems} />
               </div>
-              <div className="divide-y divide-gray-50">
-                {postponedItems.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-gray-400 text-sm">미룬 업무가 없습니다</div>
-                ) : postponedItems.map(item => (
-                  <div key={item.commissionId} className="px-5 py-3 flex items-center gap-3">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
-                      item.type === "해피콜" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
-                    }`}>{item.type}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-800 truncate">{item.clientName}</div>
-                      {item.note && <div className="text-[10px] text-gray-400 truncate">{item.note}</div>}
-                    </div>
-                    <span className="text-[10px] text-orange-500 font-medium whitespace-nowrap">{item.until}까지</span>
-                  </div>
-                ))}
-              </div>
+
+              {/* 미수납 (내부에 미루기 중 포함) */}
+              <UnpaidCard clients={unpaidClients} />
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="px-5 py-3 border-b border-gray-100">
-                <h2 className="font-medium text-gray-700">최근 업무 변경</h2>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {recentTasks.map((task) => (
-                  <div key={task.id} className="px-5 py-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-800 truncate">{task.client?.name ?? "고객사 없음"}</div>
-                      <div className="text-xs text-gray-500 truncate">{task.title}</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[task.status]}`}>{STATUS_LABELS[task.status]}</span>
-                      <div className="text-xs text-gray-400 mt-0.5">{task.assignedUser?.name ?? "미배정"}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* 우측: 폰 목업 고객사 뷰어 + 팝업 버튼 */}
+            <aside className="min-w-0 sticky top-0">
+              <PhonePopupButton />
+              <PhoneClientViewer clients={myClients} />
+            </aside>
           </div>
 
-          <div className="mt-6">
-            <FeedbackBoard feedbacks={feedbacks} currentUserId={session.id} currentUserRole={session.role} />
-          </div>
         </>
-      )}
+        );
+      })()}
 
       {/* 공지사항 탭 */}
       {activeTab === "notice" && (
@@ -476,6 +455,11 @@ export default async function DashboardPage({
       {/* 임시메모함 탭 */}
       {activeTab === "memo" && (
         <TempMemoBox memos={tempMemosData} clients={myClients} />
+      )}
+
+      {/* 피드백 탭 */}
+      {activeTab === "feedback" && (
+        <FeedbackBoard feedbacks={feedbacks} currentUserId={session.id} currentUserRole={session.role} />
       )}
     </div>
   );

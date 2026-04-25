@@ -38,7 +38,7 @@ export function ClientCreateButton({ className }: { className?: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className={className ?? "bg-[#1a2e4a] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors shrink-0"}
+        className={className ?? "bg-[#3182F6] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors shrink-0"}
       >
         + 고객사 등록
       </button>
@@ -75,9 +75,9 @@ function ClientCreateModal({ onClose }: { onClose: () => void }) {
     >
       <div className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-xl flex flex-col">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2F4F6] shrink-0">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-gray-900">고객사 등록</h2>
+            <h2 className="text-lg font-bold text-[#191F28]">고객사 등록</h2>
             {data && (
               <>
                 <button
@@ -86,14 +86,14 @@ function ClientCreateModal({ onClose }: { onClose: () => void }) {
                     const form = document.querySelector<HTMLFormElement>('[data-modal-form]');
                     form?.requestSubmit();
                   }}
-                  className="bg-[#1a2e4a] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#243d61] transition-colors"
+                  className="bg-[#3182F6] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#1B64DA] transition-colors"
                 >
                   등록
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="border border-gray-300 text-gray-700 text-sm px-4 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="border border-[#D1D6DB] text-[#333D4B] text-sm px-4 py-1.5 rounded-lg hover:bg-[#F9FAFB] transition-colors"
                 >
                   취소
                 </button>
@@ -105,7 +105,7 @@ function ClientCreateModal({ onClose }: { onClose: () => void }) {
         {/* 바디 */}
         <div className="flex-1 px-6 py-5">
           {!data ? (
-            <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+            <div className="text-center py-16 text-[#8B95A1] text-sm">불러오는 중...</div>
           ) : (
             <EditClientForm
               action={createClientInModal}

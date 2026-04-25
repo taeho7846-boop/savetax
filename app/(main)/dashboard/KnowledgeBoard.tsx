@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createKnowledge, updateKnowledge, deleteKnowledge } from "@/app/actions/knowledge";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ClipboardListIcon, FileTextIcon } from "@/components/icons";
 
 type KnowledgeItem = {
   id: number;
@@ -19,12 +20,12 @@ type KnowledgeItem = {
 };
 
 const CATEGORIES = [
-  { value: "4대보험", icon: "🏥", color: "bg-rose-50 text-rose-700 border-rose-200" },
-  { value: "세율", icon: "📊", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  { value: "기준", icon: "📏", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  { value: "서식", icon: "📄", color: "bg-green-50 text-green-700 border-green-200" },
-  { value: "절차", icon: "🔄", color: "bg-violet-50 text-violet-700 border-violet-200" },
-  { value: "기타", icon: "💡", color: "bg-gray-50 text-gray-700 border-gray-200" },
+  { value: "4대보험", icon: "🏥", color: "bg-[rgba(244,63,94,0.1)] text-[#fda4af] border-[rgba(244,63,94,0.25)]" },
+  { value: "세율", icon: "📊", color: "bg-[#eff6ff] text-[#1e40af] border-[#bfdbfe]" },
+  { value: "기준", icon: "📏", color: "bg-[#fffbeb] text-[#92400e] border-[rgba(245,158,11,0.25)]" },
+  { value: "서식", icon: "📄", color: "bg-[#ecfdf5] text-[#065f46] border-[rgba(16,185,129,0.25)]" },
+  { value: "절차", icon: "🔄", color: "bg-[rgba(139,92,246,0.1)] text-[#0049BC] border-[rgba(139,92,246,0.25)]" },
+  { value: "기타", icon: "💡", color: "bg-white text-[#4E5968] border-[#E5E8EB]" },
 ];
 
 
@@ -163,22 +164,22 @@ export function KnowledgeBoard({
       {/* 상단: 검색 + 카테고리 + 등록 */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <div className="relative flex-1 max-w-sm">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B95A1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" />
           </svg>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="키워드로 검색 (예: 피부양자, 세율, 간이과세)"
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] bg-white"
+            className="w-full pl-10 pr-3 py-2 border border-[#D1D6DB] rounded-[14px] text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] bg-white"
           />
         </div>
 
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setFilter(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-              !filter ? "bg-[#1a2e4a] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            className={`px-3 py-1.5 rounded-full text-xs font-[500] transition-all ${
+              !filter ? "bg-[#3182F6] text-white" : "bg-white text-[#6B7684] hover:bg-[#F9FAFB]"
             }`}
           >
             전체
@@ -187,8 +188,8 @@ export function KnowledgeBoard({
             <button
               key={cat.value}
               onClick={() => setFilter(filter === cat.value ? null : cat.value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                filter === cat.value ? "bg-[#1a2e4a] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              className={`px-3 py-1.5 rounded-full text-xs font-[500] transition-all ${
+                filter === cat.value ? "bg-[#3182F6] text-white" : "bg-white text-[#6B7684] hover:bg-[#F9FAFB]"
               }`}
             >
               {cat.icon} {cat.value}
@@ -198,7 +199,7 @@ export function KnowledgeBoard({
 
         <button
           onClick={() => setShowForm(!showForm)}
-          className="text-xs bg-[#1a2e4a] text-white px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors ml-auto"
+          className="text-xs bg-[#3182F6] text-white px-4 py-2 rounded-[6px] hover:bg-[#1B64DA] transition-colors ml-auto"
         >
           {showForm ? "취소" : "+ 등록"}
         </button>
@@ -206,48 +207,48 @@ export function KnowledgeBoard({
 
       {/* 등록 폼 */}
       {showForm && (
-        <form action={handleCreate} className="bg-white rounded-xl border border-gray-200 p-5 mb-5 shadow-sm">
+        <form action={handleCreate} className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] p-5 mb-5">
           <div className="grid grid-cols-4 gap-4 mb-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">카테고리</label>
-              <select name="category" defaultValue="기타" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]">
+              <label className="block text-xs text-[#6B7684] mb-1">카테고리</label>
+              <select name="category" defaultValue="기타" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]">
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.icon} {c.value}</option>)}
               </select>
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">제목</label>
-              <input name="title" required placeholder="예: 피부양자 자격 조건" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]" />
+              <label className="block text-xs text-[#6B7684] mb-1">제목</label>
+              <input name="title" required placeholder="예: 피부양자 자격 조건" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">태그 (검색용)</label>
-              <input name="tags" placeholder="콤마로 구분" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+              <label className="block text-xs text-[#6B7684] mb-1">태그 (검색용)</label>
+              <input name="tags" placeholder="콤마로 구분" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none" />
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 mb-1">내용</label>
-            <textarea name="content" required rows={6} placeholder="지식 내용을 정리하세요" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none" />
+            <label className="block text-xs text-[#6B7684] mb-1">내용</label>
+            <textarea name="content" required rows={6} placeholder="지식 내용을 정리하세요" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none" />
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 mb-1">첨부파일</label>
+            <label className="block text-xs text-[#6B7684] mb-1">첨부파일</label>
             <div className="flex items-center gap-3">
-              <label className={`text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? "bg-gray-200 text-gray-400" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              <label className={`text-xs px-3 py-1.5 rounded-[6px] cursor-pointer transition-colors ${uploading ? "bg-[#F9FAFB] text-[#8B95A1]" : "bg-white text-[#4E5968] hover:bg-[#F9FAFB]"}`}>
                 {uploading ? "업로드 중..." : "📎 파일 추가"}
                 <input type="file" accept="image/*,.pdf,.xlsx,.xls,.doc,.docx,.hwp" className="hidden" onChange={(e) => handleFileUpload(e, "new")} disabled={uploading} />
               </label>
-              <span className="text-[10px] text-gray-400">이미지, PDF, 엑셀, 한글 파일 지원</span>
+              <span className="text-[10px] text-[#8B95A1]">이미지, PDF, 엑셀, 한글 파일 지원</span>
             </div>
             {uploadedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {uploadedFiles.map((f, i) => (
-                  <div key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 rounded-lg px-2.5 py-1 text-xs">
+                  <div key={i} className="flex items-center gap-1.5 bg-[#eff6ff] text-[#1e40af] rounded-[6px] px-2.5 py-1 text-xs">
                     {f.name.match(/\.(png|jpg|jpeg|gif|webp)$/i) ? "🖼️" : "📄"} {f.name}
-                    <button type="button" onClick={() => setUploadedFiles(prev => prev.filter((_, j) => j !== i))} className="text-blue-400 hover:text-red-500 ml-0.5">✕</button>
+                    <button type="button" onClick={() => setUploadedFiles(prev => prev.filter((_, j) => j !== i))} className="text-[#1e40af] hover:text-[#dc2626] ml-0.5">✕</button>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <button type="submit" disabled={isPending} className="bg-[#1a2e4a] text-white text-sm px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50">
+          <button type="submit" disabled={isPending} className="bg-[#3182F6] text-white text-sm px-5 py-2 rounded-[6px] hover:bg-[#1B64DA] disabled:opacity-50">
             등록
           </button>
         </form>
@@ -257,7 +258,7 @@ export function KnowledgeBoard({
       {filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-4xl mb-3">📚</div>
-          <div className="text-gray-400 text-sm">
+          <div className="text-[#8B95A1] text-sm">
             {search ? `"${search}" 검색 결과가 없습니다` : "등록된 지식이 없습니다"}
           </div>
         </div>
@@ -269,20 +270,20 @@ export function KnowledgeBoard({
             const isEditing = editingId === item.id;
 
             return (
-              <div key={item.id} className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 transition-all overflow-hidden">
+              <div key={item.id} className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:border-[#D1D6DB] transition-all overflow-hidden">
                 {isEditing ? (
                   <div className="p-5">
                     <div className="grid grid-cols-4 gap-3 mb-3">
-                      <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]">
                         {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.value}</option>)}
                       </select>
-                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="col-span-2 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                      <input value={editTags} onChange={(e) => setEditTags(e.target.value)} placeholder="태그" className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="col-span-2 bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]" />
+                      <input value={editTags} onChange={(e) => setEditTags(e.target.value)} placeholder="태그" className="bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]" />
                     </div>
-                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={6} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none mb-3" />
+                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={6} className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] resize-none mb-3" />
                     <div className="flex gap-2">
-                      <button onClick={() => handleUpdate(item.id)} disabled={isPending} className="text-xs bg-[#1a2e4a] text-white px-4 py-1.5 rounded-lg">저장</button>
-                      <button onClick={() => setEditingId(null)} className="text-xs text-gray-500 px-4 py-1.5">취소</button>
+                      <button onClick={() => handleUpdate(item.id)} disabled={isPending} className="text-xs bg-[#3182F6] text-white px-4 py-1.5 rounded-[6px] hover:bg-[#1B64DA]">저장</button>
+                      <button onClick={() => setEditingId(null)} className="text-xs text-[#6B7684] px-4 py-1.5">취소</button>
                     </div>
                   </div>
                 ) : (
@@ -291,45 +292,45 @@ export function KnowledgeBoard({
                       className="flex items-center gap-3 px-5 py-3.5 cursor-pointer"
                       onClick={() => setExpandedId(isExpanded ? null : item.id)}
                     >
-                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${cat?.color ?? "bg-gray-100 text-gray-600"}`}>
+                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-[500] border ${cat?.color ?? "bg-white text-[#4E5968] border-[#E5E8EB]"}`}>
                         {cat?.icon} {item.category}
                       </span>
-                      <span className="text-sm font-medium text-gray-800 flex-1">{item.title}</span>
+                      <span className="text-sm font-[500] text-[#191F28] flex-1">{item.title}</span>
 
                       {/* 태그 */}
                       {item.tags && (
                         <div className="hidden sm:flex gap-1">
                           {item.tags.split(",").slice(0, 3).map((tag, i) => (
-                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-white text-[#6B7684]">
                               {tag.trim()}
                             </span>
                           ))}
                         </div>
                       )}
 
-                      <span className="text-[10px] text-gray-400 shrink-0">
+                      <span className="text-[10px] text-[#8B95A1] shrink-0">
                         {new Date(item.updatedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
                       </span>
 
-                      <svg className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className={`w-4 h-4 text-[#8B95A1] transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
 
                     {isExpanded && (
-                      <div className="px-5 pb-4 border-t border-gray-100 pt-3">
+                      <div className="px-5 pb-4 border-t border-[#E5E8EB] pt-3">
                         {/* 첨부 이미지 */}
                         {item.files && parseFiles(item.files).some(f => f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)) && (
                           <div className="flex flex-wrap gap-3 mb-3">
                             {parseFiles(item.files).filter(f => f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)).map((f, i) => (
                               <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="block">
-                                <img src={f.url} alt={f.name} className="max-h-60 rounded-lg border border-gray-200 hover:border-blue-400 transition-colors" />
+                                <img src={f.url} alt={f.name} className="max-h-60 rounded-[6px] border border-[#E5E8EB] hover:border-[#5e6ad2] transition-colors" />
                               </a>
                             ))}
                           </div>
                         )}
 
-                        <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700 mb-3 leading-relaxed prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-table:border-collapse prose-th:bg-[#1a2e4a] prose-th:text-white prose-th:px-4 prose-th:py-2 prose-th:text-sm prose-th:font-medium prose-td:px-4 prose-td:py-2 prose-td:border prose-td:border-gray-200 prose-td:text-sm prose-tr:even:bg-gray-50 prose-strong:text-gray-800 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
+                        <div className="bg-[#F9FAFB] rounded-[6px] px-4 py-3 text-sm text-[#4E5968] mb-3 leading-relaxed prose prose-sm prose-invert max-w-none prose-headings:text-[#191F28] prose-headings:font-bold prose-h2:text-base prose-h3:text-sm prose-table:border-collapse prose-th:bg-[#3182F6] prose-th:text-white prose-th:px-4 prose-th:py-2 prose-th:text-sm prose-th:font-[500] prose-td:px-4 prose-td:py-2 prose-td:border prose-td:border-[#E5E8EB] prose-td:text-sm prose-tr:even:bg-[#F9FAFB] prose-strong:text-[#191F28] prose-a:text-[#1e40af] prose-a:no-underline hover:prose-a:underline prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown>
                         </div>
 
@@ -337,8 +338,9 @@ export function KnowledgeBoard({
                         {item.files && parseFiles(item.files).some(f => !f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)) && (
                           <div className="flex flex-wrap gap-2 mb-3">
                             {parseFiles(item.files).filter(f => !f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)).map((f, i) => (
-                              <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 transition-colors">
-                                📄 {f.name}
+                              <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-white hover:bg-[#F9FAFB] rounded-[6px] px-3 py-1.5 text-xs text-[#4E5968] transition-colors">
+                                <FileTextIcon width={14} height={14} />
+                                {f.name}
                               </a>
                             ))}
                           </div>
@@ -347,15 +349,16 @@ export function KnowledgeBoard({
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleCopy(item.content)}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium"
+                            className="text-xs px-3 py-1.5 rounded-[6px] bg-[#eff6ff] text-[#1e40af] hover:bg-[rgba(59,130,246,0.18)] font-[500] inline-flex items-center gap-1"
                           >
-                            📋 복사
+                            <ClipboardListIcon width={12} height={12} />
+                            복사
                           </button>
-                          <span className="text-[10px] text-gray-400">{item.author.name}</span>
+                          <span className="text-[10px] text-[#8B95A1]">{item.author.name}</span>
                           {canModify(item) && (
                             <>
-                              <button onClick={() => startEdit(item)} className="text-[11px] text-gray-400 hover:text-[#1a2e4a] px-2 py-1.5 ml-auto">수정</button>
-                              <button onClick={() => handleDelete(item.id)} disabled={isPending} className="text-[11px] text-gray-400 hover:text-red-500 px-2 py-1.5">삭제</button>
+                              <button onClick={() => startEdit(item)} className="text-[11px] text-[#8B95A1] hover:text-[#191F28] px-2 py-1.5 ml-auto">수정</button>
+                              <button onClick={() => handleDelete(item.id)} disabled={isPending} className="text-[11px] text-[#8B95A1] hover:text-[#dc2626] px-2 py-1.5">삭제</button>
                             </>
                           )}
                         </div>

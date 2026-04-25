@@ -41,7 +41,7 @@ export default async function TaxAgencyPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold text-gray-900">신고대리</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">신고대리</h1>
         <ClientCreateButton />
       </div>
       <ClientsTable

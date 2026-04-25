@@ -12,7 +12,7 @@ export function MemoCreateButton({ className }: { className?: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className={className ?? "bg-[#1a2e4a] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors shrink-0"}
+        className={className ?? "bg-[#3182F6] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors shrink-0"}
       >
         + 메모 작성
       </button>
@@ -55,11 +55,11 @@ function MemoCreateModal({ onClose }: { onClose: () => void }) {
     >
       <div className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-xl flex flex-col">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">메모 작성</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2F4F6] shrink-0">
+          <h2 className="text-lg font-bold text-[#191F28]">메모 작성</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            className="text-[#8B95A1] hover:text-[#4E5968] text-2xl leading-none"
           >
             ×
           </button>
@@ -68,15 +68,15 @@ function MemoCreateModal({ onClose }: { onClose: () => void }) {
         {/* 바디 */}
         <div className="flex-1 px-6 py-5">
           {!data ? (
-            <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+            <div className="text-center py-16 text-[#8B95A1] text-sm">불러오는 중...</div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">고객사 (선택)</label>
+                  <label className="block text-sm font-medium text-[#333D4B] mb-1">고객사 (선택)</label>
                   <select
                     name="clientId"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
                   >
                     <option value="">전체 공통</option>
                     {data.clients.map((c) => (
@@ -86,10 +86,10 @@ function MemoCreateModal({ onClose }: { onClose: () => void }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">메모 유형</label>
+                  <label className="block text-sm font-medium text-[#333D4B] mb-1">메모 유형</label>
                   <select
                     name="memoType"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
                   >
                     <option value="general">일반</option>
                     <option value="handover">인수인계</option>
@@ -99,29 +99,29 @@ function MemoCreateModal({ onClose }: { onClose: () => void }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  내용 <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-[#333D4B] mb-1">
+                  내용 <span className="text-[#E02E2E]">*</span>
                 </label>
                 <textarea
                   name="content"
                   required
                   rows={6}
                   placeholder="메모 내용을 입력하세요"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none"
+                  className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6] resize-none"
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="bg-[#1a2e4a] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+                  className="bg-[#3182F6] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors"
                 >
                   저장
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="border border-gray-300 text-gray-600 text-sm px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="border border-[#D1D6DB] text-[#4E5968] text-sm px-6 py-2 rounded-lg hover:bg-[#F9FAFB] transition-colors"
                 >
                   취소
                 </button>

@@ -20,7 +20,7 @@ export function MemoDeleteButton({ memoId }: { memoId: number }) {
     <button
       onClick={handleDelete}
       disabled={isPending}
-      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+      className="text-xs text-[#8B95A1] hover:text-[#E02E2E] transition-colors"
     >
       삭제
     </button>

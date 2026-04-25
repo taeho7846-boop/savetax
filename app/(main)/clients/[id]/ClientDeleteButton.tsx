@@ -9,7 +9,7 @@ export function ClientDeleteButton({ action }: { action: () => Promise<void> }) 
     <button
       type="button"
       disabled={pending}
-      className="border border-red-200 text-red-500 text-sm px-4 py-2 rounded-lg hover:bg-red-50"
+      className="border border-[#FECACA] text-[#E02E2E] text-sm px-4 py-2 rounded-lg hover:bg-[#FEF2F2]"
       onClick={() => {
         if (!confirm("정말 삭제하시겠습니까?")) return;
         startTransition(() => action());

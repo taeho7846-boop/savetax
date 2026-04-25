@@ -33,16 +33,16 @@ export default async function EditClientPage({
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link href="/clients" className="text-gray-500 hover:text-gray-700 text-sm">
+          <Link href="/clients" className="text-[#6B7684] hover:text-[#333D4B] text-sm">
             ← 고객사 목록
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">고객사 수정</h1>
+          <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">고객사 수정</h1>
         </div>
 
         <DeleteClientButton action={deleteWithId} name={client.name} />
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 max-w-2xl">
+      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6 max-w-2xl">
         <EditClientForm
           action={updateWithId}
           client={client}

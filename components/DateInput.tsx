@@ -28,9 +28,9 @@ export function DateInput({ name, defaultValue }: { name: string; defaultValue?:
           setYear(v);
           if (v.length === 4) monthRef.current?.focus();
         }}
-        className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+        className="w-16 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-2 text-sm text-center text-[#191F28] focus:outline-none focus:border-[#3182F6]"
       />
-      <span className="text-gray-400 text-sm">-</span>
+      <span className="text-[#8B95A1] text-sm">-</span>
       <input
         ref={monthRef}
         type="text"
@@ -50,9 +50,9 @@ export function DateInput({ name, defaultValue }: { name: string; defaultValue?:
               ((e.target as HTMLInputElement).parentElement?.querySelector("input:first-of-type") as HTMLInputElement)?.focus();
           }
         }}
-        className="w-12 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+        className="w-12 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-2 text-sm text-center text-[#191F28] focus:outline-none focus:border-[#3182F6]"
       />
-      <span className="text-gray-400 text-sm">-</span>
+      <span className="text-[#8B95A1] text-sm">-</span>
       <input
         ref={dayRef}
         type="text"
@@ -70,7 +70,7 @@ export function DateInput({ name, defaultValue }: { name: string; defaultValue?:
             monthRef.current?.focus();
           }
         }}
-        className="w-12 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+        className="w-12 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-2 text-sm text-center text-[#191F28] focus:outline-none focus:border-[#3182F6]"
       />
     </div>
   );

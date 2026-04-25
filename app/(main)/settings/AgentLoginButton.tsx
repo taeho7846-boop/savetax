@@ -42,11 +42,11 @@ export function AgentLoginButton({ agentHometaxId, agentHometaxPw, certName, cer
 
   return (
     <div className="mb-6">
-      <div className="bg-gradient-to-r from-[#1a2e4a] to-[#243d61] rounded-xl p-5 shadow-sm">
+      <div className="bg-gradient-to-r from-[#3182F6] to-[#243d61] rounded-xl p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-white font-semibold text-sm">세무대리인 홈택스 로그인</div>
-            <div className="text-blue-200 text-xs mt-0.5">
+            <div className="text-white font-bold text-sm">세무대리인 홈택스 로그인</div>
+            <div className="text-[#BFDBFE] text-xs mt-0.5">
               {missing
                 ? "아래에서 홈택스 ID / PW를 먼저 입력하고 저장해주세요"
                 : agentHometaxId}
@@ -60,7 +60,7 @@ export function AgentLoginButton({ agentHometaxId, agentHometaxPw, certName, cer
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 missing
                   ? "bg-white/10 text-white/30 cursor-not-allowed"
-                  : "bg-white text-[#1a2e4a] hover:bg-blue-50 shadow"
+                  : "bg-white text-[#191F28] hover:bg-[#F5F9FF] shadow"
               }`}
             >
               로그인 실행
@@ -68,7 +68,7 @@ export function AgentLoginButton({ agentHometaxId, agentHometaxPw, certName, cer
           )}
 
           {status === "loading" && (
-            <div className="flex items-center gap-2 text-blue-200 text-sm">
+            <div className="flex items-center gap-2 text-[#BFDBFE] text-sm">
               <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
@@ -78,15 +78,15 @@ export function AgentLoginButton({ agentHometaxId, agentHometaxPw, certName, cer
           )}
 
           {status === "success" && (
-            <div className="flex items-center gap-2 text-green-300 text-sm font-medium">
+            <div className="flex items-center gap-2 text-[#86EFAC] text-sm font-medium">
               <span>✓</span> 로그인 완료
             </div>
           )}
 
           {status === "error" && (
             <div className="flex flex-col items-end gap-1">
-              <span className="text-red-300 text-sm font-medium">✕ 실패</span>
-              {errorMsg && <span className="text-red-200 text-xs">{errorMsg}</span>}
+              <span className="text-[#FCA5A5] text-sm font-medium">✕ 실패</span>
+              {errorMsg && <span className="text-[#FECACA] text-xs">{errorMsg}</span>}
               <button
                 onClick={handleLogin}
                 className="text-xs text-white/60 hover:text-white underline"

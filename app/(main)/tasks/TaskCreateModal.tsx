@@ -13,7 +13,7 @@ export function UnifiedCreateButton({ className }: { className?: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className={className ?? "bg-[#1a2e4a] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors shrink-0"}
+        className={className ?? "bg-[#3182F6] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors shrink-0"}
       >
         + 등록
       </button>
@@ -68,13 +68,13 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
     >
       <div className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-xl flex flex-col">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2F4F6] shrink-0">
+          <h2 className="text-lg font-bold text-[#191F28]">
             {createType === "task" ? "업무 등록" : "메모 등록"}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            className="text-[#8B95A1] hover:text-[#4E5968] text-2xl leading-none"
           >
             ×
           </button>
@@ -83,7 +83,7 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
         {/* 바디 */}
         <div className="flex-1 px-6 py-5">
           {!data ? (
-            <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+            <div className="text-center py-16 text-[#8B95A1] text-sm">불러오는 중...</div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* 유형 선택 */}
@@ -93,8 +93,8 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
                   onClick={() => setCreateType("task")}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     createType === "task"
-                      ? "bg-[#1a2e4a] text-white"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      ? "bg-[#3182F6] text-white"
+                      : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
                   }`}
                 >
                   업무
@@ -104,8 +104,8 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
                   onClick={() => setCreateType("memo")}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     createType === "memo"
-                      ? "bg-[#1a2e4a] text-white"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      ? "bg-[#3182F6] text-white"
+                      : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
                   }`}
                 >
                   메모
@@ -116,14 +116,14 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-2 gap-4">
                 <ClientSearchSelect clients={data.clients} />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    제목 <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-[#333D4B] mb-1">
+                    제목 <span className="text-[#E02E2E]">*</span>
                   </label>
                   <input
                     name="title"
                     required
                     placeholder={createType === "task" ? "예: 2025년 1기 부가세 신고" : "메모 제목"}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
                   />
                 </div>
               </div>
@@ -132,10 +132,10 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
               {createType === "task" && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">업무 유형</label>
+                    <label className="block text-sm font-medium text-[#333D4B] mb-1">업무 유형</label>
                     <select
                       name="taskType"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
                     >
                       <option value="">선택 안 함</option>
                       <option value="vat">부가가치세</option>
@@ -148,18 +148,18 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">마감일</label>
+                    <label className="block text-sm font-medium text-[#333D4B] mb-1">마감일</label>
                     <input
                       name="dueDate"
                       type="date"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+                      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">우선순위</label>
+                    <label className="block text-sm font-medium text-[#333D4B] mb-1">우선순위</label>
                     <select
                       name="priority"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
                     >
                       <option value="normal">보통</option>
                       <option value="high">높음</option>
@@ -167,10 +167,10 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                    <label className="block text-sm font-medium text-[#333D4B] mb-1">상태</label>
                     <select
                       name="status"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
                     >
                       <option value="scheduled">예정</option>
                       <option value="in_progress">진행중</option>
@@ -182,8 +182,8 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
                   {isManager && (
                     <div className="col-span-2">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="sharedWithEmployees" value="true" className="accent-[#1a2e4a] w-4 h-4" />
-                        <span className="text-sm text-gray-700">소속 직원에게 공유</span>
+                        <input type="checkbox" name="sharedWithEmployees" value="true" className="accent-[#3182F6] w-4 h-4" />
+                        <span className="text-sm text-[#333D4B]">소속 직원에게 공유</span>
                       </label>
                     </div>
                   )}
@@ -193,10 +193,10 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
               {/* 메모 전용 필드 */}
               {createType === "memo" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">메모 유형</label>
+                  <label className="block text-sm font-medium text-[#333D4B] mb-1">메모 유형</label>
                   <select
                     name="memoType"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
                   >
                     <option value="general">일반</option>
                     <option value="handover">인수인계</option>
@@ -207,28 +207,28 @@ function UnifiedCreateModal({ onClose }: { onClose: () => void }) {
 
               {/* 공통: 내용 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {createType === "task" ? "메모" : "내용"} {createType === "memo" && <span className="text-red-500">*</span>}
+                <label className="block text-sm font-medium text-[#333D4B] mb-1">
+                  {createType === "task" ? "메모" : "내용"} {createType === "memo" && <span className="text-[#E02E2E]">*</span>}
                 </label>
                 <textarea
                   name={createType === "task" ? "notes" : "content"}
                   rows={4}
                   required={createType === "memo"}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a] resize-none"
+                  className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6] resize-none"
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="bg-[#1a2e4a] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+                  className="bg-[#3182F6] text-white text-sm px-6 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors"
                 >
                   등록
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="border border-gray-300 text-gray-600 text-sm px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="border border-[#D1D6DB] text-[#4E5968] text-sm px-6 py-2 rounded-lg hover:bg-[#F9FAFB] transition-colors"
                 >
                   취소
                 </button>
@@ -261,7 +261,7 @@ function ClientSearchSelect({ clients }: { clients: { id: number; name: string }
 
   return (
     <div ref={ref} className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-1">고객사</label>
+      <label className="block text-sm font-medium text-[#333D4B] mb-1">고객사</label>
       <input type="hidden" name="clientId" value={selected?.id ?? ""} />
       <input
         type="text"
@@ -270,14 +270,14 @@ function ClientSearchSelect({ clients }: { clients: { id: number; name: string }
         onFocus={() => { setOpen(true); setSearch(""); }}
         placeholder="검색 또는 선택"
         autoComplete="off"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+        className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
       />
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 max-h-52 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-30 max-h-52 overflow-y-auto">
           <button
             type="button"
             onClick={() => { setSelected(null); setSearch(""); setOpen(false); }}
-            className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${!selected ? "bg-blue-100 text-blue-700 font-medium" : "text-gray-500"}`}
+            className={`w-full text-left px-3 py-2 text-sm hover:bg-[#F5F9FF] ${!selected ? "bg-[#E8F3FF] text-[#1B64DA] font-medium" : "text-[#6B7684]"}`}
           >
             고객사 없음
           </button>
@@ -286,13 +286,13 @@ function ClientSearchSelect({ clients }: { clients: { id: number; name: string }
               key={c.id}
               type="button"
               onClick={() => { setSelected(c); setSearch(""); setOpen(false); }}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${selected?.id === c.id ? "bg-blue-100 text-blue-700 font-medium" : "text-gray-800"}`}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-[#F5F9FF] ${selected?.id === c.id ? "bg-[#E8F3FF] text-[#1B64DA] font-medium" : "text-[#191F28]"}`}
             >
               {c.name}
             </button>
           ))}
           {filtered.length === 0 && (
-            <div className="px-3 py-2 text-sm text-gray-400">검색 결과 없음</div>
+            <div className="px-3 py-2 text-sm text-[#8B95A1]">검색 결과 없음</div>
           )}
         </div>
       )}

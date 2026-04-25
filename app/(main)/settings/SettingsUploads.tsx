@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { FileTextIcon } from "@/components/icons";
 
 interface Props {
   commissionFormPath: string | null;
@@ -69,10 +70,10 @@ function UploadSection({
 
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-2">{label}</label>
+      <label className="block text-xs text-[#6B7684] mb-2">{label}</label>
 
       {path ? (
-        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+        <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] p-3 bg-[#F9FAFB]">
           {isImage ? (
             <img
               src={path}
@@ -81,12 +82,12 @@ function UploadSection({
             />
           ) : (
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-green-600 text-lg">📄</span>
+              <FileTextIcon width={18} height={18} className="text-[#16A865]" />
               <a
                 href={path}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline truncate"
+                className="text-sm text-[#3182F6] hover:underline truncate"
               >
                 {path.split("/").pop()}
               </a>
@@ -97,7 +98,7 @@ function UploadSection({
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
-              className="text-xs px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+              className="text-xs px-3 py-1.5 bg-white border border-[#D1D6DB] rounded hover:bg-[#F9FAFB] disabled:opacity-50"
             >
               교체
             </button>
@@ -105,7 +106,7 @@ function UploadSection({
               type="button"
               onClick={doDelete}
               disabled={uploading}
-              className="text-xs px-3 py-1.5 bg-white border border-red-300 text-red-600 rounded hover:bg-red-50 disabled:opacity-50"
+              className="text-xs px-3 py-1.5 bg-white border border-red-300 text-[#DC2626] rounded hover:bg-[#FEF2F2] disabled:opacity-50"
             >
               삭제
             </button>
@@ -115,8 +116,8 @@ function UploadSection({
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
             dragOver
-              ? "border-[#1a2e4a] bg-[#1a2e4a]/5"
-              : "border-gray-200 hover:border-gray-400"
+              ? "border-[#3182F6] bg-[#3182F6]/5"
+              : "border-[#E5E8EB] hover:border-[#8B95A1]"
           } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
           onClick={() => inputRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -129,13 +130,13 @@ function UploadSection({
           }}
         >
           <div className="text-2xl mb-1">📁</div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[#6B7684]">
             {uploading ? "업로드 중..." : "클릭하거나 파일을 드래그하세요"}
           </p>
         </div>
       )}
 
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-xs text-[#E02E2E] mt-1">{error}</p>}
 
       <input
         ref={inputRef}
@@ -154,8 +155,8 @@ function UploadSection({
 
 export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath, taxReductionExcelPath }: Props) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6">
-      <h2 className="text-sm font-semibold text-gray-700">파일</h2>
+    <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6 space-y-6">
+      <h2 className="text-sm font-bold text-[#333D4B]">파일</h2>
 
       <div className="grid grid-cols-2 gap-6">
         <UploadSection
@@ -176,8 +177,8 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
         />
       </div>
 
-      <div className="border-t border-gray-100 pt-4">
-        <h3 className="text-xs font-semibold text-gray-400 mb-4">CMS</h3>
+      <div className="border-t border-[#F2F4F6] pt-4">
+        <h3 className="text-xs font-bold text-[#8B95A1] mb-4">CMS</h3>
         <div className="grid grid-cols-2 gap-6">
           <UploadSection
             label="CMS 엑셀 파일"
@@ -198,8 +199,8 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
         </div>
       </div>
 
-      <div className="border-t border-gray-100 pt-4">
-        <h3 className="text-xs font-semibold text-gray-400 mb-4">4대보험</h3>
+      <div className="border-t border-[#F2F4F6] pt-4">
+        <h3 className="text-xs font-bold text-[#8B95A1] mb-4">4대보험</h3>
         <div className="grid grid-cols-2 gap-6">
           <UploadSection
             label="국민연금 엑셀"
@@ -220,8 +221,8 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
         </div>
       </div>
 
-      <div className="border-t border-gray-100 pt-4">
-        <h3 className="text-xs font-semibold text-gray-400 mb-4">세금계산서</h3>
+      <div className="border-t border-[#F2F4F6] pt-4">
+        <h3 className="text-xs font-bold text-[#8B95A1] mb-4">세금계산서</h3>
         <div className="grid grid-cols-2 gap-6">
           <UploadSection
             label="일반발행 엑셀"
@@ -242,8 +243,8 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
         </div>
       </div>
 
-      <div className="border-t border-gray-100 pt-4">
-        <h3 className="text-xs font-semibold text-gray-400 mb-4">세액감면 판단</h3>
+      <div className="border-t border-[#F2F4F6] pt-4">
+        <h3 className="text-xs font-bold text-[#8B95A1] mb-4">세액감면 판단</h3>
         <div className="grid grid-cols-2 gap-6">
           <UploadSection
             label="감면 판단 엑셀 (업종코드)"

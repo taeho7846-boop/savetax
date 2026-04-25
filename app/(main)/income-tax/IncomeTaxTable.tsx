@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo } from "@/app/actions/income-tax";
 import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
+import { PinIcon } from "@/components/icons";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -68,13 +69,13 @@ function formatNumber(val: string | null): string {
 
 // 헤더 그룹 색상
 const GROUP_COLORS: Record<string, string> = {
-  기본: "bg-gray-50",
-  준비: "bg-blue-50",
-  가결산: "bg-yellow-50",
-  전기: "bg-purple-50",
+  기본: "bg-[#F9FAFB]",
+  준비: "bg-[#F5F9FF]",
+  가결산: "bg-[#FEFCE8]",
+  전기: "bg-[#F5F9FF]",
   당기: "bg-emerald-50",
-  감면: "bg-orange-50",
-  완료: "bg-green-50",
+  감면: "bg-[#FFFBEB]",
+  완료: "bg-[#F1FBF4]",
 };
 
 export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, activeTab = "bookkeeping" }: { clients: Client[]; taxYear: string; showAssignedUser?: boolean; activeTab?: string }) {
@@ -145,14 +146,14 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-gray-900">종합소득세</h1>
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
+          <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">종합소득세</h1>
+          <div className="flex bg-[#F2F4F6] rounded-lg p-0.5">
             <button
               onClick={() => handleTabChange("bookkeeping")}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
                 activeTab === "bookkeeping"
-                  ? "bg-white text-[#1a2e4a] shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-[#191F28] shadow-sm"
+                  : "text-[#6B7684] hover:text-[#333D4B]"
               }`}
             >
               기장
@@ -161,8 +162,8 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
               onClick={() => handleTabChange("single")}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
                 activeTab === "single"
-                  ? "bg-white text-[#1a2e4a] shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-[#191F28] shadow-sm"
+                  : "text-[#6B7684] hover:text-[#333D4B]"
               }`}
             >
               단건
@@ -175,13 +176,13 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="거래처 검색..."
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 focus:border-[#1a2e4a]"
+            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm w-44 focus:outline-none focus:border-[#3182F6]"
           />
           {showAssignedUser && assignedUsers.length > 1 && (
             <select
               value={userFilter ?? ""}
               onChange={e => setUserFilter(e.target.value || null)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/30 focus:border-[#1a2e4a]"
+              className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm focus:outline-none focus:border-[#3182F6]"
             >
               <option value="">전체 담당자</option>
               {assignedUsers.map(u => (
@@ -189,22 +190,22 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
               ))}
             </select>
           )}
-          <div className="text-sm text-gray-500">
-            신고완료: <span className="font-medium text-[#1a2e4a]">{doneCount}</span> / {filteredClients.length}
+          <div className="text-sm text-[#6B7684]">
+            신고완료: <span className="font-medium text-[#191F28]">{doneCount}</span> / {filteredClients.length}
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
+          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
             <button
               onClick={() => handleYearChange(-1)}
-              className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm"
+              className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm"
             >
               ◀
             </button>
-            <span className="text-sm font-medium text-gray-800 min-w-[80px] text-center">
+            <span className="text-sm font-medium text-[#191F28] min-w-[80px] text-center">
               {taxYear}년 귀속
             </span>
             <button
               onClick={() => handleYearChange(1)}
-              className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm"
+              className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm"
             >
               ▶
             </button>
@@ -213,61 +214,61 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
       </div>
 
       {/* 테이블 */}
-      <div className="flex-1 overflow-auto bg-white rounded-lg shadow-sm border border-gray-100">
+      <div className="flex-1 overflow-auto bg-white rounded-lg shadow-sm border border-[#F2F4F6]">
         <table className="text-xs whitespace-nowrap">
           <thead className="sticky top-0 z-10">
             {/* 그룹 헤더 */}
             <tr>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-gray-200`} colSpan={showAssignedUser ? 6 : 5}>기본</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["준비"]} border-b border-blue-200`} colSpan={6}>준비</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-yellow-200`} colSpan={1}>가결산</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-purple-200`} colSpan={3}>전기</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-[#E5E8EB]`} colSpan={showAssignedUser ? 6 : 5}>기본</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["준비"]} border-b border-[#A3CAFD]`} colSpan={6}>준비</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-[#FDE68A]`} colSpan={1}>가결산</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-[#A3CAFD]`} colSpan={3}>전기</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["당기"]} border-b border-emerald-200`} colSpan={3}>당기</th>
               <th className="px-3 py-1.5 bg-indigo-50 border-b border-indigo-200" colSpan={2}>AI판단</th>
               <th className={`px-3 py-1.5 ${GROUP_COLORS["감면"]} border-b border-orange-200`} colSpan={5}>감면</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-green-200`} colSpan={3}>완료</th>
+              <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-[#BBF7D0]`} colSpan={3}>완료</th>
               <th className={`px-3 py-1.5 bg-rose-50 border-b border-rose-200`} colSpan={1}>조정료</th>
             </tr>
             {/* 세부 헤더 */}
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-3 py-2 text-left text-gray-700 font-medium sticky left-0 bg-gray-50 z-20 min-w-[100px]">고객사명</th>
-              <th className="px-2 py-2 text-left text-gray-600 font-medium min-w-[60px]">대표자</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium w-10">메모</th>
+            <tr className="bg-[#F9FAFB] border-b border-[#E5E8EB]">
+              <th className="px-3 py-2 text-left text-[#333D4B] font-medium sticky left-0 bg-[#F9FAFB] z-20 min-w-[100px]">고객사명</th>
+              <th className="px-2 py-2 text-left text-[#4E5968] font-medium min-w-[60px]">대표자</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium w-10">메모</th>
               {showAssignedUser && (
-                <th className="px-2 py-2 text-center text-gray-600 font-medium">담당자</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">담당자</th>
               )}
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">기장의무</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">신고유형</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">안내문<br/>발송</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">링크<br/>패스</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">감가<br/>상각</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">이자<br/>비용</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">보험료</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">기부금</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">가결산</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">매출</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">종합<br/>소득</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">결정<br/>세액</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">매출</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">종합<br/>소득</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">결정<br/>세액</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium bg-indigo-50/50">창중감</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium bg-indigo-50/50">중특감</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">기장<br/>공제</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">창중감</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">중특감</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">통합<br/>투자</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">고용<br/>증대</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">입금</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">신고<br/>완료</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">납부서<br/>발송</th>
-              <th className="px-2 py-2 text-center text-gray-600 font-medium">조정료</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기장의무</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">신고유형</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">안내문<br/>발송</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">링크<br/>패스</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">감가<br/>상각</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">이자<br/>비용</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">보험료</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기부금</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">가결산</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">매출</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">종합<br/>소득</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">결정<br/>세액</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">매출</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">종합<br/>소득</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">결정<br/>세액</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">창중감</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">중특감</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기장<br/>공제</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">창중감</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">중특감</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">통합<br/>투자</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">고용<br/>증대</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">입금</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">신고<br/>완료</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">납부서<br/>발송</th>
+              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">조정료</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[#F2F4F6]">
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={28} className="text-center py-12 text-gray-500 text-sm">
+                <td colSpan={28} className="text-center py-12 text-[#6B7684] text-sm">
                   {clients.length === 0 ? "거래처가 없습니다" : "검색 결과가 없습니다"}
                 </td>
               </tr>
@@ -298,9 +299,9 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                 const showCompletionCells = !hasGroup || isFirstInGroup;
 
                 return (
-                  <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-green-50/50" : "hover:bg-blue-50/30"}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }}>
+                  <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-[#F1FBF4]/50" : "hover:bg-[#F5F9FF]/30"}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }}>
                     {/* 고객사명 */}
-                    <td className="px-3 py-2 text-[#1a2e4a] font-medium sticky left-0 bg-white z-10 border-r border-gray-100">
+                    <td className="px-3 py-2 text-[#191F28] font-medium sticky left-0 bg-white z-10 border-r border-[#F2F4F6]">
                       <div className="flex items-center gap-1">
                         <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
                           {client.name}
@@ -316,7 +317,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                           })}
                           className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
                             savedCalcIds.has(client.id)
-                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
                               : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                           }`}
                           title="세액계산"
@@ -326,23 +327,23 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                       </div>
                     </td>
                     {/* 대표자 */}
-                    <td className="px-2 py-2 text-left text-xs text-gray-600">
-                      {isFirstInGroup ? (client.ceoName ?? <span className="text-gray-300">-</span>) : ""}
+                    <td className="px-2 py-2 text-left text-xs text-[#4E5968]">
+                      {isFirstInGroup ? (client.ceoName ?? <span className="text-[#B0B8C1]">-</span>) : ""}
                     </td>
                     {/* 메모 */}
                     <td className="px-1 py-2 text-center">
                       {r.memo ? (
                         <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: r.memo! })}>
-                          <span className="text-amber-500 text-xs">📌</span>
-                          <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#1a2e4a] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{r.memo}</div>
+                          <PinIcon width={12} height={12} className="text-[#F59E0B]" />
+                          <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#3182F6] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{r.memo}</div>
                         </span>
                       ) : (
-                        <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-gray-200 hover:text-amber-500 text-xs">+</button>
+                        <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-[#D1D6DB] hover:text-[#F59E0B] text-xs">+</button>
                       )}
                     </td>
                     {showAssignedUser && (
-                      <td className="px-2 py-2 text-center text-xs text-gray-600">
-                        {client.assignedUserName ?? <span className="text-gray-300">-</span>}
+                      <td className="px-2 py-2 text-center text-xs text-[#4E5968]">
+                        {client.assignedUserName ?? <span className="text-[#B0B8C1]">-</span>}
                       </td>
                     )}
 
@@ -389,20 +390,20 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                     {/* AI판단 */}
                     <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
                       {client.aiStartupReduction === "O" ? (
-                        <span className="text-green-600">O</span>
+                        <span className="text-[#16A865]">O</span>
                       ) : client.aiStartupReduction === "X" ? (
-                        <span className="text-red-500">X</span>
+                        <span className="text-[#E02E2E]">X</span>
                       ) : (
-                        <span className="text-gray-300">-</span>
+                        <span className="text-[#B0B8C1]">-</span>
                       )}
                     </td>
                     <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
                       {client.aiSmeReduction === "O" ? (
-                        <span className="text-green-600">O</span>
+                        <span className="text-[#16A865]">O</span>
                       ) : client.aiSmeReduction === "X" ? (
-                        <span className="text-red-500">X</span>
+                        <span className="text-[#E02E2E]">X</span>
                       ) : (
-                        <span className="text-gray-300">-</span>
+                        <span className="text-[#B0B8C1]">-</span>
                       )}
                     </td>
 
@@ -443,24 +444,24 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-bold text-gray-900">메모</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{memoModal.clientName}</p>
+                <h3 className="text-base font-bold text-[#191F28]">메모</h3>
+                <p className="text-xs text-[#8B95A1] mt-0.5">{memoModal.clientName}</p>
               </div>
-              <button onClick={() => setMemoModal(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+              <button onClick={() => setMemoModal(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
             </div>
             <textarea
               defaultValue={memoModal.value}
               placeholder="메모를 입력하세요..."
               rows={4}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20 focus:border-[#1a2e4a] resize-none mb-4"
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] resize-none mb-4"
               id="it-memo-textarea"
               autoFocus
             />
             <div className="flex gap-2 justify-end">
               {memoModal.value && (
-                <button onClick={() => { startTransition(() => setIncomeTaxMemo(memoModal.clientId, taxYear, "")); setMemoModal(null); }} className="text-sm text-red-500 hover:text-red-700 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors">삭제</button>
+                <button onClick={() => { startTransition(() => setIncomeTaxMemo(memoModal.clientId, taxYear, "")); setMemoModal(null); }} className="text-sm text-[#E02E2E] hover:text-[#B91C1C] px-4 py-2 rounded-lg hover:bg-[#FEF2F2] transition-colors">삭제</button>
               )}
-              <button onClick={() => setMemoModal(null)} className="text-sm text-gray-500 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">취소</button>
+              <button onClick={() => setMemoModal(null)} className="text-sm text-[#6B7684] px-4 py-2 rounded-lg hover:bg-[#F2F4F6] transition-colors">취소</button>
               <button
                 onClick={() => {
                   const val = (document.getElementById("it-memo-textarea") as HTMLTextAreaElement)?.value ?? "";
@@ -468,7 +469,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                   setMemoModal(null);
                 }}
                 disabled={isPending}
-                className="text-sm bg-[#1a2e4a] text-white px-5 py-2 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
+                className="text-sm bg-[#3182F6] text-white px-5 py-2 rounded-lg hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
               >저장</button>
             </div>
           </div>
@@ -502,9 +503,9 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
       {editClientId && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditClientId(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
-              <h3 className="text-sm font-bold text-gray-900">고객사 수정</h3>
-              <button onClick={() => setEditClientId(null)} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[#F2F4F6] shrink-0">
+              <h3 className="text-sm font-bold text-[#191F28]">고객사 수정</h3>
+              <button onClick={() => setEditClientId(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
             </div>
             <iframe
               src={`/clients/${editClientId}/edit?modal=1`}
@@ -525,7 +526,7 @@ function CheckCell({ checked, onToggle, disabled }: { checked: boolean; onToggle
         checked={checked}
         onChange={onToggle}
         disabled={disabled}
-        className="accent-[#1a2e4a] w-3.5 h-3.5 cursor-pointer"
+        className="accent-[#3182F6] w-3.5 h-3.5 cursor-pointer"
       />
     </td>
   );
@@ -537,9 +538,9 @@ function NumberCell({ value, onSave, colorType }: { value: string | null; onSave
 
   const num = value ? parseInt(value) : null;
   const isNegative = num !== null && !isNaN(num) && num < 0;
-  let textColor = "text-gray-700";
-  if (isNegative && colorType === "income") textColor = "text-red-500 font-medium";
-  if (isNegative && colorType === "tax") textColor = "text-blue-500 font-medium";
+  let textColor = "text-[#333D4B]";
+  if (isNegative && colorType === "income") textColor = "text-[#E02E2E] font-medium";
+  if (isNegative && colorType === "tax") textColor = "text-[#3182F6] font-medium";
 
   if (editing) {
     return (
@@ -558,10 +559,10 @@ function NumberCell({ value, onSave, colorType }: { value: string | null; onSave
   }
   return (
     <td
-      className={`px-2 py-2 text-right cursor-pointer hover:bg-blue-50 min-w-[70px] ${textColor}`}
+      className={`px-2 py-2 text-right cursor-pointer hover:bg-[#F5F9FF] min-w-[70px] ${textColor}`}
       onClick={() => { setVal(value ?? ""); setEditing(true); }}
     >
-      {formatNumber(value) || <span className="text-gray-300">-</span>}
+      {formatNumber(value) || <span className="text-[#B0B8C1]">-</span>}
     </td>
   );
 }
@@ -572,7 +573,7 @@ function SelectCell({ value, options, onSave }: { value: string | null; options:
       <select
         value={value ?? ""}
         onChange={(e) => onSave(e.target.value)}
-        className="border border-gray-200 rounded px-1 py-0.5 text-xs bg-white focus:outline-none w-20"
+        className="border border-[#E5E8EB] rounded px-1 py-0.5 text-xs bg-white focus:outline-none w-20"
       >
         <option value="">-</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}

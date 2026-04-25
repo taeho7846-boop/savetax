@@ -14,7 +14,7 @@ export default async function StaffPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-900">직원 관리</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">직원 관리</h1>
       </div>
       <StaffTable staffList={staffList} currentUserId={session.id} />
     </div>

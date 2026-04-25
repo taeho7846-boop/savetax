@@ -89,29 +89,29 @@ export function RevenueChart({
     <div className="space-y-6">
       {/* 요약 카드 */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-          <div className="text-sm text-gray-500">이번 달 총 기장료</div>
-          <div className="text-2xl font-bold text-[#1a2e4a] mt-1">
-            {(currentData?.합계 ?? 0).toLocaleString()}원
+        <div className="bg-white rounded-[14px] p-5 border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+          <div className="text-[13px] text-[#6B7684] font-[500]">이번 달 총 기장료</div>
+          <div className="text-[28px] font-bold text-[#191F28] mt-2 tracking-tight">
+            {(currentData?.합계 ?? 0).toLocaleString()}<span className="text-[18px] ml-0.5 text-[#4E5968]">원</span>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-          <div className="text-sm text-gray-500">본사 귀속</div>
-          <div className="text-2xl font-bold text-blue-500 mt-1">
-            {(currentData?.본사귀속 ?? 0).toLocaleString()}원
+        <div className="bg-white rounded-[14px] p-5 border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+          <div className="text-[13px] text-[#6B7684] font-[500]">본사 귀속</div>
+          <div className="text-[28px] font-bold text-[#3182F6] mt-2 tracking-tight">
+            {(currentData?.본사귀속 ?? 0).toLocaleString()}<span className="text-[18px] ml-0.5 text-[#6FABF9]">원</span>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-          <div className="text-sm text-gray-500">본인 귀속</div>
-          <div className="text-2xl font-bold text-emerald-500 mt-1">
-            {(currentData?.본인귀속 ?? 0).toLocaleString()}원
+        <div className="bg-white rounded-[14px] p-5 border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+          <div className="text-[13px] text-[#6B7684] font-[500]">본인 귀속</div>
+          <div className="text-[28px] font-bold text-[#16A865] mt-2 tracking-tight">
+            {(currentData?.본인귀속 ?? 0).toLocaleString()}<span className="text-[18px] ml-0.5 text-[#4ADE80]">원</span>
           </div>
         </div>
       </div>
 
       {/* 그래프 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
-        <h2 className="text-sm font-medium text-gray-700 mb-4">월별 수익추이 (본사 귀속 vs 본인 귀속)</h2>
+      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+        <h2 className="text-sm font-medium text-[#333D4B] mb-4">월별 수익추이 (본사 귀속 vs 본인 귀속)</h2>
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={chartData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -175,56 +175,56 @@ export function RevenueChart({
         const hqTotal = details.filter(d => d.status === "본사 귀속").reduce((s, d) => s + d.fee, 0);
 
         return (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100">
-              <h2 className="font-medium text-gray-700">이번 달 거래처별 귀속 현황</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
+            <div className="px-5 py-3 border-b border-[#F2F4F6]">
+              <h2 className="font-medium text-[#333D4B]">이번 달 거래처별 귀속 현황</h2>
             </div>
             <div className="overflow-y-auto max-h-[400px]">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
+                <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0">
                   <tr>
-                    <th className="text-left px-4 py-2 text-gray-600 font-medium">거래처명</th>
-                    <th className="text-center px-4 py-2 text-gray-600 font-medium">소속</th>
-                    <th className="text-center px-4 py-2 text-gray-600 font-medium">월 기장료</th>
-                    <th className="text-center px-4 py-2 text-gray-600 font-medium">수임 개월</th>
-                    <th className="text-center px-4 py-2 text-gray-600 font-medium">귀속</th>
+                    <th className="text-left px-4 py-2 text-[#4E5968] font-medium">거래처명</th>
+                    <th className="text-center px-4 py-2 text-[#4E5968] font-medium">소속</th>
+                    <th className="text-center px-4 py-2 text-[#4E5968] font-medium">월 기장료</th>
+                    <th className="text-center px-4 py-2 text-[#4E5968] font-medium">수임 개월</th>
+                    <th className="text-center px-4 py-2 text-[#4E5968] font-medium">귀속</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-[#F2F4F6]">
                   {details.map((d, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-gray-800">{d.name}</td>
+                    <tr key={i} className="hover:bg-[#F9FAFB]">
+                      <td className="px-4 py-2 text-[#191F28]">{d.name}</td>
                       <td className="px-4 py-2 text-center text-xs">
                         {d.affiliation === "세이브택스" ? (
-                          <span className="text-blue-600 font-medium">세이브택스</span>
+                          <span className="text-[#3182F6] font-medium">세이브택스</span>
                         ) : (
-                          <span className="text-gray-600">{d.affiliation}</span>
+                          <span className="text-[#4E5968]">{d.affiliation}</span>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-center text-gray-700">{d.fee.toLocaleString()}원</td>
-                      <td className="px-4 py-2 text-center text-gray-500">{d.monthIdx}개월차</td>
+                      <td className="px-4 py-2 text-center text-[#333D4B]">{d.fee.toLocaleString()}원</td>
+                      <td className="px-4 py-2 text-center text-[#6B7684]">{d.monthIdx}개월차</td>
                       <td className="px-4 py-2 text-center">
                         {d.status === "본인 귀속" ? (
                           <span className="text-emerald-600 font-medium text-xs bg-emerald-50 px-2 py-0.5 rounded-full">본인 귀속</span>
                         ) : d.status === "본사 귀속" ? (
-                          <span className="text-blue-600 font-medium text-xs bg-blue-50 px-2 py-0.5 rounded-full">본사 귀속</span>
+                          <span className="text-[#3182F6] font-medium text-xs bg-[#F5F9FF] px-2 py-0.5 rounded-full">본사 귀속</span>
                         ) : (
-                          <span className="text-gray-400 text-xs bg-gray-50 px-2 py-0.5 rounded-full">무료</span>
+                          <span className="text-[#8B95A1] text-xs bg-[#F9FAFB] px-2 py-0.5 rounded-full">무료</span>
                         )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50 border-t border-gray-200">
+                <tfoot className="bg-[#F9FAFB] border-t border-[#E5E8EB]">
                   <tr>
-                    <td className="px-4 py-2 font-medium text-gray-700">합계</td>
+                    <td className="px-4 py-2 font-medium text-[#333D4B]">합계</td>
                     <td></td>
-                    <td className="px-4 py-2 text-center font-medium text-gray-700">{(myTotal + hqTotal).toLocaleString()}원</td>
+                    <td className="px-4 py-2 text-center font-medium text-[#333D4B]">{(myTotal + hqTotal).toLocaleString()}원</td>
                     <td></td>
                     <td className="px-4 py-2 text-center text-xs">
                       <span className="text-emerald-600 font-medium">본인 {myTotal.toLocaleString()}원</span>
                       {" / "}
-                      <span className="text-blue-600 font-medium">본사 {hqTotal.toLocaleString()}원</span>
+                      <span className="text-[#3182F6] font-medium">본사 {hqTotal.toLocaleString()}원</span>
                     </td>
                   </tr>
                 </tfoot>
@@ -235,7 +235,7 @@ export function RevenueChart({
       })()}
 
       {/* 데이터 수 안내 */}
-      <div className="text-xs text-gray-400 text-right pb-4">
+      <div className="text-xs text-[#8B95A1] text-right pb-4">
         거래처 {clients.length}건 기준 (최초출금월 + 기장료 설정된 거래처만 반영)
       </div>
     </div>

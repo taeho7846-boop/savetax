@@ -2,25 +2,48 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ComponentType, type SVGProps } from "react";
 import { logout } from "@/app/actions/auth";
 import { ChatBot } from "./ChatBot";
+import {
+  LayoutDashboardIcon,
+  BuildingIcon,
+  ClipboardListIcon,
+  FileTextIcon,
+  ReceiptIcon,
+  FileSpreadsheetIcon,
+  WalletIcon,
+  DownloadIcon,
+  BarChartIcon,
+  BanknoteIcon,
+  TrendingUpIcon,
+  CalendarIcon,
+  CheckSquareIcon,
+  UsersIcon,
+  SettingsIcon,
+  KeyIcon,
+  LogOutIcon,
+  LoaderIcon,
+  CheckIcon,
+} from "./icons";
 
-const menus = [
-  { href: "/dashboard", label: "대시보드", icon: "📊" },
-  { href: "/clients", label: "고객사관리", icon: "🏢" },
-  { href: "/commission", label: "신규수임", icon: "📋" },
-  { href: "/tax-agency", label: "신고대리", icon: "📄" },
-  { href: "/withholding", label: "원천세", icon: "🧾" },
-  { href: "/income-tax", label: "종합소득세", icon: "📑" },
-  { href: "/receivables", label: "채권관리", icon: "💰" },
-  { href: "/data-collect", label: "자료수집", icon: "📥" },
-  { href: "/distribution", label: "Savetax 배분", icon: "📊" },
-  { href: "/settlement", label: "Savetax 정산", icon: "💵" },
-  { href: "/distribution-taeho", label: "세무회계태호 배분", icon: "📊" },
-  { href: "/revenue", label: "수익추이", icon: "📈" },
-  { href: "/schedule", label: "스케쥴", icon: "📅" },
-  { href: "/tasks", label: "업무/메모", icon: "🗓️" },
+type IconComp = ComponentType<SVGProps<SVGSVGElement>>;
+
+const menus: { href: string; label: string; Icon: IconComp }[] = [
+  { href: "/dashboard", label: "대시보드", Icon: LayoutDashboardIcon },
+  { href: "/clients", label: "고객사관리", Icon: BuildingIcon },
+  { href: "/commission", label: "신규수임", Icon: ClipboardListIcon },
+  { href: "/tax-agency", label: "신고대리", Icon: FileTextIcon },
+  { href: "/withholding", label: "원천세", Icon: ReceiptIcon },
+  { href: "/income-tax", label: "종합소득세", Icon: FileSpreadsheetIcon },
+  { href: "/receivables", label: "채권관리", Icon: WalletIcon },
+  { href: "/data-collect", label: "자료수집", Icon: DownloadIcon },
+  { href: "/distribution", label: "Savetax 배분", Icon: BarChartIcon },
+  { href: "/settlement", label: "Savetax 정산", Icon: BanknoteIcon },
+  { href: "/distribution-taeho", label: "세무회계태호 배분", Icon: BarChartIcon },
+  { href: "/revenue", label: "수익추이", Icon: TrendingUpIcon },
+  { href: "/schedule", label: "스케쥴", Icon: CalendarIcon },
+  { href: "/tasks", label: "업무/메모", Icon: CheckSquareIcon },
 ];
 
 type LoginStatus = "idle" | "loading" | "success" | "error";
@@ -69,87 +92,105 @@ export default function Sidebar({
     }
   }
 
+  const roleLabel =
+    user.role === "owner"
+      ? "대표"
+      : user.role === "admin"
+      ? "관리자"
+      : user.role === "accountant"
+      ? "세무사"
+      : user.role === "employee"
+      ? "직원"
+      : user.role === "staff"
+      ? "세무사"
+      : "조회전용";
+
+  const visibleMenus = menus.filter((menu) => {
+    if (user.role === "owner" || user.role === "admin") return true;
+    if (!user.allowedMenus) return true;
+    const allowed = user.allowedMenus.split(",");
+    const menuKey = menu.href.replace("/", "");
+    return allowed.includes(menuKey);
+  });
+
   return (
-    <aside className="w-56 bg-[#1a2e4a] h-full flex flex-col">
-      <div className="p-5 border-b border-[#243d61]">
-        <h1 className="text-white font-bold text-base leading-tight">
-          세무 업무 관리
-        </h1>
-        <p className="text-gray-400 text-xs mt-1">내부 직원 전용</p>
+    <aside className="w-60 bg-[#ffffff] h-full flex flex-col border-r border-[#F2F4F6]">
+      {/* Brand */}
+      <div className="px-4 pt-5 pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-[10px] bg-[#3182F6] flex items-center justify-center">
+            <span className="text-white text-[14px] font-bold">S</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[#191F28] text-[14px] font-bold leading-tight tracking-tight">
+              Savetax
+            </div>
+            <div className="text-[#8B95A1] text-[10.5px] leading-tight mt-0.5 font-[500]">
+              세무 업무 관리
+            </div>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1">
-        {menus.filter((menu) => {
-          // 관리자/대표는 전체 메뉴, 그 외는 allowedMenus로 필터
-          if (user.role === "owner" || user.role === "admin") return true;
-          if (!user.allowedMenus) return true; // null이면 전체 허용
-          const allowed = user.allowedMenus.split(",");
-          const menuKey = menu.href.replace("/", "");
-          return allowed.includes(menuKey);
-        }).map((menu) => {
-          const active = pathname.startsWith(menu.href);
-          return (
-            <Link
-              key={menu.href}
-              href={menu.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                active
-                  ? "bg-[#243d61] text-white font-medium"
-                  : "text-gray-400 hover:text-white hover:bg-[#243d61]"
-              }`}
-            >
-              <span>{menu.icon}</span>
-              <span>{menu.label}</span>
-            </Link>
-          );
-        })}
+      {/* Nav */}
+      <nav className="flex-1 px-2 pb-3 overflow-y-auto">
+        <div className="space-y-px">
+          {visibleMenus.map((m) => (
+            <NavItem key={m.href} {...m} pathname={pathname} />
+          ))}
+        </div>
+
+        {/* Admin section */}
+        <div className="mt-4 pt-3 border-t border-[#F2F4F6]">
+          <div className="px-3 mb-1.5 text-[10.5px] font-bold tracking-[0.04em] uppercase text-[#8B95A1]">
+            관리
+          </div>
+          <div className="space-y-px">
+            {(user.role === "owner" || user.role === "admin") && (
+              <NavItem href="/staff" label="직원관리" Icon={UsersIcon} pathname={pathname} />
+            )}
+            <NavItem href="/settings" label="설정" Icon={SettingsIcon} pathname={pathname} />
+          </div>
+        </div>
       </nav>
 
-      {/* AI 어시스턴트 */}
-      <div className="px-3 pb-1">
+      {/* AI assistant + Hometax quick action */}
+      <div className="px-3 pb-3 space-y-2">
         <ChatBot />
-      </div>
 
-      {/* 세무대리인 홈택스 로그인 */}
-      <div className="px-3 pb-1">
-        <div className="border border-[#2d4a6e] rounded-lg p-3">
-          <div className="text-[10px] text-gray-500 mb-2 font-medium tracking-wide uppercase">
-            세무대리인
-          </div>
+        <div>
           {loginStatus === "idle" && (
             <button
               onClick={handleAgentLogin}
               disabled={!hasCredentials}
-              className={`w-full flex items-center justify-center gap-2 py-2 rounded-md text-xs font-medium transition-all ${
+              className={`w-full h-10 flex items-center justify-center gap-1.5 rounded-[10px] text-[13px] font-bold transition-colors ${
                 hasCredentials
-                  ? "bg-[#243d61] text-white hover:bg-[#2d4a6e] border border-[#3a5a82]"
-                  : "bg-[#1f3654] text-gray-600 cursor-not-allowed"
+                  ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]"
+                  : "bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed"
               }`}
             >
-              <span>🔐</span>
+              <KeyIcon width={13} height={13} />
               홈택스 로그인
             </button>
           )}
           {loginStatus === "loading" && (
-            <div className="w-full flex items-center justify-center gap-2 py-2 text-xs text-blue-300">
-              <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
+            <div className="w-full h-9 flex items-center justify-center gap-2 rounded-[6px] bg-white text-[12.5px] text-[#4E5968]">
+              <LoaderIcon width={13} height={13} />
               실행 중...
             </div>
           )}
           {loginStatus === "success" && (
-            <div className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-green-400 font-medium">
-              ✓ 로그인 완료
+            <div className="w-full h-9 flex items-center justify-center gap-1.5 rounded-[10px] bg-[#E7F7EE] border border-[#BBF7D0] text-[12.5px] text-[#16A865] font-bold">
+              <CheckIcon width={13} height={13} />
+              로그인 완료
             </div>
           )}
           {loginStatus === "error" && (
             <div className="space-y-1.5">
-              <div className="text-xs text-red-400 text-center">✕ {loginError}</div>
+              <div className="text-[11.5px] text-[#E02E2E] text-center font-[500]">✕ {loginError}</div>
               <button
                 onClick={handleAgentLogin}
-                className="w-full text-xs text-gray-500 hover:text-gray-300 underline text-center"
+                className="w-full text-[11.5px] text-[#6B7684] hover:text-[#191F28] underline text-center"
               >
                 재시도
               </button>
@@ -158,60 +199,65 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* 관리자 메뉴 */}
-      <div className="px-3 pb-2 mt-1 space-y-1">
-        {(user.role === "owner" || user.role === "admin") && (
-          <Link
-            href="/staff"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              pathname.startsWith("/staff")
-                ? "bg-[#243d61] text-white font-medium"
-                : "text-gray-400 hover:text-white hover:bg-[#243d61]"
-            }`}
-          >
-            <span>👥</span>
-            <span>직원관리</span>
-          </Link>
-        )}
-        <Link
-          href="/settings"
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-            pathname.startsWith("/settings")
-              ? "bg-[#243d61] text-white font-medium"
-              : "text-gray-400 hover:text-white hover:bg-[#243d61]"
-          }`}
-        >
-          <span>⚙️</span>
-          <span>설정</span>
-        </Link>
-      </div>
-
-      <div className="p-4 border-t border-[#243d61]">
-        <div className="text-gray-400 text-xs mb-2">
-          <div className="text-white text-sm font-medium">{user.name}</div>
-          <div className="text-gray-500">
-            {user.role === "owner"
-              ? "대표"
-              : user.role === "admin"
-              ? "관리자"
-              : user.role === "accountant"
-              ? "세무사"
-              : user.role === "employee"
-              ? "직원"
-              : user.role === "staff"
-              ? "세무사"
-              : "조회전용"}
+      {/* User */}
+      <div className="px-2 py-3 border-t border-[#F2F4F6]">
+        <div className="flex items-center gap-2.5 px-2 mb-1.5">
+          <div className="w-8 h-8 rounded-full bg-[#E8F3FF] flex items-center justify-center text-[#3182F6] text-[12px] font-bold">
+            {user.name.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[#191F28] text-[13px] font-bold truncate leading-tight">
+              {user.name}
+            </div>
+            <div className="text-[#8B95A1] text-[11px] leading-tight mt-0.5 font-[500]">
+              {roleLabel}
+            </div>
           </div>
         </div>
         <form action={logout}>
           <button
             type="submit"
-            className="w-full text-left text-gray-400 hover:text-white text-xs py-1 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-[8px] text-[12px] text-[#6B7684] hover:text-[#191F28] hover:bg-[#F9FAFB] font-[500] transition-colors"
           >
+            <LogOutIcon width={13} height={13} />
             로그아웃
           </button>
         </form>
       </div>
     </aside>
+  );
+}
+
+function NavItem({
+  href,
+  label,
+  Icon,
+  pathname,
+}: {
+  href: string;
+  label: string;
+  Icon: IconComp;
+  pathname: string;
+}) {
+  const active = pathname.startsWith(href);
+  return (
+    <Link
+      href={href}
+      className={`group relative flex items-center gap-2 px-3 py-2 rounded-[10px] text-[13px] transition-colors ${
+        active
+          ? "bg-[#F2F4F6] text-[#191F28] font-bold"
+          : "text-[#4E5968] hover:text-[#191F28] hover:bg-[#F9FAFB] font-[500]"
+      }`}
+    >
+      {active && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded-r-full bg-[#3182F6]" />
+      )}
+      <Icon
+        width={16}
+        height={16}
+        className={active ? "text-[#3182F6]" : "text-[#8B95A1] group-hover:text-[#4E5968]"}
+      />
+      <span className="truncate">{label}</span>
+    </Link>
   );
 }

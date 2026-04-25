@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { IncomeTaxCalcModal } from "./IncomeTaxCalcModal";
 import { BizTaxCalcModal } from "./BizTaxCalcModal";
+import { BuildingIcon } from "@/components/icons";
 
 type ClientResult = {
   id: number;
@@ -122,8 +123,15 @@ export function GlobalSearch() {
         setOpen(true);
       }
     }
+    function onOpenEvent() {
+      setOpen(true);
+    }
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("savetax-open-global-search", onOpenEvent);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("savetax-open-global-search", onOpenEvent);
+    };
   }, []);
 
   // 검색 디바운스 (액션 모드가 아닐 때만)
@@ -359,7 +367,7 @@ export function GlobalSearch() {
         onClick={(e) => e.stopPropagation()}
       >
         <Command
-          className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] overflow-hidden"
           shouldFilter={false}
           onKeyDown={(e) => {
             // Space로 거래처 선택 → 액션 모드 (일반 모드일 때만)
@@ -375,12 +383,12 @@ export function GlobalSearch() {
           }}
         >
           {/* 검색 입력 */}
-          <div className="flex items-center px-4 border-b border-gray-100">
-            <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center px-4 border-b border-[#F2F4F6]">
+            <svg className="w-5 h-5 text-[#8B95A1] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             {isActionMode && (
-              <span className="ml-2 px-2 py-0.5 bg-[#1a2e4a] text-white text-xs rounded-md shrink-0">
+              <span className="ml-2 px-2 py-0.5 bg-[#3182F6] text-white text-xs rounded-md shrink-0">
                 {selectedClient!.name}
               </span>
             )}
@@ -389,10 +397,10 @@ export function GlobalSearch() {
               value={query}
               onValueChange={handleQueryChange}
               placeholder={isActionMode ? "액션 입력... (수정, 메모, 원천세...)" : "거래처, 사이트 검색..."}
-              className="w-full px-3 py-4 text-[15px] text-gray-900 placeholder-gray-400 outline-none bg-transparent"
+              className="w-full px-3 py-4 text-[15px] text-[#191F28] placeholder-gray-400 outline-none bg-transparent"
               autoFocus
             />
-            <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[11px] font-medium text-gray-400 bg-gray-100 rounded-md border border-gray-200">
+            <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[11px] font-medium text-[#8B95A1] bg-[#F2F4F6] rounded-md border border-[#E5E8EB]">
               ESC
             </kbd>
           </div>
@@ -401,37 +409,37 @@ export function GlobalSearch() {
           <Command.List className="max-h-[360px] overflow-y-auto p-2">
             {loading && !isActionMode && (
               <Command.Loading>
-                <div className="py-8 text-center text-sm text-gray-400">검색 중...</div>
+                <div className="py-8 text-center text-sm text-[#8B95A1]">검색 중...</div>
               </Command.Loading>
             )}
 
             {/* === 액션 모드 === */}
             {isActionMode && (
               <Command.Group heading={
-                <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
                   {selectedClient!.name} 액션
                 </span>
               }>
                 {filteredActions.length === 0 ? (
-                  <div className="py-6 text-center text-sm text-gray-400">일치하는 액션이 없습니다</div>
+                  <div className="py-6 text-center text-sm text-[#8B95A1]">일치하는 액션이 없습니다</div>
                 ) : (
                   filteredActions.map((action) => (
                     <Command.Item
                       key={action.key}
                       value={`action-${action.key}`}
                       onSelect={() => handleSelectAction(action)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#3182F6] data-[selected=true]:text-white group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-[#F2F4F6] group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
                         {action.icon}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium">{action.label}</div>
-                        <div className="text-xs text-gray-400 group-data-[selected=true]:text-white/60">
+                        <div className="text-xs text-[#8B95A1] group-data-[selected=true]:text-white/60">
                           {action.desc}
                         </div>
                       </div>
-                      <kbd className="text-[10px] px-1.5 py-0.5 bg-gray-100 group-data-[selected=true]:bg-white/20 rounded text-gray-400 group-data-[selected=true]:text-white/60">
+                      <kbd className="text-[10px] px-1.5 py-0.5 bg-[#F2F4F6] group-data-[selected=true]:bg-white/20 rounded text-[#8B95A1] group-data-[selected=true]:text-white/60">
                         {action.key}
                       </kbd>
                     </Command.Item>
@@ -444,7 +452,7 @@ export function GlobalSearch() {
             {!isActionMode && (
               <>
                 {!loading && !hasResults && (
-                  <div className="py-8 text-center text-sm text-gray-400">
+                  <div className="py-8 text-center text-sm text-[#8B95A1]">
                     검색 결과가 없습니다
                   </div>
                 )}
@@ -452,7 +460,7 @@ export function GlobalSearch() {
                 {/* 메뉴 */}
                 {filteredMenus.length > 0 && (
                   <Command.Group heading={
-                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
                       메뉴
                     </span>
                   }>
@@ -461,9 +469,9 @@ export function GlobalSearch() {
                         key={menu.path}
                         value={`menu-${menu.name}`}
                         onSelect={() => { setOpen(false); router.push(menu.path); }}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#3182F6] data-[selected=true]:text-white group"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#F2F4F6] group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
                           {menu.icon}
                         </div>
                         <div className="font-medium">{menu.name}</div>
@@ -475,7 +483,7 @@ export function GlobalSearch() {
                 {/* 도구 */}
                 {filteredTools.length > 0 && (
                   <Command.Group heading={
-                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
                       도구
                     </span>
                   }>
@@ -484,9 +492,9 @@ export function GlobalSearch() {
                         key={tool.key}
                         value={`tool-${tool.key}`}
                         onSelect={() => { setOpen(false); setActiveTool(tool.key); }}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#3182F6] data-[selected=true]:text-white group"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-amber-50 group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#FFFBEB] group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
                           {tool.icon}
                         </div>
                         <div className="font-medium">{tool.name}</div>
@@ -498,7 +506,7 @@ export function GlobalSearch() {
                 {/* 빌트인 사이트 (위멤버스 등) */}
                 {filteredBuiltinSites.length > 0 && (
                   <Command.Group heading={
-                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
                       위멤버스
                     </span>
                   }>
@@ -507,18 +515,18 @@ export function GlobalSearch() {
                         key={site.url}
                         value={`builtin-${site.name}`}
                         onSelect={() => handleSelectBuiltinSite(site)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#3182F6] data-[selected=true]:text-white group"
                       >
                         <div className="w-8 h-8 rounded-lg bg-indigo-50 group-data-[selected=true]:bg-white/20 flex items-center justify-center shrink-0">
-                          <span className="text-sm">🏢</span>
+                          <BuildingIcon width={14} height={14} className="text-[#3182F6] group-data-[selected=true]:text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{site.name}</div>
-                          <div className="text-xs text-gray-400 group-data-[selected=true]:text-white/60 truncate">
+                          <div className="text-xs text-[#8B95A1] group-data-[selected=true]:text-white/60 truncate">
                             {site.url.replace(/^https?:\/\//, "").split("/")[0]}
                           </div>
                         </div>
-                        <svg className="w-4 h-4 text-gray-300 group-data-[selected=true]:text-white/50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 text-[#B0B8C1] group-data-[selected=true]:text-white/50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                       </Command.Item>
@@ -529,7 +537,7 @@ export function GlobalSearch() {
                 {/* 외부 사이트 (북마크) */}
                 {bookmarks.length > 0 && (
                   <Command.Group heading={
-                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
                       외부 사이트
                     </span>
                   }>
@@ -538,23 +546,23 @@ export function GlobalSearch() {
                         key={`bm-${bm.id}`}
                         value={`bookmark-${bm.name}-${bm.id}`}
                         onSelect={() => handleSelectBookmark(bm)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#3182F6] data-[selected=true]:text-white group"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-blue-50 group-data-[selected=true]:bg-white/20 flex items-center justify-center shrink-0">
-                          <svg className="w-4 h-4 text-blue-500 group-data-[selected=true]:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-8 h-8 rounded-lg bg-[#F5F9FF] group-data-[selected=true]:bg-white/20 flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-[#3182F6] group-data-[selected=true]:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{bm.name}</div>
-                          <div className="text-xs text-gray-400 group-data-[selected=true]:text-white/60 truncate">
+                          <div className="text-xs text-[#8B95A1] group-data-[selected=true]:text-white/60 truncate">
                             {bm.url.replace(/^https?:\/\//, "").split("/")[0]}
                           </div>
                         </div>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
                           bm.scope === "shared"
-                            ? "bg-gray-100 text-gray-500 group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white/70"
-                            : "bg-purple-50 text-purple-500 group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white/70"
+                            ? "bg-[#F2F4F6] text-[#6B7684] group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white/70"
+                            : "bg-[#F5F9FF] text-[#3182F6] group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white/70"
                         }`}>
                           {bm.scope === "shared" ? "공통" : "개인"}
                         </span>
@@ -566,8 +574,8 @@ export function GlobalSearch() {
                 {/* 거래처 */}
                 {clients.length > 0 && (
                   <Command.Group heading={
-                    <span className="px-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                      거래처 <span className="text-gray-300 font-normal ml-1">Space로 액션 선택</span>
+                    <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
+                      거래처 <span className="text-[#B0B8C1] font-normal ml-1">Space로 액션 선택</span>
                     </span>
                   }>
                     {clients.map((client) => (
@@ -576,22 +584,22 @@ export function GlobalSearch() {
                         value={`${client.name}-${client.id}`}
                         data-client-id={client.id}
                         onSelect={() => handleSelectClient(client.id)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#1a2e4a] data-[selected=true]:text-white group"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#3182F6] data-[selected=true]:text-white group"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 group-data-[selected=true]:bg-white/20 flex items-center justify-center text-xs font-medium text-gray-500 group-data-[selected=true]:text-white shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#F2F4F6] group-data-[selected=true]:bg-white/20 flex items-center justify-center text-xs font-medium text-[#6B7684] group-data-[selected=true]:text-white shrink-0">
                           {client.clientType === "corporate" ? "법" : "개"}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{client.name}</div>
-                          <div className="text-xs text-gray-400 group-data-[selected=true]:text-white/60 truncate">
+                          <div className="text-xs text-[#8B95A1] group-data-[selected=true]:text-white/60 truncate">
                             {[client.ceoName, client.bizNumber].filter(Boolean).join(" · ")}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <kbd className="text-[10px] px-1.5 py-0.5 bg-gray-100 group-data-[selected=true]:bg-white/20 rounded text-gray-300 group-data-[selected=true]:text-white/40">
+                          <kbd className="text-[10px] px-1.5 py-0.5 bg-[#F2F4F6] group-data-[selected=true]:bg-white/20 rounded text-[#B0B8C1] group-data-[selected=true]:text-white/40">
                             Space
                           </kbd>
-                          <svg className="w-4 h-4 text-gray-300 group-data-[selected=true]:text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-[#B0B8C1] group-data-[selected=true]:text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </div>
@@ -604,19 +612,19 @@ export function GlobalSearch() {
           </Command.List>
 
           {/* 하단 힌트 */}
-          <div className="flex items-center gap-4 px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-              <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 text-[10px] font-medium">↑↓</kbd>
+          <div className="flex items-center gap-4 px-4 py-2.5 border-t border-[#F2F4F6] bg-[#F9FAFB]/50">
+            <div className="flex items-center gap-1.5 text-[11px] text-[#8B95A1]">
+              <kbd className="px-1.5 py-0.5 bg-white rounded border border-[#E5E8EB] text-[10px] font-medium">↑↓</kbd>
               <span>이동</span>
             </div>
             {!isActionMode && (
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 text-[10px] font-medium">Space</kbd>
+              <div className="flex items-center gap-1.5 text-[11px] text-[#8B95A1]">
+                <kbd className="px-1.5 py-0.5 bg-white rounded border border-[#E5E8EB] text-[10px] font-medium">Space</kbd>
                 <span>액션 선택</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-              <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 text-[10px] font-medium">Enter</kbd>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#8B95A1]">
+              <kbd className="px-1.5 py-0.5 bg-white rounded border border-[#E5E8EB] text-[10px] font-medium">Enter</kbd>
               <span>{isActionMode ? "실행" : "바로 이동"}</span>
             </div>
           </div>

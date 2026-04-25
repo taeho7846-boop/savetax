@@ -157,26 +157,26 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   return (
     <>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold text-gray-900">자료수집</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">자료수집</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
-            <button onClick={() => handleYearChange(-1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">◀</button>
-            <span className="text-sm font-medium text-gray-800 min-w-[80px] text-center">{taxYear}년 귀속</span>
-            <button onClick={() => handleYearChange(1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">▶</button>
+          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
+            <button onClick={() => handleYearChange(-1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</button>
+            <span className="text-sm font-medium text-[#191F28] min-w-[80px] text-center">{taxYear}년 귀속</span>
+            <button onClick={() => handleYearChange(1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</button>
           </div>
         </div>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* 좌측: 거래처 목록 */}
-        <div className="w-64 bg-white rounded-lg shadow-sm border border-gray-100 flex flex-col shrink-0">
-          <div className="p-3 border-b border-gray-100">
+        <div className="w-64 bg-white rounded-lg shadow-sm border border-[#F2F4F6] flex flex-col shrink-0">
+          <div className="p-3 border-b border-[#F2F4F6]">
             <input
               type="text"
               placeholder="거래처 검색"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
             />
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -186,22 +186,22 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
               return (
                 <div
                   key={client.id}
-                  className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer transition-colors border-b border-gray-50 ${
-                    isSelected ? "bg-[#1a2e4a] text-white" : "hover:bg-gray-50"
+                  className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer transition-colors border-b border-[#F2F4F6] ${
+                    isSelected ? "bg-[#3182F6] text-white" : "hover:bg-[#F9FAFB]"
                   }`}
                   onClick={() => handleClientSelect(client.id)}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-medium truncate ${isSelected ? "text-white" : "text-gray-900"}`}>
+                    <div className={`text-sm font-medium truncate ${isSelected ? "text-white" : "text-[#191F28]"}`}>
                       {client.name}
                     </div>
-                    <div className={`text-[10px] ${isSelected ? "text-gray-300" : "text-gray-400"}`}>
+                    <div className={`text-[10px] ${isSelected ? "text-[#B0B8C1]" : "text-[#8B95A1]"}`}>
                       {client.clientType === "corporate" ? "법인" : "개인"}
                     </div>
                   </div>
                   {collected > 0 && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      isSelected ? "bg-white/20 text-white" : "bg-green-100 text-green-700"
+                      isSelected ? "bg-white/20 text-white" : "bg-[#E7F7EE] text-[#15803D]"
                     }`}>
                       {collected}/{hometaxDocs.length}
                     </span>
@@ -213,53 +213,53 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
         </div>
 
         {/* 우측: 자료 체크리스트 */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-100 overflow-y-auto">
+        <div className="flex-1 bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-y-auto">
           {!selectedClient ? (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-full text-[#8B95A1] text-sm">
               좌측에서 거래처를 선택하세요
             </div>
           ) : (
             <div className="p-5">
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">{selectedClient.name}</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">{taxYear}년 귀속 자료수집</p>
+                  <h2 className="text-lg font-bold text-[#191F28]">{selectedClient.name}</h2>
+                  <p className="text-xs text-[#6B7684] mt-0.5">{taxYear}년 귀속 자료수집</p>
                 </div>
                 <button
                   onClick={handleCollect}
                   disabled={checkedDocs.size === 0 || collecting}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     checkedDocs.size > 0 && !collecting
-                      ? "bg-[#1a2e4a] text-white hover:bg-[#243d61]"
-                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]"
+                      : "bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed"
                   }`}
                 >
                   {collecting ? "수집 중..." : `자료수집 (${checkedDocs.size}건)`}
                 </button>
               </div>
 
-              <div className="inline-block px-2 py-0.5 rounded text-xs font-medium border mb-3 bg-blue-50 text-blue-600 border-blue-200">
+              <div className="inline-block px-2 py-0.5 rounded text-xs font-medium border mb-3 bg-[#F5F9FF] text-[#3182F6] border-[#A3CAFD]">
                 홈택스
               </div>
 
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-[#F9FAFB] border-b border-[#E5E8EB]">
                     <tr>
                       <th className="w-10 px-3 py-2">
                         <input
                           type="checkbox"
                           checked={checkedDocs.size === hometaxDocs.length}
                           onChange={toggleAll}
-                          className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                          className="accent-[#3182F6] w-4 h-4 cursor-pointer"
                         />
                       </th>
-                      <th className="text-left px-3 py-2 text-gray-600 font-medium">요청서류</th>
-                      <th className="text-left px-3 py-2 text-gray-600 font-medium">필수 선택사항</th>
-                      <th className="text-center px-3 py-2 text-gray-600 font-medium w-20">상태</th>
+                      <th className="text-left px-3 py-2 text-[#4E5968] font-medium">요청서류</th>
+                      <th className="text-left px-3 py-2 text-[#4E5968] font-medium">필수 선택사항</th>
+                      <th className="text-center px-3 py-2 text-[#4E5968] font-medium w-20">상태</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-[#F2F4F6]">
                     {hometaxDocs.map(doc => {
                       const status = getStatus(selectedClient, doc.key);
                       const isCollected = status === "collected";
@@ -269,16 +269,16 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                       const params = { ...defaults, ...saved };
 
                       return (
-                        <tr key={doc.key} className={`${isCollected ? "bg-green-50/50" : isChecked ? "bg-blue-50/30" : "hover:bg-gray-50"}`}>
+                        <tr key={doc.key} className={`${isCollected ? "bg-[#F1FBF4]/50" : isChecked ? "bg-[#F5F9FF]/30" : "hover:bg-[#F9FAFB]"}`}>
                           <td className="px-3 py-3 text-center">
                             <input
                               type="checkbox"
                               checked={isChecked}
                               onChange={() => toggleDoc(doc.key)}
-                              className="accent-[#1a2e4a] w-4 h-4 cursor-pointer"
+                              className="accent-[#3182F6] w-4 h-4 cursor-pointer"
                             />
                           </td>
-                          <td className={`px-3 py-3 ${isCollected ? "text-green-700" : "text-gray-800"}`}>
+                          <td className={`px-3 py-3 ${isCollected ? "text-[#15803D]" : "text-[#191F28]"}`}>
                             {doc.label}
                           </td>
                           <td className="px-3 py-3" data-doc={doc.key}>
@@ -286,9 +286,9 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                           </td>
                           <td className="px-3 py-3 text-center">
                             {isCollected ? (
-                              <span className="text-xs text-green-600 font-medium">완료</span>
+                              <span className="text-xs text-[#16A865] font-medium">완료</span>
                             ) : (
-                              <span className="text-xs text-gray-400">-</span>
+                              <span className="text-xs text-[#8B95A1]">-</span>
                             )}
                           </td>
                         </tr>
@@ -306,30 +306,30 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
 }
 
 function SettingInput({ type, params, docKey }: { type: SettingType; params: Record<string, string | undefined>; docKey?: string }) {
-  const inputClass = "border border-gray-300 rounded px-2 py-1 text-xs w-28 focus:outline-none";
-  const selectClass = "border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none";
+  const inputClass = "border border-[#D1D6DB] rounded px-2 py-1 text-xs w-28 focus:outline-none";
+  const selectClass = "border border-[#D1D6DB] rounded px-2 py-1 text-xs focus:outline-none";
 
   switch (type) {
     case "year":
       return (
         <div className="flex items-center gap-1">
-          <input type="number" defaultValue={params.year} className={`${inputClass} w-20`} /> <span className="text-xs text-gray-500">년</span>
+          <input type="number" defaultValue={params.year} className={`${inputClass} w-20`} /> <span className="text-xs text-[#6B7684]">년</span>
         </div>
       );
     case "yearRange":
       return (
         <div className="flex items-center gap-1" data-doc={docKey}>
           <input type="number" defaultValue={params.startYear} className={`${inputClass} w-20`} />
-          <span className="text-xs text-gray-400">~</span>
+          <span className="text-xs text-[#8B95A1]">~</span>
           <input type="number" defaultValue={params.endYear} className={`${inputClass} w-20`} />
-          <span className="text-xs text-gray-500">년</span>
+          <span className="text-xs text-[#6B7684]">년</span>
         </div>
       );
     case "monthRange":
       return (
         <div className="flex items-center gap-1">
           <input type="month" defaultValue={params.startMonth} className={inputClass} />
-          <span className="text-xs text-gray-400">~</span>
+          <span className="text-xs text-[#8B95A1]">~</span>
           <input type="month" defaultValue={params.endMonth} className={inputClass} />
         </div>
       );
@@ -337,7 +337,7 @@ function SettingInput({ type, params, docKey }: { type: SettingType; params: Rec
       return (
         <div className="flex items-center gap-1">
           <input type="date" defaultValue={params.startDate} className={inputClass} />
-          <span className="text-xs text-gray-400">~</span>
+          <span className="text-xs text-[#8B95A1]">~</span>
           <input type="date" defaultValue={params.endDate} className={inputClass} />
         </div>
       );
@@ -349,7 +349,7 @@ function SettingInput({ type, params, docKey }: { type: SettingType; params: Rec
             <option value="1">1기</option>
             <option value="2">2기</option>
           </select>
-          <span className="text-xs text-gray-400">~</span>
+          <span className="text-xs text-[#8B95A1]">~</span>
           <input type="number" defaultValue={params.endYear} className={`${inputClass} w-20`} />
           <select defaultValue={params.endPeriod} className={selectClass}>
             <option value="1">1기</option>
@@ -358,6 +358,6 @@ function SettingInput({ type, params, docKey }: { type: SettingType; params: Rec
         </div>
       );
     case "none":
-      return <span className="text-xs text-gray-400">-</span>;
+      return <span className="text-xs text-[#8B95A1]">-</span>;
   }
 }

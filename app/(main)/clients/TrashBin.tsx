@@ -18,12 +18,12 @@ export function TrashBinButton({ count }: { count: number }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-sm px-3 py-2 rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+        className="text-sm px-3 py-2 rounded-lg border border-[#D1D6DB] text-[#6B7684] hover:bg-[#F9FAFB] transition-colors flex items-center gap-1.5"
       >
         <span>🗑️</span>
         휴지통
         {count > 0 && (
-          <span className="bg-gray-200 text-gray-600 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{count}</span>
+          <span className="bg-[#E5E8EB] text-[#4E5968] text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{count}</span>
         )}
       </button>
       {open && <TrashBinModal onClose={() => setOpen(false)} />}
@@ -63,22 +63,22 @@ function TrashBinModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h3 className="text-base font-bold text-gray-900">🗑️ 휴지통</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2F4F6] shrink-0">
+          <h3 className="text-base font-bold text-[#191F28]">🗑️ 휴지통</h3>
+          <button onClick={onClose} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {items === null ? (
-            <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>
+            <div className="py-12 text-center text-[#8B95A1] text-sm">불러오는 중...</div>
           ) : items.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 text-sm">삭제된 고객사가 없습니다</div>
+            <div className="py-12 text-center text-[#8B95A1] text-sm">삭제된 고객사가 없습니다</div>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-[#F2F4F6]">
               {items.map(c => (
                 <div key={c.id} className="px-6 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-800 truncate">{c.name}</div>
-                    <div className="text-[10px] text-gray-400">
+                    <div className="text-sm font-medium text-[#191F28] truncate">{c.name}</div>
+                    <div className="text-[10px] text-[#8B95A1]">
                       {c.ceoName || "-"} · {c.bizNumber || "-"} · 삭제: {new Date(c.updatedAt).toLocaleDateString("ko-KR")}
                     </div>
                   </div>
@@ -86,14 +86,14 @@ function TrashBinModal({ onClose }: { onClose: () => void }) {
                     <button
                       onClick={() => handleRestore(c.id)}
                       disabled={isPending}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] disabled:opacity-50"
                     >
                       복원
                     </button>
                     <button
                       onClick={() => handleDelete(c.id, c.name)}
                       disabled={isPending}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-50"
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-[#FEF2F2] text-[#E02E2E] hover:bg-[#FEF2F2] disabled:opacity-50"
                     >
                       영구삭제
                     </button>

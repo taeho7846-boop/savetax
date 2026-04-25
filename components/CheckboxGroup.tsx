@@ -23,7 +23,7 @@ export function CheckboxGroup({
             defaultChecked={defaultValues.includes(option)}
             className="hidden peer"
           />
-          <span className="peer-checked:bg-[#1a2e4a] peer-checked:text-white border border-gray-300 peer-checked:border-[#1a2e4a] rounded-md px-3 py-1.5 text-sm text-gray-700 select-none hover:border-[#1a2e4a] transition-colors">
+          <span className="peer-checked:bg-[#3182F6] peer-checked:text-white border border-[#D1D6DB] peer-checked:border-[#3182F6] rounded-md px-3 py-1.5 text-sm text-[#333D4B] select-none hover:border-[#3182F6] transition-colors">
             {option}
           </span>
         </label>

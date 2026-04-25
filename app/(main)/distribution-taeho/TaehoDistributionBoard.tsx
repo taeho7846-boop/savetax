@@ -122,13 +122,13 @@ export function TaehoDistributionBoard({
   return (
     <>
       {/* 탭 */}
-      <div className="flex gap-1 mb-5 border-b border-gray-200">
+      <div className="flex gap-1 mb-5 border-b border-[#E5E8EB]">
         <Link
           href="/distribution-taeho?tab=individual"
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             tab === "individual"
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-400 hover:text-gray-600"
+              ? "border-[#3182F6] text-[#191F28]"
+              : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
           }`}
         >
           개인
@@ -137,8 +137,8 @@ export function TaehoDistributionBoard({
           href="/distribution-taeho?tab=corporate"
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             isCorporate
-              ? "border-[#1a2e4a] text-[#1a2e4a]"
-              : "border-transparent text-gray-400 hover:text-gray-600"
+              ? "border-[#3182F6] text-[#191F28]"
+              : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
           }`}
         >
           법인
@@ -147,8 +147,8 @@ export function TaehoDistributionBoard({
           href="/distribution-taeho?tab=excluded"
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             isExcluded
-              ? "border-red-500 text-red-500"
-              : "border-transparent text-gray-400 hover:text-gray-600"
+              ? "border-red-500 text-[#E02E2E]"
+              : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
           }`}
         >
           관리제외
@@ -157,44 +157,44 @@ export function TaehoDistributionBoard({
 
       {/* 관리제외 탭 */}
       {isExcluded && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 flex-1 overflow-y-auto">
+        <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] flex-1 overflow-y-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+            <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-10">
               <tr>
-                <th className="text-left px-4 py-3 text-gray-700 font-medium">거래처명</th>
-                <th className="text-center px-4 py-3 text-gray-700 font-medium">구분</th>
-                <th className="text-center px-4 py-3 text-gray-700 font-medium">담당자</th>
-                <th className="text-left px-4 py-3 text-gray-700 font-medium">제외 사유</th>
-                <th className="text-center px-4 py-3 text-gray-700 font-medium w-32">관리</th>
+                <th className="text-left px-4 py-3 text-[#333D4B] font-medium">거래처명</th>
+                <th className="text-center px-4 py-3 text-[#333D4B] font-medium">구분</th>
+                <th className="text-center px-4 py-3 text-[#333D4B] font-medium">담당자</th>
+                <th className="text-left px-4 py-3 text-[#333D4B] font-medium">제외 사유</th>
+                <th className="text-center px-4 py-3 text-[#333D4B] font-medium w-32">관리</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-[#F2F4F6]">
               {distributions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-gray-400">관리제외 거래처가 없습니다</td>
+                  <td colSpan={5} className="text-center py-12 text-[#8B95A1]">관리제외 거래처가 없습니다</td>
                 </tr>
               ) : (
                 distributions.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-800">{d.clientName}</td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-500">
+                  <tr key={d.id} className="hover:bg-[#F9FAFB]">
+                    <td className="px-4 py-3 text-[#191F28]">{d.clientName}</td>
+                    <td className="px-4 py-3 text-center text-xs text-[#6B7684]">
                       {d.clientType.includes("corporate") ? "법인" : "개인"}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-700">{d.assignedUser.name}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{d.excludeReason || "-"}</td>
+                    <td className="px-4 py-3 text-center text-[#333D4B]">{d.assignedUser.name}</td>
+                    <td className="px-4 py-3 text-[#6B7684] text-xs">{d.excludeReason || "-"}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex gap-2 justify-center">
                         <button
                           onClick={() => handleRestore(d.id)}
                           disabled={isPending}
-                          className="text-xs text-blue-500 hover:underline"
+                          className="text-xs text-[#3182F6] hover:underline"
                         >
                           복원
                         </button>
                         <button
                           onClick={() => handlePermanentDelete(d.id, d.clientName)}
                           disabled={isPending}
-                          className="text-xs text-red-500 hover:underline"
+                          className="text-xs text-[#E02E2E] hover:underline"
                         >
                           삭제
                         </button>
@@ -210,13 +210,13 @@ export function TaehoDistributionBoard({
 
       {/* 세이브택스 미배정 거래처 */}
       {!isExcluded && unassignedFromSavetax.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5">
+        <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-lg p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm font-medium text-amber-800">세이브택스에서 대기중</span>
-            <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-bold">
+            <span className="text-sm font-medium text-[#92400E]">세이브택스에서 대기중</span>
+            <span className="text-xs bg-[#FDE68A] text-[#92400E] px-2 py-0.5 rounded-full font-bold">
               {unassignedFromSavetax.length}건
             </span>
-            <span className="text-xs text-amber-600 ml-1">아래 거래처를 담당자 컬럼으로 끌어다 놓으세요</span>
+            <span className="text-xs text-[#D97706] ml-1">아래 거래처를 담당자 컬럼으로 끌어다 놓으세요</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {unassignedFromSavetax.map((name) => (
@@ -227,8 +227,8 @@ export function TaehoDistributionBoard({
                 onDragEnd={() => { setDragItem(null); setDropTarget(null); }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium cursor-grab active:cursor-grabbing transition-all select-none ${
                   dragItem === name
-                    ? "bg-[#1a2e4a] text-white shadow-lg scale-105"
-                    : "bg-white text-gray-800 border border-amber-300 hover:border-amber-500 hover:shadow-sm"
+                    ? "bg-[#3182F6] text-white shadow-lg scale-105"
+                    : "bg-white text-[#191F28] border border-amber-300 hover:border-amber-500 hover:shadow-sm"
                 }`}
               >
                 {name}
@@ -239,15 +239,15 @@ export function TaehoDistributionBoard({
       )}
 
       {/* 거래처 입력 */}
-      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 mb-5">
+      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5 mb-5">
         <div className="flex items-center gap-3 mb-3">
-          <h3 className="text-sm font-medium text-gray-700">
+          <h3 className="text-sm font-medium text-[#333D4B]">
             거래처 추가 ({isCorporate ? "법인" : "개인"})
           </h3>
           <select
             value={forceUserId ?? ""}
             onChange={(e) => setForceUserId(e.target.value ? Number(e.target.value) : null)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-1.5 text-sm focus:outline-none"
           >
             <option value="">자동배분</option>
             {accountants.map((a) => (
@@ -257,7 +257,7 @@ export function TaehoDistributionBoard({
           <button
             onClick={handleAdd}
             disabled={isPending || inputs.every((n) => !n.trim())}
-            className="bg-[#1a2e4a] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#243d61] disabled:opacity-50 transition-colors"
+            className="bg-[#3182F6] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
           >
             {isPending ? "추가중..." : "추가"}
           </button>
@@ -269,7 +269,7 @@ export function TaehoDistributionBoard({
               value={val}
               onChange={(e) => updateInput(i, e.target.value)}
               placeholder={`거래처 ${i + 1}`}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+              className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -282,9 +282,9 @@ export function TaehoDistributionBoard({
       </div>}
 
       {/* 배분 테이블 */}
-      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-gray-100 flex-1 overflow-y-auto">
+      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] flex-1 overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+          <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-10">
             <tr>
               {accountants.map((a) => {
                 const isPass = passSet.has(a.id);
@@ -293,26 +293,26 @@ export function TaehoDistributionBoard({
                   <th
                     key={a.id}
                     className={`text-center px-4 py-3 transition-colors ${
-                      isDragOver ? "bg-blue-100 ring-2 ring-blue-400 ring-inset" : isPass ? "bg-red-50" : "bg-gray-50"
+                      isDragOver ? "bg-[#E8F3FF] ring-2 ring-blue-400 ring-inset" : isPass ? "bg-[#FEF2F2]" : "bg-[#F9FAFB]"
                     }`}
                     onDragOver={(e) => { e.preventDefault(); setDropTarget(a.id); }}
                     onDragLeave={() => setDropTarget(null)}
                     onDrop={(e) => { e.preventDefault(); handleDrop(a.id); }}
                   >
-                    <div className={`font-medium ${isPass ? "text-red-400 line-through" : "text-gray-700"}`}>{a.name}</div>
-                    <div className="text-xs text-gray-400 font-normal mt-0.5">
+                    <div className={`font-medium ${isPass ? "text-[#F87171] line-through" : "text-[#333D4B]"}`}>{a.name}</div>
+                    <div className="text-xs text-[#8B95A1] font-normal mt-0.5">
                       {counts[a.id] || 0}건
                     </div>
                     {isDragOver && (
-                      <div className="text-[10px] text-blue-600 font-bold mt-1 animate-pulse">여기에 놓기</div>
+                      <div className="text-[10px] text-[#3182F6] font-bold mt-1 animate-pulse">여기에 놓기</div>
                     )}
                     <button
                       onClick={() => handleTogglePass(a.id)}
                       disabled={isPending}
                       className={`mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
                         isPass
-                          ? "bg-red-500 text-white hover:bg-red-600"
-                          : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                          ? "bg-[#E02E2E] text-white hover:bg-[#DC2626]"
+                          : "bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]"
                       }`}
                     >
                       PASS {isPass ? "ON" : "OFF"}
@@ -324,35 +324,35 @@ export function TaehoDistributionBoard({
           </thead>
           <tbody>
             {Array.from({ length: maxRows }).map((_, rowIdx) => (
-              <tr key={rowIdx} className="border-b border-gray-50">
+              <tr key={rowIdx} className="border-b border-[#F2F4F6]">
                 {accountants.map((a) => {
                   const d = byAccountant[a.id][rowIdx];
                   return (
-                    <td key={a.id} className={`px-4 py-2 text-center ${d?.isSkipped ? "bg-red-50" : ""}`}>
+                    <td key={a.id} className={`px-4 py-2 text-center ${d?.isSkipped ? "bg-[#FEF2F2]" : ""}`}>
                       {d ? (
                         d.isSkipped ? (
                           <div className="flex items-center justify-center gap-1.5 group">
-                            <span className="text-red-400 text-xs font-bold">PASS</span>
+                            <span className="text-[#F87171] text-xs font-bold">PASS</span>
                             <button
                               onClick={() => handleDelete(d.id, "PASS")}
-                              className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                              className="text-[#B0B8C1] hover:text-[#E02E2E] opacity-0 group-hover:opacity-100 transition-opacity text-xs"
                             >
                               ✕
                             </button>
                           </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1.5 group">
-                            <span className="text-gray-800">{d.clientName}</span>
+                            <span className="text-[#191F28]">{d.clientName}</span>
                             <button
                               onClick={() => handleDelete(d.id, d.clientName)}
-                              className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                              className="text-[#B0B8C1] hover:text-[#E02E2E] opacity-0 group-hover:opacity-100 transition-opacity text-xs"
                             >
                               ✕
                             </button>
                           </div>
                         )
                       ) : (
-                        <span className="text-gray-200">-</span>
+                        <span className="text-[#D1D6DB]">-</span>
                       )}
                     </td>
                   );
@@ -361,15 +361,15 @@ export function TaehoDistributionBoard({
             ))}
             {/* 하단 여백 */}
             {[0, 1, 2].map(i => (
-              <tr key={`pad-${i}`} className="border-b border-gray-50">
+              <tr key={`pad-${i}`} className="border-b border-[#F2F4F6]">
                 {accountants.map(a => (
-                  <td key={a.id} className="px-4 py-2 text-center"><span className="text-gray-200">-</span></td>
+                  <td key={a.id} className="px-4 py-2 text-center"><span className="text-[#D1D6DB]">-</span></td>
                 ))}
               </tr>
             ))}
             {maxRows === 0 && (
               <tr>
-                <td colSpan={accountants.length} className="text-center py-12 text-gray-400">
+                <td colSpan={accountants.length} className="text-center py-12 text-[#8B95A1]">
                   배분된 거래처가 없습니다
                 </td>
               </tr>

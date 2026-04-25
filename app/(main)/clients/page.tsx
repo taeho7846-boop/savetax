@@ -7,10 +7,10 @@ import { BulkUploadButton, BulkUpdateButton } from "./BulkUploadModal";
 import { TrashBinButton } from "./TrashBin";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
-  "1인사업자": { border: "border-purple-400", text: "text-purple-600", bg: "bg-purple-50" },
-  "근로소득": { border: "border-red-400",   text: "text-red-600",   bg: "bg-red-50"   },
-  "사업소득": { border: "border-blue-400",  text: "text-blue-600",  bg: "bg-blue-50"  },
-  "일용직":   { border: "border-green-500", text: "text-green-700", bg: "bg-green-50" },
+  "1인사업자": { border: "border-[#A3CAFD]", text: "text-[#3182F6]", bg: "bg-[#F5F9FF]" },
+  "근로소득": { border: "border-[#FECACA]", text: "text-[#DC2626]", bg: "bg-[#FEF2F2]" },
+  "사업소득": { border: "border-[#A3CAFD]", text: "text-[#3182F6]", bg: "bg-[#F5F9FF]" },
+  "일용직":   { border: "border-[#BBF7D0]", text: "text-[#15803D]", bg: "bg-[#F1FBF4]" },
 };
 
 export default async function ClientsPage({
@@ -85,12 +85,12 @@ export default async function ClientsPage({
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <div className="flex items-start justify-between mb-6 gap-4">
-        <h1 className="text-xl font-bold text-gray-900 shrink-0">고객사 관리</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight shrink-0">고객사 관리</h1>
 
         <div className="flex items-center gap-4 flex-wrap justify-end">
           {/* 인건비 분류 범례 */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-medium text-gray-400 mr-0.5">인건비 분류</span>
+            <span className="text-xs font-medium text-[#8B95A1] mr-0.5">인건비 분류</span>
             {Object.entries(LABOR_TYPE_STYLES).map(([key, s]) => (
               <span
                 key={key}
@@ -103,7 +103,7 @@ export default async function ClientsPage({
 
           <a
             href="/api/clients/alimtalk-excel"
-            className="bg-yellow-400 text-gray-900 text-sm px-4 py-2 rounded-lg hover:bg-yellow-500 font-medium transition-colors"
+            className="bg-[#FEF3C7] text-[#92400e] text-[13px] font-bold px-4 py-2 rounded-[10px] hover:bg-[#FDE68A] transition-colors"
           >
             알림톡
           </a>
@@ -118,25 +118,28 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      {/* 전체/개인/법인 탭 */}
-      <div className="flex items-center gap-1 mb-4">
+      {/* 전체/개인/법인 — Toss pill 탭 */}
+      <div className="inline-flex gap-0.5 mb-4 p-1 bg-[#F2F4F6] rounded-[12px]">
         {[
           { key: "all", label: "전체", count: totalCount },
           { key: "individual", label: "개인", count: individualCount },
           { key: "corporate", label: "법인", count: corporateCount },
-        ].map(tab => (
-          <a
-            key={tab.key}
-            href={`/clients?type=${tab.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
-              clientType === tab.key
-                ? "bg-[#1a2e4a] text-white"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            {tab.label} <span className={`ml-1 text-xs ${clientType === tab.key ? "text-white/70" : "text-gray-400"}`}>{tab.count}</span>
-          </a>
-        ))}
+        ].map(tab => {
+          const active = clientType === tab.key;
+          return (
+            <a
+              key={tab.key}
+              href={`/clients?type=${tab.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`px-4 py-1.5 text-[13px] rounded-[10px] transition-all ${
+                active
+                  ? "bg-white text-[#191F28] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                  : "text-[#6B7684] hover:text-[#191F28] font-[500]"
+              }`}
+            >
+              {tab.label} <span className={`ml-1 text-[11px] ${active ? "text-[#6B7684]" : "text-[#8B95A1]"}`}>{tab.count}</span>
+            </a>
+          );
+        })}
       </div>
 
       {/* 검색/필터 */}
@@ -147,11 +150,11 @@ export default async function ClientsPage({
           defaultValue={q}
           placeholder="고객사명, 대표자명, 사업자번호 검색"
           autoComplete="off"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 flex-1 focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] flex-1 focus:outline-none focus:border-[#3182F6]"
         />
         <button
           type="submit"
-          className="bg-gray-100 border border-gray-300 text-gray-800 text-sm px-4 py-2 rounded-lg hover:bg-gray-200"
+          className="bg-[#3182F6] text-white text-[13px] font-bold px-5 py-2 rounded-[10px] hover:bg-[#1B64DA] transition-colors"
         >
           검색
         </button>

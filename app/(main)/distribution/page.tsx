@@ -18,7 +18,7 @@ export default async function DistributionPage({
     const data = await getExcludedData();
     return (
       <div className="flex flex-col h-full">
-        <h1 className="text-xl font-bold text-gray-800 mb-6">세이브택스 배분</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight mb-6">세이브택스 배분</h1>
         <DistributionBoard
           tab={tab}
           accountants={data.accountants}
@@ -34,7 +34,7 @@ export default async function DistributionPage({
 
   return (
     <div className="flex flex-col h-full">
-      <h1 className="text-xl font-bold text-gray-800 mb-6">세이브택스 배분</h1>
+      <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight mb-6">세이브택스 배분</h1>
       <DistributionBoard
         tab={tab}
         accountants={data.accountants}

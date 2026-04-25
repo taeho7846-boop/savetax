@@ -18,7 +18,7 @@ export default async function TaehoDistributionPage({
     const data = await getTaehoExcludedData();
     return (
       <div className="flex flex-col h-full">
-        <h1 className="text-xl font-bold text-gray-800 mb-6">세무회계태호 배분</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight mb-6">세무회계태호 배분</h1>
         <TaehoDistributionBoard
           tab={tab}
           accountants={data.accountants}
@@ -37,7 +37,7 @@ export default async function TaehoDistributionPage({
 
   return (
     <div className="flex flex-col h-full">
-      <h1 className="text-xl font-bold text-gray-800 mb-6">세무회계태호 배분</h1>
+      <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight mb-6">세무회계태호 배분</h1>
       <TaehoDistributionBoard
         tab={tab}
         accountants={data.accountants}

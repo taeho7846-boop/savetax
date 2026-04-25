@@ -33,7 +33,7 @@ export default async function RevenuePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <h1 className="text-xl font-bold text-gray-800 mb-6">수익추이</h1>
+      <h1 className="text-[24px] font-bold text-[#191F28] mb-6 tracking-tight">수익추이</h1>
       <RevenueChart clients={clients} currentUserId={session.id} />
     </div>
   );

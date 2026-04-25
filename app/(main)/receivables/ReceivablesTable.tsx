@@ -37,8 +37,8 @@ function fmtWon(n: number) {
 }
 
 function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string | null; sortDir: SortDir }) {
-  if (sortCol !== col) return <span className="ml-1 text-gray-300">↕</span>;
-  return <span className="ml-1 text-[#1a2e4a]">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  if (sortCol !== col) return <span className="ml-1 text-[#B0B8C1]">↕</span>;
+  return <span className="ml-1 text-[#191F28]">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
 /** 월별 정렬 가중치: N/A=-1, 미수=0, 수납=1 */
@@ -165,9 +165,9 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
           type="month"
           value={verifyMonth}
           onChange={(e) => setVerifyMonth(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]"
+          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-1.5 text-sm focus:outline-none focus:border-[#3182F6]"
         />
-        <label className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 cursor-pointer">
+        <label className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-[#3182F6] text-white hover:bg-[#1B64DA] cursor-pointer">
           {verifyLoading ? "분석 중..." : "출금 검증"}
           <input
             ref={fileInputRef}
@@ -184,29 +184,29 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
       {verifyResult && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">{verifyResult.targetMonth.replace("-", "년 ")}월 출금 검증</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <h2 className="text-lg font-bold text-[#191F28]">{verifyResult.targetMonth.replace("-", "년 ")}월 출금 검증</h2>
+                <p className="text-sm text-[#6B7684] mt-0.5">
                   엑셀 {verifyResult.totalExcel}건 / 내 거래처 매칭: 출금성공 {verifyResult.success.length} · 실패 {verifyResult.failed.length} · 미포함 {verifyResult.notInExcel.length}
                 </p>
               </div>
-              <button onClick={() => setVerifyResult(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+              <button onClick={() => setVerifyResult(null)} className="text-[#8B95A1] hover:text-[#4E5968] text-2xl leading-none">&times;</button>
             </div>
 
             {/* 요약 */}
             <div className="px-6 py-3 grid grid-cols-3 gap-3">
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-green-600">{verifyResult.success.length}</div>
-                <div className="text-xs text-green-600 mt-1">출금 성공</div>
+              <div className="bg-[#F1FBF4] rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-[#16A865]">{verifyResult.success.length}</div>
+                <div className="text-xs text-[#16A865] mt-1">출금 성공</div>
               </div>
-              <div className="bg-red-50 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-red-600">{verifyResult.failed.length}</div>
-                <div className="text-xs text-red-600 mt-1">출금 실패</div>
+              <div className="bg-[#FEF2F2] rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-[#DC2626]">{verifyResult.failed.length}</div>
+                <div className="text-xs text-[#DC2626] mt-1">출금 실패</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-gray-600">{verifyResult.notInExcel.length}</div>
-                <div className="text-xs text-gray-600 mt-1">엑셀에 없음</div>
+              <div className="bg-[#F9FAFB] rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-[#4E5968]">{verifyResult.notInExcel.length}</div>
+                <div className="text-xs text-[#4E5968] mt-1">엑셀에 없음</div>
               </div>
             </div>
 
@@ -214,39 +214,39 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               {/* 출금 성공 */}
               {verifyResult.success.length > 0 && (
                 <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                  <h3 className="text-sm font-bold text-[#15803D] mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#1AB266]" />
                     출금 성공
                   </h3>
-                  <div className="border border-green-200 rounded-lg overflow-hidden">
+                  <div className="border border-[#BBF7D0] rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
-                      <thead className="bg-green-50">
+                      <thead className="bg-[#F1FBF4]">
                         <tr>
-                          <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                          <th className="px-3 py-2 text-right text-gray-700">기장료</th>
-                          <th className="px-3 py-2 text-right text-gray-700">출금액</th>
-                          <th className="px-3 py-2 text-center text-gray-700">출금결과</th>
-                          <th className="px-3 py-2 text-center text-gray-700">수납</th>
+                          <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                          <th className="px-3 py-2 text-right text-[#333D4B]">기장료</th>
+                          <th className="px-3 py-2 text-right text-[#333D4B]">출금액</th>
+                          <th className="px-3 py-2 text-center text-[#333D4B]">출금결과</th>
+                          <th className="px-3 py-2 text-center text-[#333D4B]">수납</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-green-100">
                         {verifyResult.success.map(item => {
                           const alreadyPaid = item.currentPaid || paidIds.has(item.clientId);
                           return (
-                            <tr key={item.clientId} className={alreadyPaid ? "bg-green-50/50" : ""}>
-                              <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
-                              <td className="px-3 py-2 text-right text-gray-600">{item.monthlyFee?.toLocaleString()}원</td>
-                              <td className="px-3 py-2 text-right text-gray-600">{item.excelAmount?.toLocaleString()}원</td>
+                            <tr key={item.clientId} className={alreadyPaid ? "bg-[#F1FBF4]/50" : ""}>
+                              <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                              <td className="px-3 py-2 text-right text-[#4E5968]">{item.monthlyFee?.toLocaleString()}원</td>
+                              <td className="px-3 py-2 text-right text-[#4E5968]">{item.excelAmount?.toLocaleString()}원</td>
                               <td className="px-3 py-2 text-center">
-                                <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full">{item.excelResult || "성공"}</span>
+                                <span className="text-xs text-[#15803D] bg-[#E7F7EE] px-2 py-0.5 rounded-full">{item.excelResult || "성공"}</span>
                               </td>
                               <td className="px-3 py-2 text-center">
                                 {alreadyPaid ? (
-                                  <span className="text-xs text-green-600 font-medium">수납완료</span>
+                                  <span className="text-xs text-[#16A865] font-medium">수납완료</span>
                                 ) : (
                                   <button
                                     onClick={() => handleMarkPaid(item.clientId)}
-                                    className="text-xs px-3 py-1 rounded-lg bg-green-500 text-white hover:bg-green-600"
+                                    className="text-xs px-3 py-1 rounded-lg bg-[#1AB266] text-white hover:bg-[#16A865]"
                                   >
                                     수납처리
                                   </button>
@@ -264,26 +264,26 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               {/* 출금 실패 */}
               {verifyResult.failed.length > 0 && (
                 <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <h3 className="text-sm font-bold text-[#B91C1C] mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#E02E2E]" />
                     출금 실패
                   </h3>
-                  <div className="border border-red-200 rounded-lg overflow-hidden">
+                  <div className="border border-[#FECACA] rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
-                      <thead className="bg-red-50">
+                      <thead className="bg-[#FEF2F2]">
                         <tr>
-                          <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                          <th className="px-3 py-2 text-right text-gray-700">기장료</th>
-                          <th className="px-3 py-2 text-center text-gray-700">실패 사유</th>
+                          <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                          <th className="px-3 py-2 text-right text-[#333D4B]">기장료</th>
+                          <th className="px-3 py-2 text-center text-[#333D4B]">실패 사유</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-red-100">
                         {verifyResult.failed.map(item => (
                           <tr key={item.clientId}>
-                            <td className="px-3 py-2 font-medium text-gray-900">{item.clientName}</td>
-                            <td className="px-3 py-2 text-right text-gray-600">{item.monthlyFee?.toLocaleString()}원</td>
+                            <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                            <td className="px-3 py-2 text-right text-[#4E5968]">{item.monthlyFee?.toLocaleString()}원</td>
                             <td className="px-3 py-2 text-center">
-                              <span className="text-xs text-red-700 bg-red-100 px-2 py-0.5 rounded-full">{item.excelResult}</span>
+                              <span className="text-xs text-[#B91C1C] bg-[#FEF2F2] px-2 py-0.5 rounded-full">{item.excelResult}</span>
                             </td>
                           </tr>
                         ))}
@@ -296,26 +296,26 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               {/* 엑셀에 없음 */}
               {verifyResult.notInExcel.length > 0 && (
                 <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-gray-300" />
+                  <h3 className="text-sm font-bold text-[#6B7684] mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#D1D6DB]" />
                     엑셀에 없음 ({verifyResult.notInExcel.length}건)
                   </h3>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] overflow-hidden">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-[#F9FAFB]">
                         <tr>
-                          <th className="px-3 py-2 text-left text-gray-700">거래처명</th>
-                          <th className="px-3 py-2 text-right text-gray-700">기장료</th>
-                          <th className="px-3 py-2 text-center text-gray-700">현재 상태</th>
+                          <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
+                          <th className="px-3 py-2 text-right text-[#333D4B]">기장료</th>
+                          <th className="px-3 py-2 text-center text-[#333D4B]">현재 상태</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-[#F2F4F6]">
                         {verifyResult.notInExcel.map(item => (
                           <tr key={item.clientId}>
-                            <td className="px-3 py-2 text-gray-600">{item.clientName}</td>
-                            <td className="px-3 py-2 text-right text-gray-600">{item.monthlyFee?.toLocaleString()}원</td>
+                            <td className="px-3 py-2 text-[#4E5968]">{item.clientName}</td>
+                            <td className="px-3 py-2 text-right text-[#4E5968]">{item.monthlyFee?.toLocaleString()}원</td>
                             <td className="px-3 py-2 text-center">
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${item.currentPaid ? "bg-green-100 text-green-700" : "bg-red-50 text-red-500"}`}>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${item.currentPaid ? "bg-[#E7F7EE] text-[#15803D]" : "bg-[#FEF2F2] text-[#E02E2E]"}`}>
                                 {item.currentPaid ? "수납완료" : "미수납"}
                               </span>
                             </td>
@@ -333,83 +333,83 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
 
       {/* 요약 카드 (누적 전체 기간) */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-4">
-          <div className="text-xs text-gray-500 mb-1">누적 청구 합계</div>
-          <div className="text-lg font-bold text-gray-900">{fmtWon(summary.totalExpected)}</div>
+        <div className="bg-white rounded-lg border border-[#F2F4F6] shadow-sm p-4">
+          <div className="text-xs text-[#6B7684] mb-1">누적 청구 합계</div>
+          <div className="text-lg font-bold text-[#191F28]">{fmtWon(summary.totalExpected)}</div>
         </div>
         <div className="bg-white rounded-lg border border-green-100 shadow-sm p-4">
-          <div className="text-xs text-green-600 mb-1">누적 수납 완료</div>
-          <div className="text-lg font-bold text-green-700">{fmtWon(summary.totalPaid)}</div>
+          <div className="text-xs text-[#16A865] mb-1">누적 수납 완료</div>
+          <div className="text-lg font-bold text-[#15803D]">{fmtWon(summary.totalPaid)}</div>
         </div>
         <div className="bg-white rounded-lg border border-red-100 shadow-sm p-4">
-          <div className="text-xs text-red-500 mb-1">누적 미수</div>
-          <div className="text-lg font-bold text-red-600">{fmtWon(summary.totalUnpaid)}</div>
+          <div className="text-xs text-[#E02E2E] mb-1">누적 미수</div>
+          <div className="text-lg font-bold text-[#DC2626]">{fmtWon(summary.totalUnpaid)}</div>
         </div>
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-x-auto">
         <table className="text-sm border-collapse w-full">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="sticky left-0 z-10 bg-gray-50 text-left px-4 py-3 text-gray-700 font-medium min-w-[140px]">
+            <tr className="bg-[#F9FAFB] border-b border-[#F2F4F6]">
+              <th className="sticky left-0 z-10 bg-[#F9FAFB] text-left px-4 py-3 text-[#333D4B] font-medium min-w-[140px]">
                 고객사명
               </th>
               {/* 소속 필터 */}
-              <th className="text-center px-3 py-3 text-gray-700 font-medium min-w-[70px] whitespace-nowrap">
+              <th className="text-center px-3 py-3 text-[#333D4B] font-medium min-w-[70px] whitespace-nowrap">
                 <div className="relative inline-block" ref={affFilterRef}>
                   <button
                     onClick={() => setAffFilterOpen(o => !o)}
-                    className={`flex items-center gap-1 mx-auto hover:text-[#1a2e4a] ${affFilter.length > 0 ? "text-[#1a2e4a] font-semibold" : ""}`}
+                    className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${affFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
                   >
                     소속
                     {affFilter.length > 0 && (
-                      <span className="bg-[#1a2e4a] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{affFilter.length}</span>
+                      <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{affFilter.length}</span>
                     )}
-                    <span className="text-gray-400 text-[10px]">▼</span>
+                    <span className="text-[#8B95A1] text-[10px]">▼</span>
                   </button>
                   {affFilterOpen && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2 min-w-[120px]">
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[120px]">
                       {affOptions.length === 0 ? (
-                        <p className="text-xs text-gray-400 px-2 py-1">데이터 없음</p>
+                        <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
                       ) : (
                         affOptions.map(aff => (
-                          <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-sm text-gray-700 whitespace-nowrap">
+                          <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap">
                             <input
                               type="checkbox"
                               checked={affFilter.includes(aff)}
                               onChange={() => setAffFilter(prev => prev.includes(aff) ? prev.filter(v => v !== aff) : [...prev, aff])}
-                              className="accent-[#1a2e4a]"
+                              className="accent-[#3182F6]"
                             />
                             {aff}
                           </label>
                         ))
                       )}
                       {affFilter.length > 0 && (
-                        <button onClick={() => setAffFilter([])} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1 pt-1 border-t border-gray-100">초기화</button>
+                        <button onClick={() => setAffFilter([])} className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]">초기화</button>
                       )}
                     </div>
                   )}
                 </div>
               </th>
-              <th className="text-right px-4 py-3 text-gray-700 font-medium min-w-[100px] whitespace-nowrap">
+              <th className="text-right px-4 py-3 text-[#333D4B] font-medium min-w-[100px] whitespace-nowrap">
                 월 기장료
               </th>
               {months.map((m) => (
-                <th key={m} className="text-center px-3 py-3 text-gray-700 font-medium min-w-[52px] whitespace-nowrap">
+                <th key={m} className="text-center px-3 py-3 text-[#333D4B] font-medium min-w-[52px] whitespace-nowrap">
                   <button
                     onClick={() => handleSort(m)}
-                    className="hover:text-[#1a2e4a] transition-colors inline-flex items-center"
+                    className="hover:text-[#191F28] transition-colors inline-flex items-center"
                   >
                     {fmt(m)}
                     <SortIcon col={m} sortCol={sortCol} sortDir={sortDir} />
                   </button>
                 </th>
               ))}
-              <th className="text-right px-4 py-3 text-red-500 font-medium min-w-[100px] whitespace-nowrap">
+              <th className="text-right px-4 py-3 text-[#E02E2E] font-medium min-w-[100px] whitespace-nowrap">
                 <button
                   onClick={() => handleSort("unpaid")}
-                  className="hover:text-red-700 transition-colors inline-flex items-center"
+                  className="hover:text-[#B91C1C] transition-colors inline-flex items-center"
                 >
                   미수금액
                   <SortIcon col="unpaid" sortCol={sortCol} sortDir={sortDir} />
@@ -417,32 +417,32 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[#F2F4F6]">
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={months.length + 4} className="text-center py-12 text-gray-400">
+                <td colSpan={months.length + 4} className="text-center py-12 text-[#8B95A1]">
                   최초 출금월과 기장료가 등록된 고객사가 없습니다
                 </td>
               </tr>
             )}
             {sorted.map((client) => (
-              <tr key={client.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={client.id} className="hover:bg-[#F9FAFB] transition-colors">
                 {/* 고객사명 */}
-                <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 px-4 py-3 font-medium whitespace-nowrap">
+                <td className="sticky left-0 z-10 bg-white hover:bg-[#F9FAFB] px-4 py-3 font-medium whitespace-nowrap">
                   <button
                     onClick={() => setEditingClientId(client.id)}
-                    className="text-[#1a2e4a] hover:underline text-left"
+                    className="text-[#191F28] hover:underline text-left"
                   >
                     {client.name}
                   </button>
                 </td>
 
                 {/* 소속 */}
-                <td className="px-3 py-3 text-center text-xs text-gray-600 whitespace-nowrap">
-                  {client.affiliation || <span className="text-gray-300">-</span>}
+                <td className="px-3 py-3 text-center text-xs whitespace-nowrap">
+                  {client.affiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.affiliation ? <span className="text-[#4E5968]">{client.affiliation}</span> : <span className="text-[#B0B8C1]">-</span>}
                 </td>
                 {/* 월 기장료 */}
-                <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
+                <td className="px-4 py-3 text-right text-[#333D4B] whitespace-nowrap">
                   {client.monthlyFee ? fmtWon(client.monthlyFee) : "-"}
                 </td>
 
@@ -454,7 +454,7 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
 
                   if (isBeforeStart || (isFuture && !isPaid)) {
                     return (
-                      <td key={m} className="px-3 py-3 text-center text-gray-200">
+                      <td key={m} className="px-3 py-3 text-center text-[#D1D6DB]">
                         —
                       </td>
                     );
@@ -466,8 +466,8 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                         onClick={() => toggle(client.id, m)}
                         className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${
                           isPaid
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : "bg-red-50 text-red-400 hover:bg-red-100"
+                            ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
+                            : "bg-[#FEF2F2] text-[#F87171] hover:bg-[#FEF2F2]"
                         }`}
                         title={isPaid ? "수납 완료 (클릭: 취소)" : "미수 (클릭: 수납 처리)"}
                       >
@@ -480,9 +480,9 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                 {/* 누적 미수금액 */}
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   {client.cumulativeUnpaid > 0 ? (
-                    <span className="text-red-600 font-medium">{fmtWon(client.cumulativeUnpaid)}</span>
+                    <span className="text-[#DC2626] font-medium">{fmtWon(client.cumulativeUnpaid)}</span>
                   ) : (
-                    <span className="text-green-600 font-medium">0원</span>
+                    <span className="text-[#16A865] font-medium">0원</span>
                   )}
                 </td>
               </tr>

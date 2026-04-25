@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markDataRequested, confirmExclusion, postponeTask, requestExclusion, markTransferRequested, markTransferReceived } from "@/app/actions/commission";
+import { ClipboardListIcon, DownloadIcon, ClockIcon } from "@/components/icons";
 
 type HappyCallItem = {
   commissionId: number;
@@ -68,89 +69,103 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
 
   return (
     <>
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-        <span className="text-base">📋</span>
-        <h2 className="font-medium text-gray-700">오늘의 업무</h2>
+    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
+        <ClipboardListIcon width={16} height={16} className="text-[#4E5968]" />
+        <h2 className="font-[500] text-[#4E5968]">오늘의 업무</h2>
         {items.length > 0 && (
-          <span className="bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
+          <span className="bg-[#f87171] text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
         )}
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-[#F2F4F6]">
         {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">오늘 할 업무가 없습니다 &#x1F389;</div>
-        ) : items.map((item, i) => (
-          <div key={`${item.type}-${item.commissionId}-${i}`} className="px-5 py-3 flex items-center gap-3">
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
-              item.type === "happycall" ? "bg-blue-100 text-blue-700" : item.type === "transfer" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"
-            }`}>
-              {item.type === "happycall" ? "해피콜" : item.type === "transfer" ? "이관자료" : "자료수집"}
-            </span>
-            <div className="flex-1 min-w-0">
-              <Link href="/commission" className="text-sm font-medium text-gray-800 hover:text-[#1a2e4a] hover:underline truncate block">
+          <div className="px-5 py-10 text-center">
+            <div className="text-[14px] text-[#4E5968] font-[500]">오늘 할 일을 모두 완료했어요</div>
+            <div className="text-[12px] text-[#8B95A1] mt-1">깔끔하네요 🎉</div>
+          </div>
+        ) : items.map((item, i) => {
+          // D+N 추출해 별도 강조
+          const dayMatch = item.label.match(/\(D\+(\d+)\)/);
+          const dayNum = dayMatch ? dayMatch[1] : null;
+          const labelText = dayMatch ? item.label.replace(/\s*\(D\+\d+\)$/, "") : item.label;
+          const isUrgent = dayNum && parseInt(dayNum) >= 7;
+          return (
+            <div key={`${item.type}-${item.commissionId}-${i}`} className="px-5 py-3 flex items-center gap-3 hover:bg-[#F9FAFB] transition-colors">
+              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 ${
+                item.type === "happycall" ? "bg-[#E8F3FF] text-[#1B64DA]" : item.type === "transfer" ? "bg-[#FFFBEB] text-[#B45309]" : "bg-[#FFFBEB] text-[#92400e]"
+              }`}>
+                {item.type === "happycall" ? "해피콜" : item.type === "transfer" ? "이관자료" : "자료수집"}
+              </span>
+              <Link href="/commission" className="text-[14px] font-bold text-[#191F28] hover:text-[#3182F6] truncate max-w-[220px] shrink-0">
                 {item.clientName}
               </Link>
-              <div className="text-[10px] text-gray-400">{item.label}</div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => setPostponeTarget({ commissionId: item.commissionId, clientName: item.clientName })}
-                className="text-[10px] px-2 py-1 rounded-lg bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 whitespace-nowrap"
-                title="미루기"
-              >
-                ⏰ 미루기
-              </button>
-              {item.type === "datacollect" && (
+              <span className="text-[12.5px] text-[#6B7684] whitespace-nowrap shrink-0 font-[500]">{labelText}</span>
+              {dayNum && (
+                <span className={`text-[12px] font-bold whitespace-nowrap shrink-0 ${isUrgent ? "text-[#DC2626]" : "text-[#D97706]"}`}>
+                  D+{dayNum}
+                </span>
+              )}
+              <div className="flex items-center gap-1.5 ml-auto shrink-0">
                 <button
-                  onClick={() => handleDataRequest(item.commissionId)}
-                  disabled={isPending}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-[#1a2e4a] text-white hover:bg-[#243d61] disabled:opacity-50 whitespace-nowrap"
+                  onClick={() => setPostponeTarget({ commissionId: item.commissionId, clientName: item.clientName })}
+                  className="text-[11.5px] px-2.5 py-1.5 rounded-[8px] bg-[#F9FAFB] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#191F28] whitespace-nowrap inline-flex items-center gap-1 font-[500] transition-colors"
+                  title="미루기"
                 >
-                  요청완료
+                  <ClockIcon width={12} height={12} />
+                  미루기
                 </button>
-              )}
-              {item.type === "transfer" && (
-                <button
-                  onClick={() => { startTransition(async () => { await markTransferRequested(item.commissionId); router.refresh(); }); }}
-                  disabled={isPending}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 whitespace-nowrap"
-                >
-                  요청완료
-                </button>
-              )}
-              {item.type === "happycall" && (
-                <Link href="/commission" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">
-                  신규수임 →
-                </Link>
-              )}
+                {item.type === "datacollect" && (
+                  <button
+                    onClick={() => handleDataRequest(item.commissionId)}
+                    disabled={isPending}
+                    className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50 whitespace-nowrap font-bold transition-colors"
+                  >
+                    요청완료
+                  </button>
+                )}
+                {item.type === "transfer" && (
+                  <button
+                    onClick={() => { startTransition(async () => { await markTransferRequested(item.commissionId); router.refresh(); }); }}
+                    disabled={isPending}
+                    className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-[#D97706] text-white hover:bg-[#B45309] disabled:opacity-50 whitespace-nowrap font-bold transition-colors"
+                  >
+                    요청완료
+                  </button>
+                )}
+                {item.type === "happycall" && (
+                  <Link href="/commission" className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-[#F9FAFB] text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28] whitespace-nowrap font-bold transition-colors">
+                    신규수임 →
+                  </Link>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
 
     {/* 미루기 모달 */}
     {postponeTarget && (
       <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setPostponeTarget(null)}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl border border-[#E5E8EB] w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-900">업무 미루기</h3>
-            <button onClick={() => setPostponeTarget(null)} className="text-gray-400 hover:text-gray-700 text-lg">✕</button>
+            <h3 className="text-sm font-bold text-[#191F28]">업무 미루기</h3>
+            <button onClick={() => setPostponeTarget(null)} className="text-[#8B95A1] hover:text-[#4E5968] text-lg">✕</button>
           </div>
-          <div className="text-sm text-[#1a2e4a] font-medium mb-3">{postponeTarget.clientName}</div>
+          <div className="text-sm text-[#191F28] font-[500] mb-3">{postponeTarget.clientName}</div>
           <div className="space-y-3 mb-4">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">언제까지 미룰까요?</label>
-              <input id="postpone-date" type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
+              <label className="text-xs text-[#6B7684] block mb-1">언제까지 미룰까요?</label>
+              <input id="postpone-date" type="date" className="w-full bg-white border border-[#E5E8EB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">사유 (선택)</label>
-              <input id="postpone-note" type="text" placeholder="예: 다음주 월요일 전화 요청" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]/20" />
+              <label className="text-xs text-[#6B7684] block mb-1">사유 (선택)</label>
+              <input id="postpone-note" type="text" placeholder="예: 다음주 월요일 전화 요청" className="w-full bg-white border border-[#E5E8EB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]" />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setPostponeTarget(null)} className="text-sm text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100">취소</button>
-            <button onClick={handlePostpone} disabled={isPending} className="text-sm bg-[#1a2e4a] text-white px-4 py-1.5 rounded-lg hover:bg-[#243d61] disabled:opacity-50">미루기</button>
+            <button onClick={() => setPostponeTarget(null)} className="text-sm text-[#6B7684] px-3 py-1.5 rounded-[6px] hover:bg-[#F9FAFB]">취소</button>
+            <button onClick={handlePostpone} disabled={isPending} className="text-sm bg-[#3182F6] text-white px-4 py-1.5 rounded-[6px] hover:bg-[#1B64DA] disabled:opacity-50">미루기</button>
           </div>
         </div>
       </div>
@@ -190,46 +205,46 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
         <span className="text-base">📞</span>
-        <h2 className="font-medium text-gray-700">해피콜</h2>
+        <h2 className="font-[500] text-[#4E5968]">해피콜</h2>
         {items.length > 0 && (
-          <span className="bg-blue-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
+          <span className="bg-[#93c5fd] text-[#0b0d10] text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
         )}
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-[#F2F4F6]">
         {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">부재중 거래처가 없습니다</div>
+          <div className="px-5 py-8 text-center text-[#8B95A1] text-sm">부재중 거래처가 없습니다</div>
         ) : items.map(item => (
           <div key={item.commissionId} className="px-5 py-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <Link href="/commission" className="text-sm font-medium text-gray-800 hover:text-[#1a2e4a] hover:underline truncate block">
+              <Link href="/commission" className="text-sm font-[500] text-[#191F28] hover:text-[#191F28] hover:underline truncate block">
                 {item.clientName}
               </Link>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {item.noAnswerCount === 0 ? (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium">1차 대기</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#eff6ff] text-[#1e40af] font-[500]">1차 대기</span>
               ) : (
                 Array.from({ length: item.noAnswerCount }, (_, i) => (
-                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-white text-[#6B7684] font-[500]">
                     {i + 1}차 부재중
                   </span>
                 ))
               )}
-              <span className="text-[10px] text-gray-400">D+{item.daysElapsed}</span>
+              <span className="text-[10px] text-[#8B95A1]">D+{item.daysElapsed}</span>
               <button
                 onClick={() => handleAlimtalk(item.clientId, item.clientName)}
                 disabled={sendingId === item.clientId}
-                className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500 disabled:opacity-50"
+                className="text-[10px] px-2.5 py-1 rounded-[6px] bg-[#fcd34d] text-[#0b0d10] font-bold hover:bg-[#fde68a] disabled:opacity-50"
               >
                 {sendingId === item.clientId ? "발송중..." : "카카오톡안내"}
               </button>
               <button
                 onClick={() => handleExclude(item.commissionId, item.clientName)}
                 disabled={isPending}
-                className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-50"
+                className="text-[10px] px-2 py-0.5 rounded bg-[#fef2f2] text-[#dc2626] hover:bg-[rgba(239,68,68,0.18)] hover:text-[#dc2626] disabled:opacity-50"
               >
                 관리제외
               </button>
@@ -272,43 +287,43 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-        <span className="text-base">📥</span>
-        <h2 className="font-medium text-gray-700">자료수집</h2>
+    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
+        <DownloadIcon width={16} height={16} className="text-[#4E5968]" />
+        <h2 className="font-[500] text-[#4E5968]">자료수집</h2>
         {items.length > 0 && (
-          <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
+          <span className="bg-[#fcd34d] text-[#0b0d10] text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
         )}
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-[#F2F4F6]">
         {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">자료수집 중인 거래처가 없습니다</div>
+          <div className="px-5 py-8 text-center text-[#8B95A1] text-sm">자료수집 중인 거래처가 없습니다</div>
         ) : items.map(item => (
           <div key={item.commissionId} className="px-5 py-3">
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <Link href="/commission" className="text-sm font-medium text-gray-800 hover:text-[#1a2e4a] hover:underline truncate block">
+                <Link href="/commission" className="text-sm font-[500] text-[#191F28] hover:text-[#191F28] hover:underline truncate block">
                   {item.clientName}
                 </Link>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {item.requestCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ecfdf5] text-[#065f46] font-[500]">
                     {item.requestCount}차 요청완료
                   </span>
                 )}
-                <span className="text-[10px] text-gray-400">D+{item.daysFromConnect}</span>
+                <span className="text-[10px] text-[#8B95A1]">D+{item.daysFromConnect}</span>
                 <button
                   onClick={() => handleAlimtalk(item.clientId, item.clientName)}
                   disabled={sendingId === item.clientId}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-yellow-400 text-gray-900 font-bold hover:bg-yellow-500 disabled:opacity-50"
+                  className="text-[10px] px-2.5 py-1 rounded-[6px] bg-[#fcd34d] text-[#0b0d10] font-bold hover:bg-[#fde68a] disabled:opacity-50"
                 >
                   {sendingId === item.clientId ? "발송중..." : "카카오톡독촉"}
                 </button>
                 <button
                   onClick={() => handleExclude(item.commissionId, item.clientName)}
                   disabled={isPending}
-                  className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-50"
+                  className="text-[10px] px-2 py-0.5 rounded bg-[#fef2f2] text-[#dc2626] hover:bg-[rgba(239,68,68,0.18)] hover:text-[#dc2626] disabled:opacity-50"
                 >
                   관리제외
                 </button>
@@ -318,7 +333,7 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
             {item.missingDocs.length > 0 && (
               <div className="flex gap-1.5 mt-1.5">
                 {item.missingDocs.map(doc => (
-                  <span key={doc} className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-500 border border-red-200">
+                  <span key={doc} className="text-[10px] px-1.5 py-0.5 rounded bg-[#fef2f2] text-[#dc2626] border border-[#fca5a5]">
                     {doc} 미수령
                   </span>
                 ))}
@@ -345,29 +360,29 @@ export function ExcludeRequestCard({ items }: { items: ExcludeItem[] }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
         <span className="text-base">🚫</span>
-        <h2 className="font-medium text-gray-700">관리제외요청</h2>
+        <h2 className="font-[500] text-[#4E5968]">관리제외요청</h2>
         {items.length > 0 && (
-          <span className="bg-gray-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
+          <span className="bg-[#8a8f98] text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
         )}
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-[#F2F4F6]">
         {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">관리제외 요청이 없습니다</div>
+          <div className="px-5 py-8 text-center text-[#8B95A1] text-sm">관리제외 요청이 없습니다</div>
         ) : items.map(item => (
           <div key={item.commissionId} className="px-5 py-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-800 truncate">{item.clientName}</div>
-              <div className="text-[10px] text-gray-400">
-                {item.reason} · 전체 D+{item.daysElapsed} · <span className="text-red-500 font-medium">요청 후 D+{item.requestDays}</span>
+              <div className="text-sm font-[500] text-[#191F28] truncate">{item.clientName}</div>
+              <div className="text-[10px] text-[#8B95A1]">
+                {item.reason} · 전체 D+{item.daysElapsed} · <span className="text-[#dc2626] font-[500]">요청 후 D+{item.requestDays}</span>
               </div>
             </div>
             <button
               onClick={() => handleConfirm(item.commissionId)}
               disabled={isPending}
-              className="text-[10px] px-2.5 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 disabled:opacity-50 whitespace-nowrap"
+              className="text-[10px] px-2.5 py-1 rounded-[6px] bg-[#fef2f2] text-[#dc2626] hover:bg-[rgba(239,68,68,0.18)] border border-[#fca5a5] disabled:opacity-50 whitespace-nowrap"
             >
               제외 확정
             </button>
@@ -401,30 +416,30 @@ export function TransferRequestCard({ items }: { items: TransferItem[] }) {
   const sorted = [...items].sort((a, b) => b.daysElapsed - a.daysElapsed);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
         <span className="text-base">📦</span>
-        <h2 className="font-medium text-gray-700">이관자료요청</h2>
+        <h2 className="font-[500] text-[#4E5968]">이관자료요청</h2>
         {items.length > 0 && (
-          <span className="bg-orange-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
+          <span className="bg-[#f59e0b] text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
         )}
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-[#F2F4F6]">
         {sorted.length === 0 ? (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">이관 대기 중인 거래처가 없습니다</div>
+          <div className="px-5 py-8 text-center text-[#8B95A1] text-sm">이관 대기 중인 거래처가 없습니다</div>
         ) : sorted.map(item => (
-          <div key={item.commissionId} className={`px-5 py-3 flex items-center gap-3 ${item.isOverdue ? "bg-red-50/50" : ""}`}>
+          <div key={item.commissionId} className={`px-5 py-3 flex items-center gap-3 ${item.isOverdue ? "bg-[rgba(239,68,68,0.06)]" : ""}`}>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-800 truncate">{item.clientName}</div>
+              <div className="text-sm font-[500] text-[#191F28] truncate">{item.clientName}</div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-[10px] font-medium ${item.isOverdue ? "text-red-500" : "text-gray-400"}`}>
+              <span className={`text-[10px] font-[500] ${item.isOverdue ? "text-[#dc2626]" : "text-[#8B95A1]"}`}>
                 D+{item.daysElapsed}{item.isOverdue ? " 지연!" : ""}
               </span>
               <button
                 onClick={() => handleReceived(item.commissionId)}
                 disabled={isPending}
-                className="text-[10px] px-2.5 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 disabled:opacity-50 whitespace-nowrap"
+                className="text-[10px] px-2.5 py-1 rounded-[6px] bg-[#ecfdf5] text-[#065f46] hover:bg-[rgba(16,185,129,0.18)] border border-[rgba(16,185,129,0.25)] disabled:opacity-50 whitespace-nowrap"
               >
                 수령완료
               </button>

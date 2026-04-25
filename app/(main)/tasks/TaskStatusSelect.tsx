@@ -13,11 +13,11 @@ export default function TaskStatusSelect({
   const statusOptions = ["scheduled", "in_progress", "done", "hold", "delayed"];
 
   const colorMap: Record<string, string> = {
-    scheduled: "bg-blue-100 text-blue-700 border-blue-200",
-    in_progress: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    done: "bg-green-100 text-green-700 border-green-200",
-    hold: "bg-gray-100 text-gray-700 border-gray-200",
-    delayed: "bg-red-100 text-red-700 border-red-200",
+    scheduled: "bg-[#E8F3FF] text-[#1B64DA] border-[#A3CAFD]",
+    in_progress: "bg-[#FFF4D0] text-[#B08809] border-[#FDE68A]",
+    done: "bg-[#E7F7EE] text-[#15803D] border-[#BBF7D0]",
+    hold: "bg-[#F2F4F6] text-[#333D4B] border-[#E5E8EB]",
+    delayed: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
   };
 
   return (

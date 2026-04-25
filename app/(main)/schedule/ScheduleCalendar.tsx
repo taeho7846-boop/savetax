@@ -19,11 +19,11 @@ type Schedule = {
 };
 
 const COLOR_MAP: Record<string, { bg: string; text: string; dot: string }> = {
-  blue:   { bg: "bg-blue-100",   text: "text-blue-700",   dot: "bg-blue-500"   },
-  red:    { bg: "bg-red-100",    text: "text-red-700",    dot: "bg-red-500"    },
-  green:  { bg: "bg-green-100",  text: "text-green-700",  dot: "bg-green-500"  },
-  purple: { bg: "bg-purple-100", text: "text-purple-700", dot: "bg-purple-500" },
-  orange: { bg: "bg-orange-100", text: "text-orange-700", dot: "bg-orange-500" },
+  blue:   { bg: "bg-[#E8F3FF]",   text: "text-[#1B64DA]",   dot: "bg-[#3182F6]"   },
+  red:    { bg: "bg-[#FEF2F2]",    text: "text-[#B91C1C]",    dot: "bg-[#E02E2E]"    },
+  green:  { bg: "bg-[#E7F7EE]",  text: "text-[#15803D]",  dot: "bg-[#1AB266]"  },
+  purple: { bg: "bg-[#E8F3FF]", text: "text-[#1B64DA]", dot: "bg-[#3182F6]" },
+  orange: { bg: "bg-[#FEF3C7]", text: "text-[#92400E]", dot: "bg-[#F59E0B]" },
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -172,28 +172,28 @@ export function ScheduleCalendar({
     <>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold text-gray-900">스케쥴</h1>
+        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">스케쥴</h1>
         <div className="flex items-center gap-3">
           <button
             onClick={() => { setSelectedDate(todayStr); setEditSchedule(null); setShowForm(true); setError(""); }}
-            className="bg-[#1a2e4a] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#243d61] transition-colors"
+            className="bg-[#3182F6] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors"
           >
             + 일정 추가
           </button>
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-1 py-1">
-            <button onClick={() => handleMonthChange(-1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">◀</button>
-            <span className="text-sm font-medium text-gray-800 min-w-[100px] text-center">{year}년 {month}월</span>
-            <button onClick={() => handleMonthChange(1)} className="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded text-sm">▶</button>
+          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
+            <button onClick={() => handleMonthChange(-1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</button>
+            <span className="text-sm font-medium text-[#191F28] min-w-[100px] text-center">{year}년 {month}월</span>
+            <button onClick={() => handleMonthChange(1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</button>
           </div>
         </div>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* 캘린더 */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-100 p-4 overflow-auto">
+        <div className="flex-1 bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-4 overflow-auto">
           <div className="grid grid-cols-7 gap-px">
             {WEEKDAYS.map((w, i) => (
-              <div key={w} className={`text-center text-xs font-medium py-2 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-500"}`}>
+              <div key={w} className={`text-center text-xs font-medium py-2 ${i === 0 ? "text-[#E02E2E]" : i === 6 ? "text-[#3182F6]" : "text-[#6B7684]"}`}>
                 {w}
               </div>
             ))}
@@ -209,10 +209,10 @@ export function ScheduleCalendar({
               return (
                 <div
                   key={day}
-                  className={`min-h-[160px] border border-gray-100 rounded p-1 cursor-pointer hover:bg-blue-50/50 transition-colors ${isToday ? "bg-blue-50 border-blue-300" : ""}`}
+                  className={`min-h-[160px] border border-[#F2F4F6] rounded p-1 cursor-pointer hover:bg-[#F5F9FF]/50 transition-colors ${isToday ? "bg-[#F5F9FF] border-blue-300" : ""}`}
                   onClick={() => handleDayClick(day)}
                 >
-                  <div className={`text-xs font-medium mb-0.5 ${isToday ? "text-blue-600 font-bold" : dayOfWeek === 0 ? "text-red-500" : dayOfWeek === 6 ? "text-blue-500" : "text-gray-700"}`}>
+                  <div className={`text-xs font-medium mb-0.5 ${isToday ? "text-[#3182F6] font-bold" : dayOfWeek === 0 ? "text-[#E02E2E]" : dayOfWeek === 6 ? "text-[#3182F6]" : "text-[#333D4B]"}`}>
                     {day}
                   </div>
                   <div className="space-y-0.5">
@@ -243,7 +243,7 @@ export function ScheduleCalendar({
                     {dayTaxEvents.slice(0, 5).map((te, i) => (
                       <div
                         key={`tax-${i}`}
-                        className="bg-red-50 text-red-600 text-[10px] px-1 py-0.5 rounded truncate"
+                        className="bg-[#FEF2F2] text-[#DC2626] text-[10px] px-1 py-0.5 rounded truncate"
                         title={`${te.title} - ${te.desc}`}
                       >
                         {te.title}
@@ -272,39 +272,39 @@ export function ScheduleCalendar({
 
         {/* 일정 추가/수정 폼 */}
         {showForm && (
-          <div className="w-72 bg-white rounded-lg shadow-sm border border-gray-100 p-5 shrink-0 self-start">
+          <div className="w-72 bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5 shrink-0 self-start">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800 text-sm">
+              <h3 className="font-bold text-[#191F28] text-sm">
                 {editSchedule ? "일정 수정" : "일정 추가"}
               </h3>
-              <button onClick={() => { setShowForm(false); setEditSchedule(null); }} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+              <button onClick={() => { setShowForm(false); setEditSchedule(null); }} className="text-[#8B95A1] hover:text-[#4E5968] text-lg">✕</button>
             </div>
 
-            {error && <div className="text-xs text-red-500 mb-3">{error}</div>}
+            {error && <div className="text-xs text-[#E02E2E] mb-3">{error}</div>}
 
             <form action={editSchedule ? handleUpdate : handleCreate} className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">제목</label>
+                <label className="block text-xs text-[#6B7684] mb-1">제목</label>
                 <input name="title" required defaultValue={editSchedule?.title ?? ""} placeholder="일정 제목"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2e4a]" />
+                  className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]" />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">날짜</label>
+                <label className="block text-xs text-[#6B7684] mb-1">날짜</label>
                 <input name="date" type="date" required defaultValue={editSchedule?.date ?? selectedDate ?? ""}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                  className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">시작</label>
+                  <label className="block text-xs text-[#6B7684] mb-1">시작</label>
                   <TimeSelect name="startTime" defaultValue={editSchedule?.startTime ?? ""} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">종료</label>
+                  <label className="block text-xs text-[#6B7684] mb-1">종료</label>
                   <TimeSelect name="endTime" defaultValue={editSchedule?.endTime ?? ""} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">색상</label>
+                <label className="block text-xs text-[#6B7684] mb-1">색상</label>
                 <div className="flex gap-2">
                   {Object.entries(COLOR_MAP).map(([key, c]) => (
                     <label key={key} className="cursor-pointer">
@@ -315,18 +315,18 @@ export function ScheduleCalendar({
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">메모</label>
+                <label className="block text-xs text-[#6B7684] mb-1">메모</label>
                 <textarea name="notes" rows={2} defaultValue={editSchedule?.notes ?? ""} placeholder="메모"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                  className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none" />
               </div>
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={isPending}
-                  className="flex-1 bg-[#1a2e4a] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#243d61] disabled:opacity-50">
+                  className="flex-1 bg-[#3182F6] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#1B64DA] disabled:opacity-50">
                   {editSchedule ? "수정" : "추가"}
                 </button>
                 {editSchedule && editSchedule.userId === currentUserId && (
                   <button type="button" onClick={() => handleDelete(editSchedule.id)}
-                    className="px-3 py-2 border border-red-300 text-red-500 rounded-lg text-sm hover:bg-red-50">
+                    className="px-3 py-2 border border-red-300 text-[#E02E2E] rounded-lg text-sm hover:bg-[#FEF2F2]">
                     삭제
                   </button>
                 )}
@@ -338,8 +338,8 @@ export function ScheduleCalendar({
               const dayList = schedules.filter(s => s.date === selectedDate);
               if (dayList.length === 0) return null;
               return (
-                <div className="mt-4 pt-3 border-t border-gray-100">
-                  <div className="text-xs font-medium text-gray-500 mb-2">이 날의 일정</div>
+                <div className="mt-4 pt-3 border-t border-[#F2F4F6]">
+                  <div className="text-xs font-medium text-[#6B7684] mb-2">이 날의 일정</div>
                   <div className="space-y-2">
                     {dayList.map(s => {
                       const c = COLOR_MAP[s.color] ?? COLOR_MAP.blue;
@@ -368,14 +368,14 @@ export function ScheduleCalendar({
 
       {/* 참고 세무 일정 (해당 거래처만 / 거의 안 쓰는 거) */}
       {optionalTaxEvents.length > 0 && (
-        <div className="mt-4 bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">참고 세무 일정 (해당 시에만)</h3>
+        <div className="mt-4 bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-4">
+          <h3 className="text-xs font-bold text-[#6B7684] uppercase tracking-wide mb-3">참고 세무 일정 (해당 시에만)</h3>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             {optionalTaxEvents.map((te, i) => (
               <div key={i} className="flex items-baseline gap-2 text-xs py-1">
-                <span className="text-gray-400 font-mono shrink-0">{month}/{te.day}</span>
-                <span className="text-gray-700">{te.title}</span>
-                <span className="text-gray-400 text-[10px] truncate">{te.desc}</span>
+                <span className="text-[#8B95A1] font-mono shrink-0">{month}/{te.day}</span>
+                <span className="text-[#333D4B]">{te.title}</span>
+                <span className="text-[#8B95A1] text-[10px] truncate">{te.desc}</span>
               </div>
             ))}
           </div>
@@ -399,7 +399,7 @@ function TimeSelect({ name, defaultValue }: { name: string; defaultValue: string
     <select
       name={name}
       defaultValue={defaultValue}
-      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+      className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none"
     >
       <option value="">선택</option>
       {TIME_OPTIONS.map(t => (
