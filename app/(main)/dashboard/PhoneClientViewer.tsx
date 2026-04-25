@@ -66,9 +66,10 @@ type PhoneAction = {
   path?: (id: number) => string;
   custom?: boolean;
 };
-// 거래처 액션 — 홈택스 로그인만
+// 거래처 액션
 const PHONE_ACTIONS: PhoneAction[] = [
   { key: "로그인", label: "홈택스 로그인", desc: "홈택스 자동 로그인 (새 탭)", icon: "🔐", custom: true },
+  { key: "드라이브", label: "구글드라이브", desc: "거래처 폴더 열기 (PC 연동 시 파일탐색기)", icon: "📁", custom: true },
 ];
 
 // 외부 사이트 클릭 핸들러 — agentLogin/autoLogin 처리
@@ -148,7 +149,14 @@ async function doClientHometaxLogin(clientId: number, openFn: (url: string) => v
   }
 }
 
-async function doClientDriveFolder(clientId: number, openFn: (url: string) => void) {
+async function doClientDriveFolder(clientId: number, clientName: string, openFn: (url: string) => void) {
+  const basePath = typeof window !== "undefined" ? localStorage.getItem("savetax-drive-base-path") : null;
+  if (basePath) {
+    const sep = basePath.endsWith("\\") ? "" : "\\";
+    const fullPath = `${basePath}${sep}${clientName}`;
+    window.location.href = `savetax-app://folder?path=${encodeURIComponent(fullPath)}`;
+    return;
+  }
   try {
     const res = await fetch(`/api/clients/${clientId}/drive-folder`);
     const data = await res.json();
@@ -1032,7 +1040,7 @@ function SearchView({
     } else if (action.custom && action.key === "로그인") {
       doClientHometaxLogin(actionClient.id, onOpenPath);
     } else if (action.custom && action.key === "드라이브") {
-      doClientDriveFolder(actionClient.id, onOpenPath);
+      doClientDriveFolder(actionClient.id, actionClient.name, onOpenPath);
     } else if (action.path) {
       onOpenPath(action.path(actionClient.id));
     }
