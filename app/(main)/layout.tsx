@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { getSettings } from "@/app/actions/settings";
 import Sidebar from "@/components/Sidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { DriveBasePathSync } from "@/components/DriveBasePathSync";
 
 export default async function MainLayout({
   children,
@@ -19,6 +20,7 @@ export default async function MainLayout({
       <Sidebar user={session} settings={settings} />
       <main className="flex-1 p-6 overflow-y-auto bg-[#f2f4f6] text-[#4E5968]">{children}</main>
       <GlobalSearch />
+      <DriveBasePathSync value={settings?.driveBasePath ?? null} />
     </div>
   );
 }

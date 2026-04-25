@@ -7,21 +7,46 @@ const DRIVE_BASE_KEY = "savetax-drive-base-path";
 export function LocalPCSettings() {
   const [basePath, setBasePath] = useState("");
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const v = localStorage.getItem(DRIVE_BASE_KEY) ?? "";
-    setBasePath(v);
+    fetch("/api/settings/drive-base-path")
+      .then((r) => r.json())
+      .then((data) => {
+        const v = data.driveBasePath ?? "";
+        setBasePath(v);
+        if (v) localStorage.setItem(DRIVE_BASE_KEY, v);
+        else localStorage.removeItem(DRIVE_BASE_KEY);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  function save() {
-    localStorage.setItem(DRIVE_BASE_KEY, basePath.trim());
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+  async function save() {
+    const trimmed = basePath.trim();
+    const res = await fetch("/api/settings/drive-base-path", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driveBasePath: trimmed }),
+    });
+    if (res.ok) {
+      if (trimmed) localStorage.setItem(DRIVE_BASE_KEY, trimmed);
+      else localStorage.removeItem(DRIVE_BASE_KEY);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } else {
+      alert("저장 실패");
+    }
   }
 
-  function clear() {
-    localStorage.removeItem(DRIVE_BASE_KEY);
+  async function clear() {
     setBasePath("");
+    await fetch("/api/settings/drive-base-path", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driveBasePath: "" }),
+    });
+    localStorage.removeItem(DRIVE_BASE_KEY);
   }
 
   function testProtocol() {

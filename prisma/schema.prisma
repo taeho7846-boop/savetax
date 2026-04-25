@@ -166,6 +166,7 @@ model Settings {
   slackEveningEnabled     Boolean @default(true)
   slackEveningTime        String  @default("19:00")
   slackDistributionEnabled Boolean @default(true)
+  driveBasePath           String?
   user               User    @relation(fields: [userId], references: [id])
 }
 

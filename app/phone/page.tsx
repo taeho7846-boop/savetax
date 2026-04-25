@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PhoneClientViewer } from "@/app/(main)/dashboard/PhoneClientViewer";
+import { DriveBasePathSync } from "@/components/DriveBasePathSync";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
@@ -25,15 +26,19 @@ export default async function PhonePopupPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const myClients = await prisma.client.findMany({
-    where: { isDeleted: false, assignedUserId: session.id },
-    select: { id: true, name: true, bizNumber: true, ceoName: true, phone: true, laborTypes: true },
-    orderBy: { name: "asc" },
-  });
+  const [myClients, settings] = await Promise.all([
+    prisma.client.findMany({
+      where: { isDeleted: false, assignedUserId: session.id },
+      select: { id: true, name: true, bizNumber: true, ceoName: true, phone: true, laborTypes: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.settings.findUnique({ where: { userId: session.id }, select: { driveBasePath: true } }),
+  ]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-0">
       <PhoneClientViewer clients={myClients} />
+      <DriveBasePathSync value={settings?.driveBasePath ?? null} />
     </div>
   );
 }
