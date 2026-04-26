@@ -257,6 +257,88 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
 
   const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : null;
 
+  function renderDeepView(client: Client, currentStep: number, stageBadgeLabel: string, stageBadgeColor: string) {
+    const r = getRecord(client);
+    const wp = getWritingProgress(r);
+    const ft = getFilingTypeBadge(r);
+    const dataCollect = [r.noticeSent, r.linkPass, r.depreciation, r.interestExpense, r.insurance, r.donation].filter(Boolean).length;
+    const reduce = [r.bookkeepingCredit, r.startupReduction, r.smeReduction, r.investCredit, r.employmentCredit].filter(Boolean).length;
+    return (
+      <aside className="glass rounded-2xl p-4 flex flex-col overflow-y-auto">
+        <div className="flex items-start justify-between mb-3 pb-3 border-b border-white/40">
+          <div>
+            <div className="text-[10px] text-[#3182F6] font-bold uppercase tracking-wider">선택됨</div>
+            <div className="text-[18px] font-bold tracking-tight mt-0.5">{client.name}</div>
+            {client.ceoName && <div className="text-[11px] text-[#6B7684]">{client.ceoName}{client.assignedUserName ? ` · ${client.assignedUserName} 담당` : ""}</div>}
+            <div className="flex gap-1.5 mt-1.5">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}경비율</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${stageBadgeColor}`}>{stageBadgeLabel}</span>
+            </div>
+          </div>
+          <button onClick={() => setSelectedClientId(null)} className="w-7 h-7 rounded-lg hover:bg-white/60 flex items-center justify-center text-[#6B7684] text-[16px]">✕</button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="bg-white/70 rounded-xl p-2.5">
+            <div className="text-[10px] text-[#6B7684] font-bold">매출 (당기)</div>
+            <div className="text-[14px] font-bold tabular-nums">{formatNumber(r.currSales) || "-"}</div>
+          </div>
+          <div className="bg-white/70 rounded-xl p-2.5">
+            <div className="text-[10px] text-[#6B7684] font-bold">예상 세액</div>
+            <div className="text-[14px] font-bold tabular-nums text-[#3182F6]">{formatNumber(r.currTax) || "-"}</div>
+          </div>
+        </div>
+        {currentStep === 4 && (() => {
+          const dS = calcDelta(r.prevSales, r.currSales);
+          const dT = calcDelta(r.prevTax, r.currTax);
+          if (!dS.isAnomaly && !dT.isAnomaly) return null;
+          return (
+            <div className="rounded-xl p-2.5 mb-3 bg-[#DC2626]/8 border-l-2 border-[#DC2626]">
+              <div className="text-[11px] font-bold text-[#DC2626] mb-1">⚠️ 이상치 검출</div>
+              <div className="text-[10.5px] text-[#4E5968] space-y-0.5">
+                {dS.pct !== null && dS.isAnomaly && <div>매출 전년대비 <strong className="text-[#DC2626]">{dS.pct > 0 ? "+" : ""}{dS.pct}%</strong></div>}
+                {dT.pct !== null && dT.isAnomaly && <div>세액 전년대비 <strong className="text-[#DC2626]">{dT.pct > 0 ? "+" : ""}{dT.pct}%</strong></div>}
+              </div>
+            </div>
+          );
+        })()}
+        <div className="grid grid-cols-3 gap-1.5 mb-3">
+          <button className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">📁 드라이브</button>
+          <button className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">🔐 홈택스</button>
+          <button onClick={() => setEditClientId(client.id)} className="bg-[#3182F6] text-white py-1.5 rounded-xl text-[11px] font-bold shadow-md shadow-[#3182F6]/20">{currentStep === 4 ? "결재" : "신고서 작성"}</button>
+        </div>
+        <div className="flex-1 overflow-y-auto pr-1 space-y-2">
+          <CheckGroup title="1. 자료 수집" done={dataCollect} total={6} highlight={currentStep === 1}
+            items={[
+              { label: "안내문", checked: r.noticeSent },
+              { label: "링크패스", checked: r.linkPass },
+              { label: "감가상각", checked: r.depreciation },
+              { label: "이자비용", checked: r.interestExpense },
+              { label: "보험료", checked: r.insurance },
+              { label: "기부금", checked: r.donation },
+            ]} />
+          <CheckGroup title="2. 공제/감면" done={reduce} total={5}
+            items={[
+              { label: "기장공제", checked: r.bookkeepingCredit },
+              { label: "창업감면", checked: r.startupReduction },
+              { label: "중기감면", checked: r.smeReduction },
+              { label: "통합투자", checked: r.investCredit },
+              { label: "고용증대", checked: r.employmentCredit },
+            ]} />
+          <CheckGroup title="3. 신고서 작성" done={wp.step} total={4} highlight={currentStep === 2}
+            items={[
+              { label: "기본정보", checked: !!r.currSales },
+              { label: "소득금액", checked: !!r.currIncome },
+              { label: "공제 적용", checked: !!r.currTax },
+              { label: "최종 검산", checked: r.preSettlement },
+            ]} />
+          <StageRow num={4} title="결재 (세무사)" done={r.depositReceived} highlight={currentStep === 4} />
+          <StageRow num={5} title="컨펌 + 보수수취" done={r.depositReceived} />
+          <StageRow num={6} title="신고 완료" done={r.filingDone} />
+        </div>
+      </aside>
+    );
+  }
+
   const doneCount = stageCounts.done;
   const total = preStageClients.length;
   const donePct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
@@ -621,26 +703,41 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                 const showCompletionCells = !hasGroup || isFirstInGroup;
 
                 return (
-                  <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-[#F1FBF4]/50" : "hover:bg-[#F5F9FF]/30"}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }}>
+                  <tr
+                    key={client.id}
+                    onClick={() => stageFilter === "approval" && setSelectedClientId(selectedClientId === client.id ? null : client.id)}
+                    className={`transition-colors ${
+                      stageFilter === "approval" && selectedClientId === client.id
+                        ? ""
+                        : r.filingDone
+                          ? "bg-[#F1FBF4]/50"
+                          : stageFilter === "approval" ? "hover:bg-[#F59E0B]/8 cursor-pointer" : "hover:bg-[#F5F9FF]/30"
+                    }`}
+                    style={
+                      stageFilter === "approval" && selectedClientId === client.id
+                        ? { background: "rgba(245,158,11,0.12)", borderLeft: "3px solid #F59E0B", borderBottom: hasGroup && !isLastInGroup ? "1px dashed #d1d5db" : "2.5px solid #9ca3af" }
+                        : hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }
+                    }
+                  >
                     {showGroup("기본") && <>
                       {/* 고객사명 */}
                       <td className="px-3 py-2 text-[#191F28] font-medium sticky left-0 bg-white z-10 border-r border-[#F2F4F6]">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
+                          <button onClick={(e) => { e.stopPropagation(); setEditClientId(client.id); }} className="hover:underline cursor-pointer text-left">
                             {client.name}
                           </button>
                           {stageFilter === "approval" && isAnomalyClient(client) && (
                             <span title="전년 대비 ±30% 이상 변동" className="text-[10px] bg-[#DC2626]/15 text-[#DC2626] px-1 py-0.5 rounded font-bold">⚠</span>
                           )}
                           <button
-                            onClick={() => setTaxCalcModal({
+                            onClick={(e) => { e.stopPropagation(); setTaxCalcModal({
                               clientId: client.id,
                               clientName: client.name,
                               currSales: r.currSales,
                               currIncome: r.currIncome,
                               aiStartup: client.aiStartupReduction ?? null,
                               aiSme: client.aiSmeReduction ?? null,
-                            })}
+                            }); }}
                             className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
                               savedCalcIds.has(client.id)
                                 ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
@@ -784,10 +881,10 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
         </aside>
       )}
 
-      {stageFilter === "writing" && (() => {
-        if (!selectedClient) {
-          // 선택된 거래처 없을 때: 일반 통계
-          return (
+      {stageFilter === "writing" && (
+        selectedClient
+          ? renderDeepView(selectedClient, 2, "② 작성중", "bg-[#3182F6]/15 text-[#3182F6]")
+          : (
             <aside className="space-y-3 overflow-y-auto">
               <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#3182F6]/8 to-transparent">
                 <div className="text-[12px] font-bold text-[#3182F6] mb-2">✏️ 작성중</div>
@@ -802,81 +899,14 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                 <div className="text-[11.5px] text-[#6B7684]">⬅ 좌측 행을 클릭하면<br/>그 거래처 deep view가 표시됩니다</div>
               </div>
             </aside>
-          );
-        }
-        // 선택된 거래처: deep view
-        const r = getRecord(selectedClient);
-        const wp = getWritingProgress(r);
-        const ft = getFilingTypeBadge(r);
-        const dataCollect = [r.noticeSent, r.linkPass, r.depreciation, r.interestExpense, r.insurance, r.donation].filter(Boolean).length;
-        const reduce = [r.bookkeepingCredit, r.startupReduction, r.smeReduction, r.investCredit, r.employmentCredit].filter(Boolean).length;
-        return (
-          <aside className="glass rounded-2xl p-4 flex flex-col overflow-y-auto">
-            {/* 헤더 */}
-            <div className="flex items-start justify-between mb-3 pb-3 border-b border-white/40">
-              <div>
-                <div className="text-[10px] text-[#3182F6] font-bold uppercase tracking-wider">선택됨</div>
-                <div className="text-[18px] font-bold tracking-tight mt-0.5">{selectedClient.name}</div>
-                {selectedClient.ceoName && <div className="text-[11px] text-[#6B7684]">{selectedClient.ceoName}{selectedClient.assignedUserName ? ` · ${selectedClient.assignedUserName} 담당` : ""}</div>}
-                <div className="flex gap-1.5 mt-1.5">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}경비율</span>
-                  <span className="text-[10px] bg-[#3182F6]/15 text-[#3182F6] px-2 py-0.5 rounded-full font-bold">② 작성중</span>
-                </div>
-              </div>
-              <button onClick={() => setSelectedClientId(null)} className="w-7 h-7 rounded-lg hover:bg-white/60 flex items-center justify-center text-[#6B7684] text-[16px]">✕</button>
-            </div>
-            {/* KPI */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div className="bg-white/70 rounded-xl p-2.5">
-                <div className="text-[10px] text-[#6B7684] font-bold">매출 (당기)</div>
-                <div className="text-[14px] font-bold tabular-nums">{formatNumber(r.currSales) || "-"}</div>
-              </div>
-              <div className="bg-white/70 rounded-xl p-2.5">
-                <div className="text-[10px] text-[#6B7684] font-bold">예상 세액</div>
-                <div className="text-[14px] font-bold tabular-nums text-[#3182F6]">{formatNumber(r.currTax) || "-"}</div>
-              </div>
-            </div>
-            {/* 액션 버튼 */}
-            <div className="grid grid-cols-3 gap-1.5 mb-3">
-              <button className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">📁 드라이브</button>
-              <button className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">🔐 홈택스</button>
-              <button onClick={() => setEditClientId(selectedClient.id)} className="bg-[#3182F6] text-white py-1.5 rounded-xl text-[11px] font-bold shadow-md shadow-[#3182F6]/20">신고서 작성</button>
-            </div>
-            {/* 체크리스트 */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-2">
-              <CheckGroup title="1. 자료 수집" done={dataCollect} total={6}
-                items={[
-                  { label: "안내문", checked: r.noticeSent },
-                  { label: "링크패스", checked: r.linkPass },
-                  { label: "감가상각", checked: r.depreciation },
-                  { label: "이자비용", checked: r.interestExpense },
-                  { label: "보험료", checked: r.insurance },
-                  { label: "기부금", checked: r.donation },
-                ]} />
-              <CheckGroup title="2. 공제/감면" done={reduce} total={5}
-                items={[
-                  { label: "기장공제", checked: r.bookkeepingCredit },
-                  { label: "창업감면", checked: r.startupReduction },
-                  { label: "중기감면", checked: r.smeReduction },
-                  { label: "통합투자", checked: r.investCredit },
-                  { label: "고용증대", checked: r.employmentCredit },
-                ]} />
-              <CheckGroup title="3. 신고서 작성" done={wp.step} total={4} highlight
-                items={[
-                  { label: "기본정보", checked: !!r.currSales },
-                  { label: "소득금액", checked: !!r.currIncome },
-                  { label: "공제 적용", checked: !!r.currTax },
-                  { label: "최종 검산", checked: r.preSettlement },
-                ]} />
-              <StageRow num={4} title="결재 (세무사)" done={r.depositReceived} />
-              <StageRow num={5} title="컨펌 + 보수수취" done={r.depositReceived} />
-              <StageRow num={6} title="신고 완료" done={r.filingDone} />
-            </div>
-          </aside>
-        );
-      })()}
+          )
+      )}
 
-      {stageFilter === "approval" && (() => {
+      {stageFilter === "approval" && selectedClient
+        ? renderDeepView(selectedClient, 4, "③ 결재(세무사)", "bg-[#F59E0B]/15 text-[#F59E0B]")
+        : null}
+
+      {stageFilter === "approval" && !selectedClient && (() => {
         const anomalyClients = stageClients.approval.filter(isAnomalyClient);
         return (
           <aside className="space-y-3 overflow-y-auto">
@@ -1092,15 +1122,24 @@ function CheckGroup({ title, done, total, items, highlight }: {
   );
 }
 
-function StageRow({ num, title, done }: { num: number; title: string; done: boolean }) {
+function StageRow({ num, title, done, highlight }: { num: number; title: string; done: boolean; highlight?: boolean }) {
+  const bg = highlight
+    ? "bg-[#F59E0B]/10 border-[#F59E0B] ring-1 ring-[#F59E0B]/30"
+    : done ? "bg-[#10B981]/8 border-[#10B981]" : "bg-white/60 border-[#E5E8EB]";
+  const badge = highlight
+    ? "bg-[#F59E0B] text-white animate-pulse"
+    : done ? "bg-[#10B981] text-white" : "bg-white border border-[#E5E8EB] text-[#8B95A1]";
+  const titleColor = highlight ? "text-[#F59E0B]" : done ? "" : "text-[#6B7684]";
+  const status = highlight ? "검토중" : done ? "완료" : "대기";
+  const statusColor = highlight ? "text-[#F59E0B] font-bold" : done ? "text-[#10B981] font-bold" : "text-[#8B95A1]";
   return (
-    <div className={`rounded-xl p-2.5 border-l-2 ${done ? "bg-[#10B981]/8 border-[#10B981]" : "bg-white/60 border-[#E5E8EB]"}`}>
+    <div className={`rounded-xl p-2.5 border-l-2 ${bg}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <span className={`text-[10px] px-1.5 rounded font-bold ${done ? "bg-[#10B981] text-white" : "bg-white border border-[#E5E8EB] text-[#8B95A1]"}`}>{done ? "✓" : num}</span>
-          <span className={`text-[12px] font-bold ${done ? "" : "text-[#6B7684]"}`}>{title}</span>
+          <span className={`text-[10px] px-1.5 rounded font-bold ${badge}`}>{highlight ? "●" : done ? "✓" : num}</span>
+          <span className={`text-[12px] font-bold ${titleColor}`}>{title}</span>
         </div>
-        <span className={`text-[10px] ${done ? "text-[#10B981] font-bold" : "text-[#8B95A1]"}`}>{done ? "완료" : "대기"}</span>
+        <span className={`text-[10px] ${statusColor}`}>{status}</span>
       </div>
     </div>
   );
