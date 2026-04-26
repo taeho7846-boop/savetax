@@ -33,7 +33,7 @@ export function BookmarkManager({
   return (
     <div className="space-y-6">
       {/* 공통 북마크 */}
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6">
+      <div className="glass rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-sm font-bold text-[#333D4B]">공통 북마크</h2>
@@ -80,7 +80,7 @@ export function BookmarkManager({
       </div>
 
       {/* 개인 북마크 */}
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6">
+      <div className="glass rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-sm font-bold text-[#333D4B]">내 북마크</h2>

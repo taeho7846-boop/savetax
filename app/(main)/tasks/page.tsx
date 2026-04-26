@@ -207,23 +207,23 @@ export default async function TasksPage({
 
       {/* 업무 목록 */}
       {itemType !== "memo" && tasks.length > 0 && (
-        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden mb-6">
-          <table className="w-full text-sm">
-            <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6]">
+        <div className="glass rounded-2xl overflow-hidden mb-6">
+          <table className="w-full text-[12.5px]">
+            <thead className="bg-white/60 backdrop-blur sticky top-0 z-10 border-b border-white/40">
               <tr>
-                {itemType === "all" && <th className="text-center px-3 py-3 text-[#4E5968] font-medium min-w-[60px]">구분</th>}
-                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">고객사</th>
-                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">업무</th>
-                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">유형</th>
-                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">생성일</th>
-                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">
+                {itemType === "all" && <th className="text-center px-3 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold min-w-[60px]">구분</th>}
+                <th className="text-left px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold">고객사</th>
+                <th className="text-left px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold">업무</th>
+                <th className="text-left px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold">유형</th>
+                <th className="text-left px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold">생성일</th>
+                <th className="text-left px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold">
                   {isActiveTab ? "마감일" : "완료일"}
                 </th>
-                <th className="text-left px-4 py-3 text-[#4E5968] font-medium">상태</th>
-                <th className="text-center px-4 py-3 text-[#4E5968] font-medium w-16">관리</th>
+                <th className="text-left px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold">상태</th>
+                <th className="text-center px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-[#6B7684] font-bold w-16">관리</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F2F4F6]">
+            <tbody className="divide-y divide-white/40">
               {tasks.map((task) => {
                 const isOverdue =
                   task.dueDate &&
@@ -232,7 +232,7 @@ export default async function TasksPage({
                 return (
                   <tr
                     key={`task-${task.id}`}
-                    className={`hover:bg-[#F9FAFB] transition-colors ${isOverdue ? "bg-[#FEF2F2]" : ""}`}
+                    className={`transition-colors ${isOverdue ? "bg-[#FEF2F2]/60" : "hover:bg-white/60"}`}
                   >
                     {itemType === "all" && (
                       <td className="px-3 py-3 text-center">
@@ -292,7 +292,7 @@ export default async function TasksPage({
             <h3 className="text-sm font-medium text-[#6B7684] mt-2">메모</h3>
           )}
           {memos.map((memo) => (
-            <div key={`memo-${memo.id}`} className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] px-5 py-4">
+            <div key={`memo-${memo.id}`} className="glass rounded-2xl px-5 py-4">
               <div className="flex items-center gap-2 mb-2">
                 {itemType === "all" && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] font-medium">메모</span>
@@ -324,19 +324,19 @@ export default async function TasksPage({
 
       {/* 빈 상태 */}
       {itemType === "task" && tasks.length === 0 && (
-        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] py-14 text-center">
+        <div className="glass rounded-2xl py-14 text-center">
           <div className="text-[14px] text-[#4E5968] font-[500]">아직 등록된 업무가 없어요</div>
           <div className="text-[12px] text-[#8B95A1] mt-1">우측 상단에서 새 업무를 추가할 수 있어요</div>
         </div>
       )}
       {itemType === "memo" && memos.length === 0 && (
-        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] py-14 text-center">
+        <div className="glass rounded-2xl py-14 text-center">
           <div className="text-[14px] text-[#4E5968] font-[500]">등록된 메모가 없어요</div>
           <div className="text-[12px] text-[#8B95A1] mt-1">고객사별 참고사항을 빠르게 남겨보세요</div>
         </div>
       )}
       {itemType === "all" && tasks.length === 0 && memos.length === 0 && (
-        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] py-14 text-center">
+        <div className="glass rounded-2xl py-14 text-center">
           <div className="text-[14px] text-[#4E5968] font-[500]">아직 등록된 업무나 메모가 없어요</div>
           <div className="text-[12px] text-[#8B95A1] mt-1">우측 상단에서 첫 업무를 추가해보세요</div>
         </div>

@@ -25,7 +25,7 @@ export default async function SettingsPage() {
         {/* ===== 왼쪽 열: 계정 설정 + 저장 ===== */}
         <form action={saveSettings} className="space-y-4">
           {/* 세무대리인 홈택스 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-3">세무대리인 홈택스 계정</h2>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -40,7 +40,7 @@ export default async function SettingsPage() {
           </div>
 
           {/* 공인인증서 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-3">공인인증서</h2>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -55,7 +55,7 @@ export default async function SettingsPage() {
           </div>
 
           {/* 위하고 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-3">위하고 계정</h2>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -70,7 +70,7 @@ export default async function SettingsPage() {
           </div>
 
           {/* 위멤버스 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-3">위멤버스 계정</h2>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -85,7 +85,7 @@ export default async function SettingsPage() {
           </div>
 
           {/* 세금계산서 공급자 정보 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-3">세금계산서 공급자 정보</h2>
             <div className="grid grid-cols-3 gap-3">
               <div>
@@ -104,7 +104,7 @@ export default async function SettingsPage() {
           </div>
 
           {/* 알림톡 템플릿 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-3">카카오 알림톡 템플릿 ID</h2>
             <p className="text-[10px] text-[#8B95A1] mb-3">솔라피에서 검수 완료된 템플릿 코드를 입력하세요</p>
             <div className="grid grid-cols-2 gap-3">
@@ -128,7 +128,7 @@ export default async function SettingsPage() {
           </div>
 
           {/* 슬랙 알림 설정 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-3">슬랙 알림 설정</h2>
             <p className="text-[10px] text-[#8B95A1] mb-3">슬랙 연동 후 자동 알림을 받을 수 있습니다</p>
             <div className="space-y-3">
@@ -160,7 +160,7 @@ export default async function SettingsPage() {
         {/* ===== 오른쪽 열: 가이드 + 북마크 + 도구 ===== */}
         <div className="space-y-4">
           {/* 단축키 & 액션 가이드 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-4">단축키 & 검색 가이드</h2>
 
             <div className="space-y-4">
@@ -234,7 +234,7 @@ export default async function SettingsPage() {
           <LocalPCSettings />
 
           {/* 크롬 확장 프로그램 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-2">크롬 확장 프로그램</h2>
             <p className="text-xs text-[#6B7684] mb-3">
               홈택스 자동 로그인 및 기장등록 자동화를 위한 확장 프로그램
@@ -248,7 +248,7 @@ export default async function SettingsPage() {
           </div>
 
           {/* 위멤버스 폴더 */}
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+          <div className="glass rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#333D4B] mb-2">구글드라이브 위멤버스 폴더</h2>
             <p className="text-xs text-[#6B7684] mb-3">
               기존 거래처에 &quot;5. 위멤버스&quot; 폴더를 일괄 생성합니다

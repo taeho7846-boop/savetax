@@ -32,7 +32,7 @@ export default async function NewTaskPage({
         <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">업무 등록</h1>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6 max-w-2xl">
+      <div className="glass rounded-2xl p-6 max-w-2xl">
         <form action={createTask} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -62,7 +62,7 @@ export function LocalPCSettings() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+    <div className="glass rounded-2xl p-5">
       <h2 className="text-sm font-bold text-[#333D4B] mb-2">내 PC 연동 (로컬 설정)</h2>
       <p className="text-xs text-[#6B7684] mb-4">
         파일탐색기로 거래처 폴더 바로 열기. 이 PC에만 적용됩니다.

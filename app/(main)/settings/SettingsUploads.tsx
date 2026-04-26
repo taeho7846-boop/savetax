@@ -155,7 +155,7 @@ function UploadSection({
 
 export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath, taxReductionExcelPath }: Props) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-6 space-y-6">
+    <div className="glass rounded-2xl p-6 space-y-6">
       <h2 className="text-sm font-bold text-[#333D4B]">파일</h2>
 
       <div className="grid grid-cols-2 gap-6">

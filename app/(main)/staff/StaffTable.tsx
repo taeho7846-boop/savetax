@@ -166,7 +166,7 @@ export default function StaffTable({
       </div>
 
       {showCreate && (
-        <form action={handleCreate} className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5 mb-4">
+        <form action={handleCreate} className="glass rounded-2xl p-5 mb-4">
           <h3 className="font-bold text-[#191F28] mb-4">새 계정 등록</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -218,7 +218,7 @@ export default function StaffTable({
           const arrowColor = mgr.role === "owner" || mgr.role === "admin" ? "text-[#3182F6]" : "text-emerald-600";
 
           return (
-            <div key={mgr.id} className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
+            <div key={mgr.id} className="glass rounded-2xl overflow-hidden">
               <div
                 className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${headerBg}`}
                 onClick={() => toggleAccountant(mgr.id)}
@@ -263,7 +263,7 @@ export default function StaffTable({
 
         {/* 미배정 직원 */}
         {unassigned.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
+          <div className="glass rounded-2xl overflow-hidden">
             <div className="px-4 py-2.5 bg-[#FEFCE8] border-b border-yellow-100">
               <span className="text-xs font-bold text-[#D97706] uppercase tracking-wide">미배정 직원</span>
             </div>
@@ -275,7 +275,7 @@ export default function StaffTable({
 
         {/* 조회전용 */}
         {readonlyUsers.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
+          <div className="glass rounded-2xl overflow-hidden">
             <div className="px-4 py-2.5 bg-[#F9FAFB] border-b border-[#F2F4F6]">
               <span className="text-xs font-bold text-[#6B7684] uppercase tracking-wide">조회전용</span>
             </div>
