@@ -189,6 +189,32 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
     return { pct, isAnomaly: Math.abs(pct) >= 30 };
   }
 
+  // 거래처가 이상치인지 (③ 결재 단계용)
+  function isAnomalyClient(c: Client): boolean {
+    const r = getRecord(c);
+    return calcDelta(r.prevSales, r.currSales).isAnomaly || calcDelta(r.prevTax, r.currTax).isAnomaly;
+  }
+
+  // 단계별 거래처 (사이드 패널 통계용)
+  const stageClients: Record<Stage, Client[]> = { collect: [], writing: [], approval: [], confirm: [], done: [] };
+  for (const c of preStageClients) stageClients[getStage(getRecord(c))].push(c);
+
+  // 담당자별 카운트 helper
+  function countByAssigned(clients: Client[]): Map<string, number> {
+    const m = new Map<string, number>();
+    for (const c of clients) {
+      const k = c.assignedUserName ?? "-";
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return new Map([...m.entries()].sort((a, b) => b[1] - a[1]));
+  }
+  function sumOf(clients: Client[], field: "currTax" | "adjustmentFee"): number {
+    return clients.reduce((s, c) => {
+      const v = getRecord(c)[field];
+      return s + (v ? parseInt(v) : 0);
+    }, 0);
+  }
+
   const doneCount = stageCounts.done;
   const total = preStageClients.length;
   const donePct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
@@ -349,7 +375,8 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
         )}
       </div>
 
-      {/* 테이블 */}
+      {/* 테이블 + (단계 선택시) 우측 사이드 패널 */}
+      <div className={stageFilter ? "grid grid-cols-[minmax(0,1fr)_320px] gap-3 flex-1 min-h-0" : ""}>
       <div className="flex-1 overflow-auto glass rounded-2xl">
         <table className="text-xs whitespace-nowrap">
           <thead className="sticky top-0 z-10">
@@ -457,6 +484,9 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                           <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
                             {client.name}
                           </button>
+                          {stageFilter === "approval" && isAnomalyClient(client) && (
+                            <span title="전년 대비 ±30% 이상 변동" className="text-[10px] bg-[#DC2626]/15 text-[#DC2626] px-1 py-0.5 rounded font-bold">⚠</span>
+                          )}
                           <button
                             onClick={() => setTaxCalcModal({
                               clientId: client.id,
@@ -576,6 +606,166 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* 우측 사이드 패널 (단계 선택시) */}
+      {stageFilter === "collect" && (
+        <aside className="space-y-3 overflow-y-auto">
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold text-[#92400E] mb-3">📋 자료수집 현황</div>
+            <div className="text-[24px] font-bold leading-none">{stageClients.collect.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
+            <div className="text-[10.5px] text-[#6B7684] mt-1">자료 미수령 또는 수집 중</div>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold mb-3">담당자별 미수령</div>
+            <div className="space-y-2 text-[12px]">
+              {[...countByAssigned(stageClients.collect).entries()].slice(0, 6).map(([name, n]) => (
+                <div key={name} className="flex items-center justify-between">
+                  <span className="text-[#4E5968]">{name}</span>
+                  <span className="font-bold tabular-nums">{n}건</span>
+                </div>
+              ))}
+              {countByAssigned(stageClients.collect).size === 0 && <div className="text-[11px] text-[#8B95A1]">데이터 없음</div>}
+            </div>
+          </div>
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#3182F6]/10 to-transparent">
+            <div className="text-[12px] font-bold text-[#3182F6] mb-2">💡 팁</div>
+            <ul className="text-[11.5px] text-[#4E5968] space-y-1.5">
+              <li>• 안내문/링크패스 체크해 자료 요청 진행</li>
+              <li>• 전체 체크리스트 완료 → ② 작성중 단계로 이동</li>
+            </ul>
+          </div>
+        </aside>
+      )}
+
+      {stageFilter === "writing" && (
+        <aside className="space-y-3 overflow-y-auto">
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#3182F6]/8 to-transparent">
+            <div className="text-[12px] font-bold text-[#3182F6] mb-2">✏️ 작성중</div>
+            <div className="text-[24px] font-bold leading-none">{stageClients.writing.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
+            <div className="text-[10.5px] text-[#6B7684] mt-1">신고서 작성 진행 중</div>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold mb-3">예상 세액 합계</div>
+            <div className="text-[20px] font-bold tabular-nums leading-none">₩{sumOf(stageClients.writing, "currTax").toLocaleString("ko-KR")}</div>
+            <div className="text-[10.5px] text-[#6B7684] mt-1">작성중 단계 거래처 합계</div>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold mb-3">담당자별 작성중</div>
+            <div className="space-y-2 text-[12px]">
+              {[...countByAssigned(stageClients.writing).entries()].slice(0, 6).map(([name, n]) => (
+                <div key={name} className="flex items-center justify-between">
+                  <span className="text-[#4E5968]">{name}</span>
+                  <span className="font-bold tabular-nums">{n}건</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {stageFilter === "approval" && (() => {
+        const anomalyClients = stageClients.approval.filter(isAnomalyClient);
+        return (
+          <aside className="space-y-3 overflow-y-auto">
+            <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#DC2626]/8 to-transparent">
+              <div className="text-[12px] font-bold text-[#DC2626] mb-2">⚠️ AI 검출 이상치</div>
+              <div className="text-[11.5px] text-[#4E5968] mb-3">전년 대비 ±30% 이상 변동</div>
+              <div className="space-y-1.5">
+                {anomalyClients.length === 0 && <div className="text-[11.5px] text-[#8B95A1]">이상치 없음</div>}
+                {anomalyClients.slice(0, 5).map(c => {
+                  const r = getRecord(c);
+                  const dS = calcDelta(r.prevSales, r.currSales);
+                  const dT = calcDelta(r.prevTax, r.currTax);
+                  return (
+                    <div key={c.id} className="bg-white/70 rounded-xl p-2 text-[11.5px]">
+                      <div className="font-bold">{c.name}</div>
+                      <div className="text-[10.5px] text-[#DC2626]">
+                        {dS.pct !== null && `매출 ${dS.pct > 0 ? "+" : ""}${dS.pct}%`}
+                        {dS.pct !== null && dT.pct !== null && " · "}
+                        {dT.pct !== null && `세액 ${dT.pct > 0 ? "+" : ""}${dT.pct}%`}
+                      </div>
+                    </div>
+                  );
+                })}
+                {anomalyClients.length > 5 && <div className="text-[11px] text-[#6B7684] text-center pt-1">+ {anomalyClients.length - 5}건 더</div>}
+              </div>
+            </div>
+            <div className="glass rounded-2xl p-4">
+              <div className="text-[12px] font-bold mb-3">담당자별 결재 대기</div>
+              <div className="space-y-2 text-[12px]">
+                {[...countByAssigned(stageClients.approval).entries()].slice(0, 6).map(([name, n]) => (
+                  <div key={name} className="flex items-center justify-between">
+                    <span className="text-[#4E5968]">{name}</span>
+                    <span className="font-bold tabular-nums">{n}건</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="glass rounded-2xl p-4">
+              <div className="text-[12px] font-bold mb-2">📈 결재 진척</div>
+              <div className="text-[20px] font-bold tabular-nums">{stageCounts.confirm + stageCounts.done}<span className="text-[12px] text-[#6B7684]"> / {stageCounts.approval + stageCounts.confirm + stageCounts.done}</span></div>
+            </div>
+          </aside>
+        );
+      })()}
+
+      {stageFilter === "confirm" && (
+        <aside className="space-y-3 overflow-y-auto">
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/8 to-transparent">
+            <div className="text-[12px] font-bold text-[#10B981] mb-2">💰 컨펌+보수 단계</div>
+            <div className="text-[24px] font-bold leading-none">{stageClients.confirm.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold mb-2">조정료 합계 (컨펌 단계)</div>
+            <div className="text-[18px] font-bold tabular-nums">₩{sumOf(stageClients.confirm, "adjustmentFee").toLocaleString("ko-KR")}</div>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold mb-3">담당자별 컨펌 대기</div>
+            <div className="space-y-2 text-[12px]">
+              {[...countByAssigned(stageClients.confirm).entries()].slice(0, 6).map(([name, n]) => (
+                <div key={name} className="flex items-center justify-between">
+                  <span className="text-[#4E5968]">{name}</span>
+                  <span className="font-bold tabular-nums">{n}건</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {stageFilter === "done" && (
+        <aside className="space-y-3 overflow-y-auto">
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/8 to-transparent">
+            <div className="text-[12px] font-bold text-[#10B981] mb-2">🎉 시즌 신고 완료</div>
+            <div className="text-[28px] font-bold tabular-nums leading-none">{stageCounts.done}<span className="text-[12px] text-[#6B7684]"> / {total}</span></div>
+            <div className="progress mt-2"><div className="progress-fill gradient-emerald" style={{ width: `${donePct}%` }} /></div>
+            <div className="text-[10.5px] text-[#6B7684] mt-1">진행률 {donePct}%</div>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold mb-3">💵 시즌 정산 합계</div>
+            <div className="space-y-2 text-[12px]">
+              <div className="flex justify-between"><span className="text-[#6B7684]">신고세액</span><span className="font-bold tabular-nums">{sumOf(stageClients.done, "currTax").toLocaleString("ko-KR")}</span></div>
+              <div className="flex justify-between"><span className="text-[#6B7684]">조정료</span><span className="font-bold tabular-nums">{sumOf(stageClients.done, "adjustmentFee").toLocaleString("ko-KR")}</span></div>
+              <div className="border-t border-white/40 pt-2 flex justify-between">
+                <span className="font-bold">정산 총액</span>
+                <span className="font-bold text-[#10B981] tabular-nums">{(sumOf(stageClients.done, "currTax") + sumOf(stageClients.done, "adjustmentFee")).toLocaleString("ko-KR")}</span>
+              </div>
+            </div>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <div className="text-[12px] font-bold mb-3">담당자별 완료</div>
+            <div className="space-y-2 text-[12px]">
+              {[...countByAssigned(stageClients.done).entries()].slice(0, 6).map(([name, n]) => (
+                <div key={name} className="flex items-center justify-between">
+                  <span className="text-[#4E5968]">{name}</span>
+                  <span className="font-bold tabular-nums">{n}건</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      )}
       </div>
 
       {/* 메모 모달 */}
