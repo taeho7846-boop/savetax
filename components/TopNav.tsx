@@ -190,10 +190,10 @@ export default function TopNav({
                   <Link
                     key={s.href}
                     href={s.href}
-                    className={`glass-strong rounded-xl px-4 py-2 text-[12.5px] font-bold transition ${
+                    className={`rounded-xl px-4 py-2 text-[12.5px] font-bold transition ${
                       active
-                        ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] border-transparent shadow-md shadow-[#3182F6]/30"
-                        : "text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px"
+                        ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+                        : "glass-strong text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px"
                     }`}
                   >
                     {s.label}

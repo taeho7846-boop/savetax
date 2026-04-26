@@ -84,26 +84,16 @@ export default async function ClientsPage({
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
-      <div className="flex items-start justify-between mb-6 gap-4">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight shrink-0">고객사 관리</h1>
+      <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">고객사 관리</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">거래처 {totalCount.toLocaleString()}곳</h1>
+        </div>
 
-        <div className="flex items-center gap-4 flex-wrap justify-end">
-          {/* 인건비 분류 범례 */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-medium text-[#8B95A1] mr-0.5">인건비 분류</span>
-            {Object.entries(LABOR_TYPE_STYLES).map(([key, s]) => (
-              <span
-                key={key}
-                className={`inline-flex items-center justify-center border ${s.border} ${s.text} ${s.bg} rounded-md px-1.5 py-0.5 text-xs font-medium`}
-              >
-                {key}
-              </span>
-            ))}
-          </div>
-
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <a
             href="/api/clients/alimtalk-excel"
-            className="bg-[#FEF3C7] text-[#92400e] text-[13px] font-bold px-4 py-2 rounded-[10px] hover:bg-[#FDE68A] transition-colors"
+            className="glass px-4 h-10 rounded-2xl text-[13px] font-bold text-[#92400e] hover:bg-[#FEF3C7] transition-colors flex items-center"
           >
             알림톡
           </a>
@@ -118,47 +108,66 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      {/* 전체/개인/법인 — Toss pill 탭 */}
-      <div className="inline-flex gap-0.5 mb-4 p-1 bg-[#F2F4F6] rounded-[12px]">
-        {[
-          { key: "all", label: "전체", count: totalCount },
-          { key: "individual", label: "개인", count: individualCount },
-          { key: "corporate", label: "법인", count: corporateCount },
-        ].map(tab => {
-          const active = clientType === tab.key;
-          return (
-            <a
-              key={tab.key}
-              href={`/clients?type=${tab.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-              className={`px-4 py-1.5 text-[13px] rounded-[10px] transition-all ${
-                active
-                  ? "bg-white text-[#191F28] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-                  : "text-[#6B7684] hover:text-[#191F28] font-[500]"
-              }`}
-            >
-              {tab.label} <span className={`ml-1 text-[11px] ${active ? "text-[#6B7684]" : "text-[#8B95A1]"}`}>{tab.count}</span>
-            </a>
-          );
-        })}
-      </div>
+      {/* 검색 + 탭 + 범례 — 하나의 글래스 카드로 */}
+      <div className="glass rounded-3xl p-4 mb-4">
+        {/* 검색 */}
+        <form className="flex gap-2 mb-3">
+          <input type="hidden" name="type" value={clientType} />
+          <div className="flex-1 bg-white/80 rounded-2xl flex items-center gap-2 px-4 h-11">
+            <svg width="16" height="16" fill="none" stroke="#6B7684" strokeWidth="2.2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="고객사명, 대표자명, 사업자번호 검색"
+              autoComplete="off"
+              className="flex-1 bg-transparent outline-none text-[14px] text-[#191F28] placeholder:text-[#8B95A1]"
+            />
+          </div>
+          <button
+            type="submit"
+            className="bg-[#3182F6] text-white text-[13px] font-bold px-5 h-11 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-md shadow-[#3182F6]/20"
+          >
+            검색
+          </button>
+        </form>
 
-      {/* 검색/필터 */}
-      <form className="flex gap-3 mb-5">
-        <input type="hidden" name="type" value={clientType} />
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="고객사명, 대표자명, 사업자번호 검색"
-          autoComplete="off"
-          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] flex-1 focus:outline-none focus:border-[#3182F6]"
-        />
-        <button
-          type="submit"
-          className="bg-[#3182F6] text-white text-[13px] font-bold px-5 py-2 rounded-[10px] hover:bg-[#1B64DA] transition-colors"
-        >
-          검색
-        </button>
-      </form>
+        {/* 전체/개인/법인 + 인건비 범례 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { key: "all", label: "전체", count: totalCount },
+            { key: "individual", label: "개인", count: individualCount },
+            { key: "corporate", label: "법인", count: corporateCount },
+          ].map(tab => {
+            const active = clientType === tab.key;
+            return (
+              <a
+                key={tab.key}
+                href={`/clients?type=${tab.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition ${
+                  active
+                    ? "bg-[#3182F6] text-white shadow-md shadow-[#3182F6]/20"
+                    : "bg-white/70 text-[#6B7684] hover:text-[#191F28] hover:bg-white"
+                }`}
+              >
+                {tab.label} {tab.count.toLocaleString()}
+              </a>
+            );
+          })}
+          <div className="w-px h-6 bg-[#E5E8EB] mx-1" />
+          <span className="text-[11px] font-medium text-[#8B95A1] mr-0.5">인건비</span>
+          {Object.entries(LABOR_TYPE_STYLES).map(([key, s]) => (
+            <span
+              key={key}
+              className={`inline-flex items-center justify-center border ${s.border} ${s.text} ${s.bg} rounded-md px-1.5 py-0.5 text-[11px] font-medium`}
+            >
+              {key}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser={isReadonly || isManager} />
     </div>
