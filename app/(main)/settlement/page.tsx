@@ -73,41 +73,44 @@ function Header({ year, mon, yearMonth, tab, prevYM, nextYM }: {
 }) {
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">Savetax 정산</h1>
-        <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
-          <Link href={`/settlement?ym=${prevYM}&tab=${tab}`} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</Link>
-          <span className="text-sm font-medium text-[#191F28] min-w-[100px] text-center">{year}년 {parseInt(mon)}월</span>
-          <Link href={`/settlement?ym=${nextYM}&tab=${tab}`} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</Link>
+      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">{year}년 {parseInt(mon)}월 정산</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">Savetax 정산</h1>
+        </div>
+        <div className="flex items-center gap-1 glass rounded-xl px-1 h-10">
+          <Link href={`/settlement?ym=${prevYM}&tab=${tab}`} className="w-8 h-8 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">◀</Link>
+          <span className="text-[13px] font-bold text-[#191F28] min-w-[90px] text-center">{year}년 {parseInt(mon)}월</span>
+          <Link href={`/settlement?ym=${nextYM}&tab=${tab}`} className="w-8 h-8 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">▶</Link>
         </div>
       </div>
-      <div className="flex gap-1 mb-6 border-b border-[#E5E8EB]">
+      <div className="flex gap-2 mb-3">
         <Link
           href={`/settlement?ym=${yearMonth}&tab=bookkeeping`}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
             tab === "bookkeeping"
-              ? "border-[#3182F6] text-[#191F28]"
-              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
+              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
           }`}
         >
           기장
         </Link>
         <Link
           href={`/settlement?ym=${yearMonth}&tab=oneoff`}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
             tab === "oneoff"
-              ? "border-[#3182F6] text-[#191F28]"
-              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
+              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
           }`}
         >
           단건
         </Link>
         <Link
           href={`/settlement?ym=${yearMonth}&tab=refund`}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
             tab === "refund"
-              ? "border-[#3182F6] text-[#191F28]"
-              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
+              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
           }`}
         >
           환불

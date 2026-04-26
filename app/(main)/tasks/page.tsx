@@ -99,8 +99,11 @@ export default async function TasksPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">업무/메모</h1>
+      <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">팀 업무 보드</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">업무 / 메모</h1>
+        </div>
         <UnifiedCreateButton />
       </div>
 

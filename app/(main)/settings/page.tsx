@@ -16,7 +16,10 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight mb-6">설정</h1>
+      <div className="mb-5">
+        <div className="text-[12.5px] text-[#86868b] font-medium">계정 · 연동 · 환경설정</div>
+        <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">설정</h1>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ===== 왼쪽 열: 계정 설정 + 저장 ===== */}

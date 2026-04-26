@@ -206,16 +206,22 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   return (
     <>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">원천세</h1>
-        <div className="flex items-center gap-4">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="고객사명 검색"
-            autoComplete="off"
-            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm w-48 focus:outline-none focus:border-[#3182F6]"
-          />
+      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">월별 원천징수</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">원천세 · {year}년 {parseInt(mon)}월</h1>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="bg-white/80 rounded-xl flex items-center gap-2 px-3 h-9 glass">
+            <svg width={14} height={14} fill="none" stroke="#6B7684" strokeWidth={2.2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8} /><path d="m21 21-4.3-4.3" /></svg>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="고객사 검색..."
+              autoComplete="off"
+              className="bg-transparent outline-none text-[12.5px] w-44"
+            />
+          </div>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleVerify} className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -331,16 +337,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               프로세스 {doneProcess}/{totalProcess}
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
-            <button onClick={() => handleMonthChange(-1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</button>
-            <span className="text-sm font-medium text-[#191F28] min-w-[100px] text-center">{year}년 {parseInt(mon)}월</span>
-            <button onClick={() => handleMonthChange(1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</button>
+          <div className="flex items-center gap-1 glass rounded-xl px-1 h-9">
+            <button onClick={() => handleMonthChange(-1)} className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">◀</button>
+            <span className="text-[12.5px] font-bold text-[#191F28] min-w-[90px] text-center">{year}년 {parseInt(mon)}월</span>
+            <button onClick={() => handleMonthChange(1)} className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">▶</button>
           </div>
         </div>
       </div>
 
       {/* 통합 테이블 */}
-      <div className="flex-1 overflow-y-auto bg-white rounded-lg shadow-sm border border-[#F2F4F6]">
+      <div className="flex-1 overflow-y-auto glass rounded-2xl">
         <table className="w-full text-sm">
           <thead className="bg-[#F9FAFB] border-b border-[#E5E8EB] sticky top-0 z-10">
             <tr>

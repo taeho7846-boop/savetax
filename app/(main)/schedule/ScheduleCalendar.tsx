@@ -171,26 +171,29 @@ export function ScheduleCalendar({
   return (
     <>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">스케쥴</h1>
-        <div className="flex items-center gap-3">
+      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">{year}년 {month}월</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">스케쥴</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 glass rounded-xl px-1 h-10">
+            <button onClick={() => handleMonthChange(-1)} className="w-8 h-8 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">◀</button>
+            <span className="text-[13px] font-bold text-[#191F28] min-w-[90px] text-center">{year}년 {month}월</span>
+            <button onClick={() => handleMonthChange(1)} className="w-8 h-8 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">▶</button>
+          </div>
           <button
             onClick={() => { setSelectedDate(todayStr); setEditSchedule(null); setShowForm(true); setError(""); }}
-            className="bg-[#3182F6] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#1B64DA] transition-colors"
+            className="bg-[#3182F6] text-white text-[13px] font-bold px-5 h-10 rounded-2xl hover:bg-[#1B64DA] shadow-md shadow-[#3182F6]/20"
           >
-            + 일정 추가
+            + 일정
           </button>
-          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
-            <button onClick={() => handleMonthChange(-1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</button>
-            <span className="text-sm font-medium text-[#191F28] min-w-[100px] text-center">{year}년 {month}월</span>
-            <button onClick={() => handleMonthChange(1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</button>
-          </div>
         </div>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* 캘린더 */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-4 overflow-auto">
+        <div className="flex-1 glass rounded-2xl p-4 overflow-auto">
           <div className="grid grid-cols-7 gap-px">
             {WEEKDAYS.map((w, i) => (
               <div key={w} className={`text-center text-xs font-medium py-2 ${i === 0 ? "text-[#E02E2E]" : i === 6 ? "text-[#3182F6]" : "text-[#6B7684]"}`}>

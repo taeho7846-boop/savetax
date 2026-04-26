@@ -112,31 +112,34 @@ export default async function ReceivablesPage({
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">채권 관리</h1>
+      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">월별 기장료 수납 · CMS 자동이체</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">채권 관리 · {year}년</h1>
+        </div>
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 mb-6 border-b border-[#E5E8EB]">
+      <div className="flex gap-2 mb-3">
         <Link
           href={`/receivables?year=${year}&tab=receivables`}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
             tab === "receivables"
-              ? "border-[#3182F6] text-[#191F28]"
-              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
+              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
           }`}
         >
-          채권
+          💰 채권 (월별)
         </Link>
         <Link
           href={`/receivables?year=${year}&tab=cms`}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
             tab === "cms"
-              ? "border-[#3182F6] text-[#191F28]"
-              : "border-transparent text-[#6B7684] hover:text-[#333D4B]"
+              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
           }`}
         >
-          CMS
+          ⚡ CMS 자동이체
         </Link>
       </div>
 
@@ -144,52 +147,52 @@ export default async function ReceivablesPage({
         <CmsTab sessionId={session.id} role={session.role} />
       ) : (
       <>
-      {/* 연도 네비게이션 */}
-      <div className="flex items-center justify-end mb-5">
-        <div className="flex items-center gap-2">
+      {/* 연도 네비게이션 + 검색 (글래스 카드) */}
+      <div className="glass rounded-2xl p-3 mb-3 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1 glass-strong rounded-xl px-1 h-9">
           <Link
             href={`/receivables?year=${year - 1}&tab=receivables`}
-            className="px-3 py-1.5 text-sm border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] hover:bg-[#F9FAFB] text-[#4E5968]"
+            className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
           >
-            ← {year - 1}년
+            ◀
           </Link>
-          <span className="px-4 py-1.5 text-sm font-bold text-[#191F28] bg-[#f0f4f8] rounded-lg">
-            {year}년
-          </span>
+          <span className="text-[12.5px] font-bold text-[#191F28] min-w-[60px] text-center">{year}년</span>
           <Link
             href={`/receivables?year=${year + 1}&tab=receivables`}
-            className="px-3 py-1.5 text-sm border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] hover:bg-[#F9FAFB] text-[#4E5968]"
+            className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
           >
-            {year + 1}년 →
+            ▶
           </Link>
         </div>
-      </div>
 
-      {/* 검색 */}
-      <form className="flex gap-3 mb-5">
-        <input type="hidden" name="year" value={year} />
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="고객사명 검색"
-          autoComplete="off"
-          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] flex-1 focus:outline-none focus:border-[#3182F6]"
-        />
-        <button
-          type="submit"
-          className="bg-[#F2F4F6] border border-[#D1D6DB] text-[#191F28] text-sm px-4 py-2 rounded-lg hover:bg-[#E5E8EB]"
-        >
-          검색
-        </button>
-        {q && (
-          <Link
-            href={`/receivables?year=${year}`}
-            className="border border-[#D1D6DB] text-[#4E5968] text-sm px-4 py-2 rounded-lg hover:bg-[#F9FAFB]"
+        <form className="flex-1 flex gap-2 min-w-[220px]">
+          <input type="hidden" name="year" value={year} />
+          <div className="flex-1 bg-white/80 rounded-xl flex items-center gap-2 px-3 h-9">
+            <svg width={14} height={14} fill="none" stroke="#6B7684" strokeWidth={2.2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8} /><path d="m21 21-4.3-4.3" /></svg>
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="고객사명 검색"
+              autoComplete="off"
+              className="flex-1 bg-transparent outline-none text-[12.5px] text-[#191F28] placeholder:text-[#8B95A1]"
+            />
+          </div>
+          <button
+            type="submit"
+            className="bg-[#3182F6] text-white text-[12.5px] font-bold px-4 h-9 rounded-xl hover:bg-[#1B64DA] shadow-md shadow-[#3182F6]/20"
           >
-            초기화
-          </Link>
-        )}
-      </form>
+            검색
+          </button>
+          {q && (
+            <Link
+              href={`/receivables?year=${year}`}
+              className="glass-strong text-[#4E5968] text-[12.5px] font-bold px-3 h-9 rounded-xl flex items-center"
+            >
+              초기화
+            </Link>
+          )}
+        </form>
+      </div>
 
       <ReceivablesTable
         clients={clients}

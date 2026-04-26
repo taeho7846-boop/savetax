@@ -156,20 +156,21 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
 
   return (
     <>
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">자료수집</h1>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
-            <button onClick={() => handleYearChange(-1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">◀</button>
-            <span className="text-sm font-medium text-[#191F28] min-w-[80px] text-center">{taxYear}년 귀속</span>
-            <button onClick={() => handleYearChange(1)} className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm">▶</button>
-          </div>
+      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">거래처 자료 수령 현황</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">자료수집 · {taxYear}년 귀속</h1>
+        </div>
+        <div className="flex items-center gap-1 glass rounded-xl px-1 h-9">
+          <button onClick={() => handleYearChange(-1)} className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">◀</button>
+          <span className="text-[12.5px] font-bold text-[#191F28] min-w-[70px] text-center">{taxYear}년</span>
+          <button onClick={() => handleYearChange(1)} className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">▶</button>
         </div>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* 좌측: 거래처 목록 */}
-        <div className="w-64 bg-white rounded-lg shadow-sm border border-[#F2F4F6] flex flex-col shrink-0">
+        <div className="w-64 glass rounded-2xl flex flex-col shrink-0">
           <div className="p-3 border-b border-[#F2F4F6]">
             <input
               type="text"

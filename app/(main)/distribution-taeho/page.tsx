@@ -18,7 +18,10 @@ export default async function TaehoDistributionPage({
     const data = await getTaehoExcludedData();
     return (
       <div className="flex flex-col h-full">
-        <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight mb-6">세무회계태호 배분</h1>
+        <div className="mb-5">
+          <div className="text-[12.5px] text-[#86868b] font-medium">세무회계태호 별도 사무소</div>
+          <h1 className="text-[26px] font-bold tracking-tight"><span className="bg-gradient-to-r from-[#A855F7] to-[#6D28D9] bg-clip-text text-transparent">세무회계태호 배분</span></h1>
+        </div>
         <TaehoDistributionBoard
           tab={tab}
           accountants={data.accountants}
