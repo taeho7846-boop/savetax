@@ -658,6 +658,224 @@ export function IncomeTaxTable({
             <div>💡 행 클릭 → 우측에 체크리스트 deep view</div>
           </div>
         </div>
+      ) : stageFilter === "collect" ? (
+        // ① 자료수집 전용 레이아웃 (amber/brown 톤)
+        (() => {
+          const list = stageClients.collect;
+          const docFields: { key: string; label: string; get: (r: ITRecord) => boolean }[] = [
+            { key: "noticeSent",      label: "안내문",   get: (r) => r.noticeSent },
+            { key: "linkPass",        label: "링크패스", get: (r) => r.linkPass },
+            { key: "depreciation",    label: "감가상각", get: (r) => r.depreciation },
+            { key: "interestExpense", label: "이자비용", get: (r) => r.interestExpense },
+            { key: "insurance",       label: "보험료",   get: (r) => r.insurance },
+            { key: "donation",        label: "기부금",   get: (r) => r.donation },
+          ];
+          const totalDocs = list.length * docFields.length;
+          const gotDocs = list.reduce((s, c) => s + docFields.filter(f => f.get(getRecord(c))).length, 0);
+          const avgPct = totalDocs === 0 ? 0 : Math.round((gotDocs / totalDocs) * 100);
+          return (
+            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+              <div className="px-4 py-2.5 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#92400E] animate-pulse" />
+                  <span className="text-[13px] font-bold text-[#92400E]">① 자료수집 — {list.length}건</span>
+                  <span className="text-[11px] text-[#6B7684]">6항목 자료 수령 진행</span>
+                </div>
+                <div className="flex gap-1.5 text-[11px]">
+                  <span className="px-2.5 py-1 bg-[#92400E] text-white rounded-full font-bold">전체 {list.length}</span>
+                  <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#92400E]">평균 수령률 {avgPct}%</span>
+                </div>
+              </div>
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-white/60 sticky top-0 z-10">
+                    <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
+                      <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[160px]">고객사</th>
+                      <th className="px-2 py-2.5">유형</th>
+                      {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
+                      <th className="px-3 py-2.5 text-left min-w-[130px]">진행</th>
+                      {docFields.map(f => <th key={f.key} className="px-2 py-2.5 text-center">{f.label}</th>)}
+                      <th className="px-2 py-2.5 text-center">액션</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/40">
+                    {list.length === 0 ? (
+                      <tr><td colSpan={11 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">자료수집 거래처가 없습니다</td></tr>
+                    ) : list.map(client => {
+                      const r = getRecord(client);
+                      const ft = getFilingTypeBadge(r);
+                      const done = docFields.filter(f => f.get(r)).length;
+                      return (
+                        <tr key={client.id} className="transition hover:bg-[#FEFAF0]/60">
+                          <td className="px-3 py-2.5 font-bold sticky left-0 z-10 bg-white/70">
+                            {client.name}
+                            {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          </td>
+                          {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 progress" style={{ height: "5px" }}>
+                                <div className="progress-fill" style={{ width: `${(done / docFields.length) * 100}%`, background: "linear-gradient(90deg,#FBBF24,#92400E)" }} />
+                              </div>
+                              <span className="text-[10.5px] font-bold text-[#92400E] min-w-[24px]">{done}/{docFields.length}</span>
+                            </div>
+                          </td>
+                          {docFields.map(f => {
+                            const checked = f.get(r);
+                            return (
+                              <td key={f.key} className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => handleToggle(client.id, f.key)}
+                                  disabled={isPending}
+                                  title={f.label}
+                                  className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
+                                    checked
+                                      ? "bg-[#92400E] text-white shadow-sm shadow-[#92400E]/30"
+                                      : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#92400E]/50 hover:bg-[#FBBF24]/10"
+                                  }`}
+                                >✓</button>
+                              </td>
+                            );
+                          })}
+                          <td className="px-2 py-2.5 text-center">
+                            <button onClick={(e) => { e.stopPropagation(); setEditClientId(client.id); }}
+                              className="text-[10.5px] bg-[#92400E] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C2D12]">
+                              상세
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-2 bg-white/40 flex items-center justify-between text-[11.5px] text-[#6B7684] border-t border-white/40">
+                <div>{list.length}건 표시</div>
+                <div>💡 칸 클릭 → 즉시 토글 · 행 클릭 → 우측 deep view</div>
+              </div>
+            </div>
+          );
+        })()
+      ) : stageFilter === "approval" ? (
+        // ③ 결재 전용 레이아웃 (amber/orange 톤, 이상치 강조)
+        (() => {
+          const list = stageClients.approval;
+          const anomalyCount = list.filter(isAnomalyClient).length;
+          return (
+            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+              <div className="px-4 py-2.5 bg-gradient-to-r from-[#F59E0B]/15 via-[#F59E0B]/8 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
+                  <span className="text-[13px] font-bold text-[#F59E0B]">③ 결재 (세무사) — {list.length}건</span>
+                  <span className="text-[11px] text-[#6B7684]">전기 대비 검토 + 감면 확인</span>
+                </div>
+                <div className="flex gap-1.5 text-[11px]">
+                  <span className="px-2.5 py-1 bg-[#F59E0B] text-white rounded-full font-bold">전체 {list.length}</span>
+                  {anomalyCount > 0 && <span className="px-2.5 py-1 bg-[#DC2626] text-white rounded-full font-bold">⚠ 이상치 {anomalyCount}</span>}
+                </div>
+              </div>
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-[12px] tabular-nums">
+                  <thead className="bg-white/60 sticky top-0 z-10">
+                    <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
+                      <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[170px]">고객사</th>
+                      <th className="px-2 py-2.5">유형</th>
+                      {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
+                      <th className="px-3 py-2.5 text-right">전기 매출</th>
+                      <th className="px-3 py-2.5 text-right bg-[#F59E0B]/10">당기 매출</th>
+                      <th className="px-2 py-2.5 text-center">↕</th>
+                      <th className="px-3 py-2.5 text-right">전기 세액</th>
+                      <th className="px-3 py-2.5 text-right bg-[#F59E0B]/10">당기 세액</th>
+                      <th className="px-2 py-2.5 text-center">↕</th>
+                      <th className="px-2 py-2.5 text-center">AI 창중</th>
+                      <th className="px-2 py-2.5 text-center">AI 중특</th>
+                      <th className="px-2 py-2.5 text-center">감면</th>
+                      <th className="px-2 py-2.5 text-center">액션</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/40">
+                    {list.length === 0 ? (
+                      <tr><td colSpan={13 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">결재 대기 거래처가 없습니다</td></tr>
+                    ) : list.map(client => {
+                      const r = getRecord(client);
+                      const ft = getFilingTypeBadge(r);
+                      const dS = calcDelta(r.prevSales, r.currSales);
+                      const dT = calcDelta(r.prevTax, r.currTax);
+                      const reductions = getReductionBadges(r);
+                      const isAnom = isAnomalyClient(client);
+                      const isSel = selectedClientId === client.id;
+                      const selBg = "rgba(245,158,11,0.12)";
+                      return (
+                        <tr key={client.id} onClick={() => setSelectedClientId(client.id)}
+                          className={`cursor-pointer transition ${isSel ? "" : isAnom ? "hover:bg-[#FEF2F2]/60" : "hover:bg-[#FFFBEB]/60"}`}
+                          style={isSel ? { background: selBg, borderLeft: "3px solid #F59E0B" } : isAnom ? { borderLeft: "3px solid #DC2626" } : undefined}>
+                          <td className={`px-3 py-2.5 font-bold sticky left-0 z-10 ${isSel ? "" : "bg-white/70"}`} style={isSel ? { background: selBg } : undefined}>
+                            <div className="flex items-center gap-1.5">
+                              <span>{client.name}</span>
+                              {isAnom && <span title="전년대비 ±30% 변동" className="text-[10px] bg-[#DC2626]/15 text-[#DC2626] px-1 py-0.5 rounded font-bold">⚠</span>}
+                            </div>
+                            {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          </td>
+                          {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
+                          <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.prevSales) || "-"}</td>
+                          <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.currSales) || "-"}</td>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] font-bold">
+                            {dS.pct !== null ? (
+                              <span className={dS.isAnomaly ? "text-[#DC2626] bg-[#DC2626]/10 px-1.5 py-0.5 rounded" : dS.pct >= 0 ? "text-[#10B981]" : "text-[#F59E0B]"}>{dS.pct > 0 ? "+" : ""}{dS.pct}%</span>
+                            ) : <span className="text-[#B0B8C1]">-</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.prevTax) || "-"}</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-[#3182F6]">{formatNumber(r.currTax) || "-"}</td>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] font-bold">
+                            {dT.pct !== null ? (
+                              <span className={dT.isAnomaly ? "text-[#DC2626] bg-[#DC2626]/10 px-1.5 py-0.5 rounded" : dT.pct >= 0 ? "text-[#10B981]" : "text-[#F59E0B]"}>{dT.pct > 0 ? "+" : ""}{dT.pct}%</span>
+                            ) : <span className="text-[#B0B8C1]">-</span>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center text-[11px] font-bold">
+                            {client.aiStartupReduction === "O" ? <span className="text-[#10B981]">O</span> : client.aiStartupReduction === "X" ? <span className="text-[#DC2626]">X</span> : <span className="text-[#B0B8C1]">-</span>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center text-[11px] font-bold">
+                            {client.aiSmeReduction === "O" ? <span className="text-[#10B981]">O</span> : client.aiSmeReduction === "X" ? <span className="text-[#DC2626]">X</span> : <span className="text-[#B0B8C1]">-</span>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            {reductions.length > 0 ? (
+                              <div className="flex justify-center gap-0.5 flex-wrap">
+                                {reductions.map(b => <span key={b.label} className={`text-[10px] font-bold ${b.color}`}>{b.label}</span>)}
+                              </div>
+                            ) : <span className="text-[#B0B8C1] text-[10.5px]">-</span>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleToggle(client.id, "depositReceived")}
+                              disabled={isPending}
+                              className={`text-[10.5px] px-2.5 py-1 rounded-lg font-bold whitespace-nowrap transition ${
+                                r.depositReceived
+                                  ? "bg-[#10B981] text-white shadow-sm shadow-[#10B981]/30"
+                                  : "bg-[#F59E0B] text-white hover:bg-[#D97706]"
+                              }`}
+                            >
+                              {r.depositReceived ? "✓ 결재" : "결재"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-2 bg-white/40 flex items-center justify-between text-[11.5px] text-[#6B7684] border-t border-white/40">
+                <div>{list.length}건 표시 · ⚠ 이상치 {anomalyCount}건</div>
+                <div>💡 결재 클릭 → 컨펌 단계로 이동</div>
+              </div>
+            </div>
+          );
+        })()
       ) : (
       <div className="flex-1 overflow-auto glass rounded-2xl">
         <table className="text-xs whitespace-nowrap">
@@ -760,19 +978,8 @@ export function IncomeTaxTable({
                 return (
                   <tr
                     key={client.id}
-                    onClick={() => stageFilter === "approval" && setSelectedClientId(selectedClientId === client.id ? null : client.id)}
-                    className={`transition-colors ${
-                      stageFilter === "approval" && selectedClientId === client.id
-                        ? ""
-                        : r.filingDone
-                          ? "bg-[#F1FBF4]/50"
-                          : stageFilter === "approval" ? "hover:bg-[#F59E0B]/8 cursor-pointer" : "hover:bg-[#F5F9FF]/30"
-                    }`}
-                    style={
-                      stageFilter === "approval" && selectedClientId === client.id
-                        ? { background: "rgba(245,158,11,0.12)", borderLeft: "3px solid #F59E0B", borderBottom: hasGroup && !isLastInGroup ? "1px dashed #d1d5db" : "2.5px solid #9ca3af" }
-                        : hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }
-                    }
+                    className={`transition-colors ${r.filingDone ? "bg-[#F1FBF4]/50" : "hover:bg-[#F5F9FF]/30"}`}
+                    style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }}
                   >
                     {showGroup("기본") && <>
                       {/* 고객사명 */}
@@ -781,9 +988,6 @@ export function IncomeTaxTable({
                           <button onClick={(e) => { e.stopPropagation(); setEditClientId(client.id); }} className="hover:underline cursor-pointer text-left">
                             {client.name}
                           </button>
-                          {stageFilter === "approval" && isAnomalyClient(client) && (
-                            <span title="전년 대비 ±30% 이상 변동" className="text-[10px] bg-[#DC2626]/15 text-[#DC2626] px-1 py-0.5 rounded font-bold">⚠</span>
-                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); setTaxCalcModal({
                               clientId: client.id,
@@ -909,8 +1113,8 @@ export function IncomeTaxTable({
       {/* 우측 사이드 패널 (단계 선택시) */}
       {stageFilter === "collect" && (
         <aside className="space-y-3 overflow-y-auto">
-          <div className="glass rounded-2xl p-4">
-            <div className="text-[12px] font-bold text-[#92400E] mb-3">📋 자료수집 현황</div>
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#FBBF24]/15 to-transparent">
+            <div className="text-[12px] font-bold text-[#92400E] mb-2">📋 자료수집</div>
             <div className="text-[24px] font-bold leading-none">{stageClients.collect.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
             <div className="text-[10.5px] text-[#6B7684] mt-1">자료 미수령 또는 수집 중</div>
           </div>
@@ -920,17 +1124,17 @@ export function IncomeTaxTable({
               {[...countByAssigned(stageClients.collect).entries()].slice(0, 6).map(([name, n]) => (
                 <div key={name} className="flex items-center justify-between">
                   <span className="text-[#4E5968]">{name}</span>
-                  <span className="font-bold tabular-nums">{n}건</span>
+                  <span className="font-bold tabular-nums text-[#92400E]">{n}건</span>
                 </div>
               ))}
               {countByAssigned(stageClients.collect).size === 0 && <div className="text-[11px] text-[#8B95A1]">데이터 없음</div>}
             </div>
           </div>
-          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#3182F6]/10 to-transparent">
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#3182F6]/8 to-transparent">
             <div className="text-[12px] font-bold text-[#3182F6] mb-2">💡 팁</div>
             <ul className="text-[11.5px] text-[#4E5968] space-y-1.5">
-              <li>• 안내문/링크패스 체크해 자료 요청 진행</li>
-              <li>• 전체 체크리스트 완료 → ② 작성중 단계로 이동</li>
+              <li>• 6항목 모두 체크 → ② 작성중 단계로 자동 이동</li>
+              <li>• 표 안의 ✓ 칸 클릭으로 즉시 토글 가능</li>
             </ul>
           </div>
         </aside>
@@ -1009,8 +1213,8 @@ export function IncomeTaxTable({
 
       {stageFilter === "confirm" && (
         <aside className="space-y-3 overflow-y-auto">
-          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/8 to-transparent">
-            <div className="text-[12px] font-bold text-[#10B981] mb-2">💰 컨펌+보수 단계</div>
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#A855F7]/12 to-transparent">
+            <div className="text-[12px] font-bold text-[#A855F7] mb-2">💰 컨펌+보수 단계</div>
             <div className="text-[24px] font-bold leading-none">{stageClients.confirm.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
           </div>
           <div className="glass rounded-2xl p-4">
@@ -1033,7 +1237,7 @@ export function IncomeTaxTable({
 
       {stageFilter === "done" && (
         <aside className="space-y-3 overflow-y-auto">
-          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/8 to-transparent">
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/12 to-transparent">
             <div className="text-[12px] font-bold text-[#10B981] mb-2">🎉 시즌 신고 완료</div>
             <div className="text-[28px] font-bold tabular-nums leading-none">{stageCounts.done}<span className="text-[12px] text-[#6B7684]"> / {total}</span></div>
             <div className="progress mt-2"><div className="progress-fill gradient-emerald" style={{ width: `${donePct}%` }} /></div>
