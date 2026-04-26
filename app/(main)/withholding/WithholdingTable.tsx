@@ -471,25 +471,25 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
       {/* 통합 테이블 */}
       <div className="flex-1 overflow-y-auto glass rounded-2xl">
-        <table className="w-full text-sm">
-          <thead className="bg-[#F9FAFB] border-b border-[#E5E8EB] sticky top-0 z-10">
-            <tr>
-              <th className="px-2 py-3 w-9"></th>
-              <th className="text-left px-4 py-3 text-[#333D4B] font-bold text-xs whitespace-nowrap">고객사명</th>
-              <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs w-10">메모</th>
-              {showAssignedUser && <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs whitespace-nowrap">담당자</th>}
-              <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs whitespace-nowrap">신고없음</th>
-              <th className="text-center px-3 py-3 text-[#333D4B] font-bold text-xs whitespace-nowrap">인건비</th>
-              <th className="text-center px-2 py-3 text-[#6B7684] font-medium text-xs whitespace-nowrap">6개월납</th>
+        <table className="w-full text-[12.5px]">
+          <thead className="bg-white/60 backdrop-blur sticky top-0 z-10">
+            <tr className="border-b border-white/40">
+              <th className="px-2 py-2.5 w-9"></th>
+              <th className="text-left px-4 py-2.5 text-[10.5px] font-bold text-[#333D4B] uppercase tracking-wider whitespace-nowrap">고객사명</th>
+              <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider w-10">메모</th>
+              {showAssignedUser && <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">담당</th>}
+              <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">신고없음</th>
+              <th className="text-center px-3 py-2.5 text-[10.5px] font-bold text-[#333D4B] uppercase tracking-wider whitespace-nowrap">인건비</th>
+              <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">6개월납</th>
               {ALL_PROCESS_STEPS.map(step => (
-                <th key={step} className="text-center px-3 py-3 whitespace-nowrap">
-                  <span className="text-[11px] font-bold text-[#4E5968]">{step}</span>
+                <th key={step} className="text-center px-3 py-2.5 whitespace-nowrap">
+                  <span className="text-[10.5px] font-bold text-[#4E5968] uppercase tracking-wider">{step}</span>
                 </th>
               ))}
-              {extraColumns.length > 0 && <th className="w-[1px] px-0 bg-[#E5E8EB]"></th>}
+              {extraColumns.length > 0 && <th className="w-[1px] px-0 bg-white/40"></th>}
               {extraColumns.map(col => (
-                <th key={col.key} className="text-center px-2 py-3">
-                  <span className="text-[10px] font-medium text-[#8B95A1] leading-tight block whitespace-pre-line">{col.label}</span>
+                <th key={col.key} className="text-center px-2 py-2.5">
+                  <span className="text-[10px] font-medium text-[#8B95A1] uppercase tracking-wide leading-tight block whitespace-pre-line">{col.label}</span>
                 </th>
               ))}
             </tr>
@@ -505,7 +505,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 <React.Fragment key={group.type || "unassigned"}>
                   {/* 그룹 헤더 행 */}
                   <tr
-                    className={`${cfg ? cfg.bg : "bg-[#F2F4F6]"} cursor-pointer select-none`}
+                    className={`${cfg ? cfg.bg + "/60" : "bg-[#F2F4F6]/60"} cursor-pointer select-none transition-colors hover:brightness-95`}
                     onClick={() => setCollapsedGroups(prev => {
                       const next = new Set(prev);
                       const key = group.type || "unassigned";
@@ -513,16 +513,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                       return next;
                     })}
                   >
-                    <td colSpan={totalCols} className="px-4 py-2 border-t border-b border-[#E5E8EB]">
+                    <td colSpan={totalCols} className="px-4 py-2 border-t border-b border-white/50">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-[#8B95A1] w-3">{collapsedGroups.has(group.type || "unassigned") ? "▶" : "▼"}</span>
+                        <span className="text-[10px] text-[#8B95A1] w-3 transition-transform">{collapsedGroups.has(group.type || "unassigned") ? "▶" : "▼"}</span>
                         {cfg && (
-                          <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold border ${cfg.border} ${cfg.color}`}>
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-[11px] font-bold ${cfg.bg} ${cfg.color} shadow-sm`}>
                             {group.type}
                           </span>
                         )}
-                        <span className={`text-xs font-bold ${cfg ? cfg.color : "text-[#6B7684]"}`}>{group.label}</span>
-                        <span className="text-[10px] text-[#8B95A1]">{group.clients.length}개</span>
+                        <span className={`text-[12px] font-bold ${cfg ? cfg.color : "text-[#6B7684]"}`}>{group.label}</span>
+                        <span className="text-[10.5px] text-[#8B95A1] bg-white/70 rounded-full px-2 py-0.5 font-medium">{group.clients.length}건</span>
                       </div>
                     </td>
                   </tr>
@@ -543,7 +543,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
 
                     return (
-                      <tr key={client.id} className={`border-b border-[#F2F4F6] transition-colors ${checkedIds.has(client.id) ? "bg-[#E8F3FF]" : allStepsDone ? "bg-[#F1FBF4]/40" : "hover:bg-[#F5F9FF]/30"}`}>
+                      <tr key={client.id} className={`border-b border-white/40 transition-colors ${checkedIds.has(client.id) ? "bg-[#E8F3FF]/70" : allStepsDone ? "bg-[#F1FBF4]/50" : "hover:bg-[#F5F9FF]/40"}`}>
                         <td className="px-2 py-2">
                           <input
                             type="checkbox"
