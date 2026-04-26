@@ -41,6 +41,9 @@ type Client = {
   ceoName?: string | null;
   residentNumber?: string | null;
   bizCategory?: string | null;
+  driveFolderId?: string | null;
+  hometaxId?: string | null;
+  hometaxPw?: string | null;
   aiStartupReduction?: string | null;
   aiSmeReduction?: string | null;
   assignedUserName?: string | null;
@@ -105,7 +108,14 @@ const STAGE_META: Record<Stage, { label: string; color: string; bgDot: string; a
   done:     { label: "⑤ 신고완료",     color: "text-[#10B981]", bgDot: "bg-[#10B981]", activeBg: "bg-[#10B981]/10", activeRing: "ring-[#10B981]/40" },
 };
 
-export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, activeTab = "bookkeeping" }: { clients: Client[]; taxYear: string; showAssignedUser?: boolean; activeTab?: string }) {
+export function IncomeTaxTable({
+  clients, taxYear, showAssignedUser = false, activeTab = "bookkeeping",
+  agentHometaxId = null, agentHometaxPw = null, certName = null, certPassword = null,
+}: {
+  clients: Client[]; taxYear: string; showAssignedUser?: boolean; activeTab?: string;
+  agentHometaxId?: string | null; agentHometaxPw?: string | null;
+  certName?: string | null; certPassword?: string | null;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
@@ -257,6 +267,34 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
 
   const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : null;
 
+  function openClientDrive(client: Client) {
+    if (client.driveFolderId) {
+      window.open(`https://drive.google.com/drive/folders/${client.driveFolderId}`, "_blank");
+    } else {
+      alert("이 거래처에 드라이브 폴더가 연결되어 있지 않습니다. 거래처 수정에서 폴더를 연결하세요.");
+    }
+  }
+
+  function openClientHometax(client: Client) {
+    // 거래처에 hometaxId/Pw 있으면 그걸로, 없으면 세무대리인 계정으로
+    const id = client.hometaxId || agentHometaxId;
+    const pw = client.hometaxPw || agentHometaxPw;
+    if (!id || !pw) {
+      alert("홈택스 계정이 등록되어 있지 않습니다. 설정에서 등록하세요.");
+      return;
+    }
+    try {
+      const json = JSON.stringify({ id, pw, certName: certName || "", certPw: certPassword || "" });
+      const creds = btoa(unescape(encodeURIComponent(json)));
+      window.open(
+        `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
+        "_blank"
+      );
+    } catch {
+      alert("홈택스 로그인 실행 실패");
+    }
+  }
+
   function renderDeepView(client: Client, currentStep: number, stageBadgeLabel: string, stageBadgeColor: string) {
     const r = getRecord(client);
     const wp = getWritingProgress(r);
@@ -302,34 +340,34 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
           );
         })()}
         <div className="grid grid-cols-3 gap-1.5 mb-3">
-          <button className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">📁 드라이브</button>
-          <button className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">🔐 홈택스</button>
+          <button onClick={() => openClientDrive(client)} className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">📁 드라이브</button>
+          <button onClick={() => openClientHometax(client)} className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">🔐 홈택스</button>
           <button onClick={() => setEditClientId(client.id)} className="bg-[#3182F6] text-white py-1.5 rounded-xl text-[11px] font-bold shadow-md shadow-[#3182F6]/20">{currentStep === 4 ? "결재" : "신고서 작성"}</button>
         </div>
         <div className="flex-1 overflow-y-auto pr-1 space-y-2">
           <CheckGroup title="1. 자료 수집" done={dataCollect} total={6} highlight={currentStep === 1}
             items={[
-              { label: "안내문", checked: r.noticeSent },
-              { label: "링크패스", checked: r.linkPass },
-              { label: "감가상각", checked: r.depreciation },
-              { label: "이자비용", checked: r.interestExpense },
-              { label: "보험료", checked: r.insurance },
-              { label: "기부금", checked: r.donation },
+              { label: "안내문",   checked: r.noticeSent,      onToggle: () => handleToggle(client.id, "noticeSent") },
+              { label: "링크패스", checked: r.linkPass,        onToggle: () => handleToggle(client.id, "linkPass") },
+              { label: "감가상각", checked: r.depreciation,    onToggle: () => handleToggle(client.id, "depreciation") },
+              { label: "이자비용", checked: r.interestExpense, onToggle: () => handleToggle(client.id, "interestExpense") },
+              { label: "보험료",   checked: r.insurance,       onToggle: () => handleToggle(client.id, "insurance") },
+              { label: "기부금",   checked: r.donation,        onToggle: () => handleToggle(client.id, "donation") },
             ]} />
           <CheckGroup title="2. 공제/감면" done={reduce} total={5}
             items={[
-              { label: "기장공제", checked: r.bookkeepingCredit },
-              { label: "창업감면", checked: r.startupReduction },
-              { label: "중기감면", checked: r.smeReduction },
-              { label: "통합투자", checked: r.investCredit },
-              { label: "고용증대", checked: r.employmentCredit },
+              { label: "기장공제", checked: r.bookkeepingCredit, onToggle: () => handleToggle(client.id, "bookkeepingCredit") },
+              { label: "창업감면", checked: r.startupReduction,  onToggle: () => handleToggle(client.id, "startupReduction") },
+              { label: "중기감면", checked: r.smeReduction,      onToggle: () => handleToggle(client.id, "smeReduction") },
+              { label: "통합투자", checked: r.investCredit,      onToggle: () => handleToggle(client.id, "investCredit") },
+              { label: "고용증대", checked: r.employmentCredit,  onToggle: () => handleToggle(client.id, "employmentCredit") },
             ]} />
           <CheckGroup title="3. 신고서 작성" done={wp.step} total={4} highlight={currentStep === 2}
             items={[
-              { label: "기본정보", checked: !!r.currSales },
-              { label: "소득금액", checked: !!r.currIncome },
-              { label: "공제 적용", checked: !!r.currTax },
-              { label: "최종 검산", checked: r.preSettlement },
+              { label: "기본정보",   checked: !!r.currSales },
+              { label: "소득금액",   checked: !!r.currIncome },
+              { label: "공제 적용",  checked: !!r.currTax },
+              { label: "최종 검산",  checked: r.preSettlement, onToggle: () => handleToggle(client.id, "preSettlement") },
             ]} />
           <StageRow num={4} title="결재 (세무사)" done={r.depositReceived} highlight={currentStep === 4} />
           <StageRow num={5} title="컨펌 + 보수수취" done={r.depositReceived} />
@@ -555,8 +593,17 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                         {client.name}
                         {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
                       </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                      <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={r.filingType ?? ""}
+                          onChange={(e) => handleFieldBlur(client.id, "filingType", e.target.value)}
+                          className="border border-[#E5E8EB] rounded px-1 py-0.5 text-[11px] bg-white focus:outline-none w-[88px]"
+                        >
+                          <option value="">-</option>
+                          {["자기조정", "외부조정", "간편장부", "추계-기준율", "추계-단순율", "성실신고"].map(o => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
                       </td>
                       {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                       <td className="px-3 py-2.5">
@@ -568,15 +615,15 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                         </div>
                         <div className="text-[9.5px] text-[#6B7684] mt-0.5">{wp.statusLabel}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.prevSales) || "-"}</td>
-                      <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.currSales) || "-"}</td>
+                      <EditableNumberCell value={r.prevSales} onSave={(v) => handleFieldBlur(client.id, "prevSales", v)} className="text-[#6B7684]" />
+                      <EditableNumberCell value={r.currSales} onSave={(v) => handleFieldBlur(client.id, "currSales", v)} className="font-bold" />
                       <td className="px-2 py-2.5 text-center text-[10.5px] font-bold">
                         {dS.pct !== null ? (
                           <span className={dS.pct >= 0 ? "text-[#10B981]" : "text-[#DC2626]"}>{dS.pct > 0 ? "+" : ""}{dS.pct}%</span>
                         ) : <span className="text-[#B0B8C1]">-</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.currIncome) || "-"}</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-[#3182F6]">{formatNumber(r.currTax) || "-"}</td>
+                      <EditableNumberCell value={r.currIncome} onSave={(v) => handleFieldBlur(client.id, "currIncome", v)} className="font-bold" />
+                      <EditableNumberCell value={r.currTax} onSave={(v) => handleFieldBlur(client.id, "currTax", v)} className="font-bold text-[#3182F6]" />
                       <td className="px-2 py-2.5 text-center">
                         {reductions.length > 0 ? (
                           <div className="flex justify-center gap-0.5 flex-wrap">
@@ -1094,7 +1141,7 @@ function CheckGroup({ title, done, total, items, highlight }: {
   title: string;
   done: number;
   total: number;
-  items: { label: string; checked: boolean }[];
+  items: { label: string; checked: boolean; onToggle?: () => void }[];
   highlight?: boolean;
 }) {
   const isDone = done >= total;
@@ -1112,10 +1159,16 @@ function CheckGroup({ title, done, total, items, highlight }: {
       </div>
       <div className="grid grid-cols-2 gap-1 ml-1 text-[11px]">
         {items.map(it => (
-          <div key={it.label} className={`flex items-center gap-1.5 ${it.checked ? "" : "text-[#8B95A1]"}`}>
+          <button
+            key={it.label}
+            type="button"
+            onClick={it.onToggle}
+            disabled={!it.onToggle}
+            className={`flex items-center gap-1.5 text-left rounded px-1 py-0.5 ${it.onToggle ? "hover:bg-white/60 cursor-pointer" : ""} ${it.checked ? "" : "text-[#8B95A1]"}`}
+          >
             <span className={`inline-block w-3 h-3 rounded-sm ${it.checked ? "bg-[#10B981]" : "bg-white border border-[#D1D6DB]"}`} />
             {it.label}
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -1188,6 +1241,34 @@ function NumberCell({ value, onSave, colorType }: { value: string | null; onSave
     <td
       className={`px-2 py-2 text-right cursor-pointer hover:bg-[#F5F9FF] min-w-[70px] ${textColor}`}
       onClick={() => { setVal(value ?? ""); setEditing(true); }}
+    >
+      {formatNumber(value) || <span className="text-[#B0B8C1]">-</span>}
+    </td>
+  );
+}
+
+function EditableNumberCell({ value, onSave, className = "" }: { value: string | null; onSave: (v: string) => void; className?: string }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value ?? "");
+  if (editing) {
+    return (
+      <td className="px-1 py-1 text-right" onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          type="text"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onBlur={() => { onSave(val); setEditing(false); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { onSave(val); setEditing(false); } if (e.key === "Escape") { setEditing(false); } }}
+          className="w-24 border border-blue-300 rounded px-1 py-0.5 text-[12px] text-right focus:outline-none"
+        />
+      </td>
+    );
+  }
+  return (
+    <td
+      className={`px-3 py-2.5 text-right cursor-pointer hover:bg-[#F5F9FF] ${className}`}
+      onClick={(e) => { e.stopPropagation(); setVal(value ?? ""); setEditing(true); }}
     >
       {formatNumber(value) || <span className="text-[#B0B8C1]">-</span>}
     </td>

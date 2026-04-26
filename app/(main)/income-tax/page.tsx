@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getSettings } from "@/app/actions/settings";
 import { IncomeTaxTable } from "./IncomeTaxTable";
 
 export default async function IncomeTaxPage({
@@ -52,6 +53,9 @@ export default async function IncomeTaxPage({
       residentNumber: true,
       bizCategory: true,
       bizType: true,
+      driveFolderId: true,
+      hometaxId: true,
+      hometaxPw: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       incomeTaxRecords: {
         where: { taxYear },
@@ -96,9 +100,20 @@ export default async function IncomeTaxPage({
   };
   });
 
+  const settings = await getSettings();
+
   return (
     <div className="flex flex-col h-full">
-      <IncomeTaxTable clients={serialized} taxYear={taxYear} showAssignedUser={isManager} activeTab={activeTab} />
+      <IncomeTaxTable
+        clients={serialized}
+        taxYear={taxYear}
+        showAssignedUser={isManager}
+        activeTab={activeTab}
+        agentHometaxId={settings?.agentHometaxId ?? null}
+        agentHometaxPw={settings?.agentHometaxPw ?? null}
+        certName={settings?.certName ?? null}
+        certPassword={settings?.certPassword ?? null}
+      />
     </div>
   );
 }
