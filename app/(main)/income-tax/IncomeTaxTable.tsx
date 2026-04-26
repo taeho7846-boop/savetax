@@ -87,6 +87,16 @@ function getStage(r: ITRecord): Stage {
   if (r.currSales) return "writing";
   return "collect";
 }
+// 단계별로 표시할 컬럼 그룹
+const STAGE_GROUPS: Record<Stage | "all", Set<string>> = {
+  all:      new Set(["기본", "준비", "가결산", "전기", "당기", "AI판단", "감면", "완료", "조정료"]),
+  collect:  new Set(["기본", "준비"]),
+  writing:  new Set(["기본", "가결산", "전기", "당기"]),
+  approval: new Set(["기본", "전기", "당기", "AI판단", "감면"]),
+  confirm:  new Set(["기본", "당기", "완료", "조정료"]),
+  done:     new Set(["기본", "당기", "완료", "조정료"]),
+};
+
 const STAGE_META: Record<Stage, { label: string; color: string; bgDot: string; activeBg: string; activeRing: string }> = {
   collect:  { label: "① 자료수집",     color: "text-[#92400E]", bgDot: "bg-[#92400E]", activeBg: "bg-[#92400E]/10", activeRing: "ring-[#92400E]/40" },
   writing:  { label: "② 작성중",       color: "text-[#3182F6]", bgDot: "bg-[#3182F6]", activeBg: "bg-[#3182F6]/10", activeRing: "ring-[#3182F6]/40" },
@@ -165,6 +175,19 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
   const filteredClients = stageFilter
     ? preStageClients.filter(c => getStage(getRecord(c)) === stageFilter)
     : preStageClients;
+
+  // 단계별로 표시할 컬럼 그룹
+  const visibleGroups = STAGE_GROUPS[stageFilter ?? "all"];
+  const showGroup = (g: string) => visibleGroups.has(g);
+
+  // 전년 대비 변동률 (이상치 ±30% 검출용 - 결재 단계에서 활용)
+  function calcDelta(prev: string | null, curr: string | null): { pct: number | null; isAnomaly: boolean } {
+    if (!prev || !curr) return { pct: null, isAnomaly: false };
+    const p = parseInt(prev), c = parseInt(curr);
+    if (isNaN(p) || isNaN(c) || p === 0) return { pct: null, isAnomaly: false };
+    const pct = Math.round(((c - p) / Math.abs(p)) * 100);
+    return { pct, isAnomaly: Math.abs(pct) >= 30 };
+  }
 
   const doneCount = stageCounts.done;
   const total = preStageClients.length;
@@ -332,56 +355,70 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
           <thead className="sticky top-0 z-10">
             {/* 그룹 헤더 */}
             <tr>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-[#E5E8EB]`} colSpan={showAssignedUser ? 6 : 5}>기본</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["준비"]} border-b border-[#A3CAFD]`} colSpan={6}>준비</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-[#FDE68A]`} colSpan={1}>가결산</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-[#A3CAFD]`} colSpan={3}>전기</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["당기"]} border-b border-emerald-200`} colSpan={3}>당기</th>
-              <th className="px-3 py-1.5 bg-indigo-50 border-b border-indigo-200" colSpan={2}>AI판단</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["감면"]} border-b border-orange-200`} colSpan={5}>감면</th>
-              <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-[#BBF7D0]`} colSpan={3}>완료</th>
-              <th className={`px-3 py-1.5 bg-rose-50 border-b border-rose-200`} colSpan={1}>조정료</th>
+              {showGroup("기본") && <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-[#E5E8EB]`} colSpan={showAssignedUser ? 6 : 5}>기본</th>}
+              {showGroup("준비") && <th className={`px-3 py-1.5 ${GROUP_COLORS["준비"]} border-b border-[#A3CAFD]`} colSpan={6}>준비</th>}
+              {showGroup("가결산") && <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-[#FDE68A]`} colSpan={1}>가결산</th>}
+              {showGroup("전기") && <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-[#A3CAFD]`} colSpan={3}>전기</th>}
+              {showGroup("당기") && <th className={`px-3 py-1.5 ${GROUP_COLORS["당기"]} border-b border-emerald-200`} colSpan={3}>당기</th>}
+              {showGroup("AI판단") && <th className="px-3 py-1.5 bg-indigo-50 border-b border-indigo-200" colSpan={2}>AI판단</th>}
+              {showGroup("감면") && <th className={`px-3 py-1.5 ${GROUP_COLORS["감면"]} border-b border-orange-200`} colSpan={5}>감면</th>}
+              {showGroup("완료") && <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-[#BBF7D0]`} colSpan={3}>완료</th>}
+              {showGroup("조정료") && <th className={`px-3 py-1.5 bg-rose-50 border-b border-rose-200`} colSpan={1}>조정료</th>}
             </tr>
             {/* 세부 헤더 */}
             <tr className="bg-[#F9FAFB] border-b border-[#E5E8EB]">
-              <th className="px-3 py-2 text-left text-[#333D4B] font-medium sticky left-0 bg-[#F9FAFB] z-20 min-w-[100px]">고객사명</th>
-              <th className="px-2 py-2 text-left text-[#4E5968] font-medium min-w-[60px]">대표자</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium w-10">메모</th>
-              {showAssignedUser && (
-                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">담당자</th>
-              )}
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기장의무</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">신고유형</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">안내문<br/>발송</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">링크<br/>패스</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">감가<br/>상각</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">이자<br/>비용</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">보험료</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기부금</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">가결산</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">매출</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">종합<br/>소득</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">결정<br/>세액</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">매출</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">종합<br/>소득</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">결정<br/>세액</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">창중감</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">중특감</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기장<br/>공제</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">창중감</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">중특감</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">통합<br/>투자</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">고용<br/>증대</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">입금</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">신고<br/>완료</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">납부서<br/>발송</th>
-              <th className="px-2 py-2 text-center text-[#4E5968] font-medium">조정료</th>
+              {showGroup("기본") && <>
+                <th className="px-3 py-2 text-left text-[#333D4B] font-medium sticky left-0 bg-[#F9FAFB] z-20 min-w-[100px]">고객사명</th>
+                <th className="px-2 py-2 text-left text-[#4E5968] font-medium min-w-[60px]">대표자</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium w-10">메모</th>
+                {showAssignedUser && (
+                  <th className="px-2 py-2 text-center text-[#4E5968] font-medium">담당자</th>
+                )}
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기장의무</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">신고유형</th>
+              </>}
+              {showGroup("준비") && <>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">안내문<br/>발송</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">링크<br/>패스</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">감가<br/>상각</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">이자<br/>비용</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">보험료</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기부금</th>
+              </>}
+              {showGroup("가결산") && <th className="px-2 py-2 text-center text-[#4E5968] font-medium">가결산</th>}
+              {showGroup("전기") && <>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">매출</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">종합<br/>소득</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">결정<br/>세액</th>
+              </>}
+              {showGroup("당기") && <>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">매출</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">종합<br/>소득</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">결정<br/>세액</th>
+              </>}
+              {showGroup("AI판단") && <>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">창중감</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">중특감</th>
+              </>}
+              {showGroup("감면") && <>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기장<br/>공제</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">창중감</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">중특감</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">통합<br/>투자</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">고용<br/>증대</th>
+              </>}
+              {showGroup("완료") && <>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">입금</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">신고<br/>완료</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium">납부서<br/>발송</th>
+              </>}
+              {showGroup("조정료") && <th className="px-2 py-2 text-center text-[#4E5968] font-medium">조정료</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F2F4F6]">
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={28} className="text-center py-12 text-[#6B7684] text-sm">
+                <td colSpan={50} className="text-center py-12 text-[#6B7684] text-sm">
                   {clients.length === 0 ? "거래처가 없습니다" : "검색 결과가 없습니다"}
                 </td>
               </tr>
@@ -413,121 +450,112 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
 
                 return (
                   <tr key={client.id} className={`transition-colors ${r.filingDone ? "bg-[#F1FBF4]/50" : "hover:bg-[#F5F9FF]/30"}`} style={hasGroup && !isLastInGroup ? { borderBottom: "1px dashed #d1d5db" } : { borderBottom: "2.5px solid #9ca3af" }}>
-                    {/* 고객사명 */}
-                    <td className="px-3 py-2 text-[#191F28] font-medium sticky left-0 bg-white z-10 border-r border-[#F2F4F6]">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
-                          {client.name}
-                        </button>
-                        <button
-                          onClick={() => setTaxCalcModal({
-                            clientId: client.id,
-                            clientName: client.name,
-                            currSales: r.currSales,
-                            currIncome: r.currIncome,
-                            aiStartup: client.aiStartupReduction ?? null,
-                            aiSme: client.aiSmeReduction ?? null,
-                          })}
-                          className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
-                            savedCalcIds.has(client.id)
-                              ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
-                              : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
-                          }`}
-                          title="세액계산"
-                        >
-                          {savedCalcIds.has(client.id) ? "✓계산" : "계산"}
-                        </button>
-                      </div>
-                    </td>
-                    {/* 대표자 */}
-                    <td className="px-2 py-2 text-left text-xs text-[#4E5968]">
-                      {isFirstInGroup ? (client.ceoName ?? <span className="text-[#B0B8C1]">-</span>) : ""}
-                    </td>
-                    {/* 메모 */}
-                    <td className="px-1 py-2 text-center">
-                      {r.memo ? (
-                        <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: r.memo! })}>
-                          <PinIcon width={12} height={12} className="text-[#F59E0B]" />
-                          <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#3182F6] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{r.memo}</div>
-                        </span>
-                      ) : (
-                        <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-[#D1D6DB] hover:text-[#F59E0B] text-xs">+</button>
-                      )}
-                    </td>
-                    {showAssignedUser && (
-                      <td className="px-2 py-2 text-center text-xs text-[#4E5968]">
-                        {client.assignedUserName ?? <span className="text-[#B0B8C1]">-</span>}
+                    {showGroup("기본") && <>
+                      {/* 고객사명 */}
+                      <td className="px-3 py-2 text-[#191F28] font-medium sticky left-0 bg-white z-10 border-r border-[#F2F4F6]">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setEditClientId(client.id)} className="hover:underline cursor-pointer text-left">
+                            {client.name}
+                          </button>
+                          <button
+                            onClick={() => setTaxCalcModal({
+                              clientId: client.id,
+                              clientName: client.name,
+                              currSales: r.currSales,
+                              currIncome: r.currIncome,
+                              aiStartup: client.aiStartupReduction ?? null,
+                              aiSme: client.aiSmeReduction ?? null,
+                            })}
+                            className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                              savedCalcIds.has(client.id)
+                                ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
+                                : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                            }`}
+                            title="세액계산"
+                          >
+                            {savedCalcIds.has(client.id) ? "✓계산" : "계산"}
+                          </button>
+                        </div>
                       </td>
-                    )}
-
-                    {/* 기장의무 */}
-                    <td className="px-1 py-1 text-center">
-                      <SelectCell
-                        value={r.bookkeepingDuty}
-                        options={["간편장부", "복식부기", "성실신고"]}
-                        onSave={(v) => handleFieldBlur(client.id, "bookkeepingDuty", v)}
-                      />
-                    </td>
-
-                    {/* 신고유형 */}
-                    <td className="px-1 py-1 text-center">
-                      <SelectCell
-                        value={r.filingType}
-                        options={["자기조정", "외부조정", "간편장부", "추계-기준율", "추계-단순율", "성실신고"]}
-                        onSave={(v) => handleFieldBlur(client.id, "filingType", v)}
-                      />
-                    </td>
-
-                    {/* 준비 체크 */}
-                    <CheckCell checked={r.noticeSent} onToggle={() => handleToggle(client.id, "noticeSent")} disabled={isPending} />
-                    <CheckCell checked={r.linkPass} onToggle={() => handleToggle(client.id, "linkPass")} disabled={isPending} />
-                    <CheckCell checked={r.depreciation} onToggle={() => handleToggle(client.id, "depreciation")} disabled={isPending} />
-                    <CheckCell checked={r.interestExpense} onToggle={() => handleToggle(client.id, "interestExpense")} disabled={isPending} />
-                    <CheckCell checked={r.insurance} onToggle={() => handleToggle(client.id, "insurance")} disabled={isPending} />
-                    <CheckCell checked={r.donation} onToggle={() => handleToggle(client.id, "donation")} disabled={isPending} />
-
-                    {/* 가결산 */}
-                    <CheckCell checked={r.preSettlement} onToggle={() => handleToggle(client.id, "preSettlement")} disabled={isPending} />
-
-                    {/* 전기 숫자 */}
-                    <NumberCell value={r.prevSales} onSave={(v) => handleFieldBlur(client.id, "prevSales", v)} />
-                    <NumberCell value={r.prevIncome} onSave={(v) => handleFieldBlur(client.id, "prevIncome", v)} colorType="income" />
-                    <NumberCell value={r.prevTax} onSave={(v) => handleFieldBlur(client.id, "prevTax", v)} colorType="tax" />
-
-                    {/* 당기 숫자 */}
-                    <NumberCell value={r.currSales} onSave={(v) => handleFieldBlur(client.id, "currSales", v)} />
-                    <NumberCell value={r.currIncome} onSave={(v) => handleFieldBlur(client.id, "currIncome", v)} colorType="income" />
-                    <NumberCell value={r.currTax} onSave={(v) => handleFieldBlur(client.id, "currTax", v)} colorType="tax" />
-
-                    {/* 감면 체크 */}
-                    {/* AI판단 */}
-                    <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
-                      {client.aiStartupReduction === "O" ? (
-                        <span className="text-[#16A865]">O</span>
-                      ) : client.aiStartupReduction === "X" ? (
-                        <span className="text-[#E02E2E]">X</span>
-                      ) : (
-                        <span className="text-[#B0B8C1]">-</span>
+                      {/* 대표자 */}
+                      <td className="px-2 py-2 text-left text-xs text-[#4E5968]">
+                        {isFirstInGroup ? (client.ceoName ?? <span className="text-[#B0B8C1]">-</span>) : ""}
+                      </td>
+                      {/* 메모 */}
+                      <td className="px-1 py-2 text-center">
+                        {r.memo ? (
+                          <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: r.memo! })}>
+                            <PinIcon width={12} height={12} className="text-[#F59E0B]" />
+                            <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#3182F6] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{r.memo}</div>
+                          </span>
+                        ) : (
+                          <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-[#D1D6DB] hover:text-[#F59E0B] text-xs">+</button>
+                        )}
+                      </td>
+                      {showAssignedUser && (
+                        <td className="px-2 py-2 text-center text-xs text-[#4E5968]">
+                          {client.assignedUserName ?? <span className="text-[#B0B8C1]">-</span>}
+                        </td>
                       )}
-                    </td>
-                    <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
-                      {client.aiSmeReduction === "O" ? (
-                        <span className="text-[#16A865]">O</span>
-                      ) : client.aiSmeReduction === "X" ? (
-                        <span className="text-[#E02E2E]">X</span>
-                      ) : (
-                        <span className="text-[#B0B8C1]">-</span>
-                      )}
-                    </td>
+                      {/* 기장의무 */}
+                      <td className="px-1 py-1 text-center">
+                        <SelectCell
+                          value={r.bookkeepingDuty}
+                          options={["간편장부", "복식부기", "성실신고"]}
+                          onSave={(v) => handleFieldBlur(client.id, "bookkeepingDuty", v)}
+                        />
+                      </td>
+                      {/* 신고유형 */}
+                      <td className="px-1 py-1 text-center">
+                        <SelectCell
+                          value={r.filingType}
+                          options={["자기조정", "외부조정", "간편장부", "추계-기준율", "추계-단순율", "성실신고"]}
+                          onSave={(v) => handleFieldBlur(client.id, "filingType", v)}
+                        />
+                      </td>
+                    </>}
 
-                    <CheckCell checked={r.bookkeepingCredit} onToggle={() => handleToggle(client.id, "bookkeepingCredit")} disabled={isPending} />
-                    <CheckCell checked={r.startupReduction} onToggle={() => handleToggle(client.id, "startupReduction")} disabled={isPending} />
-                    <CheckCell checked={r.smeReduction} onToggle={() => handleToggle(client.id, "smeReduction")} disabled={isPending} />
-                    <CheckCell checked={r.investCredit} onToggle={() => handleToggle(client.id, "investCredit")} disabled={isPending} />
-                    <CheckCell checked={r.employmentCredit} onToggle={() => handleToggle(client.id, "employmentCredit")} disabled={isPending} />
+                    {showGroup("준비") && <>
+                      <CheckCell checked={r.noticeSent} onToggle={() => handleToggle(client.id, "noticeSent")} disabled={isPending} />
+                      <CheckCell checked={r.linkPass} onToggle={() => handleToggle(client.id, "linkPass")} disabled={isPending} />
+                      <CheckCell checked={r.depreciation} onToggle={() => handleToggle(client.id, "depreciation")} disabled={isPending} />
+                      <CheckCell checked={r.interestExpense} onToggle={() => handleToggle(client.id, "interestExpense")} disabled={isPending} />
+                      <CheckCell checked={r.insurance} onToggle={() => handleToggle(client.id, "insurance")} disabled={isPending} />
+                      <CheckCell checked={r.donation} onToggle={() => handleToggle(client.id, "donation")} disabled={isPending} />
+                    </>}
 
-                    {/* 완료: 그룹의 첫 번째 행에만 체크박스 */}
-                    {showCompletionCells ? (
+                    {showGroup("가결산") && <CheckCell checked={r.preSettlement} onToggle={() => handleToggle(client.id, "preSettlement")} disabled={isPending} />}
+
+                    {showGroup("전기") && <>
+                      <NumberCell value={r.prevSales} onSave={(v) => handleFieldBlur(client.id, "prevSales", v)} />
+                      <NumberCell value={r.prevIncome} onSave={(v) => handleFieldBlur(client.id, "prevIncome", v)} colorType="income" />
+                      <NumberCell value={r.prevTax} onSave={(v) => handleFieldBlur(client.id, "prevTax", v)} colorType="tax" />
+                    </>}
+
+                    {showGroup("당기") && <>
+                      <NumberCell value={r.currSales} onSave={(v) => handleFieldBlur(client.id, "currSales", v)} />
+                      <NumberCell value={r.currIncome} onSave={(v) => handleFieldBlur(client.id, "currIncome", v)} colorType="income" />
+                      <NumberCell value={r.currTax} onSave={(v) => handleFieldBlur(client.id, "currTax", v)} colorType="tax" />
+                    </>}
+
+                    {showGroup("AI판단") && <>
+                      <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
+                        {client.aiStartupReduction === "O" ? <span className="text-[#16A865]">O</span> : client.aiStartupReduction === "X" ? <span className="text-[#E02E2E]">X</span> : <span className="text-[#B0B8C1]">-</span>}
+                      </td>
+                      <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
+                        {client.aiSmeReduction === "O" ? <span className="text-[#16A865]">O</span> : client.aiSmeReduction === "X" ? <span className="text-[#E02E2E]">X</span> : <span className="text-[#B0B8C1]">-</span>}
+                      </td>
+                    </>}
+
+                    {showGroup("감면") && <>
+                      <CheckCell checked={r.bookkeepingCredit} onToggle={() => handleToggle(client.id, "bookkeepingCredit")} disabled={isPending} />
+                      <CheckCell checked={r.startupReduction} onToggle={() => handleToggle(client.id, "startupReduction")} disabled={isPending} />
+                      <CheckCell checked={r.smeReduction} onToggle={() => handleToggle(client.id, "smeReduction")} disabled={isPending} />
+                      <CheckCell checked={r.investCredit} onToggle={() => handleToggle(client.id, "investCredit")} disabled={isPending} />
+                      <CheckCell checked={r.employmentCredit} onToggle={() => handleToggle(client.id, "employmentCredit")} disabled={isPending} />
+                    </>}
+
+                    {showGroup("완료") && (showCompletionCells ? (
                       <>
                         <CheckCell checked={r.depositReceived} onToggle={() => handleToggle(client.id, "depositReceived")} disabled={isPending} />
                         <CheckCell checked={r.filingDone} onToggle={() => handleToggle(client.id, "filingDone")} disabled={isPending} />
@@ -539,10 +567,9 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
                         <td className="px-2 py-2" />
                         <td className="px-2 py-2" />
                       </>
-                    )}
+                    ))}
 
-                    {/* 조정료 */}
-                    <NumberCell value={r.adjustmentFee} onSave={(v) => handleFieldBlur(client.id, "adjustmentFee", v)} />
+                    {showGroup("조정료") && <NumberCell value={r.adjustmentFee} onSave={(v) => handleFieldBlur(client.id, "adjustmentFee", v)} />}
                   </tr>
                 );
               })
