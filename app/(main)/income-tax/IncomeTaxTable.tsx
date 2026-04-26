@@ -268,10 +268,18 @@ export function IncomeTaxTable({
   const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : null;
 
   function openClientDrive(client: Client) {
+    // 로컬 PC에 "드라이브 기본 경로" 설정되어 있으면 파일탐색기, 아니면 웹 구글드라이브
+    const basePath = typeof window !== "undefined" ? localStorage.getItem("savetax-drive-base-path") : null;
+    if (basePath) {
+      const sep = basePath.endsWith("\\") ? "" : "\\";
+      const fullPath = `${basePath}${sep}${client.name}`;
+      window.location.href = `savetax-app://folder?path=${encodeURIComponent(fullPath)}`;
+      return;
+    }
     if (client.driveFolderId) {
       window.open(`https://drive.google.com/drive/folders/${client.driveFolderId}`, "_blank");
     } else {
-      alert("이 거래처에 드라이브 폴더가 연결되어 있지 않습니다. 거래처 수정에서 폴더를 연결하세요.");
+      alert("이 거래처에 드라이브 폴더가 연결되어 있지 않습니다. 거래처 수정에서 폴더를 연결하거나, 설정 → 로컬 PC에서 드라이브 기본 경로를 등록하세요.");
     }
   }
 
