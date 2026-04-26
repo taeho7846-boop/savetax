@@ -703,7 +703,6 @@ export function IncomeTaxTable({
                       <tr><td colSpan={11 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">자료수집 거래처가 없습니다</td></tr>
                     ) : list.map(client => {
                       const r = getRecord(client);
-                      const ft = getFilingTypeBadge(r);
                       const done = docFields.filter(f => f.get(r)).length;
                       return (
                         <tr key={client.id} className="transition hover:bg-[#FEFAF0]/60">
@@ -711,8 +710,17 @@ export function IncomeTaxTable({
                             {client.name}
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
                           </td>
-                          <td className="px-2 py-2.5 text-center">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={r.filingType ?? ""}
+                              onChange={(e) => handleFieldBlur(client.id, "filingType", e.target.value)}
+                              className="border border-[#E5E8EB] rounded px-1 py-0.5 text-[11px] bg-white focus:outline-none w-[88px]"
+                            >
+                              <option value="">-</option>
+                              {["자기조정", "외부조정", "간편장부", "추계-기준율", "추계-단순율", "성실신고"].map(o => (
+                                <option key={o} value={o}>{o}</option>
+                              ))}
+                            </select>
                           </td>
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5">
