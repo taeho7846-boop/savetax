@@ -13,11 +13,11 @@ const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }>
   "일용직": { border: "border-green-500", text: "text-[#15803D]", bg: "bg-[#F1FBF4]" },
 };
 
-const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; description: string }> = {
-  A: { label: "A", color: "text-[#B91C1C]", bg: "bg-[#FEF2F2]", border: "border-[#FECACA]", description: "매월 변동" },
-  B: { label: "B", color: "text-[#1B64DA]", bg: "bg-[#F5F9FF]", border: "border-[#A3CAFD]", description: "매월 동일, 납부서 필요" },
-  C: { label: "C", color: "text-[#15803D]", bg: "bg-[#F1FBF4]", border: "border-[#BBF7D0]", description: "매월 동일, 납부서 불필요" },
-  D: { label: "D", color: "text-[#4E5968]", bg: "bg-[#F9FAFB]", border: "border-[#E5E8EB]", description: "1인사업자 (원천세 없음)" },
+const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; description: string; short: string }> = {
+  A: { label: "A", color: "text-[#B91C1C]", bg: "bg-[#FEF2F2]", border: "border-[#FECACA]", description: "매월 변동",            short: "매월 변동" },
+  B: { label: "B", color: "text-[#1B64DA]", bg: "bg-[#F5F9FF]", border: "border-[#A3CAFD]", description: "매월 동일, 납부서 O",  short: "동일·납부서 O" },
+  C: { label: "C", color: "text-[#15803D]", bg: "bg-[#F1FBF4]", border: "border-[#BBF7D0]", description: "매월 동일, 납부서 X",  short: "동일·납부서 X" },
+  D: { label: "D", color: "text-[#4E5968]", bg: "bg-[#F9FAFB]", border: "border-[#E5E8EB]", description: "1인사업자 (원천세 없음)", short: "1인사업자" },
 };
 
 // 프로세스 단계 (공통)
@@ -107,6 +107,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["D"]));
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<{
     excelCount: number;
     clientCount: number;
@@ -176,6 +177,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   }
 
   for (const type of ["A", "B", "C", "D"]) {
+    if (groupFilter && groupFilter !== type) continue; // 그룹 필터 적용
     const typeClients = filtered.filter(c => c.withholdingType === type);
     if (typeClients.length > 0) {
       groups.push({ type, label: `${type} — ${TYPE_CONFIG[type].description}`, config: TYPE_CONFIG[type], clients: typeClients });
@@ -404,34 +406,57 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         </div>
       </div>
 
-      {/* ABCD 그룹별 진행률 카드 */}
+      {/* ABCD 그룹별 진행률 카드 (클릭 → 그 그룹만 필터) */}
+      <div className="flex items-center justify-between mb-2 px-1">
+        <div className="text-[10.5px] text-[#6B7684]">카드 클릭 → 해당 그룹만 표시</div>
+        <button
+          onClick={() => setGroupFilter(null)}
+          className={`px-3 py-1 text-[10.5px] font-bold rounded-full transition ${
+            groupFilter === null
+              ? "bg-gradient-to-br from-[#191F28] to-[#333] text-white shadow-md"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
+          }`}
+        >
+          👁 전체
+        </button>
+      </div>
       <div className="grid grid-cols-4 gap-3 mb-3">
         {groupProgress.map(g => {
           const cfg = TYPE_CONFIG[g.type];
+          const active = groupFilter === g.type;
           if (g.type === "D") {
             return (
-              <div key={g.type} className="glass rounded-2xl p-3 border-l-4 border-[#D1D6DB] opacity-70">
+              <button
+                key={g.type}
+                onClick={() => setGroupFilter(active ? null : g.type)}
+                className={`glass rounded-2xl p-3 border-l-4 border-[#D1D6DB] text-left transition hover:-translate-y-0.5 ${active ? "opacity-100 ring-2 ring-[#4E5968]/40 shadow-md" : "opacity-70 hover:opacity-100"}`}
+              >
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-6 h-6 rounded-lg ${cfg.bg} ${cfg.color} font-bold text-[12px] flex items-center justify-center`}>D</span>
-                    <span className="text-[12px] font-bold">1인사업자</span>
+                    <span className="text-[12px] font-bold">{cfg.short}</span>
                   </div>
                   <span className="text-[10.5px] text-[#6B7684]">스킵</span>
                 </div>
                 <div className="text-[20px] font-bold leading-none text-[#6B7684]">{g.total}</div>
                 <div className="text-[10.5px] text-[#6B7684] mt-1.5">원천세 없음</div>
-              </div>
+              </button>
             );
           }
           const stepCount = g.type === "A" ? "5단계" : g.type === "B" ? "3단계" : "1~2단계";
           const borderColor = g.type === "A" ? "border-[#DC2626]" : g.type === "B" ? "border-[#3182F6]" : "border-[#15803D]";
+          const ringColor = g.type === "A" ? "ring-[#DC2626]/40" : g.type === "B" ? "ring-[#3182F6]/40" : "ring-[#15803D]/40";
           const fillColor = g.type === "A" ? "#B91C1C" : g.type === "B" ? "linear-gradient(135deg,#6FA8FF,#3182F6)" : "linear-gradient(135deg,#6EE7B7,#10B981)";
           return (
-            <div key={g.type} className={`glass rounded-2xl p-3 border-l-4 ${borderColor}`}>
+            <button
+              key={g.type}
+              onClick={() => setGroupFilter(active ? null : g.type)}
+              className={`glass rounded-2xl p-3 border-l-4 ${borderColor} text-left transition hover:-translate-y-0.5 ${active ? `ring-2 ${ringColor} shadow-md -translate-y-0.5` : ""}`}
+            >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
                   <span className={`w-6 h-6 rounded-lg ${cfg.bg} ${cfg.color} font-bold text-[12px] flex items-center justify-center`}>{g.type}</span>
-                  <span className="text-[12px] font-bold">{g.description.split(",")[0]}</span>
+                  <span className="text-[12px] font-bold">{cfg.short}</span>
                 </div>
                 <span className="text-[10.5px] text-[#6B7684]">{stepCount}</span>
               </div>
@@ -439,7 +464,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               <div className="progress mt-1.5" style={{ height: "4px" }}>
                 <div className="progress-fill" style={{ width: `${g.pct}%`, background: fillColor }} />
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
