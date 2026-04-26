@@ -44,3 +44,76 @@ body {
   font-weight: 500;
   letter-spacing: -0.01em;
 }
+
+/* ================== iPad/glass 디자인 시스템 (v2 신규 페이지용) ================== */
+/* 기존 페이지에는 영향 없음. 새로 단장하는 페이지에서 .glass-canvas 래퍼로 감싸 사용. */
+
+.glass-canvas {
+  background: linear-gradient(135deg, #f0f4ff 0%, #fef3f6 50%, #f0fdfa 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+/* 그라데이션 (브랜드 색상) */
+.gradient-blue    { background: linear-gradient(135deg, #6FA8FF 0%, #3182F6 100%); }
+.gradient-amber   { background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%); }
+.gradient-rose    { background: linear-gradient(135deg, #FB7185 0%, #E11D48 100%); }
+.gradient-emerald { background: linear-gradient(135deg, #6EE7B7 0%, #10B981 100%); }
+.gradient-purple  { background: linear-gradient(135deg, #C084FC 0%, #9333EA 100%); }
+.gradient-cyan    { background: linear-gradient(135deg, #67E8F9 0%, #06B6D4 100%); }
+
+/* 카드 hover 마이크로 인터랙션 */
+.stat-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* 진행률 바 (KPI/단계) */
+.progress {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s;
+}
+
+/* 긴급 강조 (지연 업무 등) */
+.ring-pulse {
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  animation: ringPulse 2s infinite;
+}
+@keyframes ringPulse {
+  0%   { box-shadow: 0 0 0 0   rgba(220, 38, 38, 0.4); }
+  70%  { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0   rgba(220, 38, 38, 0); }
+}
+
+/* 스크롤바 (얇은 글래스 톤) */
+.glass-canvas ::-webkit-scrollbar { width: 6px; height: 6px; }
+.glass-canvas ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+.glass-canvas ::-webkit-scrollbar-track { background: transparent; }
