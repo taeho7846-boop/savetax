@@ -141,71 +141,31 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
 
   const doneCount = filteredClients.filter(c => getRecord(c).filingDone).length;
 
+  const total = filteredClients.length;
+  const donePct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
   return (
     <>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-4">
-          <h1 className="text-[24px] font-bold text-[#191F28] tracking-tight">종합소득세</h1>
-          <div className="flex bg-[#F2F4F6] rounded-lg p-0.5">
-            <button
-              onClick={() => handleTabChange("bookkeeping")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                activeTab === "bookkeeping"
-                  ? "bg-white text-[#191F28] shadow-sm"
-                  : "text-[#6B7684] hover:text-[#333D4B]"
-              }`}
-            >
-              기장
-            </button>
-            <button
-              onClick={() => handleTabChange("single")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                activeTab === "single"
-                  ? "bg-white text-[#191F28] shadow-sm"
-                  : "text-[#6B7684] hover:text-[#333D4B]"
-              }`}
-            >
-              단건
-            </button>
-          </div>
+      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+        <div>
+          <div className="text-[12.5px] text-[#86868b] font-medium">종합소득세 신고 시즌</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">종합소득세 · {taxYear}년 귀속</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="거래처 검색..."
-            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm w-44 focus:outline-none focus:border-[#3182F6]"
-          />
-          {showAssignedUser && assignedUsers.length > 1 && (
-            <select
-              value={userFilter ?? ""}
-              onChange={e => setUserFilter(e.target.value || null)}
-              className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm focus:outline-none focus:border-[#3182F6]"
-            >
-              <option value="">전체 담당자</option>
-              {assignedUsers.map(u => (
-                <option key={u} value={u}>{u}</option>
-              ))}
-            </select>
-          )}
-          <div className="text-sm text-[#6B7684]">
-            신고완료: <span className="font-medium text-[#191F28]">{doneCount}</span> / {filteredClients.length}
-          </div>
-          <div className="flex items-center gap-2 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-1 py-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 glass rounded-2xl px-1 h-10">
             <button
               onClick={() => handleYearChange(-1)}
-              className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm"
+              className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
             >
               ◀
             </button>
-            <span className="text-sm font-medium text-[#191F28] min-w-[80px] text-center">
-              {taxYear}년 귀속
+            <span className="text-[13px] font-bold text-[#191F28] min-w-[70px] text-center">
+              {taxYear}년
             </span>
             <button
               onClick={() => handleYearChange(1)}
-              className="px-2 py-1 text-[#6B7684] hover:text-[#191F28] hover:bg-[#F2F4F6] rounded text-sm"
+              className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
             >
               ▶
             </button>
@@ -213,8 +173,85 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
         </div>
       </div>
 
+      {/* 시즌 진행 배너 */}
+      <div className="glass rounded-2xl p-3 mb-3 bg-gradient-to-br from-[#FBBF24]/10 to-[#F59E0B]/5">
+        <div className="flex items-center gap-5 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-[10.5px] text-[#92400E] font-bold uppercase tracking-wider bg-white px-2 py-0.5 rounded-full">
+              5월 시즌
+            </span>
+            <span className="text-[14px] font-bold text-[#191F28]">5월 31일 마감</span>
+          </div>
+          <div className="w-px h-6 bg-[#F59E0B]/30" />
+          <div className="flex-1 min-w-[200px]">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11.5px] text-[#6B7684] font-bold">신고 진행</span>
+              <span className="text-[12.5px] font-bold tabular-nums">
+                <span className="text-[#10B981]">{doneCount}</span>
+                <span className="text-[#6B7684]"> / {total}</span>
+                <span className="text-[#10B981] ml-1">({donePct}%)</span>
+              </span>
+            </div>
+            <div className="progress"><div className="progress-fill gradient-emerald" style={{ width: `${donePct}%` }} /></div>
+          </div>
+        </div>
+      </div>
+
+      {/* 컨트롤 카드: 기장/단건 탭 + 검색 + 담당자 필터 */}
+      <div className="glass rounded-2xl p-3 mb-3 flex items-center gap-3 flex-wrap">
+        <div className="flex bg-white/60 rounded-xl p-0.5">
+          <button
+            onClick={() => handleTabChange("bookkeeping")}
+            className={`px-4 py-1.5 text-[12.5px] font-bold rounded-lg transition-all ${
+              activeTab === "bookkeeping"
+                ? "bg-white text-[#3182F6] shadow-sm"
+                : "text-[#6B7684] hover:text-[#191F28]"
+            }`}
+          >
+            기장
+          </button>
+          <button
+            onClick={() => handleTabChange("single")}
+            className={`px-4 py-1.5 text-[12.5px] font-bold rounded-lg transition-all ${
+              activeTab === "single"
+                ? "bg-white text-[#3182F6] shadow-sm"
+                : "text-[#6B7684] hover:text-[#191F28]"
+            }`}
+          >
+            단건
+          </button>
+        </div>
+
+        <div className="flex-1 bg-white/80 rounded-xl flex items-center gap-2 px-3 h-9 min-w-[200px]">
+          <svg width={14} height={14} fill="none" stroke="#6B7684" strokeWidth={2.2} viewBox="0 0 24 24">
+            <circle cx={11} cy={11} r={8} />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="거래처 검색..."
+            className="flex-1 bg-transparent outline-none text-[13px] text-[#191F28] placeholder:text-[#8B95A1]"
+          />
+        </div>
+
+        {showAssignedUser && assignedUsers.length > 1 && (
+          <select
+            value={userFilter ?? ""}
+            onChange={e => setUserFilter(e.target.value || null)}
+            className="bg-white/80 border-0 rounded-xl px-3 h-9 text-[12.5px] font-bold outline-none"
+          >
+            <option value="">전체 담당자</option>
+            {assignedUsers.map(u => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
       {/* 테이블 */}
-      <div className="flex-1 overflow-auto bg-white rounded-lg shadow-sm border border-[#F2F4F6]">
+      <div className="flex-1 overflow-auto glass rounded-2xl">
         <table className="text-xs whitespace-nowrap">
           <thead className="sticky top-0 z-10">
             {/* 그룹 헤더 */}
