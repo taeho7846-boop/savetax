@@ -150,6 +150,12 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     router.push(`/withholding?ym=${ym}`);
   }
 
+  function handleSetMonth(targetMonth: number) {
+    const [y] = yearMonth.split("-").map(Number);
+    const ym = `${y}-${String(targetMonth).padStart(2, "0")}`;
+    router.push(`/withholding?ym=${ym}`);
+  }
+
   function handleToggle(clientId: number, taskType: string) {
     startTransition(async () => { await toggleWithholdingTask(clientId, yearMonth, taskType); });
   }
@@ -175,6 +181,33 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       groups.push({ type, label: `${type} — ${TYPE_CONFIG[type].description}`, config: TYPE_CONFIG[type], clients: typeClients });
     }
   }
+
+  // ABCD 그룹별 진행률 계산
+  type GroupProgress = { type: string; description: string; total: number; done: number; pct: number };
+  const groupProgress: GroupProgress[] = ["A", "B", "C", "D"].map(type => {
+    const typeClients = filtered.filter(c => c.withholdingType === type);
+    if (type === "D") {
+      return { type, description: TYPE_CONFIG[type].description, total: typeClients.length, done: 0, pct: 0 };
+    }
+    let total = 0, done = 0;
+    for (const c of typeClients) {
+      const steps = getStepsByType(c.withholdingType || "", month, c.halfYearTax);
+      const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
+      total += steps.length;
+      done += steps.filter(s => doneMap.has(s)).length;
+    }
+    return {
+      type,
+      description: TYPE_CONFIG[type].description,
+      total: typeClients.length,
+      done: typeClients.length > 0 ? typeClients.filter(c => {
+        const steps = getStepsByType(c.withholdingType || "", month, c.halfYearTax);
+        const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
+        return steps.length > 0 && steps.every(s => doneMap.has(s));
+      }).length : 0,
+      pct: total > 0 ? Math.round((done / total) * 100) : 0,
+    };
+  });
 
   // 전체 진행률
   const allClients = filtered;
@@ -343,6 +376,72 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             <button onClick={() => handleMonthChange(1)} className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">▶</button>
           </div>
         </div>
+      </div>
+
+      {/* 12개월 그리드 */}
+      <div className="glass rounded-2xl p-3 mb-3">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="text-[12px] font-bold text-[#191F28]">{year}년</div>
+          <div className="text-[10.5px] text-[#6B7684]">월 클릭 → 해당 월로 이동</div>
+        </div>
+        <div className="grid grid-cols-12 gap-1.5">
+          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+            const isCurrent = m === month;
+            return (
+              <button
+                key={m}
+                onClick={() => handleSetMonth(m)}
+                className={`rounded-lg p-2 text-center transition ${
+                  isCurrent
+                    ? "bg-[#3182F6] text-white ring-2 ring-[#3182F6]/40 shadow-lg shadow-[#3182F6]/20"
+                    : "bg-white/60 hover:bg-white text-[#4E5968]"
+                }`}
+              >
+                <div className="text-[11px] font-bold">{m}월</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ABCD 그룹별 진행률 카드 */}
+      <div className="grid grid-cols-4 gap-3 mb-3">
+        {groupProgress.map(g => {
+          const cfg = TYPE_CONFIG[g.type];
+          if (g.type === "D") {
+            return (
+              <div key={g.type} className="glass rounded-2xl p-3 border-l-4 border-[#D1D6DB] opacity-70">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-6 h-6 rounded-lg ${cfg.bg} ${cfg.color} font-bold text-[12px] flex items-center justify-center`}>D</span>
+                    <span className="text-[12px] font-bold">1인사업자</span>
+                  </div>
+                  <span className="text-[10.5px] text-[#6B7684]">스킵</span>
+                </div>
+                <div className="text-[20px] font-bold leading-none text-[#6B7684]">{g.total}</div>
+                <div className="text-[10.5px] text-[#6B7684] mt-1.5">원천세 없음</div>
+              </div>
+            );
+          }
+          const stepCount = g.type === "A" ? "5단계" : g.type === "B" ? "3단계" : "1~2단계";
+          const borderColor = g.type === "A" ? "border-[#DC2626]" : g.type === "B" ? "border-[#3182F6]" : "border-[#15803D]";
+          const fillColor = g.type === "A" ? "#B91C1C" : g.type === "B" ? "linear-gradient(135deg,#6FA8FF,#3182F6)" : "linear-gradient(135deg,#6EE7B7,#10B981)";
+          return (
+            <div key={g.type} className={`glass rounded-2xl p-3 border-l-4 ${borderColor}`}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-6 h-6 rounded-lg ${cfg.bg} ${cfg.color} font-bold text-[12px] flex items-center justify-center`}>{g.type}</span>
+                  <span className="text-[12px] font-bold">{g.description.split(",")[0]}</span>
+                </div>
+                <span className="text-[10.5px] text-[#6B7684]">{stepCount}</span>
+              </div>
+              <div className="text-[20px] font-bold leading-none">{g.done}<span className="text-[12px] text-[#6B7684]"> / {g.total}</span></div>
+              <div className="progress mt-1.5" style={{ height: "4px" }}>
+                <div className="progress-fill" style={{ width: `${g.pct}%`, background: fillColor }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* 통합 테이블 */}
