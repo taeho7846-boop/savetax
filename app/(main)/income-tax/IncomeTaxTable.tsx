@@ -78,6 +78,23 @@ const GROUP_COLORS: Record<string, string> = {
   완료: "bg-[#F1FBF4]",
 };
 
+// 5단계 도출 (기존 boolean 필드로부터)
+type Stage = "collect" | "writing" | "approval" | "confirm" | "done";
+function getStage(r: ITRecord): Stage {
+  if (r.filingDone) return "done";
+  if (r.depositReceived) return "confirm";
+  if (r.preSettlement) return "approval";
+  if (r.currSales) return "writing";
+  return "collect";
+}
+const STAGE_META: Record<Stage, { label: string; color: string; bgDot: string; activeBg: string; activeRing: string }> = {
+  collect:  { label: "① 자료수집",     color: "text-[#92400E]", bgDot: "bg-[#92400E]", activeBg: "bg-[#92400E]/10", activeRing: "ring-[#92400E]/40" },
+  writing:  { label: "② 작성중",       color: "text-[#3182F6]", bgDot: "bg-[#3182F6]", activeBg: "bg-[#3182F6]/10", activeRing: "ring-[#3182F6]/40" },
+  approval: { label: "③ 결재(세무사)", color: "text-[#F59E0B]", bgDot: "bg-[#F59E0B]", activeBg: "bg-[#F59E0B]/10", activeRing: "ring-[#F59E0B]/40" },
+  confirm:  { label: "④ 컨펌+보수",    color: "text-[#A855F7]", bgDot: "bg-[#A855F7]", activeBg: "bg-[#A855F7]/10", activeRing: "ring-[#A855F7]/40" },
+  done:     { label: "⑤ 신고완료",     color: "text-[#10B981]", bgDot: "bg-[#10B981]", activeBg: "bg-[#10B981]/10", activeRing: "ring-[#10B981]/40" },
+};
+
 export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, activeTab = "bookkeeping" }: { clients: Client[]; taxYear: string; showAssignedUser?: boolean; activeTab?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -85,6 +102,7 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
   const [editClientId, setEditClientId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [userFilter, setUserFilter] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState<Stage | null>(null);
   const [taxCalcModal, setTaxCalcModal] = useState<{
     clientId: number;
     clientName: string;
@@ -129,19 +147,27 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
   // 담당자 목록 추출
   const assignedUsers = [...new Set(clients.map(c => c.assignedUserName).filter(Boolean))] as string[];
 
-  // 필터 적용
-  let filteredClients = clients;
+  // 검색/담당자 필터 적용 (단계 필터 적용 전)
+  let preStageClients = clients;
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
-    filteredClients = filteredClients.filter(c => c.name.toLowerCase().includes(q));
+    preStageClients = preStageClients.filter(c => c.name.toLowerCase().includes(q));
   }
   if (userFilter) {
-    filteredClients = filteredClients.filter(c => c.assignedUserName === userFilter);
+    preStageClients = preStageClients.filter(c => c.assignedUserName === userFilter);
   }
 
-  const doneCount = filteredClients.filter(c => getRecord(c).filingDone).length;
+  // 단계별 카운트 (검색/담당자 필터 적용 후)
+  const stageCounts: Record<Stage, number> = { collect: 0, writing: 0, approval: 0, confirm: 0, done: 0 };
+  for (const c of preStageClients) stageCounts[getStage(getRecord(c))]++;
 
-  const total = filteredClients.length;
+  // 단계 필터 적용
+  const filteredClients = stageFilter
+    ? preStageClients.filter(c => getStage(getRecord(c)) === stageFilter)
+    : preStageClients;
+
+  const doneCount = stageCounts.done;
+  const total = preStageClients.length;
   const donePct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
   return (
@@ -195,6 +221,56 @@ export function IncomeTaxTable({ clients, taxYear, showAssignedUser = false, act
             <div className="progress"><div className="progress-fill gradient-emerald" style={{ width: `${donePct}%` }} /></div>
           </div>
         </div>
+      </div>
+
+      {/* 5단계 칸반 카드 (클릭 → 해당 단계 거래처만 필터) */}
+      <div className="glass rounded-2xl p-3 mb-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="grid grid-cols-[1fr_4fr] gap-3 flex-1">
+            <div className="text-center text-[10.5px] font-bold text-[#92400E] uppercase tracking-wider">결산 단계</div>
+            <div className="text-center text-[10.5px] font-bold text-[#3182F6] uppercase tracking-wider">신고서 작성 단계</div>
+          </div>
+          <button
+            onClick={() => setStageFilter(null)}
+            className={`ml-3 px-3 py-1 text-[11px] font-bold rounded-full transition flex items-center gap-1 ${
+              stageFilter === null
+                ? "bg-gradient-to-br from-[#191F28] to-[#333] text-white shadow-md"
+                : "glass-strong text-[#6B7684] hover:text-[#191F28]"
+            }`}
+          >
+            👁 전체
+          </button>
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {(["collect", "writing", "approval", "confirm", "done"] as Stage[]).map((s) => {
+            const meta = STAGE_META[s];
+            const count = stageCounts[s];
+            const active = stageFilter === s;
+            return (
+              <button
+                key={s}
+                onClick={() => setStageFilter(active ? null : s)}
+                className={`rounded-xl px-3 py-2 transition flex items-center gap-2.5 text-left ${
+                  active
+                    ? `${meta.activeBg} ring-2 ${meta.activeRing} -translate-y-0.5 shadow-md`
+                    : "bg-white/70 hover:bg-white hover:-translate-y-0.5"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${meta.bgDot} shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`text-[10.5px] font-bold ${meta.color}`}>{meta.label}</div>
+                  <div className={`text-[16px] font-bold leading-tight ${active ? meta.color : "text-[#191F28]"}`}>{count}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        {stageFilter && (
+          <div className="mt-2 pt-2 border-t border-white/40 text-[11px] text-[#6B7684] flex items-center gap-1.5">
+            <span className={`inline-block w-1.5 h-1.5 rounded-full ${STAGE_META[stageFilter].bgDot}`} />
+            <span><strong className={STAGE_META[stageFilter].color}>{STAGE_META[stageFilter].label}</strong> 단계 거래처만 표시 중 — 전체 {total}건 중 {stageCounts[stageFilter]}건</span>
+          </div>
+        )}
       </div>
 
       {/* 컨트롤 카드: 기장/단건 탭 + 검색 + 담당자 필터 */}
