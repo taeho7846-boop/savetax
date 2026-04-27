@@ -1,52 +1,42 @@
 // 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
-// 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭
+// 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭 (corp_login + corp_register/commission/recommission 통합 흐름)
+// corp_next는 절대 remove 안 함 — reopen 후 새 탭의 IIFE가 corp_next 보고 메뉴 진입
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes.savetax_login_done && changes.savetax_login_done.newValue) {
     console.log("SaveTax BG: savetax_login_done 감지!");
     // 3초 대기 후 처리 (페이지 리로드 완료 대기)
     setTimeout(async () => {
-      // 가드 1: 기장수임 등 후속 작업이 있으면 건너뛰기
-      const next = await chrome.storage.local.get("savetax_corp_next");
-      if (next.savetax_corp_next) {
-        console.log("SaveTax BG: 후속 작업 있음, reopen 건너뛰기");
-        return;
-      }
       try {
         const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
-        // 가드 2: 인증서 popup 탭이 살아있으면 인증 진행 중 — close 절대 안 함
+        // 안전 가드: 인증서 진행 중이면 close 차단 (인증서 단계 잘못된 시그널 발동 보호)
         const popupTab = tabs.find((t) => t.url && (t.url.includes("popup.html") || t.url.includes("UTECMABA")));
         if (popupTab) {
-          console.warn("SaveTax BG: 인증서 popup 탭 활성 (인증 진행 중) — close 차단");
+          console.warn("SaveTax BG: 인증서 popup 탭 활성 — close 차단");
           return;
         }
-        // 가드 3: 메인 탭에서 인증서 iframe 또는 입력 진행 흔적이 있으면 close 차단
         const mainTab = tabs.find((t) => t.url && t.url.includes("hometax.go.kr"));
         if (mainTab?.id) {
           try {
             const [r] = await chrome.scripting.executeScript({
               target: { tabId: mainTab.id },
-              func: () => {
-                const dscert = !!document.querySelector("iframe[name='dscert']");
-                const certPwField = dscert
-                  ? !!document.querySelector("iframe[name='dscert']")?.contentDocument?.querySelector("input[type='password']")
-                  : false;
-                return { dscert, certPwField };
-              },
+              func: () => !!document.querySelector("iframe[name='dscert']"),
             });
-            if (r?.result?.dscert || r?.result?.certPwField) {
+            if (r?.result) {
               console.warn("SaveTax BG: 인증서 iframe 활성 — close 차단");
               return;
             }
           } catch {}
         }
+        // 정상 reopen
         for (const tab of tabs) {
           await chrome.tabs.remove(tab.id);
         }
         await chrome.tabs.create({ url: "https://hometax.go.kr" });
+        // corp_next는 보존 — 새 탭의 IIFE가 사용 후 자체 remove
         await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent"]);
-        console.log("SaveTax BG: 법인 로그인 완료 → 탭 닫고 새 탭 열기 완료");
+        console.log("SaveTax BG: 법인 로그인 완료 → reopen (corp_next 보존)");
       } catch (e) {
         console.error("SaveTax BG: reopen 실패:", e);
       }

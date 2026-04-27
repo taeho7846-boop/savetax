@@ -1,15 +1,11 @@
 // suppress-alert.js(MAIN)가 설정한 savetax_login_done 쿠키 감시 → chrome.storage로 전달
 (function watchLoginDoneCookie() {
-  // 새 흐름 시작 시점(hash에 savetax=...) — 이전 시도의 잔존 cookie 정리 후 잠깐 대기
-  // 그렇지 않으면 cookie watcher가 잔존 cookie를 즉시 감지해 background가 탭을 닫아버림 (인증서 단계에서 창 꺼짐 원인)
-  const isFreshFlow = window.location.hash && window.location.hash.indexOf("savetax=") !== -1;
-  if (isFreshFlow) {
-    document.cookie = "savetax_login_done=; path=/; max-age=0";
-    document.cookie = "savetax_agent=; path=/; max-age=0";
-    console.log("SaveTax: 새 흐름 시작 — 잔존 cookie 정리");
-  }
-  // 새 흐름이면 1초 지연 후 폴링 시작 (잔존 cookie 정리 반영 시간)
-  const startDelay = isFreshFlow ? 1000 : 0;
+  // 페이지 로드 시점에 잔존 cookie 무조건 정리 (이전 세션이 남긴 cookie가 watcher를 잘못 발동시키는 것 차단)
+  // hash 유무와 관계없이 페이지마다 정리 — 진짜 시그널은 이 정리 후 IIFE A가 클릭 직전에 새로 set
+  document.cookie = "savetax_login_done=; path=/; max-age=0";
+  document.cookie = "savetax_agent=; path=/; max-age=0";
+  console.log("SaveTax: 페이지 로드 — 잔존 시그널 cookie 정리");
+  // 1초 지연 후 폴링 시작 (정리 반영 시간)
   setTimeout(() => {
     const interval = setInterval(() => {
       const match = document.cookie.match(/savetax_login_done=([^;]+)/);
@@ -21,7 +17,7 @@
       }
     }, 500);
     setTimeout(() => clearInterval(interval), 120000);
-  }, startDelay);
+  }, 1000);
 })();
 
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
@@ -207,24 +203,22 @@
 })();
 
 // 법인 로그인 완료 후 다음 액션 실행 (register/commission/recommission)
+// 트리거: savetax_corp_next 존재 + 세무대리 메뉴 등장
+// (corp_login과 동일하게 reopen된 새 탭에서 동작 — login_done 시그널과 무관하게 corp_next만 보고 진행)
 (async function () {
-  // savetax_login_done cookie + savetax_corp_next storage 폴링 (90초)
+  // savetax_corp_next storage 폴링 (180초 — reopen 시간 여유)
   let nextData = null;
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 180; i++) {
     await new Promise(r => setTimeout(r, 1000));
-    const loginDone = await chrome.storage.local.get("savetax_login_done");
-    if (!loginDone.savetax_login_done) continue;
     const s = await chrome.storage.local.get("savetax_corp_next");
     if (!s.savetax_corp_next) continue;
     nextData = s.savetax_corp_next;
     break;
   }
   if (!nextData) return;
-  // 관리번호 로그인 완료 + 페이지 안정화 대기 — race 방지
-  // 세무대리 메뉴 ID 등장 시에만 corp_next/login_done 정리 + 다음 액션 진행
-  // (메뉴 미등장 시 corp_next 유지해야 background.js의 close 가드가 작동)
+  // 세무대리 메뉴 등장 폴링 (관리번호 로그인 완료 + reopen 후 hometax 메인 페이지 안정화 대기)
   let menuReady = false;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 1000));
     if (document.getElementById("mf_wfHeader_wq_uuid_619")) {
       menuReady = true;
@@ -232,14 +226,13 @@
     }
   }
   if (!menuReady) {
-    console.warn("SaveTax: [법인] 세무대리 메뉴 등장 타임아웃 (30초) — 시그널 유지하고 종료 (background close 가드 유지)");
+    console.warn("SaveTax: [법인] 세무대리 메뉴 등장 타임아웃 (60초) — corp_next 유지하고 종료");
     return;
   }
   console.log("SaveTax: [법인] 세무대리 메뉴 감지, 페이지 안정화 완료");
   await new Promise(r => setTimeout(r, 1500));
-  await chrome.storage.local.remove("savetax_login_done");
-  chrome.storage.local.remove("savetax_corp_next");
-  console.log("SaveTax: [법인] 로그인 완료 확인, 다음 액션 시작");
+  await chrome.storage.local.remove("savetax_corp_next");
+  console.log("SaveTax: [법인] 다음 액션 시작");
 
   // 관리번호 로그인이 완료될 때까지 대기 (세무대리인 메뉴가 보이면 완료)
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -678,28 +671,34 @@
     try {
       if (await checkLogout()) return;
 
-      // 이전 시그널 초기화 (storage + cookie 모두) — 잔존 시그널이 background를 잘못 발동시키는 것 방지
-      await chrome.storage.local.remove(["savetax_corp_next", "savetax_login_done", "savetax_corp_agent"]);
+      // 사용자 통찰: corp_login의 1~4단계(ID/PW + 인증서 + 관리번호 + reopen)를 그대로 재사용하고,
+      // reopen된 새 탭에서 corp_next를 보고 메뉴 진입(5단계)만 추가로 진행.
+      // → 한 탭에서 인증 + 메뉴 진입을 모두 하던 race가 근본적으로 사라짐.
+
+      // 모든 시그널 + cookie 초기화 (이전 세션 잔존 영향 차단)
+      await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent", "savetax_corp_cert", "savetax_corp_reopen", "savetax_corp_next"]);
       document.cookie = "savetax_login_done=; path=/; max-age=0";
       document.cookie = "savetax_agent=; path=/; max-age=0";
+      console.log("SaveTax: " + mode + " - 시그널 초기화 완료");
 
-      // 로그인 후 이어서 할 작업을 chrome.storage에 저장
-      const nextAction = mode.replace("corp_", ""); // register, commission, recommission
+      // corp_login과 동일하게 agent + reopen flag 저장 + 추가로 corp_next 저장 (새 탭에서 사용)
+      const nextAction = mode.replace("corp_", ""); // register | commission | recommission
       await chrome.storage.local.set({
         savetax_corp_agent: {
           agentNumber: creds.agentNumber,
           agentPw: creds.agentPw || creds.pw,
         },
+        savetax_corp_reopen: true,
         savetax_corp_next: {
           action: nextAction,
           creds: creds,
-        }
+        },
       });
-      console.log("SaveTax: " + mode + " - 다음 액션 저장:", nextAction);
+      console.log("SaveTax: " + mode + " - corp_login 흐름 + corp_next 저장:", nextAction);
 
-      // corp_login과 동일한 로그인
+      // corp_login과 동일한 ID/PW 로그인 (인증서 / 관리번호 / reopen은 별도 IIFE + background가 처리)
       await doLogin(creds.id, creds.pw);
-      console.log("SaveTax: " + mode + " - 로그인 완료, 인증 후 자동 진행");
+      console.log("SaveTax: " + mode + " - ID/PW 로그인 완료, 인증서+관리번호+reopen 후 새 탭에서 메뉴 진입");
 
     } catch (e) {
       console.error("SaveTax " + mode + " 실패:", e);
