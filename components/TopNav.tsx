@@ -91,9 +91,11 @@ type LoginStatus = "idle" | "loading" | "success" | "error";
 export default function TopNav({
   user,
   settings,
+  distributionCount = 0,
 }: {
   user: User;
   settings: Settings | null;
+  distributionCount?: number;
 }) {
   const pathname = usePathname();
 
@@ -161,12 +163,18 @@ export default function TopNav({
         {/* 우: 검색 + 알림 + 프로필 */}
         <div className="glass-strong rounded-2xl px-2 py-2 flex items-center gap-1.5">
           <SearchPill />
-          <button
-            className="w-9 h-9 rounded-xl hover:bg-white/60 flex items-center justify-center text-[#6B7684]"
-            title="알림"
+          <Link
+            href="/distribution"
+            className="relative w-9 h-9 rounded-xl hover:bg-white/60 flex items-center justify-center text-[#6B7684]"
+            title={distributionCount > 0 ? `신규 배분 ${distributionCount}건` : "알림"}
           >
             <BellIcon width={16} height={16} />
-          </button>
+            {distributionCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#DC2626] text-white text-[9.5px] font-bold flex items-center justify-center leading-none">
+                {distributionCount > 99 ? "99+" : distributionCount}
+              </span>
+            )}
+          </Link>
           <ProfileMenu user={user} settings={settings} />
         </div>
       </div>

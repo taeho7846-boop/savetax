@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { markDataRequested, confirmExclusion, postponeTask, requestExclusion, markTransferRequested, markTransferReceived } from "@/app/actions/commission";
-import { ClipboardListIcon, DownloadIcon, ClockIcon } from "@/components/icons";
+import { markDataRequested, postponeTask, markTransferRequested, markTransferReceived } from "@/app/actions/commission";
+import { ClipboardListIcon, DownloadIcon, ClockIcon, PhoneCallIcon } from "@/components/icons";
 
 type HappyCallItem = {
   commissionId: number;
@@ -69,28 +69,31 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
 
   return (
     <>
-    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
-        <ClipboardListIcon width={16} height={16} className="text-[#4E5968]" />
-        <h2 className="font-[500] text-[#4E5968]">오늘의 업무</h2>
-        {items.length > 0 && (
-          <span className="bg-[#f87171] text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
-        )}
+    <div className="glass rounded-3xl p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl gradient-blue flex items-center justify-center text-white">
+            <ClipboardListIcon width={18} height={18} strokeWidth={2.2} />
+          </div>
+          <h2 className="text-[18px] font-bold tracking-tight text-[#191F28]">오늘의 업무</h2>
+          {items.length > 0 && (
+            <span className="text-[12px] text-[#6B7684] bg-white/60 px-2 py-0.5 rounded-full font-medium">{items.length}건</span>
+          )}
+        </div>
       </div>
-      <div className="divide-y divide-[#F2F4F6]">
+      <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
         {items.length === 0 ? (
-          <div className="px-5 py-10 text-center">
+          <div className="py-10 text-center">
             <div className="text-[14px] text-[#4E5968] font-[500]">오늘 할 일을 모두 완료했어요</div>
-            <div className="text-[12px] text-[#8B95A1] mt-1">깔끔하네요 🎉</div>
+            <div className="text-[12px] text-[#8B95A1] mt-1">깔끔하네요</div>
           </div>
         ) : items.map((item, i) => {
-          // D+N 추출해 별도 강조
           const dayMatch = item.label.match(/\(D\+(\d+)\)/);
           const dayNum = dayMatch ? dayMatch[1] : null;
           const labelText = dayMatch ? item.label.replace(/\s*\(D\+\d+\)$/, "") : item.label;
           const isUrgent = dayNum && parseInt(dayNum) >= 7;
           return (
-            <div key={`${item.type}-${item.commissionId}-${i}`} className="px-5 py-3 flex items-center gap-3 hover:bg-[#F9FAFB] transition-colors">
+            <div key={`${item.type}-${item.commissionId}-${i}`} className="bg-white/60 hover:bg-white/80 rounded-2xl px-4 py-3 flex items-center gap-3 transition-colors">
               <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 ${
                 item.type === "happycall" ? "bg-[#E8F3FF] text-[#1B64DA]" : item.type === "transfer" ? "bg-[#FFFBEB] text-[#B45309]" : "bg-[#FFFBEB] text-[#92400e]"
               }`}>
@@ -108,7 +111,7 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
               <div className="flex items-center gap-1.5 ml-auto shrink-0">
                 <button
                   onClick={() => setPostponeTarget({ commissionId: item.commissionId, clientName: item.clientName })}
-                  className="text-[11.5px] px-2.5 py-1.5 rounded-[8px] bg-[#F9FAFB] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#191F28] whitespace-nowrap inline-flex items-center gap-1 font-[500] transition-colors"
+                  className="text-[11.5px] px-2.5 py-1.5 rounded-[8px] bg-white/70 text-[#6B7684] hover:bg-white hover:text-[#191F28] whitespace-nowrap inline-flex items-center gap-1 font-[500] transition-colors"
                   title="미루기"
                 >
                   <ClockIcon width={12} height={12} />
@@ -133,7 +136,7 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
                   </button>
                 )}
                 {item.type === "happycall" && (
-                  <Link href="/commission" className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-[#F9FAFB] text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28] whitespace-nowrap font-bold transition-colors">
+                  <Link href="/commission" className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-white/70 text-[#4E5968] hover:bg-white hover:text-[#191F28] whitespace-nowrap font-bold transition-colors">
                     신규수임 →
                   </Link>
                 )}
@@ -174,222 +177,60 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
   );
 }
 
-// ============ 해피콜 카드 ============
+// ============ 해피콜 미니 위젯 ============
 export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
-  const [isPending, startTransition] = useTransition();
-  const [sendingId, setSendingId] = useState<number | null>(null);
-  const router = useRouter();
-
-  function handleExclude(commissionId: number, clientName: string) {
-    if (!confirm(`"${clientName}" 관리제외를 요청하시겠습니까?`)) return;
-    startTransition(async () => {
-      await requestExclusion(commissionId);
-      router.refresh();
-    });
-  }
-
-  async function handleAlimtalk(clientId: number, clientName: string) {
-    if (!confirm(`"${clientName}"에게 카카오톡 안내를 발송하시겠습니까?`)) return;
-    setSendingId(clientId);
-    try {
-      const res = await fetch("/api/alimtalk/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, type: "happy_call" }),
-      });
-      const data = await res.json();
-      if (!res.ok) { alert(data.error); return; }
-      alert("카카오톡 안내가 발송되었습니다");
-    } catch { alert("발송 실패"); }
-    finally { setSendingId(null); }
-  }
-
   return (
-    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
-        <span className="text-base">📞</span>
-        <h2 className="font-[500] text-[#4E5968]">해피콜</h2>
-        {items.length > 0 && (
-          <span className="bg-[#93c5fd] text-[#0b0d10] text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
-        )}
+    <Link href="/commission" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-9 h-9 rounded-xl gradient-emerald flex items-center justify-center text-white">
+          <PhoneCallIcon width={18} height={18} strokeWidth={2.2} />
+        </div>
+        <span className="text-[20px] font-bold tabular-nums text-[#191F28]">{items.length}</span>
       </div>
-      <div className="divide-y divide-[#F2F4F6]">
-        {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[#8B95A1] text-sm">부재중 거래처가 없습니다</div>
-        ) : items.map(item => (
-          <div key={item.commissionId} className="px-5 py-3 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <Link href="/commission" className="text-sm font-[500] text-[#191F28] hover:text-[#191F28] hover:underline truncate block">
-                {item.clientName}
-              </Link>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {item.noAnswerCount === 0 ? (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#eff6ff] text-[#1e40af] font-[500]">1차 대기</span>
-              ) : (
-                Array.from({ length: item.noAnswerCount }, (_, i) => (
-                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-white text-[#6B7684] font-[500]">
-                    {i + 1}차 부재중
-                  </span>
-                ))
-              )}
-              <span className="text-[10px] text-[#8B95A1]">D+{item.daysElapsed}</span>
-              <button
-                onClick={() => handleAlimtalk(item.clientId, item.clientName)}
-                disabled={sendingId === item.clientId}
-                className="text-[10px] px-2.5 py-1 rounded-[6px] bg-[#fcd34d] text-[#0b0d10] font-bold hover:bg-[#fde68a] disabled:opacity-50"
-              >
-                {sendingId === item.clientId ? "발송중..." : "카카오톡안내"}
-              </button>
-              <button
-                onClick={() => handleExclude(item.commissionId, item.clientName)}
-                disabled={isPending}
-                className="text-[10px] px-2 py-0.5 rounded bg-[#fef2f2] text-[#dc2626] hover:bg-[rgba(239,68,68,0.18)] hover:text-[#dc2626] disabled:opacity-50"
-              >
-                관리제외
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="text-[14px] font-bold text-[#191F28]">해피콜 대상</div>
+      <div className="text-[11.5px] text-[#6B7684] mt-0.5">
+        {items.length > 0 ? "확인 통화 필요" : "처리 완료"}
       </div>
-    </div>
+    </Link>
   );
 }
 
-// ============ 자료수집 카드 ============
+// ============ 자료수집 미니 위젯 ============
 export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
-  const [isPending, startTransition] = useTransition();
-  const [sendingId, setSendingId] = useState<number | null>(null);
-  const router = useRouter();
-
-  function handleExclude(commissionId: number, clientName: string) {
-    if (!confirm(`"${clientName}" 관리제외를 요청하시겠습니까?`)) return;
-    startTransition(async () => {
-      await requestExclusion(commissionId);
-      router.refresh();
-    });
-  }
-
-  async function handleAlimtalk(clientId: number, clientName: string) {
-    if (!confirm(`"${clientName}"에게 카카오톡 독촉을 발송하시겠습니까?`)) return;
-    setSendingId(clientId);
-    try {
-      const res = await fetch("/api/alimtalk/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, type: "doc_remind" }),
-      });
-      const data = await res.json();
-      if (!res.ok) { alert(data.error); return; }
-      alert("카카오톡 독촉이 발송되었습니다");
-    } catch { alert("발송 실패"); }
-    finally { setSendingId(null); }
-  }
-
   return (
-    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
-        <DownloadIcon width={16} height={16} className="text-[#4E5968]" />
-        <h2 className="font-[500] text-[#4E5968]">자료수집</h2>
-        {items.length > 0 && (
-          <span className="bg-[#fcd34d] text-[#0b0d10] text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
-        )}
+    <Link href="/commission" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-9 h-9 rounded-xl gradient-purple flex items-center justify-center text-white">
+          <DownloadIcon width={18} height={18} strokeWidth={2.2} />
+        </div>
+        <span className="text-[20px] font-bold tabular-nums text-[#191F28]">{items.length}</span>
       </div>
-      <div className="divide-y divide-[#F2F4F6]">
-        {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[#8B95A1] text-sm">자료수집 중인 거래처가 없습니다</div>
-        ) : items.map(item => (
-          <div key={item.commissionId} className="px-5 py-3">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <Link href="/commission" className="text-sm font-[500] text-[#191F28] hover:text-[#191F28] hover:underline truncate block">
-                  {item.clientName}
-                </Link>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {item.requestCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ecfdf5] text-[#065f46] font-[500]">
-                    {item.requestCount}차 요청완료
-                  </span>
-                )}
-                <span className="text-[10px] text-[#8B95A1]">D+{item.daysFromConnect}</span>
-                <button
-                  onClick={() => handleAlimtalk(item.clientId, item.clientName)}
-                  disabled={sendingId === item.clientId}
-                  className="text-[10px] px-2.5 py-1 rounded-[6px] bg-[#fcd34d] text-[#0b0d10] font-bold hover:bg-[#fde68a] disabled:opacity-50"
-                >
-                  {sendingId === item.clientId ? "발송중..." : "카카오톡독촉"}
-                </button>
-                <button
-                  onClick={() => handleExclude(item.commissionId, item.clientName)}
-                  disabled={isPending}
-                  className="text-[10px] px-2 py-0.5 rounded bg-[#fef2f2] text-[#dc2626] hover:bg-[rgba(239,68,68,0.18)] hover:text-[#dc2626] disabled:opacity-50"
-                >
-                  관리제외
-                </button>
-              </div>
-            </div>
-            {/* 미비 자료 표시 */}
-            {item.missingDocs.length > 0 && (
-              <div className="flex gap-1.5 mt-1.5">
-                {item.missingDocs.map(doc => (
-                  <span key={doc} className="text-[10px] px-1.5 py-0.5 rounded bg-[#fef2f2] text-[#dc2626] border border-[#fca5a5]">
-                    {doc} 미수령
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+      <div className="text-[14px] font-bold text-[#191F28]">자료 수집</div>
+      <div className="text-[11.5px] text-[#6B7684] mt-0.5">
+        {items.length > 0 ? "미수령 자료" : "수집 완료"}
       </div>
-    </div>
+    </Link>
   );
 }
 
-// ============ 관리제외요청 카드 ============
+// ============ 관리제외요청 미니 위젯 ============
 export function ExcludeRequestCard({ items }: { items: ExcludeItem[] }) {
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-
-  function handleConfirm(commissionId: number) {
-    if (!confirm("관리제외를 확정하시겠습니까?")) return;
-    startTransition(async () => {
-      await confirmExclusion(commissionId);
-      router.refresh();
-    });
-  }
-
   return (
-    <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-      <div className="px-5 py-3 border-b border-[#E5E8EB] flex items-center gap-2">
-        <span className="text-base">🚫</span>
-        <h2 className="font-[500] text-[#4E5968]">관리제외요청</h2>
-        {items.length > 0 && (
-          <span className="bg-[#8a8f98] text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{items.length}</span>
-        )}
+    <Link href="/commission" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-9 h-9 rounded-xl gradient-rose flex items-center justify-center text-white">
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+          </svg>
+        </div>
+        <span className="text-[20px] font-bold tabular-nums text-[#191F28]">{items.length}</span>
       </div>
-      <div className="divide-y divide-[#F2F4F6]">
-        {items.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[#8B95A1] text-sm">관리제외 요청이 없습니다</div>
-        ) : items.map(item => (
-          <div key={item.commissionId} className="px-5 py-3 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-[500] text-[#191F28] truncate">{item.clientName}</div>
-              <div className="text-[10px] text-[#8B95A1]">
-                {item.reason} · 전체 D+{item.daysElapsed} · <span className="text-[#dc2626] font-[500]">요청 후 D+{item.requestDays}</span>
-              </div>
-            </div>
-            <button
-              onClick={() => handleConfirm(item.commissionId)}
-              disabled={isPending}
-              className="text-[10px] px-2.5 py-1 rounded-[6px] bg-[#fef2f2] text-[#dc2626] hover:bg-[rgba(239,68,68,0.18)] border border-[#fca5a5] disabled:opacity-50 whitespace-nowrap"
-            >
-              제외 확정
-            </button>
-          </div>
-        ))}
+      <div className="text-[14px] font-bold text-[#191F28]">제외 요청</div>
+      <div className="text-[11.5px] text-[#6B7684] mt-0.5">
+        {items.length > 0 ? "검토 대기" : "요청 없음"}
       </div>
-    </div>
+    </Link>
   );
 }
 

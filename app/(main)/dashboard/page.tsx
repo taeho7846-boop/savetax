@@ -13,10 +13,9 @@ import { getKnowledges } from "@/app/actions/knowledge";
 import { DashboardTabs } from "./DashboardTabs";
 import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard } from "./ProcessCards";
 import type { TransferItem } from "./ProcessCards";
-import { TopStripPills } from "./TopStripPills";
 import { UnpaidCard } from "./UnpaidCard";
-import { PhoneClientViewer } from "./PhoneClientViewer";
 import { PhonePopupButton } from "./PhonePopupButton";
+import { BuildingIcon, ClockIcon, CalendarIcon, BellIcon } from "@/components/icons";
 
 export default async function DashboardPage({
   searchParams,
@@ -344,29 +343,33 @@ export default async function DashboardPage({
 
   return (
     <div>
-      {/* 히어로: 개인화 인사 */}
+      {/* 히어로: 개인화 인사 + 폰 팝업 버튼 */}
       {activeTab === "overview" ? (
-        <div className="mb-5">
-          <div className="text-[13.5px] text-[#6B7684] font-[500]">
-            {firstName}님, {greeting}
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <div className="text-[13.5px] text-[#6B7684] font-[500]">
+              {firstName}님, {greeting}
+            </div>
+            <div className="text-[28px] font-bold text-[#191F28] mt-1 tracking-tight leading-[1.3]">
+              {todayTasks.length > 0 ? (
+                <>
+                  오늘 처리할 업무{" "}
+                  <span className="text-[#3182F6]">{todayTasks.length}건</span>
+                  이에요
+                </>
+              ) : (
+                "오늘 할 일을 모두 완료했어요"
+              )}
+            </div>
           </div>
-          <div className="text-[28px] font-bold text-[#191F28] mt-1 tracking-tight leading-[1.3]">
-            {todayTasks.length > 0 ? (
-              <>
-                오늘 처리할 업무{" "}
-                <span className="text-[#3182F6]">{todayTasks.length}건</span>
-                이에요
-              </>
-            ) : (
-              "오늘 할 일을 모두 완료했어요"
-            )}
-          </div>
+          <PhonePopupButton />
         </div>
       ) : (
-        <div className="mb-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <div className="text-[13.5px] text-[#6B7684] font-[500]">
             {firstName}님, {greeting}
           </div>
+          <PhonePopupButton />
         </div>
       )}
 
@@ -374,73 +377,81 @@ export default async function DashboardPage({
       <DashboardTabs activeTab={activeTab} tempMemoCount={tempMemosData.length} />
 
       {/* 현황 탭 */}
-      {activeTab === "overview" && (() => {
-        const userName = session.name || "";
-        const filteredDist = userName === "이휘언"
-          ? newDistributions.filter((d: any) => d.clientType?.startsWith("taeho_"))
-          : newDistributions.filter((d: any) => !d.clientType?.startsWith("taeho_"));
-        return (
+      {activeTab === "overview" && (
         <>
-          {/* 통계 바 + 액션 알림 Pills (한 줄) */}
-          <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] mb-6 px-5 py-3 flex items-center gap-5 flex-wrap">
-            <Link href="/clients" className="flex items-center gap-2 group">
-              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">관리 고객사</span>
-              <span className="text-[18px] font-bold text-[#191F28] group-hover:text-[#3182F6] transition-colors tracking-tight">{totalClients}</span>
-            </Link>
-            <div className="w-px h-5 bg-[#E5E8EB]" />
-            <Link href="/tasks" className="flex items-center gap-2 group">
-              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">진행중 업무</span>
-              <span className="text-[18px] font-bold text-[#191F28] group-hover:text-[#3182F6] transition-colors tracking-tight">{totalTasks}</span>
-            </Link>
-            <div className="w-px h-5 bg-[#E5E8EB]" />
-            <Link href="/tasks" className="flex items-center gap-2 group">
-              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">마감 임박</span>
-              <span className={`text-[18px] font-bold transition-colors tracking-tight ${urgentTasks.length > 0 ? "text-[#D97706]" : "text-[#8B95A1]"}`}>{urgentTasks.length}</span>
-            </Link>
-            <div className="w-px h-5 bg-[#E5E8EB]" />
-            <Link href="/tasks?status=delayed" className="flex items-center gap-2 group">
-              <span className="text-[12.5px] text-[#6B7684] font-[500] group-hover:text-[#191F28]">지연 업무</span>
-              <span className={`text-[18px] font-bold transition-colors tracking-tight ${delayedTasks > 0 ? "text-[#DC2626]" : "text-[#8B95A1]"}`}>{delayedTasks}</span>
+          {/* 4 글래스 스탯카드 */}
+          <div className="grid grid-cols-4 gap-4 mb-4">
+            <Link href="/clients" className="stat-card glass rounded-3xl p-5 cursor-pointer">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-2xl gradient-blue flex items-center justify-center text-white">
+                  <BuildingIcon width={20} height={20} strokeWidth={2.2} />
+                </div>
+              </div>
+              <div className="text-[13px] text-[#6B7684] font-medium mb-1">관리 고객사</div>
+              <div className="text-[32px] font-bold tracking-tight leading-none text-[#191F28]">{totalClients}</div>
             </Link>
 
-            {/* 구분선 + 알림 Pills (hover 처리) */}
-            <div className="w-px h-5 bg-[#E5E8EB] ml-auto" />
-            <TopStripPills
-              cmsPrev={cmsPrev}
-              cmsCurrent={cmsCurrent}
-              cmsNext={cmsNext}
-              transferItems={transferItems}
-              distributionIds={filteredDist.map((d: any) => d.id)}
-            />
+            <Link href="/tasks" className="stat-card glass rounded-3xl p-5 cursor-pointer">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-2xl gradient-purple flex items-center justify-center text-white">
+                  <ClockIcon width={20} height={20} strokeWidth={2.2} />
+                </div>
+                {totalTasks > 0 && (
+                  <span className="text-[11px] text-[#3182F6] font-bold bg-[#3182F6]/10 px-2 py-0.5 rounded-full">진행중</span>
+                )}
+              </div>
+              <div className="text-[13px] text-[#6B7684] font-medium mb-1">내 업무</div>
+              <div className="text-[32px] font-bold tracking-tight leading-none text-[#191F28]">{totalTasks}</div>
+            </Link>
+
+            <Link href="/tasks" className="stat-card glass rounded-3xl p-5 cursor-pointer">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-2xl gradient-amber flex items-center justify-center text-white">
+                  <CalendarIcon width={20} height={20} strokeWidth={2.2} />
+                </div>
+                {urgentTasks.length > 0 && (
+                  <span className="text-[11px] text-[#D97706] font-bold bg-[#F59E0B]/10 px-2 py-0.5 rounded-full">3일 이내</span>
+                )}
+              </div>
+              <div className="text-[13px] text-[#6B7684] font-medium mb-1">마감 임박</div>
+              <div className={`text-[32px] font-bold tracking-tight leading-none ${urgentTasks.length > 0 ? "text-[#D97706]" : "text-[#8B95A1]"}`}>{urgentTasks.length}</div>
+            </Link>
+
+            <Link href="/tasks?status=delayed" className={`stat-card glass rounded-3xl p-5 cursor-pointer ${delayedTasks > 0 ? "ring-pulse" : ""}`}>
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-2xl gradient-rose flex items-center justify-center text-white">
+                  <BellIcon width={20} height={20} strokeWidth={2.2} />
+                </div>
+                {delayedTasks > 0 && (
+                  <span className="text-[11px] text-[#DC2626] font-bold bg-[#DC2626]/10 px-2 py-0.5 rounded-full animate-pulse">확인 필요</span>
+                )}
+              </div>
+              <div className="text-[13px] text-[#6B7684] font-medium mb-1">지연 업무</div>
+              <div className={`text-[32px] font-bold tracking-tight leading-none ${delayedTasks > 0 ? "text-[#DC2626]" : "text-[#8B95A1]"}`}>{delayedTasks}</div>
+            </Link>
           </div>
 
-          {/* 70/30 분할: 좌측 Do + 우측 Phone Viewer */}
-          <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-6">
-            <div className="space-y-6 min-w-0">
-              {/* 오늘의 업무 — 인터랙티브 */}
-              <TodayTasksCard items={todayTasks} />
+          {/* 알림 스트립 제거 — CMS 미등록은 미수납 카드 칩으로, 이관은 오늘의 업무에, 신규배분은 헤더 종 아이콘 뱃지로 이동 */}
+          <div className="mb-2" />
 
-              {/* 프로세스 카드 3-col */}
-              <div className="grid grid-cols-3 gap-4">
-                <HappyCallCard items={happyCallItems} />
-                <DataCollectCard items={dataCollectItems} />
-                <ExcludeRequestCard items={excludeItems} />
-              </div>
+          {/* 풀 너비: 폰 뷰어는 헤더 버튼으로 별도 창에서 사용 */}
+          <div className="space-y-6 min-w-0">
+            {/* 오늘의 업무 — 인터랙티브 */}
+            <TodayTasksCard items={todayTasks} />
 
-              {/* 미수납 (내부에 미루기 중 포함) */}
-              <UnpaidCard clients={unpaidClients} />
+            {/* 프로세스 카드 3-col */}
+            <div className="grid grid-cols-3 gap-4">
+              <HappyCallCard items={happyCallItems} />
+              <DataCollectCard items={dataCollectItems} />
+              <ExcludeRequestCard items={excludeItems} />
             </div>
 
-            {/* 우측: 폰 목업 고객사 뷰어 + 팝업 버튼 */}
-            <aside className="min-w-0 sticky top-0">
-              <PhonePopupButton />
-              <PhoneClientViewer clients={myClients} />
-            </aside>
+            {/* 미수납 (내부에 미루기 중 포함) */}
+            <UnpaidCard clients={unpaidClients} />
           </div>
 
         </>
-        );
-      })()}
+      )}
 
       {/* 공지사항 탭 */}
       {activeTab === "notice" && (
