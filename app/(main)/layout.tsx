@@ -6,6 +6,7 @@ import TopNav from "@/components/TopNav";
 import DockBar from "@/components/DockBar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { DriveBasePathSync } from "@/components/DriveBasePathSync";
+import { ChatBot } from "@/components/ChatBot";
 
 export default async function MainLayout({
   children,
@@ -69,6 +70,7 @@ export default async function MainLayout({
       <main className="flex-1 px-6 pb-[100px] overflow-y-auto text-[#4E5968]">{children}</main>
       <DockBar />
       <GlobalSearch />
+      <ChatBot />
       <DriveBasePathSync value={settings?.driveBasePath ?? null} />
     </div>
   );

@@ -56,19 +56,21 @@ export default async function DashboardPage({
   });
   const cmsSelect = { id: true, name: true, phone: true, bankName: true, bankAccount: true };
 
-  const [totalClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
+  const clientCountWhere = {
+    isDeleted: false,
+    ...myClient,
+    OR: [
+      { taxTypes: null },
+      { NOT: { taxTypes: { contains: "신고대리" } } },
+    ],
+  };
+
+  const [totalClients, individualClients, corporateClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
          cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, newDistributions, commissions] =
     await Promise.all([
-      prisma.client.count({
-        where: {
-          isDeleted: false,
-          ...myClient,
-          OR: [
-            { taxTypes: null },
-            { NOT: { taxTypes: { contains: "신고대리" } } },
-          ],
-        },
-      }),
+      prisma.client.count({ where: clientCountWhere }),
+      prisma.client.count({ where: { ...clientCountWhere, clientType: "individual" } }),
+      prisma.client.count({ where: { ...clientCountWhere, clientType: "corporate" } }),
       prisma.task.count({ where: { isDeleted: false, status: { not: "done" }, client: myClient } }),
       prisma.task.findMany({
         where: {
@@ -389,6 +391,7 @@ export default async function DashboardPage({
               </div>
               <div className="text-[13px] text-[#6B7684] font-medium mb-1">관리 고객사</div>
               <div className="text-[32px] font-bold tracking-tight leading-none text-[#191F28]">{totalClients}</div>
+              <div className="text-[11px] text-[#8B95A1] mt-2 tabular-nums">개인 {individualClients} · 법인 {corporateClients}</div>
             </Link>
 
             <Link href="/tasks" className="stat-card glass rounded-3xl p-5 cursor-pointer">
