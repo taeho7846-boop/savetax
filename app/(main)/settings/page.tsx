@@ -230,20 +230,30 @@ export default async function SettingsPage() {
             <SectionHeader title="슬랙 알림 설정" desc="슬랙 연동 후 자동 알림을 받을 수 있습니다" />
             <div className="section-hairline mb-3" />
             <div className="space-y-2.5">
-              <div className="flex items-center gap-3">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input name="slackMorningEnabled" type="checkbox" defaultChecked={settings?.slackMorningEnabled ?? true} className="accent-[#3182F6] w-4 h-4 shrink-0" />
-                <span className="text-sm text-[#333D4B] flex-1">아침 브리핑</span>
-                <input name="slackMorningTime" type="time" defaultValue={settings?.slackMorningTime ?? "08:00"} className={`${inputClass} w-28 text-center shrink-0`} />
-              </div>
-              <div className="flex items-center gap-3">
+                <span className="text-sm text-[#333D4B] flex-1 whitespace-nowrap">아침 브리핑</span>
+                <input
+                  name="slackMorningTime"
+                  type="time"
+                  defaultValue={settings?.slackMorningTime ?? "08:00"}
+                  className="w-28 shrink-0 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-center focus:outline-none focus:border-[#3182F6]"
+                />
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input name="slackEveningEnabled" type="checkbox" defaultChecked={settings?.slackEveningEnabled ?? true} className="accent-[#3182F6] w-4 h-4 shrink-0" />
-                <span className="text-sm text-[#333D4B] flex-1">저녁 내일 일정</span>
-                <input name="slackEveningTime" type="time" defaultValue={settings?.slackEveningTime ?? "19:00"} className={`${inputClass} w-28 text-center shrink-0`} />
-              </div>
-              <div className="flex items-center gap-3">
+                <span className="text-sm text-[#333D4B] flex-1 whitespace-nowrap">저녁 내일 일정</span>
+                <input
+                  name="slackEveningTime"
+                  type="time"
+                  defaultValue={settings?.slackEveningTime ?? "19:00"}
+                  className="w-28 shrink-0 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-center focus:outline-none focus:border-[#3182F6]"
+                />
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input name="slackDistributionEnabled" type="checkbox" defaultChecked={settings?.slackDistributionEnabled ?? true} className="accent-[#3182F6] w-4 h-4 shrink-0" />
-                <span className="text-sm text-[#333D4B] flex-1">새 거래처 배분 알림</span>
-              </div>
+                <span className="text-sm text-[#333D4B] flex-1 whitespace-nowrap">새 거래처 배분 알림</span>
+              </label>
             </div>
           </section>
         </form>
