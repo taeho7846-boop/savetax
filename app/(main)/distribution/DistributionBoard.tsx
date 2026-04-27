@@ -67,7 +67,7 @@ export function DistributionBoard({
 
   function handleDelete(id: number, name: string) {
     const reason = prompt(`'${name}' 관리제외 사유를 입력하세요 (선택사항):`, "");
-    if (reason === null) return; // 취소
+    if (reason === null) return;
     startTransition(async () => {
       await deleteDistribution(id, reason || undefined);
       router.refresh();
@@ -103,84 +103,76 @@ export function DistributionBoard({
     if (byAccountant[d.assignedUserId]) byAccountant[d.assignedUserId].push(d);
   }
 
-  const maxRows = Math.max(1, ...accountants.map((a) => byAccountant[a.id].length));
+  // 다음 차례 계산: PASS 아닌 사람 중 counts 최소
+  const eligible = accountants.filter(a => !passSet.has(a.id));
+  const minCount = eligible.length > 0 ? Math.min(...eligible.map(a => counts[a.id] || 0)) : 0;
+  const nextPersonId = eligible.find(a => (counts[a.id] || 0) === minCount)?.id ?? null;
+
+  // 카드 채울 빈 슬롯 (UI 정렬용, 최소 6개 보이게)
+  const minVisibleRows = 6;
+
+  const totalAssigned = accountants.reduce((s, a) => s + (counts[a.id] || 0), 0);
+  const passCount = passSet.size;
+
+  const tabLabel = isCorporate ? "법인" : "개인";
 
   return (
     <>
-      {/* 탭 */}
-      <div className="flex gap-1 mb-5 border-b border-[#E5E8EB]">
-        <Link
-          href="/distribution?tab=individual"
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            tab === "individual"
-              ? "border-[#3182F6] text-[#191F28]"
-              : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
-          }`}
-        >
-          개인
-        </Link>
-        <Link
-          href="/distribution?tab=corporate"
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            isCorporate
-              ? "border-[#3182F6] text-[#191F28]"
-              : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
-          }`}
-        >
-          법인
-        </Link>
-        <Link
-          href="/distribution?tab=excluded"
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            isExcluded
-              ? "border-red-500 text-[#E02E2E]"
-              : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
-          }`}
-        >
-          관리제외
-        </Link>
+      {/* 세그먼트 (개인/법인/관리제외) */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div className="v3-seg v3-surface">
+          <Link href="/distribution?tab=individual" className={tab === "individual" ? "v3-seg-on" : ""}>
+            개인
+          </Link>
+          <Link href="/distribution?tab=corporate" className={isCorporate ? "v3-seg-on" : ""}>
+            법인
+          </Link>
+          <Link href="/distribution?tab=excluded" className={isExcluded ? "v3-seg-on-danger" : ""}>
+            관리제외
+          </Link>
+        </div>
       </div>
 
       {/* 관리제외 탭 */}
       {isExcluded && (
-        <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] flex-1 overflow-y-auto">
+        <div className="v3-surface rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-10">
+            <thead className="bg-white/40 border-b border-[#F2F4F6]">
               <tr>
-                <th className="text-left px-4 py-3 text-[#333D4B] font-medium">거래처명</th>
-                <th className="text-center px-4 py-3 text-[#333D4B] font-medium">구분</th>
-                <th className="text-center px-4 py-3 text-[#333D4B] font-medium">담당자</th>
-                <th className="text-left px-4 py-3 text-[#333D4B] font-medium">제외 사유</th>
-                <th className="text-center px-4 py-3 text-[#333D4B] font-medium w-32">관리</th>
+                <th className="text-left px-5 py-3 text-[10.5px] font-bold text-[#6B7684] uppercase tracking-wider">거래처명</th>
+                <th className="text-center px-3 py-3 text-[10.5px] font-bold text-[#6B7684] uppercase tracking-wider">구분</th>
+                <th className="text-center px-3 py-3 text-[10.5px] font-bold text-[#6B7684] uppercase tracking-wider">담당자</th>
+                <th className="text-left px-3 py-3 text-[10.5px] font-bold text-[#6B7684] uppercase tracking-wider">제외 사유</th>
+                <th className="text-center px-3 py-3 text-[10.5px] font-bold text-[#6B7684] uppercase tracking-wider w-32">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F6]">
               {distributions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-[#8B95A1]">관리제외 거래처가 없습니다</td>
+                  <td colSpan={5} className="text-center py-12 text-[#8B95A1] text-sm">관리제외 거래처가 없습니다</td>
                 </tr>
               ) : (
                 distributions.map((d) => (
-                  <tr key={d.id} className="hover:bg-[#F9FAFB]">
-                    <td className="px-4 py-3 text-[#191F28]">{d.clientName}</td>
-                    <td className="px-4 py-3 text-center text-xs text-[#6B7684]">
+                  <tr key={d.id} className="hover:bg-white/40 transition">
+                    <td className="px-5 py-3 text-[#191F28] text-[13px] font-semibold">{d.clientName}</td>
+                    <td className="px-3 py-3 text-center text-[11.5px] text-[#6B7684]">
                       {d.clientType.includes("corporate") ? "법인" : "개인"}
                     </td>
-                    <td className="px-4 py-3 text-center text-[#333D4B]">{d.assignedUser.name}</td>
-                    <td className="px-4 py-3 text-[#6B7684] text-xs">{d.excludeReason || "-"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex gap-2 justify-center">
+                    <td className="px-3 py-3 text-center text-[12px] text-[#4E5968] font-semibold">{d.assignedUser.name}</td>
+                    <td className="px-3 py-3 text-[#6B7684] text-[11.5px]">{d.excludeReason || "-"}</td>
+                    <td className="px-3 py-3 text-center">
+                      <div className="flex gap-3 justify-center">
                         <button
                           onClick={() => handleRestore(d.id)}
                           disabled={isPending}
-                          className="text-xs text-[#3182F6] hover:underline"
+                          className="text-[11.5px] text-[#3182F6] hover:underline font-semibold"
                         >
                           복원
                         </button>
                         <button
                           onClick={() => handlePermanentDelete(d.id, d.clientName)}
                           disabled={isPending}
-                          className="text-xs text-[#E02E2E] hover:underline"
+                          className="text-[11.5px] text-[#E02E2E] hover:underline font-semibold"
                         >
                           삭제
                         </button>
@@ -194,133 +186,145 @@ export function DistributionBoard({
         </div>
       )}
 
-      {/* 거래처 입력 */}
-      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5 mb-5">
-        <div className="flex items-center gap-3 mb-3">
-          <h3 className="text-sm font-medium text-[#333D4B]">
-            거래처 추가 ({isCorporate ? "법인" : "개인"})
-          </h3>
-          <select
-            value={forceUserId ?? ""}
-            onChange={(e) => setForceUserId(e.target.value ? Number(e.target.value) : null)}
-            className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-1.5 text-sm focus:outline-none"
-          >
-            <option value="">자동배분</option>
-            {accountants.map((a) => (
-              <option key={a.id} value={a.id}>{a.name} 지정</option>
-            ))}
-          </select>
-          <button
-            onClick={handleAdd}
-            disabled={isPending || inputs.every((n) => !n.trim())}
-            className="bg-[#3182F6] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
-          >
-            {isPending ? "추가중..." : "추가"}
-          </button>
-        </div>
-        <div className="grid grid-cols-5 gap-3">
-          {inputs.map((val, i) => (
-            <input
-              key={i}
-              value={val}
-              onChange={(e) => updateInput(i, e.target.value)}
-              placeholder={`거래처 ${i + 1}`}
-              className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-            />
-          ))}
-        </div>
-      </div>}
+      {/* 입력 바 + 다음 차례 안내 (관리제외 아닐 때) */}
+      {!isExcluded && (
+        <>
+          <div className="v3-surface rounded-2xl p-4 mb-4">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <div className="text-[12.5px] font-semibold text-[#333D4B]">
+                거래처 추가 <span className="text-[#6B7684] font-normal">· {tabLabel} · 최대 5건 · </span>
+                <span className="v3-kbd">Enter</span>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <select
+                  value={forceUserId ?? ""}
+                  onChange={(e) => setForceUserId(e.target.value ? Number(e.target.value) : null)}
+                  className="v3-surface-soft rounded-lg px-3 py-1.5 text-[12px] font-medium outline-none cursor-pointer"
+                >
+                  <option value="">자동 배분 (라운드 로빈)</option>
+                  {accountants.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name} 지정</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleAdd}
+                  disabled={isPending || inputs.every((n) => !n.trim())}
+                  className="v3-btn-brand"
+                >
+                  {isPending ? "추가중..." : "추가"}
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {inputs.map((val, i) => (
+                <input
+                  key={i}
+                  value={val}
+                  onChange={(e) => updateInput(i, e.target.value)}
+                  placeholder={`거래처 ${i + 1}`}
+                  className="v3-input"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAdd();
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </div>
 
-      {/* 배분 테이블 */}
-      {!isExcluded && <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] flex-1 overflow-y-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-10">
-            <tr>
-              {accountants.map((a) => {
-                const isPass = passSet.has(a.id);
-                return (
-                  <th key={a.id} className={`text-center px-4 py-3 ${isPass ? "bg-[#FEF2F2]" : "bg-[#F9FAFB]"}`}>
-                    <div className={`font-medium ${isPass ? "text-[#F87171] line-through" : "text-[#333D4B]"}`}>{a.name}</div>
-                    <div className="text-xs text-[#8B95A1] font-normal mt-0.5">
-                      {counts[a.id] || 0}건
-                    </div>
-                    <button
-                      onClick={() => handleTogglePass(a.id)}
-                      disabled={isPending}
-                      className={`mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                        isPass
-                          ? "bg-[#E02E2E] text-white hover:bg-[#DC2626]"
-                          : "bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]"
-                      }`}
-                    >
-                      PASS {isPass ? "ON" : "OFF"}
-                    </button>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: maxRows }).map((_, rowIdx) => (
-              <tr key={rowIdx} className="border-b border-[#F2F4F6]">
-                {accountants.map((a) => {
-                  const d = byAccountant[a.id][rowIdx];
-                  return (
-                    <td key={a.id} className={`px-4 py-2 text-center ${d?.isSkipped ? "bg-[#FEF2F2]" : ""}`}>
-                      {d ? (
-                        d.isSkipped ? (
-                          <div className="flex items-center justify-center gap-1.5 group">
-                            <span className="text-[#F87171] text-xs font-bold">PASS</span>
-                            <button
-                              onClick={() => handleDelete(d.id, "PASS")}
-                              className="text-[#B0B8C1] hover:text-[#E02E2E] opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1.5 group">
-                            <span className="text-[#191F28]">{d.clientName}</span>
-                            <button
-                              onClick={() => handleDelete(d.id, d.clientName)}
-                              className="text-[#B0B8C1] hover:text-[#E02E2E] opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )
-                      ) : (
-                        <span className="text-[#D1D6DB]">-</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-            {/* 하단 여백 */}
-            {[0, 1, 2].map(i => (
-              <tr key={`pad-${i}`} className="border-b border-[#F2F4F6]">
-                {accountants.map(a => (
-                  <td key={a.id} className="px-4 py-2 text-center"><span className="text-[#D1D6DB]">-</span></td>
-                ))}
-              </tr>
-            ))}
-            {maxRows === 0 && (
-              <tr>
-                <td colSpan={accountants.length} className="text-center py-12 text-[#8B95A1]">
-                  배분된 거래처가 없습니다
-                </td>
-              </tr>
+          {/* 다음 차례 안내 */}
+          <div className="flex items-center gap-2.5 text-[12.5px] text-[#4E5968] mb-4 flex-wrap">
+            {nextPersonId !== null ? (
+              <>
+                <span className="v3-dot v3-breathe"></span>
+                <span>
+                  다음 차례 <strong className="text-[#1B64DA] font-bold">{accountants.find(a => a.id === nextPersonId)?.name}</strong>
+                  {" · "}{minCount}건으로 가장 적음
+                </span>
+              </>
+            ) : (
+              <span className="text-[#E02E2E] font-semibold">⚠ 모든 세무사가 PASS 상태입니다</span>
             )}
-          </tbody>
-        </table>
-      </div>}
+            <span className="ml-auto text-[11.5px] text-[#6B7684]">
+              총 {totalAssigned}건 · 평균 {accountants.length > 0 ? Math.round(totalAssigned / accountants.length) : 0}건/명
+              {passCount > 0 && ` · PASS ${passCount}명`}
+            </span>
+          </div>
+
+          {/* 칸반 보드 */}
+          <div className="grid grid-cols-4 gap-3">
+            {accountants.map((a) => {
+              const isPass = passSet.has(a.id);
+              const isNext = !isPass && a.id === nextPersonId;
+              const items = byAccountant[a.id];
+              const padCount = Math.max(0, minVisibleRows - items.length);
+
+              return (
+                <div key={a.id}>
+                  <div className={`v3-col-head v3-lift ${isNext ? "is-next" : ""} ${isPass ? "is-passed" : ""}`}>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className={`v3-ini ${isPass ? "is-danger" : ""}`}>{a.name.charAt(0)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-[14px] font-bold flex items-center gap-1.5 ${isPass ? "text-[#E02E2E]" : "text-[#191F28]"}`}>
+                          {a.name}
+                          {isNext && <span className="v3-dot"></span>}
+                        </div>
+                        <div className={`text-[10.5px] v3-tabular ${isPass ? "text-[#E02E2E] font-medium v3-breathe" : isNext ? "text-[#1B64DA] font-bold" : "text-[#6B7684]"}`}>
+                          {counts[a.id] || 0}건{isPass ? " · 배정 일시 정지" : isNext ? " · 다음 차례" : ""}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleTogglePass(a.id)}
+                        disabled={isPending}
+                        className={`v3-toggle ${isPass ? "on on-danger" : ""}`}
+                        aria-label={`PASS ${isPass ? "ON" : "OFF"}`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={`v3-chip ${isPass ? "v3-chip-danger" : isNext ? "v3-chip-next" : ""}`}>
+                        {isPass ? "PASS ON" : isNext ? "NEXT" : "PASS OFF"}
+                      </span>
+                      <span className="text-[10.5px] text-[#6B7684]">{tabLabel}</span>
+                    </div>
+                  </div>
+                  <div className={`v3-col-body ${isNext ? "is-next" : ""} ${isPass ? "is-passed" : ""}`}>
+                    {items.map((d) =>
+                      d.isSkipped ? (
+                        <div key={d.id} className="v3-card is-pass">
+                          PASS
+                          <button
+                            onClick={() => handleDelete(d.id, "PASS")}
+                            className="v3-x"
+                            aria-label="PASS 삭제"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div key={d.id} className="v3-card">
+                          <span className="truncate">{d.clientName}</span>
+                          <button
+                            onClick={() => handleDelete(d.id, d.clientName)}
+                            className="v3-x"
+                            aria-label="삭제"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )
+                    )}
+                    {Array.from({ length: padCount }).map((_, i) => (
+                      <div key={`pad-${i}`} className="v3-card is-empty">—</div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </>
   );
 }
