@@ -16,7 +16,7 @@ type UnpaidClient = {
 export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
   const active = clients.filter((c) => !c.postponedUntil);
   const totalAmount = active.reduce((s, c) => s + c.totalUnpaid, 0);
-  const display = active.slice(0, 14);
+  const display = active.slice(0, 8);
   const remaining = active.length - display.length;
 
   return (

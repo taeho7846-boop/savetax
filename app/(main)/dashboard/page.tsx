@@ -345,35 +345,13 @@ export default async function DashboardPage({
 
   return (
     <div>
-      {/* 히어로: 개인화 인사 + 폰 팝업 버튼 */}
-      {activeTab === "overview" ? (
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <div className="text-[13.5px] text-[#6B7684] font-[500]">
-              {firstName}님, {greeting}
-            </div>
-            <div className="text-[28px] font-bold text-[#191F28] mt-1 tracking-tight leading-[1.3]">
-              {todayTasks.length > 0 ? (
-                <>
-                  오늘 처리할 업무{" "}
-                  <span className="text-[#3182F6]">{todayTasks.length}건</span>
-                  이에요
-                </>
-              ) : (
-                "오늘 할 일을 모두 완료했어요"
-              )}
-            </div>
-          </div>
-          <PhonePopupButton />
+      {/* 히어로: 모든 탭 통일 — 인사말 + 폰 팝업 버튼 (위치 고정) */}
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="text-[13.5px] text-[#6B7684] font-[500]">
+          {firstName}님, {greeting}
         </div>
-      ) : (
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div className="text-[13.5px] text-[#6B7684] font-[500]">
-            {firstName}님, {greeting}
-          </div>
-          <PhonePopupButton />
-        </div>
-      )}
+        <PhonePopupButton />
+      </div>
 
       {/* 서브탭 */}
       <DashboardTabs activeTab={activeTab} tempMemoCount={tempMemosData.length} />
