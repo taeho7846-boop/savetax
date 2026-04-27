@@ -678,10 +678,12 @@
       // → 한 탭에서 인증 + 메뉴 진입을 모두 하던 race가 근본적으로 사라짐.
 
       // 모든 시그널 + cookie 초기화 (이전 세션 잔존 영향 차단)
-      await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent", "savetax_corp_cert", "savetax_corp_reopen", "savetax_corp_next"]);
+      // ★ savetax_corp_reopen_done도 반드시 정리 — 안 그러면 이전 시도의 마커가 살아있어
+      //   IIFE B가 인증서 단계에서 즉시 메뉴 클릭함
+      await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent", "savetax_corp_cert", "savetax_corp_reopen", "savetax_corp_reopen_done", "savetax_corp_next"]);
       document.cookie = "savetax_login_done=; path=/; max-age=0";
       document.cookie = "savetax_agent=; path=/; max-age=0";
-      console.log("SaveTax: " + mode + " - 시그널 초기화 완료");
+      console.log("SaveTax: " + mode + " - 시그널 초기화 완료 (reopen_done 마커 포함)");
 
       // corp_login과 동일하게 agent + reopen flag 저장 + 추가로 corp_next 저장 (새 탭에서 사용)
       const nextAction = mode.replace("corp_", ""); // register | commission | recommission
@@ -712,8 +714,8 @@
   // ============================================================
   if (mode === "corp_login") {
     try {
-      // 이전 세션 시그널 초기화
-      await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent", "savetax_corp_cert", "savetax_corp_reopen"]);
+      // 이전 세션 시그널 초기화 (reopen_done 마커 포함)
+      await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent", "savetax_corp_cert", "savetax_corp_reopen", "savetax_corp_reopen_done", "savetax_corp_next"]);
       console.log("SaveTax: corp_login - 이전 시그널 초기화 완료");
 
       if (await checkLogout()) return;

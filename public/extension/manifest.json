@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "2.1",
+  "version": "2.2",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": ["debugger", "downloads", "notifications", "storage", "scripting", "tabs"],
   "host_permissions": ["http://64.176.227.99/*", "https://hometax.go.kr/*"],
