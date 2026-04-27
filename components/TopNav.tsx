@@ -48,8 +48,10 @@ const CATEGORIES: Category[] = [
     label: "거래처",
     icon: <BuildingIcon width={14} height={14} />,
     subs: [
-      { href: "/clients", label: "고객사관리" },
+      { href: "/clients", label: "기장대리" },
       { href: "/tax-agency", label: "신고대리" },
+      { href: "/distribution", label: "Savetax 배분" },
+      { href: "/distribution-taeho", label: "세무회계태호 배분" },
       { href: "/commission", label: "신규수임" },
       { href: "/receivables", label: "채권관리" },
     ],
@@ -69,9 +71,7 @@ const CATEGORIES: Category[] = [
     label: "정산",
     icon: <BanknoteIcon width={14} height={14} />,
     subs: [
-      { href: "/distribution", label: "Savetax 배분" },
       { href: "/settlement", label: "Savetax 정산" },
-      { href: "/distribution-taeho", label: "세무회계태호 배분" },
       { href: "/revenue", label: "수익추이" },
     ],
   },
