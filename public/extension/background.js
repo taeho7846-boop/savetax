@@ -1,5 +1,59 @@
 // 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
+// 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  if (changes.savetax_login_done && changes.savetax_login_done.newValue) {
+    console.log("SaveTax BG: savetax_login_done 감지!");
+    // 3초 대기 후 처리 (페이지 리로드 완료 대기)
+    setTimeout(async () => {
+      // 가드 1: 기장수임 등 후속 작업이 있으면 건너뛰기
+      const next = await chrome.storage.local.get("savetax_corp_next");
+      if (next.savetax_corp_next) {
+        console.log("SaveTax BG: 후속 작업 있음, reopen 건너뛰기");
+        return;
+      }
+      try {
+        const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
+        // 가드 2: 인증서 popup 탭이 살아있으면 인증 진행 중 — close 절대 안 함
+        const popupTab = tabs.find((t) => t.url && (t.url.includes("popup.html") || t.url.includes("UTECMABA")));
+        if (popupTab) {
+          console.warn("SaveTax BG: 인증서 popup 탭 활성 (인증 진행 중) — close 차단");
+          return;
+        }
+        // 가드 3: 메인 탭에서 인증서 iframe 또는 입력 진행 흔적이 있으면 close 차단
+        const mainTab = tabs.find((t) => t.url && t.url.includes("hometax.go.kr"));
+        if (mainTab?.id) {
+          try {
+            const [r] = await chrome.scripting.executeScript({
+              target: { tabId: mainTab.id },
+              func: () => {
+                const dscert = !!document.querySelector("iframe[name='dscert']");
+                const certPwField = dscert
+                  ? !!document.querySelector("iframe[name='dscert']")?.contentDocument?.querySelector("input[type='password']")
+                  : false;
+                return { dscert, certPwField };
+              },
+            });
+            if (r?.result?.dscert || r?.result?.certPwField) {
+              console.warn("SaveTax BG: 인증서 iframe 활성 — close 차단");
+              return;
+            }
+          } catch {}
+        }
+        for (const tab of tabs) {
+          await chrome.tabs.remove(tab.id);
+        }
+        await chrome.tabs.create({ url: "https://hometax.go.kr" });
+        await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent"]);
+        console.log("SaveTax BG: 법인 로그인 완료 → 탭 닫고 새 탭 열기 완료");
+      } catch (e) {
+        console.error("SaveTax BG: reopen 실패:", e);
+      }
+    }, 3000);
+  }
+});
+
 // 확장 프로그램 시작 시 버전 체크
 const SERVER = "http://64.176.227.99";
 const CHECK_INTERVAL = 60 * 60 * 1000; // 1시간마다
@@ -442,6 +496,203 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     handleFileUpload(msg.files, sender.tab.id)
       .then(result => sendResponse(result))
       .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  // 사업소득 엑셀 → 구글드라이브 업로드
+  if (msg.type === "upload-business-income") {
+    (async () => {
+      try {
+        // 1. 최근 다운로드된 엑셀 찾기
+        const downloads = await chrome.downloads.search({
+          filenameRegex: ".*\\.xlsx$",
+          orderBy: ["-startTime"],
+          limit: 1,
+          state: "complete",
+        });
+
+        if (!downloads || downloads.length === 0) {
+          sendResponse({ ok: false, error: "다운로드된 엑셀 파일을 찾을 수 없습니다" });
+          return;
+        }
+
+        const downloadItem = downloads[0];
+        console.log("SaveTax BG: 엑셀 파일 찾음:", downloadItem.filename);
+
+        // 2. 원본 다운로드 URL로 파일 다시 fetch → base64 변환
+        let base64 = null;
+        const downloadUrl = downloadItem.finalUrl || downloadItem.url;
+
+        if (downloadUrl && !downloadUrl.startsWith("file:")) {
+          try {
+            const res = await fetch(downloadUrl);
+            const blob = await res.blob();
+            const buf = await blob.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            let binary = "";
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            base64 = btoa(binary);
+            console.log("SaveTax BG: 파일 fetch 성공, size:", bytes.length);
+          } catch (e) {
+            console.log("SaveTax BG: URL fetch 실패, content script로 시도:", e.message);
+          }
+        }
+
+        // 3. URL fetch 실패 시 → content script에서 XMLHttpRequest로 시도
+        if (!base64) {
+          // sender 탭에서 다운로드 URL로 fetch 시도
+          try {
+            const [result] = await chrome.scripting.executeScript({
+              target: { tabId: sender.tab.id },
+              func: async (url) => {
+                try {
+                  const res = await fetch(url);
+                  const blob = await res.blob();
+                  return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(",")[1]);
+                    reader.readAsDataURL(blob);
+                  });
+                } catch {
+                  return null;
+                }
+              },
+              args: [downloadUrl],
+            });
+            if (result?.result) {
+              base64 = result.result;
+              console.log("SaveTax BG: content script fetch 성공");
+            }
+          } catch (e) {
+            console.log("SaveTax BG: content script fetch도 실패:", e.message);
+          }
+        }
+
+        if (!base64) {
+          sendResponse({ ok: false, error: "파일을 읽을 수 없습니다. 수동으로 구글드라이브에 업로드해주세요." });
+          return;
+        }
+
+        // 4. 서버 API로 전송
+        const monthPadded = String(msg.month).padStart(2, "0");
+        const uploadRes = await fetch("http://localhost:3000/api/automation/upload-business-income", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientName: msg.clientName,
+            year: msg.year,
+            month: monthPadded,
+            fileBase64: base64,
+            fileName: `${msg.year}년 ${monthPadded}월 사업소득조회_${msg.clientName}.xlsx`,
+          }),
+        });
+        const result = await uploadRes.json();
+        sendResponse(result);
+      } catch (e) {
+        console.error("SaveTax BG: 업로드 실패:", e);
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
+  // 홈택스 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
+
+  if (msg.type === "hometax-reopen") {
+    (async () => {
+      try {
+        // 현재 홈택스 탭 닫기
+        if (sender.tab?.id) {
+          await chrome.tabs.remove(sender.tab.id);
+        }
+        // 새 탭으로 홈택스 열기
+        await chrome.tabs.create({ url: "https://hometax.go.kr" });
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
+  // 일용직 pyautogui 저장
+  if (msg.type === "save-daily-worker") {
+    (async () => {
+      try {
+        const monthPadded = String(msg.month).padStart(2, "0");
+        const res = await fetch("http://localhost:3000/api/automation/save-daily-worker", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientName: msg.clientName,
+            year: msg.year,
+            month: monthPadded,
+          }),
+        });
+        const result = await res.json();
+        sendResponse(result);
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
+  // 위하고 급여명세서 pyautogui 저장
+  if (msg.type === "save-payslip-pdf") {
+    (async () => {
+      try {
+        const res = await fetch("http://localhost:3000/api/automation/save-payslip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientName: msg.clientName,
+            year: msg.year,
+            month: msg.month,
+          }),
+        });
+        const result = await res.json();
+        sendResponse(result);
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
+  // 위하고 급여명세서 PDF 저장 (content script가 보낸 탭에서 직접)
+  if (msg.type === "wehago-print-pdf") {
+    (async () => {
+      try {
+        const tabId = sender.tab?.id;
+        if (!tabId) { sendResponse({ ok: false, error: "탭 ID 없음" }); return; }
+
+        await chrome.debugger.attach({ tabId }, "1.3");
+        const result = await chrome.debugger.sendCommand({ tabId }, "Page.printToPDF", {
+          printBackground: true,
+          preferCSSPageSize: true,
+          paperWidth: 8.27,
+          paperHeight: 11.69,
+        });
+        await chrome.debugger.detach({ tabId });
+
+        const docName = (msg.docName || "급여명세서").replace(/[/\\:*?"<>|]/g, "_");
+        const dataUrl = "data:application/pdf;base64," + result.data;
+
+        await chrome.downloads.download({
+          url: dataUrl,
+          filename: `급여명세서/${docName}.pdf`,
+          conflictAction: "uniquify",
+        });
+
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
     return true;
   }
 });

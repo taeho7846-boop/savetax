@@ -7,7 +7,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     console.log("SaveTax BG: savetax_login_done 감지!");
     // 3초 대기 후 처리 (페이지 리로드 완료 대기)
     setTimeout(async () => {
-      // 기장수임 등 후속 작업이 있으면 건너뛰기
+      // 가드 1: 기장수임 등 후속 작업이 있으면 건너뛰기
       const next = await chrome.storage.local.get("savetax_corp_next");
       if (next.savetax_corp_next) {
         console.log("SaveTax BG: 후속 작업 있음, reopen 건너뛰기");
@@ -15,6 +15,32 @@ chrome.storage.onChanged.addListener((changes, area) => {
       }
       try {
         const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
+        // 가드 2: 인증서 popup 탭이 살아있으면 인증 진행 중 — close 절대 안 함
+        const popupTab = tabs.find((t) => t.url && (t.url.includes("popup.html") || t.url.includes("UTECMABA")));
+        if (popupTab) {
+          console.warn("SaveTax BG: 인증서 popup 탭 활성 (인증 진행 중) — close 차단");
+          return;
+        }
+        // 가드 3: 메인 탭에서 인증서 iframe 또는 입력 진행 흔적이 있으면 close 차단
+        const mainTab = tabs.find((t) => t.url && t.url.includes("hometax.go.kr"));
+        if (mainTab?.id) {
+          try {
+            const [r] = await chrome.scripting.executeScript({
+              target: { tabId: mainTab.id },
+              func: () => {
+                const dscert = !!document.querySelector("iframe[name='dscert']");
+                const certPwField = dscert
+                  ? !!document.querySelector("iframe[name='dscert']")?.contentDocument?.querySelector("input[type='password']")
+                  : false;
+                return { dscert, certPwField };
+              },
+            });
+            if (r?.result?.dscert || r?.result?.certPwField) {
+              console.warn("SaveTax BG: 인증서 iframe 활성 — close 차단");
+              return;
+            }
+          } catch {}
+        }
         for (const tab of tabs) {
           await chrome.tabs.remove(tab.id);
         }
