@@ -884,6 +884,197 @@ export function IncomeTaxTable({
             </div>
           );
         })()
+      ) : stageFilter === "confirm" ? (
+        // ④ 컨펌+보수 전용 레이아웃 (보라톤)
+        (() => {
+          const list = stageClients.confirm;
+          const depositCount = list.filter(c => getRecord(c).depositReceived).length;
+          const adjustmentTotal = sumOf(list, "adjustmentFee");
+          return (
+            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+              <div className="px-4 py-2.5 bg-gradient-to-r from-[#A855F7]/15 via-[#A855F7]/8 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#A855F7] animate-pulse" />
+                  <span className="text-[13px] font-bold text-[#A855F7]">④ 컨펌+보수 — {list.length}건</span>
+                  <span className="text-[11px] text-[#6B7684]">입금 확인 + 신고완료 처리</span>
+                </div>
+                <div className="flex gap-1.5 text-[11px]">
+                  <span className="px-2.5 py-1 bg-[#A855F7] text-white rounded-full font-bold">전체 {list.length}</span>
+                  <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#A855F7]">입금 {depositCount}</span>
+                  <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#A855F7]">미입금 {list.length - depositCount}</span>
+                  <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#A855F7]">조정료 ₩{adjustmentTotal.toLocaleString("ko-KR")}</span>
+                </div>
+              </div>
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-[12px] tabular-nums">
+                  <thead className="bg-white/60 sticky top-0 z-10">
+                    <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
+                      <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[170px]">고객사</th>
+                      <th className="px-2 py-2.5">유형</th>
+                      {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
+                      <th className="px-3 py-2.5 text-right">당기 매출</th>
+                      <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">결정세액</th>
+                      <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">조정료</th>
+                      <th className="px-2 py-2.5 text-center">입금</th>
+                      <th className="px-2 py-2.5 text-center">신고</th>
+                      <th className="px-2 py-2.5 text-center">액션</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/40">
+                    {list.length === 0 ? (
+                      <tr><td colSpan={9 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">컨펌 대기 거래처가 없습니다</td></tr>
+                    ) : list.map(client => {
+                      const r = getRecord(client);
+                      const ft = getFilingTypeBadge(r);
+                      const isSel = selectedClientId === client.id;
+                      const selBg = "rgba(168,85,247,0.12)";
+                      return (
+                        <tr key={client.id} onClick={() => setSelectedClientId(client.id)}
+                          className={`cursor-pointer transition ${isSel ? "" : "hover:bg-[#FAF5FF]/60"}`}
+                          style={isSel ? { background: selBg, borderLeft: "3px solid #A855F7" } : undefined}>
+                          <td className={`px-3 py-2.5 font-bold sticky left-0 z-10 ${isSel ? "" : "bg-white/70"}`} style={isSel ? { background: selBg } : undefined}>
+                            {client.name}
+                            {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          </td>
+                          {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
+                          <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
+                          <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.currTax) || "-"}</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-[#A855F7]">{formatNumber(r.adjustmentFee) || "-"}</td>
+                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => handleToggle(client.id, "depositReceived")} disabled={isPending} title="입금"
+                              className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
+                                r.depositReceived
+                                  ? "bg-[#A855F7] text-white shadow-sm shadow-[#A855F7]/30"
+                                  : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#A855F7]/50 hover:bg-[#A855F7]/10"
+                              }`}>✓</button>
+                          </td>
+                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => handleToggle(client.id, "filingDone")} disabled={isPending} title="신고완료"
+                              className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
+                                r.filingDone
+                                  ? "bg-[#A855F7] text-white shadow-sm shadow-[#A855F7]/30"
+                                  : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#A855F7]/50 hover:bg-[#A855F7]/10"
+                              }`}>✓</button>
+                          </td>
+                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            {r.depositReceived && !r.filingDone ? (
+                              <button onClick={() => handleToggle(client.id, "filingDone")} disabled={isPending}
+                                className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">신고완료</button>
+                            ) : !r.depositReceived ? (
+                              <button onClick={() => setEditClientId(client.id)}
+                                className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">보수청구</button>
+                            ) : (
+                              <button onClick={() => setEditClientId(client.id)}
+                                className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#4E5968] px-2.5 py-1 rounded-lg font-bold hover:bg-white">상세</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-2 bg-white/40 flex items-center justify-between text-[11.5px] text-[#6B7684] border-t border-white/40">
+                <div>{list.length}건 표시 · 입금완료 {depositCount}건 · 미입금 {list.length - depositCount}건</div>
+                <div>💡 입금 ✓ + 신고 ✓ → ⑤ 신고완료 단계로 자동 이동</div>
+              </div>
+            </div>
+          );
+        })()
+      ) : stageFilter === "done" ? (
+        // ⑤ 신고완료 전용 레이아웃 (에메랄드톤)
+        (() => {
+          const list = stageClients.done;
+          const paymentSentCount = list.filter(c => getRecord(c).paymentSent).length;
+          return (
+            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+              <div className="px-4 py-2.5 bg-gradient-to-r from-[#10B981]/15 via-[#10B981]/8 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+                  <span className="text-[13px] font-bold text-[#10B981]">⑤ 신고완료 — {list.length}건</span>
+                  <span className="text-[11px] text-[#6B7684]">시즌 결산 + 납부서 발송</span>
+                </div>
+                <div className="flex gap-1.5 text-[11px]">
+                  <span className="px-2.5 py-1 bg-[#10B981] text-white rounded-full font-bold">완료 {list.length} / {total}</span>
+                  <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#10B981]">납부서 발송 {paymentSentCount}</span>
+                  <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#10B981]">미발송 {list.length - paymentSentCount}</span>
+                </div>
+              </div>
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-[12px] tabular-nums">
+                  <thead className="bg-white/60 sticky top-0 z-10">
+                    <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
+                      <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[170px]">고객사</th>
+                      <th className="px-2 py-2.5">유형</th>
+                      {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
+                      <th className="px-3 py-2.5 text-right">당기 매출</th>
+                      <th className="px-3 py-2.5 text-right bg-[#10B981]/10">신고세액</th>
+                      <th className="px-3 py-2.5 text-right bg-[#10B981]/10">조정료</th>
+                      <th className="px-2 py-2.5 text-center">납부서</th>
+                      <th className="px-2 py-2.5 text-center">액션</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/40">
+                    {list.length === 0 ? (
+                      <tr><td colSpan={8 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">신고완료된 거래처가 없습니다</td></tr>
+                    ) : list.map(client => {
+                      const r = getRecord(client);
+                      const ft = getFilingTypeBadge(r);
+                      const isSel = selectedClientId === client.id;
+                      const selBg = "rgba(16,185,129,0.12)";
+                      const taxNum = r.currTax ? parseInt(r.currTax) : null;
+                      const isRefund = taxNum !== null && !isNaN(taxNum) && taxNum < 0;
+                      return (
+                        <tr key={client.id} onClick={() => setSelectedClientId(client.id)}
+                          className={`cursor-pointer transition ${isSel ? "" : "hover:bg-[#F0FDF4]/60"}`}
+                          style={isSel ? { background: selBg, borderLeft: "3px solid #10B981" } : undefined}>
+                          <td className={`px-3 py-2.5 font-bold sticky left-0 z-10 ${isSel ? "" : "bg-white/70"}`} style={isSel ? { background: selBg } : undefined}>
+                            <div className="flex items-center gap-1.5">
+                              <span>{client.name}</span>
+                              {isRefund && <span title="환급" className="text-[9px] bg-[#3182F6]/15 text-[#3182F6] px-1.5 py-0.5 rounded font-bold">↩ 환급</span>}
+                            </div>
+                            {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          </td>
+                          {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
+                          <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
+                          <td className={`px-3 py-2.5 text-right font-bold ${isRefund ? "text-[#3182F6]" : "text-[#10B981]"}`}>{formatNumber(r.currTax) || "-"}</td>
+                          <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.adjustmentFee) || "-"}</td>
+                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => handleToggle(client.id, "paymentSent")} disabled={isPending} title="납부서 발송"
+                              className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
+                                r.paymentSent
+                                  ? "bg-[#10B981] text-white shadow-sm shadow-[#10B981]/30"
+                                  : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#10B981]/50 hover:bg-[#10B981]/10"
+                              }`}>✓</button>
+                          </td>
+                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            {!r.paymentSent ? (
+                              <button onClick={() => handleToggle(client.id, "paymentSent")} disabled={isPending}
+                                className="text-[10.5px] bg-[#10B981] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#059669]">납부서 발송</button>
+                            ) : (
+                              <button onClick={() => setEditClientId(client.id)}
+                                className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#4E5968] px-2.5 py-1 rounded-lg font-bold hover:bg-white">영수증</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-2 bg-white/40 flex items-center justify-between text-[11.5px] text-[#6B7684] border-t border-white/40">
+                <div>{list.length}건 완료 · 납부서 발송 {paymentSentCount}건 · 미발송 {list.length - paymentSentCount}건</div>
+                <div>💡 납부서 ✓ → 시즌 종결 · 영수증 자동 보관</div>
+              </div>
+            </div>
+          );
+        })()
       ) : (
       <div className="flex-1 overflow-auto glass rounded-2xl">
         <table className="text-xs whitespace-nowrap">
