@@ -9,22 +9,10 @@ export async function GET(req: NextRequest) {
 
     const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
 
-    const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
-    let assignedFilter: any = { assignedUserId: session.id };
-    if (isManager) {
-      const employees = await prisma.user.findMany({
-        where: { managerId: session.id, isActive: true },
-        select: { id: true },
-      });
-      const userIds = [session.id, ...employees.map((e) => e.id)];
-      assignedFilter = { assignedUserId: { in: userIds } };
-    }
-
-    // 거래처 검색
-    const clients = await prisma.client.findMany({
+    // 거래처 검색 — 모든 거래처 노출 (담당자 이름으로 구분)
+    const rawClients = await prisma.client.findMany({
       where: {
         isDeleted: false,
-        ...assignedFilter,
         ...(q
           ? {
               OR: [
@@ -41,10 +29,28 @@ export async function GET(req: NextRequest) {
         ceoName: true,
         bizNumber: true,
         clientType: true,
+        assignedUserId: true,
+        assignedUser: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            manager: { select: { id: true, name: true, role: true } },
+          },
+        },
       },
       orderBy: { name: "asc" },
-      take: 20,
+      take: 60,
     });
+
+    // 본인 담당 거래처 먼저 노출 + 상위 30개
+    const clients = [...rawClients]
+      .sort((a, b) => {
+        const aMine = a.assignedUserId === session.id ? 0 : 1;
+        const bMine = b.assignedUserId === session.id ? 0 : 1;
+        return aMine - bMine;
+      })
+      .slice(0, 30);
 
     // 북마크 검색 (공통 + 본인 개인)
     let bookmarks: any[] = [];

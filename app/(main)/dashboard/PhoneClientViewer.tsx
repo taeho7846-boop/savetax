@@ -25,6 +25,13 @@ import { getSchedules } from "@/app/actions/schedule";
 
 type AppIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
+type AssignedUserMini = {
+  id: number;
+  name: string;
+  role: string;
+  manager: { id: number; name: string; role: string } | null;
+} | null;
+
 type ClientMini = {
   id: number;
   name: string;
@@ -32,7 +39,18 @@ type ClientMini = {
   ceoName: string | null;
   phone: string | null;
   laborTypes?: string | null;
+  assignedUserId?: number | null;
+  assignedUser?: AssignedUserMini;
 };
+
+// 담당자 표시 — 직원 담당이면 '세무사 · 직원', 세무사 직접이면 이름만, 미지정이면 null
+function formatPhoneAssignee(au: AssignedUserMini): string | null {
+  if (!au) return null;
+  if (au.role === "employee" && au.manager) {
+    return `${au.manager.name} 세무사 · ${au.name}`;
+  }
+  return au.name;
+}
 
 // 검색용 외부 사이트 — 세무대리인 홈택스 로그인만 (나머지는 사용자 북마크에서 처리)
 type BuiltinSite = {
@@ -1189,8 +1207,21 @@ function SearchView({
                           active ? "bg-[#E8F3FF]" : "hover:bg-[#F9FAFB]"
                         }`}
                       >
-                        <div className={`text-[13px] font-bold truncate ${active ? "text-[#1B64DA]" : "text-[#191F28]"}`}>
-                          {c.name}
+                        <div className="flex items-center gap-1.5">
+                          <div className={`text-[13px] font-bold truncate ${active ? "text-[#1B64DA]" : "text-[#191F28]"}`}>
+                            {c.name}
+                          </div>
+                          {(() => {
+                            const label = formatPhoneAssignee(c.assignedUser ?? null);
+                            if (!label) return null;
+                            return (
+                              <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0 ${
+                                active ? "bg-white text-[#1B64DA]" : "bg-[#EEF4FF] text-[#3182F6]"
+                              }`}>
+                                {label}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="text-[10.5px] text-[#8B95A1] mt-0.5 truncate tabular-nums">
                           {c.ceoName ? `${c.ceoName} · ` : ""}

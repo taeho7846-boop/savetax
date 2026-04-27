@@ -7,13 +7,32 @@ import { IncomeTaxCalcModal } from "./IncomeTaxCalcModal";
 import { BizTaxCalcModal } from "./BizTaxCalcModal";
 import { BuildingIcon } from "@/components/icons";
 
+type AssignedUserInfo = {
+  id: number;
+  name: string;
+  role: string;
+  manager: { id: number; name: string; role: string } | null;
+} | null;
+
 type ClientResult = {
   id: number;
   name: string;
   ceoName: string | null;
   bizNumber: string | null;
   clientType: string;
+  assignedUserId: number | null;
+  assignedUser: AssignedUserInfo;
 };
+
+// 담당자 표시 텍스트 — 직원 담당이면 '세무사 이름 / 직원 이름', 세무사 직접 담당이면 '세무사 이름', 미지정이면 '미지정'
+function formatAssignee(au: AssignedUserInfo): { label: string; tone: "self" | "other" | "none" } {
+  if (!au) return { label: "담당 미지정", tone: "none" };
+  const isStaff = au.role === "employee";
+  if (isStaff && au.manager) {
+    return { label: `${au.manager.name} 세무사 · ${au.name}`, tone: "other" };
+  }
+  return { label: au.name, tone: "other" };
+}
 
 type BookmarkResult = {
   id: number;
@@ -585,7 +604,9 @@ export function GlobalSearch() {
                       거래처 <span className="text-[#B0B8C1] font-normal ml-1">Space로 액션 선택</span>
                     </span>
                   }>
-                    {clients.map((client) => (
+                    {clients.map((client) => {
+                      const assignee = formatAssignee(client.assignedUser);
+                      return (
                       <Command.Item
                         key={client.id}
                         value={`${client.name}-${client.id}`}
@@ -597,7 +618,18 @@ export function GlobalSearch() {
                           {client.clientType === "corporate" ? "법" : "개"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{client.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{client.name}</span>
+                            <span
+                              className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0 ${
+                                assignee.tone === "none"
+                                  ? "bg-[#F2F4F6] text-[#8B95A1] group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white/70"
+                                  : "bg-[#EEF4FF] text-[#3182F6] group-data-[selected=true]:bg-white/25 group-data-[selected=true]:text-white"
+                              }`}
+                            >
+                              {assignee.label}
+                            </span>
+                          </div>
                           <div className="text-xs text-[#8B95A1] group-data-[selected=true]:text-white/60 truncate">
                             {[client.ceoName, client.bizNumber].filter(Boolean).join(" · ")}
                           </div>
@@ -611,7 +643,8 @@ export function GlobalSearch() {
                           </svg>
                         </div>
                       </Command.Item>
-                    ))}
+                      );
+                    })}
                   </Command.Group>
                 )}
               </>
