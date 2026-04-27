@@ -16,7 +16,7 @@ type UnpaidClient = {
 export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
   const active = clients.filter((c) => !c.postponedUntil);
   const totalAmount = active.reduce((s, c) => s + c.totalUnpaid, 0);
-  const display = active.slice(0, 8);
+  const display = active.slice(0, 16);
   const remaining = active.length - display.length;
 
   return (
@@ -47,7 +47,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
             {display.map((client) => (
               <Link
                 key={client.id}
