@@ -1,3 +1,17 @@
+// suppress-alert.js(MAIN)가 설정한 savetax_login_done 쿠키 감시 → chrome.storage로 전달
+(function watchLoginDoneCookie() {
+  const interval = setInterval(() => {
+    const match = document.cookie.match(/savetax_login_done=([^;]+)/);
+    if (match) {
+      clearInterval(interval);
+      document.cookie = "savetax_login_done=; path=/; max-age=0";
+      chrome.storage.local.set({ savetax_login_done: Date.now() });
+      console.log("SaveTax: login_done 쿠키 감지 → chrome.storage 전달");
+    }
+  }, 500);
+  setTimeout(() => clearInterval(interval), 120000);
+})();
+
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
 (async function () {
   // 팝업 페이지에서만 실행 (popup.html)
@@ -170,11 +184,10 @@
     // 로그인 버튼
     const loginBtn = document.getElementById("mf_txppWframe_trigger41");
     if (loginBtn) {
-      // 로그인 완료 시그널 먼저 저장
-      await chrome.storage.local.set({ savetax_login_done: true });
-      console.log("SaveTax: [법인] 로그인 완료 시그널 storage 저장");
+      // storage에 완료 시그널 저장 (타임스탬프) → background.js가 onChanged로 감지
+      await chrome.storage.local.set({ savetax_login_done: Date.now() });
+      console.log("SaveTax: [법인] 관리번호 로그인 클릭 (background.js가 탭 처리)");
       loginBtn.click();
-      console.log("SaveTax: [법인] 로그인 클릭");
     }
   } catch (e) {
     console.error("SaveTax: [법인] 관리번호 입력 실패:", e);
@@ -187,15 +200,31 @@
   let nextData = null;
   for (let i = 0; i < 90; i++) {
     await new Promise(r => setTimeout(r, 1000));
-    if (!document.cookie.includes("savetax_login_done")) continue;
+    const loginDone = await chrome.storage.local.get("savetax_login_done");
+    if (!loginDone.savetax_login_done) continue;
     const s = await chrome.storage.local.get("savetax_corp_next");
     if (!s.savetax_corp_next) continue;
     nextData = s.savetax_corp_next;
     break;
   }
   if (!nextData) return;
-  await new Promise(r => setTimeout(r, 3000));
-  document.cookie = "savetax_login_done=; path=/; max-age=0";
+  // 관리번호 로그인 완료 + 페이지 안정화 대기 — 4·5번 동시 진행 race 방지
+  // 세무대리 메뉴 ID 등장을 기준으로 다음 액션 시작 시점 결정
+  let menuReady = false;
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    if (document.getElementById("mf_wfHeader_wq_uuid_619")) {
+      menuReady = true;
+      break;
+    }
+  }
+  if (menuReady) {
+    console.log("SaveTax: [법인] 세무대리 메뉴 감지, 페이지 안정화 완료");
+    await new Promise(r => setTimeout(r, 1500));
+  } else {
+    console.warn("SaveTax: [법인] 세무대리 메뉴 등장 타임아웃 (30초) — 그래도 진행 시도");
+  }
+  await chrome.storage.local.remove("savetax_login_done");
   chrome.storage.local.remove("savetax_corp_next");
   console.log("SaveTax: [법인] 로그인 완료 확인, 다음 액션 시작");
 
@@ -619,6 +648,10 @@
       if (creds.certPw) {
         await doCert(creds.certName, creds.certPw);
       }
+
+      // 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
+      await new Promise(r => setTimeout(r, 500));
+      chrome.runtime.sendMessage({ type: "hometax-reopen" });
     } catch (e) {
       console.error("SaveTax 자동 로그인 실패:", e);
     }
@@ -633,7 +666,6 @@
       if (await checkLogout()) return;
 
       // 이전 시그널 초기화
-      document.cookie = "savetax_login_done=; path=/; max-age=0";
       await chrome.storage.local.remove(["savetax_corp_next", "savetax_login_done", "savetax_corp_agent"]);
 
       // 로그인 후 이어서 할 작업을 chrome.storage에 저장
@@ -664,6 +696,10 @@
   // ============================================================
   if (mode === "corp_login") {
     try {
+      // 이전 세션 시그널 초기화
+      await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent", "savetax_corp_cert", "savetax_corp_reopen"]);
+      console.log("SaveTax: corp_login - 이전 시그널 초기화 완료");
+
       if (await checkLogout()) return;
 
       // 1. suppress-alert.js(MAIN, document_start)가 hash에서 이미 cookie 설정 완료
@@ -672,13 +708,17 @@
         savetax_corp_agent: {
           agentNumber: creds.agentNumber,
           agentPw: creds.agentPw || creds.pw,
-        }
+        },
+        savetax_corp_reopen: true,
       });
       console.log("SaveTax: corp_login - agent 정보 storage 저장:", creds.agentNumber);
 
       // 2. 아이디/비밀번호 로그인
       await doLogin(creds.id, creds.pw);
       console.log("SaveTax: corp_login - 로그인 완료");
+
+      // 관리번호 로그인 완료 후 reopen은 관리번호 입력 코드에서 처리
+      console.log("SaveTax: corp_login - ID/PW 로그인 완료, 인증서+관리번호는 페이지 리로드 후 처리");
 
     } catch (e) {
       console.error("SaveTax 법인 로그인 실패:", e);

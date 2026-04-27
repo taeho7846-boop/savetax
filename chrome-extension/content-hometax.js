@@ -208,7 +208,22 @@
     break;
   }
   if (!nextData) return;
-  await new Promise(r => setTimeout(r, 3000));
+  // 관리번호 로그인 완료 + 페이지 안정화 대기 — 4·5번 동시 진행 race 방지
+  // 세무대리 메뉴 ID 등장을 기준으로 다음 액션 시작 시점 결정
+  let menuReady = false;
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    if (document.getElementById("mf_wfHeader_wq_uuid_619")) {
+      menuReady = true;
+      break;
+    }
+  }
+  if (menuReady) {
+    console.log("SaveTax: [법인] 세무대리 메뉴 감지, 페이지 안정화 완료");
+    await new Promise(r => setTimeout(r, 1500));
+  } else {
+    console.warn("SaveTax: [법인] 세무대리 메뉴 등장 타임아웃 (30초) — 그래도 진행 시도");
+  }
   await chrome.storage.local.remove("savetax_login_done");
   chrome.storage.local.remove("savetax_corp_next");
   console.log("SaveTax: [법인] 로그인 완료 확인, 다음 액션 시작");
