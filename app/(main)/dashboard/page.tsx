@@ -434,10 +434,13 @@ export default async function DashboardPage({
           {/* 알림 스트립 제거 — CMS 미등록은 미수납 카드 칩으로, 이관은 오늘의 업무에, 신규배분은 헤더 종 아이콘 뱃지로 이동 */}
           <div className="mb-2" />
 
-          {/* 풀 너비: 폰 뷰어는 헤더 버튼으로 별도 창에서 사용 */}
-          <div className="space-y-6 min-w-0">
-            {/* 오늘의 업무 — 인터랙티브 */}
-            <TodayTasksCard items={todayTasks} />
+          {/* 위젯 그리드 — 세로 스크롤 최소화 */}
+          <div className="space-y-4 min-w-0">
+            {/* 오늘의 업무 + 미수납 (50/50) */}
+            <div className="grid grid-cols-2 gap-4 items-start">
+              <TodayTasksCard items={todayTasks} />
+              <UnpaidCard clients={unpaidClients} />
+            </div>
 
             {/* 프로세스 카드 3-col */}
             <div className="grid grid-cols-3 gap-4">
@@ -445,9 +448,6 @@ export default async function DashboardPage({
               <DataCollectCard items={dataCollectItems} />
               <ExcludeRequestCard items={excludeItems} />
             </div>
-
-            {/* 미수납 (내부에 미루기 중 포함) */}
-            <UnpaidCard clients={unpaidClients} />
           </div>
 
         </>

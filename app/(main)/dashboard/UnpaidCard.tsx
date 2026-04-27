@@ -47,7 +47,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {display.map((client) => (
               <Link
                 key={client.id}

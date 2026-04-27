@@ -129,35 +129,37 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
           const labelText = dayMatch ? item.label.replace(/\s*\(D\+\d+\)$/, "") : item.label;
           const isUrgent = dayNum && parseInt(dayNum) >= 7;
           return (
-            <div key={`${item.type}-${item.commissionId}-${i}`} className="bg-white/60 hover:bg-white/80 rounded-2xl px-4 py-3 flex items-center gap-3 transition-colors">
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 ${
-                item.type === "happycall" ? "bg-[#E8F3FF] text-[#1B64DA]" : item.type === "transfer" ? "bg-[#FFFBEB] text-[#B45309]" : "bg-[#FFFBEB] text-[#92400e]"
-              }`}>
-                {item.type === "happycall" ? "해피콜" : item.type === "transfer" ? "이관자료" : "자료수집"}
-              </span>
-              <Link href="/commission" className="text-[14px] font-bold text-[#191F28] hover:text-[#3182F6] truncate max-w-[220px] shrink-0">
-                {item.clientName}
-              </Link>
-              <span className="text-[12.5px] text-[#6B7684] whitespace-nowrap shrink-0 font-[500]">{labelText}</span>
-              {dayNum && (
-                <span className={`text-[12px] font-bold whitespace-nowrap shrink-0 ${isUrgent ? "text-[#DC2626]" : "text-[#D97706]"}`}>
-                  D+{dayNum}
+            <div key={`${item.type}-${item.commissionId}-${i}`} className="bg-white/60 hover:bg-white/80 rounded-2xl px-4 py-2.5 transition-colors">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={`text-[10.5px] px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 ${
+                  item.type === "happycall" ? "bg-[#E8F3FF] text-[#1B64DA]" : item.type === "transfer" ? "bg-[#FFFBEB] text-[#B45309]" : "bg-[#FFFBEB] text-[#92400e]"
+                }`}>
+                  {item.type === "happycall" ? "해피콜" : item.type === "transfer" ? "이관자료" : "자료수집"}
                 </span>
-              )}
-              <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                <Link href="/commission" className="text-[13.5px] font-bold text-[#191F28] hover:text-[#3182F6] truncate flex-1 min-w-0">
+                  {item.clientName}
+                </Link>
+                {dayNum && (
+                  <span className={`text-[11.5px] font-bold whitespace-nowrap shrink-0 ${isUrgent ? "text-[#DC2626]" : "text-[#D97706]"}`}>
+                    D+{dayNum}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11.5px] text-[#6B7684] truncate flex-1 min-w-0 font-[500]">{labelText}</span>
                 <button
                   onClick={() => setPostponeTarget({ commissionId: item.commissionId, clientName: item.clientName })}
-                  className="text-[11.5px] px-2.5 py-1.5 rounded-[8px] bg-white/70 text-[#6B7684] hover:bg-white hover:text-[#191F28] whitespace-nowrap inline-flex items-center gap-1 font-[500] transition-colors"
+                  className="text-[10.5px] px-2 py-1 rounded-[6px] bg-white/70 text-[#6B7684] hover:bg-white hover:text-[#191F28] whitespace-nowrap inline-flex items-center gap-0.5 font-[500] transition-colors shrink-0"
                   title="미루기"
                 >
-                  <ClockIcon width={12} height={12} />
+                  <ClockIcon width={11} height={11} />
                   미루기
                 </button>
                 {item.type === "datacollect" && (
                   <button
                     onClick={() => handleDataRequest(item.commissionId)}
                     disabled={isPending}
-                    className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50 whitespace-nowrap font-bold transition-colors"
+                    className="text-[10.5px] px-2.5 py-1 rounded-[6px] bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50 whitespace-nowrap font-bold transition-colors shrink-0"
                   >
                     요청완료
                   </button>
@@ -166,13 +168,13 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
                   <button
                     onClick={() => { startTransition(async () => { await markTransferRequested(item.commissionId); router.refresh(); }); }}
                     disabled={isPending}
-                    className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-[#D97706] text-white hover:bg-[#B45309] disabled:opacity-50 whitespace-nowrap font-bold transition-colors"
+                    className="text-[10.5px] px-2.5 py-1 rounded-[6px] bg-[#D97706] text-white hover:bg-[#B45309] disabled:opacity-50 whitespace-nowrap font-bold transition-colors shrink-0"
                   >
                     요청완료
                   </button>
                 )}
                 {item.type === "happycall" && (
-                  <Link href="/commission" className="text-[11.5px] px-3 py-1.5 rounded-[8px] bg-white/70 text-[#4E5968] hover:bg-white hover:text-[#191F28] whitespace-nowrap font-bold transition-colors">
+                  <Link href="/commission" className="text-[10.5px] px-2.5 py-1 rounded-[6px] bg-white/70 text-[#4E5968] hover:bg-white hover:text-[#191F28] whitespace-nowrap font-bold transition-colors shrink-0">
                     신규수임 →
                   </Link>
                 )}
