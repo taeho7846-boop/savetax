@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { logout } from "@/app/actions/auth";
+import { TransferDocsCard } from "@/app/(main)/dashboard/TransferDocsCard";
 import {
   LayoutDashboardIcon,
   BuildingIcon,
@@ -168,8 +169,9 @@ export default function TopNav({
           </div>
         </div>
 
-        {/* 우: 검색 + 알림 + 프로필 */}
+        {/* 우: 이관자료 + 검색 + 알림 + 프로필 */}
         <div className="glass-strong rounded-2xl px-2 py-2 flex items-center gap-1.5">
+          <TransferDocsBell />
           <SearchPill />
           <NotificationBell notifications={notifications} />
           <ProfileMenu user={user} settings={settings} />
@@ -454,6 +456,74 @@ function NotificationBell({ notifications }: { notifications: Notifications }) {
               )}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TransferDocsBell() {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState<number | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 마운트 시 신규 이관자료 카운트 조회
+  useEffect(() => {
+    fetch("/api/transfer-docs")
+      .then((r) => r.json())
+      .then((d) => setCount((d.pending ?? []).length))
+      .catch(() => setCount(0));
+  }, []);
+
+  // 외부 클릭 시 닫기
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  function cancelClose() {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }
+  function scheduleClose() {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(false), 250);
+  }
+
+  return (
+    <div
+      className="relative"
+      ref={ref}
+      onMouseEnter={() => { cancelClose(); setOpen(true); }}
+      onMouseLeave={scheduleClose}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="px-2.5 h-9 rounded-xl flex items-center gap-1.5 text-[12px] font-bold text-[#6B7684] hover:text-[#3182F6] hover:bg-white/60 transition border border-[#E5E8EB]/70 bg-white/40"
+        title="이관자료 (호버 또는 클릭)"
+      >
+        <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 8v13H3V8" />
+          <path d="M1 3h22v5H1z" />
+          <path d="M10 12h4" />
+        </svg>
+        <span>이관자료</span>
+        {count !== null && count > 0 && (
+          <span className="min-w-[16px] h-[16px] px-1 rounded-full bg-[#DC2626] text-white text-[9.5px] font-bold flex items-center justify-center leading-none">
+            {count > 99 ? "99+" : count}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-[540px] max-h-[640px] overflow-y-auto glass-strong rounded-2xl shadow-2xl z-40 p-3">
+          <TransferDocsCard />
         </div>
       )}
     </div>
