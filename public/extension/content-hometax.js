@@ -203,20 +203,21 @@
 })();
 
 // 법인 로그인 완료 후 다음 액션 실행 (register/commission/recommission)
-// 트리거: savetax_corp_next 존재 + 세무대리 메뉴 등장
-// (corp_login과 동일하게 reopen된 새 탭에서 동작 — login_done 시그널과 무관하게 corp_next만 보고 진행)
+// 트리거: corp_next + corp_reopen_done(background reopen 마커) + 세무대리 메뉴 등장
+// → reopen된 새 탭에서만 진행. 같은 탭 race 차단.
 (async function () {
-  // savetax_corp_next storage 폴링 (180초 — reopen 시간 여유)
+  // 1) corp_next + corp_reopen_done 폴링 (180초 — 인증서/관리번호/reopen까지 시간 여유)
   let nextData = null;
   for (let i = 0; i < 180; i++) {
     await new Promise(r => setTimeout(r, 1000));
-    const s = await chrome.storage.local.get("savetax_corp_next");
-    if (!s.savetax_corp_next) continue;
+    const s = await chrome.storage.local.get(["savetax_corp_next", "savetax_corp_reopen_done"]);
+    if (!s.savetax_corp_next || !s.savetax_corp_reopen_done) continue;
     nextData = s.savetax_corp_next;
     break;
   }
   if (!nextData) return;
-  // 세무대리 메뉴 등장 폴링 (관리번호 로그인 완료 + reopen 후 hometax 메인 페이지 안정화 대기)
+  console.log("SaveTax: [법인] reopen_done 마커 + corp_next 발견, 메뉴 등장 대기");
+  // 2) 세무대리 메뉴 등장 폴링 (페이지 안정화)
   let menuReady = false;
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 1000));
@@ -231,7 +232,8 @@
   }
   console.log("SaveTax: [법인] 세무대리 메뉴 감지, 페이지 안정화 완료");
   await new Promise(r => setTimeout(r, 1500));
-  await chrome.storage.local.remove("savetax_corp_next");
+  // 다음 액션 시작 직전에만 corp_next + reopen_done 정리 (성공 시에만)
+  await chrome.storage.local.remove(["savetax_corp_next", "savetax_corp_reopen_done"]);
   console.log("SaveTax: [법인] 다음 액션 시작");
 
   // 관리번호 로그인이 완료될 때까지 대기 (세무대리인 메뉴가 보이면 완료)

@@ -1,42 +1,46 @@
 // 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
-// 법인 관리번호 로그인 완료 감지 → 탭 닫고 새 탭 (corp_login + corp_register/commission/recommission 통합 흐름)
-// corp_next는 절대 remove 안 함 — reopen 후 새 탭의 IIFE가 corp_next 보고 메뉴 진입
+// 법인 관리번호 로그인 완료 감지 → 모든 hometax 탭 close + 새 탭 open
+// 사용자 통찰: 관리번호까지 끝나면 무조건 reopen, 후속 작업(register 등)은 새 탭에서만 진행
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes.savetax_login_done && changes.savetax_login_done.newValue) {
     console.log("SaveTax BG: savetax_login_done 감지!");
-    // 3초 대기 후 처리 (페이지 리로드 완료 대기)
     setTimeout(async () => {
       try {
         const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
-        // 안전 가드: 인증서 진행 중이면 close 차단 (인증서 단계 잘못된 시그널 발동 보호)
+        // 안전 가드: 인증서 popup 탭이 살아있으면(인증 *진행 중*) close 차단
         const popupTab = tabs.find((t) => t.url && (t.url.includes("popup.html") || t.url.includes("UTECMABA")));
         if (popupTab) {
           console.warn("SaveTax BG: 인증서 popup 탭 활성 — close 차단");
           return;
         }
+        // dscert iframe은 가시성 검사 — display:none(이미 끝난 상태)이면 차단 안 함
         const mainTab = tabs.find((t) => t.url && t.url.includes("hometax.go.kr"));
         if (mainTab?.id) {
           try {
             const [r] = await chrome.scripting.executeScript({
               target: { tabId: mainTab.id },
-              func: () => !!document.querySelector("iframe[name='dscert']"),
+              func: () => {
+                const f = document.querySelector("iframe[name='dscert']");
+                return !!f && f.offsetParent !== null;
+              },
             });
             if (r?.result) {
-              console.warn("SaveTax BG: 인증서 iframe 활성 — close 차단");
+              console.warn("SaveTax BG: 인증서 iframe 가시 상태 — close 차단");
               return;
             }
           } catch {}
         }
-        // 정상 reopen
+        // reopen 진행 — 모든 hometax 탭 닫고 새 탭 열기. corp_next는 절대 remove 안 함.
         for (const tab of tabs) {
           await chrome.tabs.remove(tab.id);
         }
         await chrome.tabs.create({ url: "https://hometax.go.kr" });
-        // corp_next는 보존 — 새 탭의 IIFE가 사용 후 자체 remove
+        // reopen_done 마커: 새 탭에서만 후속 IIFE가 작동하도록. 같은 탭 race 차단.
+        await chrome.storage.local.set({ savetax_corp_reopen_done: Date.now() });
         await chrome.storage.local.remove(["savetax_login_done", "savetax_corp_agent"]);
-        console.log("SaveTax BG: 법인 로그인 완료 → reopen (corp_next 보존)");
+        console.log("SaveTax BG: 법인 로그인 완료 → reopen + reopen_done 마커 set");
       } catch (e) {
         console.error("SaveTax BG: reopen 실패:", e);
       }
