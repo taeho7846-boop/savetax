@@ -344,16 +344,17 @@ model Memo {
 }
 
 model Distribution {
-  id             Int       @id @default(autoincrement())
-  clientName     String
-  clientType     String
-  assignedUserId Int
-  batchId        String?
-  createdAt      DateTime  @default(now())
-  isSkipped      Boolean   @default(false)
-  excludeReason  String?
-  confirmedAt    DateTime?
-  assignedUser   User      @relation("distributions", fields: [assignedUserId], references: [id])
+  id                       Int       @id @default(autoincrement())
+  clientName               String
+  clientType               String
+  assignedUserId           Int
+  batchId                  String?
+  createdAt                DateTime  @default(now())
+  isSkipped                Boolean   @default(false)
+  excludeReason            String?
+  confirmedAt              DateTime?
+  clientMissingDismissedAt DateTime?
+  assignedUser             User      @relation("distributions", fields: [assignedUserId], references: [id])
 }
 
 model DistributionPass {

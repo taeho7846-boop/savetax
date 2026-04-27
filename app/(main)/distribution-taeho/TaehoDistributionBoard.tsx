@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addTaehoDistribution, deleteTaehoDistribution, toggleTaehoPass, permanentDeleteTaehoDistribution, restoreTaehoDistribution, assignFromSavetax } from "@/app/actions/distribution-taeho";
+import { dismissMissingClient } from "@/app/actions/distribution";
 
 interface Accountant {
   id: number;
@@ -111,6 +112,14 @@ export function TaehoDistributionBoard({
     });
   }
 
+  function handleDismissMissing(id: number, name: string) {
+    if (!confirm(`'${name}'은(는) 기장대리에 있는 거래처와 같은 곳인가요?\n빨간 표시를 끄겠습니다 (띄어쓰기 차이 등 false positive 정리).`)) return;
+    startTransition(async () => {
+      await dismissMissingClient(id);
+      router.refresh();
+    });
+  }
+
   // 세무사별 거래처 그룹핑
   const byAccountant: Record<number, Distribution[]> = {};
   for (const a of accountants) byAccountant[a.id] = [];
@@ -170,12 +179,14 @@ export function TaehoDistributionBoard({
                       <div className="inline-flex items-center gap-1.5">
                         <span>{d.clientName}</span>
                         {d.isClientMissing && (
-                          <span
-                            className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] whitespace-nowrap"
-                            title="기장대리 탭에 없는 거래처 — 삭제 후보"
+                          <button
+                            onClick={() => handleDismissMissing(d.id, d.clientName)}
+                            disabled={isPending}
+                            className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] whitespace-nowrap hover:bg-[#FECACA] cursor-pointer disabled:opacity-50 inline-flex items-center gap-0.5"
+                            title="클릭 시 빨간 표시 끄기 (띄어쓰기 차이 등 false positive)"
                           >
-                            기장 X
-                          </span>
+                            기장 X <span className="text-[8.5px]">✓</span>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -377,11 +388,17 @@ export function TaehoDistributionBoard({
                               key={d.id}
                               className="v3-card"
                               style={d.isClientMissing ? { background: "rgba(239, 68, 68, 0.08)", borderColor: "rgba(239, 68, 68, 0.4)" } : undefined}
-                              title={d.isClientMissing ? "기장대리 탭에 없는 거래처 — 삭제 후보" : undefined}
                             >
                               <span className="truncate flex items-center gap-1.5">
                                 {d.isClientMissing && (
-                                  <span className="text-[9px] font-bold text-[#DC2626] shrink-0">●</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDismissMissing(d.id, d.clientName); }}
+                                    disabled={isPending}
+                                    className="text-[10px] font-bold text-[#DC2626] shrink-0 hover:text-[#16A34A] disabled:opacity-50 cursor-pointer leading-none"
+                                    title="클릭 시 빨간 표시 끄기 (띄어쓰기 차이 등 false positive)"
+                                  >
+                                    ●
+                                  </button>
                                 )}
                                 <span className="truncate">{d.clientName}</span>
                               </span>

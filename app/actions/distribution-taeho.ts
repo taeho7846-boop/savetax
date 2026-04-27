@@ -5,8 +5,8 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendSlackDM } from "@/lib/slack";
 
-// 활성 거래처(기장대리 탭)에 없는 배분 항목 표시용
-async function annotateMissingClients<T extends { clientName: string; isSkipped: boolean }>(
+// 활성 거래처(기장대리 탭)에 없는 배분 항목 표시용 (dismissed 항목은 missing 표시 제외)
+async function annotateMissingClients<T extends { clientName: string; isSkipped: boolean; clientMissingDismissedAt: Date | null }>(
   distributions: T[],
 ): Promise<(T & { isClientMissing: boolean })[]> {
   const activeClients = await prisma.client.findMany({
@@ -18,6 +18,7 @@ async function annotateMissingClients<T extends { clientName: string; isSkipped:
     ...d,
     isClientMissing:
       !d.isSkipped &&
+      !d.clientMissingDismissedAt &&
       d.clientName !== "PASS" &&
       d.clientName !== "-" &&
       !activeNameSet.has(d.clientName),
