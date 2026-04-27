@@ -10,27 +10,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
       try {
         const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
         // 안전 가드: 인증서 popup 탭이 살아있으면(인증 *진행 중*) close 차단
+        // dscert iframe 가드는 false positive(hidden iframe도 잡음)로 제거 — popup 탭 가드로 충분
         const popupTab = tabs.find((t) => t.url && (t.url.includes("popup.html") || t.url.includes("UTECMABA")));
         if (popupTab) {
           console.warn("SaveTax BG: 인증서 popup 탭 활성 — close 차단");
           return;
-        }
-        // dscert iframe은 가시성 검사 — display:none(이미 끝난 상태)이면 차단 안 함
-        const mainTab = tabs.find((t) => t.url && t.url.includes("hometax.go.kr"));
-        if (mainTab?.id) {
-          try {
-            const [r] = await chrome.scripting.executeScript({
-              target: { tabId: mainTab.id },
-              func: () => {
-                const f = document.querySelector("iframe[name='dscert']");
-                return !!f && f.offsetParent !== null;
-              },
-            });
-            if (r?.result) {
-              console.warn("SaveTax BG: 인증서 iframe 가시 상태 — close 차단");
-              return;
-            }
-          } catch {}
         }
         // reopen 진행 — 모든 hometax 탭 닫고 새 탭 열기. corp_next는 절대 remove 안 함.
         for (const tab of tabs) {
