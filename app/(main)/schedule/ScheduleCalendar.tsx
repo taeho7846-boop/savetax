@@ -168,12 +168,26 @@ export function ScheduleCalendar({
     });
   }
 
+  // 다음 가까운 세무 마감 (AI 제안 스트립용)
+  const todayDate = new Date();
+  const upcomingTaxEvent = (() => {
+    const isCurMonth = todayDate.getFullYear() === year && todayDate.getMonth() + 1 === month;
+    const candidates = coreTaxEvents.filter(e => !isCurMonth || e.day >= todayDate.getDate());
+    if (candidates.length === 0) return null;
+    const next = candidates.sort((a, b) => a.day - b.day)[0];
+    const dDay = isCurMonth ? next.day - todayDate.getDate() : null;
+    return { ...next, dDay };
+  })();
+
   return (
     <>
       {/* 헤더 */}
       <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">{year}년 {month}월</div>
+          <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
+            <span className="live-dot" />
+            {year}년 {month}월 · 실시간 동기화
+          </div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">스케쥴</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -190,6 +204,21 @@ export function ScheduleCalendar({
           </button>
         </div>
       </div>
+
+      {/* AI 제안 스트립 */}
+      {upcomingTaxEvent && (
+        <div className="ai-strip rounded-xl px-4 py-2.5 mb-3 flex items-center gap-3">
+          <div className="ai-icon-glow w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-bold shrink-0">AI</div>
+          <div className="flex-1 text-[12.5px] text-[#191F28]">
+            <span className="font-semibold">
+              {upcomingTaxEvent.dDay !== null && upcomingTaxEvent.dDay >= 0
+                ? `${month}/${upcomingTaxEvent.day} ${upcomingTaxEvent.title} D${upcomingTaxEvent.dDay === 0 ? "-day" : "-" + upcomingTaxEvent.dDay}`
+                : `${month}/${upcomingTaxEvent.day} ${upcomingTaxEvent.title}`}
+            </span>
+            <span className="text-[#6B7684]"> · {upcomingTaxEvent.desc}</span>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* 캘린더 */}
@@ -212,9 +241,10 @@ export function ScheduleCalendar({
               return (
                 <div
                   key={day}
-                  className={`min-h-[160px] border border-[#F2F4F6] rounded p-1 cursor-pointer hover:bg-[#F5F9FF]/50 transition-colors ${isToday ? "bg-[#F5F9FF] border-blue-300" : ""}`}
+                  className={`min-h-[160px] border border-[#F2F4F6] rounded p-1 cursor-pointer hover:bg-[#F5F9FF]/50 transition-colors relative ${isToday ? "bg-[#F5F9FF] border-blue-300" : ""}`}
                   onClick={() => handleDayClick(day)}
                 >
+                  {isToday && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#3182F6] shadow-[0_0_0_3px_rgba(49,130,246,0.2)]" />}
                   <div className={`text-xs font-medium mb-0.5 ${isToday ? "text-[#3182F6] font-bold" : dayOfWeek === 0 ? "text-[#E02E2E]" : dayOfWeek === 6 ? "text-[#3182F6]" : "text-[#333D4B]"}`}>
                     {day}
                   </div>

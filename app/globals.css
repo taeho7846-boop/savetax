@@ -49,24 +49,24 @@ body {
 /* 기존 페이지에는 영향 없음. 새로 단장하는 페이지에서 .glass-canvas 래퍼로 감싸 사용. */
 
 .glass-canvas {
-  background: linear-gradient(135deg, #f0f4ff 0%, #fef3f6 50%, #f0fdfa 100%);
+  background: linear-gradient(180deg, #F7FAFD 0%, #F2F4F6 100%);
   background-attachment: fixed;
   min-height: 100vh;
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(229, 232, 235, 0.5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(229, 232, 235, 0.6);
 }
 
 /* 그라데이션 (브랜드 색상) */
@@ -79,11 +79,10 @@ body {
 
 /* 카드 hover 마이크로 인터랙션 */
 .stat-card {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
 }
 
 /* 진행률 바 (KPI/단계) */
@@ -141,3 +140,220 @@ body {
   opacity: 1;
   transform: translateX(-50%) translateY(-4px);
 }
+
+/* ================== v3 Refined 디자인 시스템 (배분 칸반 등) ================== */
+/* 토스 블루 + 절제된 글래스. v1 메시 그라디언트/강한 saturate 회피 */
+
+.v3-surface {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid #F2F4F6;
+  box-shadow: 0 1px 0 rgba(15,23,42,0.02), 0 8px 24px -16px rgba(15,23,42,0.08);
+}
+.v3-surface-soft {
+  background: #F9FAFB;
+  border: 1px solid #F2F4F6;
+}
+
+.v3-lift { transition: all .25s cubic-bezier(.2,.8,.2,1); }
+.v3-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(15,23,42,.02), 0 12px 28px -16px rgba(15,23,42,.12);
+}
+
+/* 세그먼트 컨트롤 */
+.v3-seg { background: rgba(15,23,42,.05); padding: 3px; border-radius: 10px; display: inline-flex; gap: 1px; }
+.v3-seg > a, .v3-seg > button {
+  padding: 7px 16px; border-radius: 8px; font-weight: 600; font-size: 12.5px;
+  color: #4E5968; transition: all .18s; display: inline-flex; align-items: center; gap: 6px;
+}
+.v3-seg > a:hover, .v3-seg > button:hover { color: #191F28; }
+.v3-seg > a.v3-seg-on, .v3-seg > button.v3-seg-on {
+  background: #fff; color: #191F28;
+  box-shadow: 0 1px 0 rgba(15,23,42,.04), 0 2px 8px -2px rgba(15,23,42,.08);
+}
+.v3-seg > a.v3-seg-on-danger { color: #E02E2E; background:#fff; box-shadow: 0 1px 0 rgba(15,23,42,.04), 0 2px 8px -2px rgba(15,23,42,.08); }
+.v3-seg .v3-seg-pill { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(15,23,42,.06); color: #6B7684; }
+.v3-seg > a.v3-seg-on .v3-seg-pill, .v3-seg > button.v3-seg-on .v3-seg-pill { background: #E8F2FE; color: #1B64DA; }
+
+/* 토글 (PASS) */
+.v3-toggle { position: relative; width: 36px; height: 20px; background: #D9DCE2; border-radius: 999px; transition: background .2s; cursor: pointer; border: none; padding: 0; flex-shrink: 0; }
+.v3-toggle::after { content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(15,23,42,.2); transition: transform .2s; }
+.v3-toggle.on { background: #3182F6; }
+.v3-toggle.on::after { transform: translateX(16px); }
+.v3-toggle.on-danger { background: #E02E2E; }
+
+/* 칩 */
+.v3-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 5px; font-size: 10.5px; font-weight: 600; background: rgba(15,23,42,.06); color: #4E5968; }
+.v3-chip-danger { background: rgba(224,46,46,.09); color: #E02E2E; }
+.v3-chip-next   { background: #3182F6; color: #fff; }
+.v3-chip-purple { background: #F5EDFE; color: #9333EA; }
+.v3-chip-brand  { background: #E8F2FE; color: #1B64DA; }
+
+/* 칸반 컬럼 */
+.v3-col-head {
+  background: rgba(255,255,255,.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid #F2F4F6;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  padding: 14px 16px;
+}
+.v3-col-head.is-next {
+  background: #fff;
+  border-color: #3182F6;
+  border-width: 1px 1px 0 1px;
+  box-shadow: 0 -3px 0 0 #3182F6;
+}
+.v3-col-head.is-passed {
+  background: #FEF2F2;
+  border-color: rgba(224,46,46,.18);
+}
+.v3-col-body {
+  background: rgba(255,255,255,.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid #F2F4F6;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  padding: 8px;
+  min-height: 380px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.v3-col-body.is-next { background: #F5F9FF; border-color: rgba(49,130,246,.18); }
+.v3-col-body.is-passed { background: rgba(254,242,242,.5); border-color: rgba(224,46,46,.14); }
+.v3-col-body.is-drop-over { background: #E8F2FE; border-color: #3182F6; box-shadow: inset 0 0 0 1px #3182F6; }
+
+/* 칸반 카드 */
+.v3-card {
+  background: #fff;
+  border: 1px solid #F2F4F6;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333D4B;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: all .15s;
+}
+.v3-card:hover { border-color: #E5E8EB; }
+.v3-card .v3-x { opacity: 0; color: #B0B8C1; transition: opacity .12s; cursor: pointer; font-size: 12px; background: none; border: none; padding: 0 0 0 6px; }
+.v3-card:hover .v3-x { opacity: 1; }
+.v3-card .v3-x:hover { color: #E02E2E; }
+.v3-card.is-pass { background: transparent; border: 1px dashed rgba(224,46,46,.3); color: #E02E2E; font-weight: 700; font-size: 10.5px; letter-spacing: .18em; justify-content: center; }
+.v3-card.is-empty { background: transparent; border: 1px dashed #E5E8EB; color: #B0B8C1; justify-content: center; font-weight: 400; }
+
+/* 드래그 카드 (미배정 트레이) */
+.v3-drag {
+  background: #fff;
+  border: 1px solid #E5E8EB;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #191F28;
+  display: flex; align-items: center; gap: 8px;
+  cursor: grab;
+  transition: all .15s;
+  user-select: none;
+}
+.v3-drag:hover { border-color: #3182F6; box-shadow: 0 8px 20px -12px rgba(49,130,246,.25); }
+.v3-drag:active { cursor: grabbing; }
+.v3-drag.is-dragging { opacity: .4; }
+.v3-drag .v3-handle { color: #B0B8C1; font-weight: bold; letter-spacing: -2px; }
+.v3-drag .v3-from { font-size: 10px; color: #6B7684; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: #F9FAFB; border: 1px solid #F2F4F6; margin-left: auto; }
+
+/* 드롭존 (컬럼 하단) */
+.v3-drop {
+  margin-top: auto;
+  border: 1px dashed #E5E8EB;
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  color: #8B95A1;
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: all .2s;
+}
+.v3-drop.is-active { border-color: #3182F6; color: #1B64DA; background: #F5F9FF; }
+
+/* 멤버 이니셜 */
+.v3-ini { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #3182F6; background: #E8F2FE; border: 1px solid rgba(49,130,246,.15); flex-shrink: 0; }
+.v3-ini.is-danger { color: #E02E2E; background: #FEF2F2; border-color: rgba(224,46,46,.15); }
+
+/* 다음 차례 점 + 호흡 */
+.v3-dot { width: 6px; height: 6px; border-radius: 999px; background: #3182F6; display: inline-block; }
+@keyframes v3-breathe { 0%,100%{ opacity: .6; } 50%{ opacity: 1; } }
+.v3-breathe { animation: v3-breathe 2.4s ease-in-out infinite; }
+
+/* 추가 버튼 (브랜드) */
+.v3-btn-brand {
+  background: #3182F6; color: #fff;
+  border-radius: 8px; padding: 7px 16px;
+  font-size: 12.5px; font-weight: 600;
+  border: none; cursor: pointer;
+  transition: background .15s;
+}
+.v3-btn-brand:hover { background: #1B64DA; }
+.v3-btn-brand:disabled { opacity: .5; cursor: not-allowed; }
+
+/* 인풋 */
+.v3-input {
+  background: #F9FAFB;
+  border: 1px solid #F2F4F6;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #191F28;
+  outline: none;
+  transition: all .15s;
+  width: 100%;
+}
+.v3-input:focus { background: #fff; border-color: #3182F6; }
+
+/* kbd */
+.v3-kbd { font-family: ui-monospace, "SF Mono", monospace; font-size: 10.5px; padding: 1px 5px; border-radius: 4px; background: rgba(15,23,42,.06); color: #4E5968; border: 1px solid #F2F4F6; }
+
+.v3-tabular { font-variant-numeric: tabular-nums; }
+
+/* ================== v3 Subtle Innovation (운영탭) ================== */
+
+/* Live dot — 부제 옆 살짝 펄스 (실시간 동기화 표시) */
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: #10B981; position: relative; display: inline-block; flex-shrink: 0; }
+.live-dot::after {
+  content: ''; position: absolute; inset: -2px; border-radius: 50%;
+  background: #10B981; opacity: .35;
+  animation: gentlePulse 2.4s ease-in-out infinite;
+}
+@keyframes gentlePulse {
+  0%, 100% { transform: scale(.9); opacity: .35; }
+  50%      { transform: scale(1.6); opacity: 0; }
+}
+
+/* AI 제안 스트립 — 좌측 그라디언트 hairline + 살짝 글로우 */
+.ai-strip {
+  background: linear-gradient(135deg, rgba(99,102,241,.04) 0%, rgba(168,85,247,.04) 100%);
+  border: 1px solid rgba(99,102,241,.15);
+  position: relative;
+}
+.ai-strip::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: linear-gradient(180deg, #6366F1 0%, #A855F7 100%);
+  border-radius: 2px 0 0 2px;
+}
+.ai-icon-glow {
+  background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(99,102,241,.25);
+}
+
+/* 카드 우상단 살짝 액센트 글로우 */
+.accent-glow { position: relative; overflow: hidden; }
+.accent-glow::after {
+  content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px;
+  background: radial-gradient(circle at top right, rgba(49,130,246,.06), transparent 70%);
+  border-radius: inherit; pointer-events: none;
+}
+
+/* 섹션 hairline 그라데이션 */
+.section-hairline { height: 1px; background: linear-gradient(90deg, rgba(49,130,246,0), rgba(49,130,246,.15), rgba(49,130,246,0)); }

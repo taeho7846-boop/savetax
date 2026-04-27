@@ -97,14 +97,93 @@ export default async function TasksPage({
     caution: "bg-[#FEF2F2] text-[#DC2626]",
   };
 
+  // 통계 (stat 카드용)
+  const allOpenTasks = await prisma.task.findMany({
+    where: { isDeleted: false, OR: visibilityFilter, status: { not: "done" } },
+    select: { dueDate: true, status: true, completedAt: true },
+  });
+  const inProgressCount = allOpenTasks.filter(t => t.status !== "done").length;
+  const overdueCount = allOpenTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date()).length;
+  const monthDoneCount = await prisma.task.count({
+    where: {
+      isDeleted: false,
+      OR: visibilityFilter,
+      status: "done",
+      completedAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+    },
+  });
+  const totalMemoCount = await prisma.memo.count({ where: { authorId: session.id } });
+  const overdueClient = allOpenTasks.find(t => t.dueDate && new Date(t.dueDate) < new Date());
+  const overdueDays = overdueClient?.dueDate
+    ? Math.floor((Date.now() - new Date(overdueClient.dueDate).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+
   return (
     <div>
       <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">팀 업무 보드</div>
+          <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
+            <span className="live-dot" />
+            팀 업무 보드 · 실시간
+          </div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">업무 / 메모</h1>
         </div>
         <UnifiedCreateButton />
+      </div>
+
+      {/* AI 제안 스트립 */}
+      {overdueCount > 0 && (
+        <div className="ai-strip rounded-xl px-4 py-2.5 mb-3 flex items-center gap-3">
+          <div className="ai-icon-glow w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-bold shrink-0">AI</div>
+          <div className="flex-1 text-[12.5px] text-[#191F28]">
+            <span className="font-semibold">지연 업무 {overdueCount}건</span>
+            <span className="text-[#6B7684]"> · 가장 오래된 건은 D+{overdueDays}일째 — 우선 처리 권장</span>
+          </div>
+          <Link href="/tasks?status=delayed" className="text-[11.5px] text-[#6366F1] font-semibold hover:underline">지연 보기 →</Link>
+        </div>
+      )}
+
+      {/* 4 stat 카드 + 미니 스파크라인 */}
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="glass rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[11px] font-medium text-[#8B95A1]">진행중 업무</div>
+            <svg width="50" height="18" viewBox="0 0 50 18" className="text-[#3182F6]">
+              <polyline fill="none" stroke="currentColor" strokeWidth="1.5" points="0,12 10,9 20,11 30,5 40,7 50,3" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="text-[22px] font-bold leading-none tracking-tight">{inProgressCount}</div>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[11px] font-medium text-[#8B95A1]">완료 업무</div>
+            <svg width="50" height="18" viewBox="0 0 50 18" className="text-[#10B981]">
+              <polyline fill="none" stroke="currentColor" strokeWidth="1.5" points="0,15 10,13 20,8 30,10 40,5 50,4" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="flex items-end justify-between">
+            <div className="text-[22px] font-bold leading-none tracking-tight">{monthDoneCount}</div>
+            <div className="text-[10.5px] text-[#8B95A1]">이번 달</div>
+          </div>
+        </div>
+        <div className={`glass rounded-xl p-4 ${overdueCount > 0 ? "border-l-2 border-[#DC2626]" : ""}`}>
+          <div className="flex items-center justify-between mb-1">
+            <div className={`text-[11px] font-medium ${overdueCount > 0 ? "text-[#DC2626]" : "text-[#8B95A1]"}`}>지연</div>
+            <svg width="50" height="18" viewBox="0 0 50 18" className={overdueCount > 0 ? "text-[#DC2626]" : "text-[#8B95A1]"}>
+              <polyline fill="none" stroke="currentColor" strokeWidth="1.5" points="0,14 10,12 20,10 30,8 40,6 50,3" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className={`text-[22px] font-bold leading-none tracking-tight ${overdueCount > 0 ? "text-[#DC2626]" : ""}`}>{overdueCount}</div>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[11px] font-medium text-[#8B95A1]">메모</div>
+            <svg width="50" height="18" viewBox="0 0 50 18" className="text-[#A855F7]">
+              <polyline fill="none" stroke="currentColor" strokeWidth="1.5" points="0,8 10,10 20,7 30,9 40,5 50,7" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="text-[22px] font-bold leading-none tracking-tight">{totalMemoCount}</div>
+        </div>
       </div>
 
       {/* 유형 선택 — Toss pill 탭 */}

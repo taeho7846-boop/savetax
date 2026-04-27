@@ -14,12 +14,33 @@ export default async function SettingsPage() {
   const bookmarks = await getBookmarks(session!.id);
   const isAdmin = session?.role === "admin" || session?.role === "owner";
 
+  // 연동 상태 체크 (AI 제안 스트립용)
+  const missingIntegrations: string[] = [];
+  if (!settings?.agentHometaxId || !settings?.agentHometaxPw) missingIntegrations.push("홈택스");
+  if (!settings?.certName || !settings?.certPassword) missingIntegrations.push("공인인증서");
+  if (!settings?.wehagoId || !settings?.wehagoPw) missingIntegrations.push("위하고");
+  if (!settings?.wemembersId || !settings?.wemembersPw) missingIntegrations.push("위멤버스");
+
   return (
     <div>
       <div className="mb-5">
-        <div className="text-[12.5px] text-[#86868b] font-medium">계정 · 연동 · 환경설정</div>
+        <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
+          <span className="live-dot" />
+          계정 · 연동 · 환경설정
+        </div>
         <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">설정</h1>
       </div>
+
+      {/* AI 제안 스트립 — 연동 미흡 알림 */}
+      {missingIntegrations.length > 0 && (
+        <div className="ai-strip rounded-xl px-4 py-2.5 mb-4 flex items-center gap-3">
+          <div className="ai-icon-glow w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-bold shrink-0">AI</div>
+          <div className="flex-1 text-[12.5px] text-[#191F28]">
+            <span className="font-semibold">{missingIntegrations.join(" · ")} 미연결</span>
+            <span className="text-[#6B7684]"> · 자동 기능을 사용할 수 없습니다. 계정 연결을 추천합니다.</span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ===== 왼쪽 열: 계정 설정 + 저장 ===== */}
