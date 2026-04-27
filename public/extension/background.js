@@ -9,14 +9,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
     setTimeout(async () => {
       try {
         const tabs = await chrome.tabs.query({ url: "https://hometax.go.kr/*" });
-        // 안전 가드: 인증서 popup 탭이 살아있으면(인증 *진행 중*) close 차단
-        // dscert iframe 가드는 false positive(hidden iframe도 잡음)로 제거 — popup 탭 가드로 충분
-        const popupTab = tabs.find((t) => t.url && (t.url.includes("popup.html") || t.url.includes("UTECMABA")));
-        if (popupTab) {
-          console.warn("SaveTax BG: 인증서 popup 탭 활성 — close 차단");
-          return;
-        }
-        // reopen 진행 — 모든 hometax 탭 닫고 새 탭 열기. corp_next는 절대 remove 안 함.
+        // 가드 제거 — corp_login 원래 동작 회복. 시그널은 IIFE A의 관리번호 클릭 직전에만 set되므로 인증서 단계에 set될 일 없음.
+        // 잔존 cookie 발동 가능성은 cookie watcher의 페이지 로드 시 정리로 대응.
         for (const tab of tabs) {
           await chrome.tabs.remove(tab.id);
         }
