@@ -1,15 +1,27 @@
 // suppress-alert.js(MAIN)가 설정한 savetax_login_done 쿠키 감시 → chrome.storage로 전달
 (function watchLoginDoneCookie() {
-  const interval = setInterval(() => {
-    const match = document.cookie.match(/savetax_login_done=([^;]+)/);
-    if (match) {
-      clearInterval(interval);
-      document.cookie = "savetax_login_done=; path=/; max-age=0";
-      chrome.storage.local.set({ savetax_login_done: Date.now() });
-      console.log("SaveTax: login_done 쿠키 감지 → chrome.storage 전달");
-    }
-  }, 500);
-  setTimeout(() => clearInterval(interval), 120000);
+  // 새 흐름 시작 시점(hash에 savetax=...) — 이전 시도의 잔존 cookie 정리 후 잠깐 대기
+  // 그렇지 않으면 cookie watcher가 잔존 cookie를 즉시 감지해 background가 탭을 닫아버림 (인증서 단계에서 창 꺼짐 원인)
+  const isFreshFlow = window.location.hash && window.location.hash.indexOf("savetax=") !== -1;
+  if (isFreshFlow) {
+    document.cookie = "savetax_login_done=; path=/; max-age=0";
+    document.cookie = "savetax_agent=; path=/; max-age=0";
+    console.log("SaveTax: 새 흐름 시작 — 잔존 cookie 정리");
+  }
+  // 새 흐름이면 1초 지연 후 폴링 시작 (잔존 cookie 정리 반영 시간)
+  const startDelay = isFreshFlow ? 1000 : 0;
+  setTimeout(() => {
+    const interval = setInterval(() => {
+      const match = document.cookie.match(/savetax_login_done=([^;]+)/);
+      if (match) {
+        clearInterval(interval);
+        document.cookie = "savetax_login_done=; path=/; max-age=0";
+        chrome.storage.local.set({ savetax_login_done: Date.now() });
+        console.log("SaveTax: login_done 쿠키 감지 → chrome.storage 전달");
+      }
+    }, 500);
+    setTimeout(() => clearInterval(interval), 120000);
+  }, startDelay);
 })();
 
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
@@ -665,8 +677,10 @@
     try {
       if (await checkLogout()) return;
 
-      // 이전 시그널 초기화
+      // 이전 시그널 초기화 (storage + cookie 모두) — 잔존 시그널이 background를 잘못 발동시키는 것 방지
       await chrome.storage.local.remove(["savetax_corp_next", "savetax_login_done", "savetax_corp_agent"]);
+      document.cookie = "savetax_login_done=; path=/; max-age=0";
+      document.cookie = "savetax_agent=; path=/; max-age=0";
 
       // 로그인 후 이어서 할 작업을 chrome.storage에 저장
       const nextAction = mode.replace("corp_", ""); // register, commission, recommission
