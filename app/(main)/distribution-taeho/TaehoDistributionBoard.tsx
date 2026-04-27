@@ -19,6 +19,7 @@ interface Distribution {
   isSkipped: boolean;
   excludeReason: string | null;
   createdAt: Date;
+  isClientMissing?: boolean;
 }
 
 export function TaehoDistributionBoard({
@@ -165,7 +166,19 @@ export function TaehoDistributionBoard({
               ) : (
                 distributions.map((d) => (
                   <tr key={d.id} className="hover:bg-white/40 transition">
-                    <td className="px-5 py-3 text-[#191F28] text-[13px] font-semibold">{d.clientName}</td>
+                    <td className="px-5 py-3 text-[#191F28] text-[13px] font-semibold">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>{d.clientName}</span>
+                        {d.isClientMissing && (
+                          <span
+                            className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] whitespace-nowrap"
+                            title="기장대리 탭에 없는 거래처 — 삭제 후보"
+                          >
+                            기장 X
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-3 text-center text-[11.5px] text-[#6B7684]">
                       {d.clientType.includes("corporate") ? "법인" : "개인"}
                     </td>
@@ -360,8 +373,18 @@ export function TaehoDistributionBoard({
                               </button>
                             </div>
                           ) : (
-                            <div key={d.id} className="v3-card">
-                              <span className="truncate">{d.clientName}</span>
+                            <div
+                              key={d.id}
+                              className="v3-card"
+                              style={d.isClientMissing ? { background: "rgba(239, 68, 68, 0.08)", borderColor: "rgba(239, 68, 68, 0.4)" } : undefined}
+                              title={d.isClientMissing ? "기장대리 탭에 없는 거래처 — 삭제 후보" : undefined}
+                            >
+                              <span className="truncate flex items-center gap-1.5">
+                                {d.isClientMissing && (
+                                  <span className="text-[9px] font-bold text-[#DC2626] shrink-0">●</span>
+                                )}
+                                <span className="truncate">{d.clientName}</span>
+                              </span>
                               <button
                                 onClick={() => handleDelete(d.id, d.clientName)}
                                 className="v3-x"

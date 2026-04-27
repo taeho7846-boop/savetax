@@ -5,6 +5,25 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendSlackDM } from "@/lib/slack";
 
+// 활성 거래처(기장대리 탭)에 없는 배분 항목 표시용
+async function annotateMissingClients<T extends { clientName: string; isSkipped: boolean }>(
+  distributions: T[],
+): Promise<(T & { isClientMissing: boolean })[]> {
+  const activeClients = await prisma.client.findMany({
+    where: { isDeleted: false },
+    select: { name: true },
+  });
+  const activeNameSet = new Set(activeClients.map((c) => c.name));
+  return distributions.map((d) => ({
+    ...d,
+    isClientMissing:
+      !d.isSkipped &&
+      d.clientName !== "PASS" &&
+      d.clientName !== "-" &&
+      !activeNameSet.has(d.clientName),
+  }));
+}
+
 async function notifyDistribution(assignedUserId: number, clientNames: string[], clientType: string) {
   try {
     const settings = await prisma.settings.findUnique({ where: { userId: assignedUserId }, select: { slackDistributionEnabled: true } });
@@ -64,7 +83,8 @@ export async function getDistributionData(clientType: string) {
 
   const passSet = new Set(passes.map(p => p.userId));
 
-  return { accountants, distributions, counts, passUserIds: [...passSet] };
+  const annotated = await annotateMissingClients(distributions);
+  return { accountants, distributions: annotated, counts, passUserIds: [...passSet] };
 }
 
 // PASS 토글
@@ -249,7 +269,8 @@ export async function getExcludedData() {
     orderBy: { createdAt: "asc" },
   });
 
-  return { accountants, distributions };
+  const annotated = await annotateMissingClients(distributions);
+  return { accountants, distributions: annotated };
 }
 
 // 관리제외에서 완전 삭제
