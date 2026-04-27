@@ -445,8 +445,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       )}
 
       {checkedIds.size > 0 && (
-        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-[#F5F9FF] border border-[#A3CAFD] rounded-lg">
-          <span className="text-sm text-[#1B64DA] font-medium">{checkedIds.size}개 선택</span>
+        <div className="flex items-center gap-3 mb-3 px-4 py-3 glass rounded-2xl" style={{ background: "linear-gradient(135deg, rgba(232,243,255,.85), rgba(245,249,255,.7))" }}>
+          <span className="text-[13px] text-[#1B64DA] font-extrabold">{checkedIds.size}개 선택</span>
           {!hide.has("monthlyFee") && (
           <span className="text-sm text-[#3182F6]">
             월 기장료 합계: <strong>{rows.filter(c => checkedIds.has(c.id)).reduce((sum, c) => sum + (c.monthlyFee || 0), 0).toLocaleString()}원</strong>
@@ -486,9 +486,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto bg-white rounded-lg shadow-sm border border-[#F2F4F6]">
+      <div className="flex-1 overflow-y-auto glass rounded-3xl">
         <table className="w-full text-sm">
-          <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-10">
+          <thead className="bg-white/60 backdrop-blur-md border-b border-white/60 sticky top-0 z-10">
             <tr>
               <th className="px-3 py-3 w-10">
                 <input
@@ -707,7 +707,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#F2F4F6]">
+          <tbody className="divide-y divide-white/40">
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={readonly ? 10 : 11} className="text-center py-12 text-[#6B7684]">
@@ -723,7 +723,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                 return (
                   <tr
                     key={client.id}
-                    className={`hover:bg-[#F5F9FF] transition-colors ${readonly ? "" : "cursor-pointer"} ${checkedIds.has(client.id) ? "bg-[#F5F9FF]/50" : ""}`}
+                    className={`hover:bg-white/60 transition-colors ${readonly ? "" : "cursor-pointer"} ${checkedIds.has(client.id) ? "bg-[#E8F3FF]/40" : ""}`}
                     onClick={() => !readonly && setSelectedId(client.id)}
                   >
                     <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>

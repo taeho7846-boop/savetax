@@ -120,7 +120,7 @@ export default function TopNav({
   const activeSubs = visibleCategories.find((c) => c.key === activeCat)?.subs ?? [];
 
   return (
-    <header className="sticky top-0 z-30 px-6 pt-4 pb-2 bg-gradient-to-b from-[#f0f4ff]/95 via-[#f0f4ff]/80 to-transparent">
+    <header className="sticky top-0 z-30 px-6 pt-4 pb-2 bg-gradient-to-b from-[#F7FAFD]/95 via-[#F7FAFD]/70 to-transparent">
       {/* Row 1: 3 pills */}
       <div className="flex items-center gap-3 mb-2.5">
         {/* 좌: 로고 */}
@@ -146,7 +146,7 @@ export default function TopNav({
                   href={defaultHref}
                   className={`px-4 py-2 rounded-xl text-[13.5px] font-bold transition flex items-center gap-1.5 ${
                     isActive
-                      ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+                      ? "text-white bg-[#3182F6]"
                       : "text-[#6B7684] hover:text-[#191F28] hover:bg-white/60"
                   }`}
                 >
@@ -192,7 +192,7 @@ export default function TopNav({
                     href={s.href}
                     className={`rounded-xl px-4 py-2 text-[12.5px] font-bold transition ${
                       active
-                        ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+                        ? "text-white bg-[#3182F6]"
                         : "glass-strong text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px"
                     }`}
                   >

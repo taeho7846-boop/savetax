@@ -81,21 +81,31 @@ export default async function ClientsPage({
     }),
   ]);
 
+  // KPI 계산
+  const monthlyFeeSum = clients.reduce((s, c) => s + (c.monthlyFee ?? 0), 0);
+  const noCmsCount = clients.filter(c => c.cmsStatus !== "active").length;
+  const noDocsCount = clients.filter(c => !c.hometaxId || !c.hometaxPw).length;
+
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">고객사 관리</div>
-          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">거래처 {totalCount.toLocaleString()}곳</h1>
+          <div className="text-[11px] text-[#8B95A1] font-bold tracking-widest uppercase">CLIENTS</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight mt-1 flex items-baseline gap-2">
+            거래처
+            <span className="text-[#3182F6]">{totalCount.toLocaleString()}</span>
+            <span className="text-[16px] text-[#6B7684] font-medium">곳</span>
+          </h1>
+          <div className="text-[12px] text-[#6B7684] mt-1">개인 {individualCount.toLocaleString()} · 법인 {corporateCount.toLocaleString()}</div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <a
             href="/api/clients/alimtalk-excel"
-            className="glass px-4 h-10 rounded-2xl text-[13px] font-bold text-[#92400e] hover:bg-[#FEF3C7] transition-colors flex items-center"
+            className="glass px-4 h-10 rounded-2xl text-[13px] font-bold text-[#92400e] hover:bg-[#FEF3C7] transition-colors flex items-center stat-card"
           >
-            알림톡
+            📨 알림톡
           </a>
           {!isReadonly && (
             <>
@@ -108,12 +118,51 @@ export default async function ClientsPage({
         </div>
       </div>
 
+      {/* KPI 4-up */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
+          <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#3182F6] rounded-r" />
+          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">전체 거래처</div>
+          <div className="text-[26px] font-extrabold text-[#191F28] mt-1.5 leading-none pl-2">{totalCount.toLocaleString()}</div>
+          <div className="text-[11px] text-[#8B95A1] mt-1.5 pl-2">개인 {individualCount} · 법인 {corporateCount}</div>
+        </div>
+        <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
+          <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#15803D] rounded-r" />
+          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">월 기장료 합계</div>
+          <div className="text-[26px] font-extrabold text-[#191F28] mt-1.5 leading-none pl-2">
+            {monthlyFeeSum >= 1000000
+              ? <>{(monthlyFeeSum / 1000000).toFixed(1)}<span className="text-[16px] text-[#6B7684] font-bold">M</span></>
+              : monthlyFeeSum.toLocaleString()}
+          </div>
+          <div className="text-[11px] text-[#8B95A1] mt-1.5 pl-2">
+            평균 {totalCount > 0 ? Math.round(monthlyFeeSum / totalCount).toLocaleString() : 0}원 / 곳
+          </div>
+        </div>
+        <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
+          <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#92400E] rounded-r" />
+          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">CMS 미등록</div>
+          <div className="flex items-end gap-1.5 mt-1.5 pl-2">
+            <div className="text-[26px] font-extrabold text-[#92400E] leading-none">{noCmsCount}</div>
+            <div className="text-[11px] text-[#8B95A1] mb-1">/ {totalCount}</div>
+          </div>
+          <div className="progress mt-2.5 ml-2"><div className="progress-fill bg-[#92400E]" style={{ width: `${totalCount > 0 ? (noCmsCount / totalCount) * 100 : 0}%` }} /></div>
+        </div>
+        <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
+          <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#DC2626] rounded-r" />
+          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">홈택스 정보 없음</div>
+          <div className="flex items-end gap-1.5 mt-1.5 pl-2">
+            <div className="text-[26px] font-extrabold text-[#DC2626] leading-none">{noDocsCount}</div>
+          </div>
+          <div className="text-[11px] text-[#8B95A1] mt-1.5 pl-2">홈택스 ID/PW 등록 필요</div>
+        </div>
+      </div>
+
       {/* 검색 + 탭 + 범례 — 하나의 글래스 카드로 */}
       <div className="glass rounded-3xl p-4 mb-4">
         {/* 검색 */}
         <form className="flex gap-2 mb-3">
           <input type="hidden" name="type" value={clientType} />
-          <div className="flex-1 bg-white/80 rounded-2xl flex items-center gap-2 px-4 h-11">
+          <div className="flex-1 bg-white/80 rounded-2xl flex items-center gap-3 px-4 h-12">
             <svg width="16" height="16" fill="none" stroke="#6B7684" strokeWidth="2.2" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />
@@ -128,7 +177,7 @@ export default async function ClientsPage({
           </div>
           <button
             type="submit"
-            className="bg-[#3182F6] text-white text-[13px] font-bold px-5 h-11 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-md shadow-[#3182F6]/20"
+            className="bg-[#3182F6] text-white text-[13px] font-bold px-6 h-12 rounded-2xl hover:bg-[#1B64DA] transition-colors"
           >
             검색
           </button>

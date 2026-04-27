@@ -160,15 +160,16 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
         <ClientEditModal clientId={editingClientId} onClose={() => setEditingClientId(null)} />
       )}
       {/* 출금 검증 버튼 */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="glass rounded-2xl p-3 mb-4 flex items-center gap-3">
+        <span className="text-[12px] font-bold text-[#6B7684] pl-2">출금 검증</span>
         <input
           type="month"
           value={verifyMonth}
           onChange={(e) => setVerifyMonth(e.target.value)}
-          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-1.5 text-sm focus:outline-none focus:border-[#3182F6]"
+          className="bg-white/80 rounded-xl px-3 py-2 text-[13px] font-medium text-[#191F28] focus:outline-none border border-white/60"
         />
-        <label className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-[#3182F6] text-white hover:bg-[#1B64DA] cursor-pointer">
-          {verifyLoading ? "분석 중..." : "출금 검증"}
+        <label className="text-[13px] px-4 py-2 rounded-xl font-bold transition-colors bg-[#3182F6] text-white hover:bg-[#1B64DA] cursor-pointer flex items-center gap-1.5">
+          {verifyLoading ? "분석 중..." : "📊 엑셀 업로드"}
           <input
             ref={fileInputRef}
             type="file"
@@ -178,6 +179,7 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
             disabled={verifyLoading}
           />
         </label>
+        <span className="text-[11px] text-[#8B95A1] ml-auto pr-2">CMS 출금 결과 엑셀로 일괄 수납처리</span>
       </div>
 
       {/* 출금 검증 결과 모달 */}
@@ -332,27 +334,52 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
       )}
 
       {/* 요약 카드 (누적 전체 기간) */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-[#F2F4F6] shadow-sm p-4">
-          <div className="text-xs text-[#6B7684] mb-1">누적 청구 합계</div>
-          <div className="text-lg font-bold text-[#191F28]">{fmtWon(summary.totalExpected)}</div>
-        </div>
-        <div className="bg-white rounded-lg border border-green-100 shadow-sm p-4">
-          <div className="text-xs text-[#16A865] mb-1">누적 수납 완료</div>
-          <div className="text-lg font-bold text-[#15803D]">{fmtWon(summary.totalPaid)}</div>
-        </div>
-        <div className="bg-white rounded-lg border border-red-100 shadow-sm p-4">
-          <div className="text-xs text-[#E02E2E] mb-1">누적 미수</div>
-          <div className="text-lg font-bold text-[#DC2626]">{fmtWon(summary.totalUnpaid)}</div>
-        </div>
-      </div>
+      {(() => {
+        const paidRate = summary.totalExpected > 0
+          ? (summary.totalPaid / summary.totalExpected) * 100
+          : 0;
+        const unpaidClientCount = clients.filter(c => c.cumulativeUnpaid > 0).length;
+        const avgUnpaid = unpaidClientCount > 0
+          ? Math.round(summary.totalUnpaid / unpaidClientCount)
+          : 0;
+        return (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
+              <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#3182F6] rounded-r" />
+              <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">누적 청구</div>
+              <div className="text-[24px] font-extrabold text-[#191F28] mt-1.5 leading-tight pl-2">{fmtWon(summary.totalExpected)}</div>
+              <div className="text-[11px] text-[#8B95A1] mt-1 pl-2">최초 출금월부터 현재까지</div>
+            </div>
+            <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
+              <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#15803D] rounded-r" />
+              <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">누적 수납</div>
+              <div className="text-[24px] font-extrabold text-[#15803D] mt-1.5 leading-tight pl-2">{fmtWon(summary.totalPaid)}</div>
+              <div className="progress mt-2.5 ml-2">
+                <div className="progress-fill bg-[#15803D]" style={{ width: `${Math.min(paidRate, 100)}%` }} />
+              </div>
+              <div className="text-[11px] text-[#8B95A1] mt-1 pl-2">수납률 {paidRate.toFixed(1)}%</div>
+            </div>
+            <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
+              <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#DC2626] rounded-r" />
+              <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">미수금</div>
+              <div className="text-[24px] font-extrabold text-[#DC2626] mt-1.5 leading-tight pl-2">{fmtWon(summary.totalUnpaid)}</div>
+              <div className="text-[11px] text-[#8B95A1] mt-1 pl-2">
+                {unpaidClientCount > 0
+                  ? <>{unpaidClientCount}곳 · 평균 {fmtWon(avgUnpaid)}</>
+                  : "전부 수납 완료"}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 테이블 */}
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-x-auto">
+      <div className="glass rounded-3xl overflow-hidden">
+       <div className="overflow-x-auto">
         <table className="text-sm border-collapse w-full">
           <thead>
-            <tr className="bg-[#F9FAFB] border-b border-[#F2F4F6]">
-              <th className="sticky left-0 z-10 bg-[#F9FAFB] text-left px-4 py-3 text-[#333D4B] font-medium min-w-[140px]">
+            <tr className="bg-white/50 backdrop-blur-md border-b border-white/60">
+              <th className="sticky left-0 z-10 bg-white/80 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[140px]">
                 고객사명
               </th>
               {/* 소속 필터 */}
@@ -417,7 +444,7 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#F2F4F6]">
+          <tbody className="divide-y divide-white/40">
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={months.length + 4} className="text-center py-12 text-[#8B95A1]">
@@ -425,10 +452,12 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                 </td>
               </tr>
             )}
-            {sorted.map((client) => (
-              <tr key={client.id} className="hover:bg-[#F9FAFB] transition-colors">
+            {sorted.map((client) => {
+              const hasUnpaid = client.cumulativeUnpaid > 0;
+              return (
+              <tr key={client.id} className={`transition-colors ${hasUnpaid ? "bg-rose-50/30 hover:bg-rose-50/50" : "hover:bg-white/60"}`}>
                 {/* 고객사명 */}
-                <td className="sticky left-0 z-10 bg-white hover:bg-[#F9FAFB] px-4 py-3 font-medium whitespace-nowrap">
+                <td className={`sticky left-0 z-10 px-4 py-3 font-medium whitespace-nowrap ${hasUnpaid ? "bg-rose-50/60" : "bg-white/80"} backdrop-blur-md`}>
                   <button
                     onClick={() => setEditingClientId(client.id)}
                     className="text-[#191F28] hover:underline text-left"
@@ -454,8 +483,8 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
 
                   if (isBeforeStart || (isFuture && !isPaid)) {
                     return (
-                      <td key={m} className="px-3 py-3 text-center text-[#D1D6DB]">
-                        —
+                      <td key={m} className="px-3 py-3 text-center text-[#C4CCD4]">
+                        ·
                       </td>
                     );
                   }
@@ -464,10 +493,10 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                     <td key={m} className="px-3 py-3 text-center">
                       <button
                         onClick={() => toggle(client.id, m)}
-                        className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${
+                        className={`w-8 h-8 rounded-full text-xs font-bold transition-colors ${
                           isPaid
                             ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
-                            : "bg-[#FEF2F2] text-[#F87171] hover:bg-[#FEF2F2]"
+                            : "bg-[#FEF2F2] text-[#F87171] hover:bg-[#FEE2E2]"
                         }`}
                         title={isPaid ? "수납 완료 (클릭: 취소)" : "미수 (클릭: 수납 처리)"}
                       >
@@ -480,15 +509,17 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                 {/* 누적 미수금액 */}
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   {client.cumulativeUnpaid > 0 ? (
-                    <span className="text-[#DC2626] font-medium">{fmtWon(client.cumulativeUnpaid)}</span>
+                    <span className="text-[#DC2626] font-extrabold">{fmtWon(client.cumulativeUnpaid)}</span>
                   ) : (
                     <span className="text-[#16A865] font-medium">0원</span>
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
+       </div>
       </div>
     </div>
   );

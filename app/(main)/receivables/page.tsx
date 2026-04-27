@@ -112,31 +112,35 @@ export default async function ReceivablesPage({
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+      <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">월별 기장료 수납 · CMS 자동이체</div>
-          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">채권 관리 · {year}년</h1>
+          <div className="text-[11px] text-[#8B95A1] font-bold tracking-widest uppercase">RECEIVABLES</div>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight mt-1 flex items-baseline gap-2">
+            채권 관리
+            <span className="text-[18px] font-bold text-[#3182F6]">{year}년</span>
+          </h1>
+          <div className="text-[12px] text-[#6B7684] mt-1">월별 기장료 수납 · CMS 자동이체 현황</div>
         </div>
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-4">
         <Link
           href={`/receivables?year=${year}&tab=receivables`}
-          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
+          className={`rounded-2xl px-5 py-2.5 text-[13px] font-bold transition flex items-center gap-1.5 ${
             tab === "receivables"
-              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
-              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
+              ? "text-white bg-[#3182F6]"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px"
           }`}
         >
           💰 채권 (월별)
         </Link>
         <Link
           href={`/receivables?year=${year}&tab=cms`}
-          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
+          className={`rounded-2xl px-5 py-2.5 text-[13px] font-bold transition flex items-center gap-1.5 ${
             tab === "cms"
-              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
-              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
+              ? "text-white bg-[#3182F6]"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px"
           }`}
         >
           ⚡ CMS 자동이체
@@ -148,18 +152,18 @@ export default async function ReceivablesPage({
       ) : (
       <>
       {/* 연도 네비게이션 + 검색 (글래스 카드) */}
-      <div className="glass rounded-2xl p-3 mb-3 flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 glass-strong rounded-xl px-1 h-9">
+      <div className="glass rounded-3xl p-3 mb-4 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1 glass-strong rounded-2xl px-1 h-10">
           <Link
             href={`/receivables?year=${year - 1}&tab=receivables`}
-            className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
+            className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
           >
             ◀
           </Link>
-          <span className="text-[12.5px] font-bold text-[#191F28] min-w-[60px] text-center">{year}년</span>
+          <span className="text-[13px] font-bold text-[#191F28] min-w-[64px] text-center">{year}년</span>
           <Link
             href={`/receivables?year=${year + 1}&tab=receivables`}
-            className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
+            className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center"
           >
             ▶
           </Link>
@@ -167,26 +171,26 @@ export default async function ReceivablesPage({
 
         <form className="flex-1 flex gap-2 min-w-[220px]">
           <input type="hidden" name="year" value={year} />
-          <div className="flex-1 bg-white/80 rounded-xl flex items-center gap-2 px-3 h-9">
+          <div className="flex-1 bg-white/80 rounded-2xl flex items-center gap-2 px-4 h-10">
             <svg width={14} height={14} fill="none" stroke="#6B7684" strokeWidth={2.2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8} /><path d="m21 21-4.3-4.3" /></svg>
             <input
               name="q"
               defaultValue={q}
               placeholder="고객사명 검색"
               autoComplete="off"
-              className="flex-1 bg-transparent outline-none text-[12.5px] text-[#191F28] placeholder:text-[#8B95A1]"
+              className="flex-1 bg-transparent outline-none text-[13px] text-[#191F28] placeholder:text-[#8B95A1]"
             />
           </div>
           <button
             type="submit"
-            className="bg-[#3182F6] text-white text-[12.5px] font-bold px-4 h-9 rounded-xl hover:bg-[#1B64DA] shadow-md shadow-[#3182F6]/20"
+            className="bg-[#3182F6] text-white text-[13px] font-bold px-5 h-10 rounded-2xl hover:bg-[#1B64DA] transition-colors"
           >
             검색
           </button>
           {q && (
             <Link
               href={`/receivables?year=${year}`}
-              className="glass-strong text-[#4E5968] text-[12.5px] font-bold px-3 h-9 rounded-xl flex items-center"
+              className="glass-strong text-[#4E5968] text-[13px] font-bold px-4 h-10 rounded-2xl flex items-center"
             >
               초기화
             </Link>

@@ -144,6 +144,7 @@ export default function CommissionBoard({
   const [autoResult, setAutoResult] = useState<{ ok: boolean; msg: string; pdfPath?: string } | null>(null);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "board">("board");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [wehagoProgress, setWehagoProgress] = useState<{ id: number; step: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -390,76 +391,110 @@ export default function CommissionBoard({
     <div>
       {/* 기존 고객 가져오기 배너 */}
       {availableClients.length > 0 && (
-        <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
-          <div className="text-sm text-[#92400E]">
-            <span className="font-medium">{availableClients.length}명</span>의 고객이 아직 수임 목록에 없습니다.
+        <div className="glass rounded-2xl px-4 py-3 mb-4 flex items-center justify-between" style={{ background: "linear-gradient(135deg, rgba(255,251,235,.85), rgba(254,243,199,.6))" }}>
+          <div className="text-[13px] text-[#92400E]">
+            <span className="font-extrabold">{availableClients.length}명</span>의 고객이 아직 수임 목록에 없습니다.
           </div>
           <button
             onClick={doBulkImport}
             disabled={importing}
-            className="text-sm font-medium text-[#B45309] hover:text-[#78350F] underline disabled:opacity-50"
+            className="text-[13px] font-bold text-[#B45309] hover:text-[#78350F] underline disabled:opacity-50"
           >
-            {importing ? "가져오는 중..." : "전체 가져오기"}
+            {importing ? "가져오는 중..." : "⤓ 전체 가져오기"}
           </button>
         </div>
       )}
 
-      {/* 상단 통계 + 추가 버튼 */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setStageFilter(null)}
-            className={`rounded-lg px-4 py-2.5 border shadow-sm flex items-baseline gap-1.5 transition-colors cursor-pointer ${
-              stageFilter === null
-                ? "bg-[#3182F6] border-[#3182F6]"
-                : "bg-white border-[#F2F4F6] hover:border-[#D1D6DB]"
-            }`}
-          >
-            <span className={`text-xs ${stageFilter === null ? "text-white/70" : "text-[#6B7684]"}`}>전체</span>
-            <span className={`text-xl font-bold ${stageFilter === null ? "text-white" : "text-[#191F28]"}`}>
-              {commissions.length}
-            </span>
-            <span className={`text-xs ${stageFilter === null ? "text-white/50" : "text-[#8B95A1]"}`}>건</span>
-          </button>
-          {Object.entries(stageCounts).map(([label, count]) => (
+      {/* 상단 통계 + 뷰 토글 + 추가 버튼 */}
+      <div className="glass rounded-3xl p-4 mb-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex gap-2 flex-wrap items-center">
             <button
-              key={label}
-              onClick={() => setStageFilter(stageFilter === label ? null : label)}
-              className={`rounded-lg px-3 py-2.5 border shadow-sm flex items-baseline gap-1.5 transition-colors cursor-pointer ${
-                stageFilter === label
-                  ? "bg-[#3182F6] border-[#3182F6]"
-                  : "bg-white border-[#F2F4F6] hover:border-[#D1D6DB]"
+              onClick={() => setStageFilter(null)}
+              className={`rounded-2xl px-4 py-2 flex items-baseline gap-1.5 transition cursor-pointer ${
+                stageFilter === null
+                  ? "text-white bg-[#3182F6]"
+                  : "glass-strong text-[#6B7684] hover:text-[#191F28]"
               }`}
             >
-              <span className={`text-xs ${stageFilter === label ? "text-white/70" : "text-[#6B7684]"}`}>{label}</span>
-              <span className={`text-sm font-bold ${stageFilter === label ? "text-white" : "text-[#333D4B]"}`}>{count}</span>
+              <span className={`text-[11px] ${stageFilter === null ? "text-white/80" : "text-[#8B95A1]"}`}>전체</span>
+              <span className={`text-[16px] font-bold ${stageFilter === null ? "text-white" : "text-[#191F28]"}`}>
+                {commissions.length}
+              </span>
+              <span className={`text-[10px] ${stageFilter === null ? "text-white/60" : "text-[#8B95A1]"}`}>건</span>
             </button>
-          ))}
+            {Object.entries(stageCounts).map(([label, count]) => (
+              <button
+                key={label}
+                onClick={() => setStageFilter(stageFilter === label ? null : label)}
+                className={`rounded-2xl px-3 py-2 flex items-baseline gap-1.5 transition cursor-pointer ${
+                  stageFilter === label
+                    ? "text-white bg-[#3182F6]"
+                    : "glass-strong text-[#6B7684] hover:text-[#191F28]"
+                }`}
+              >
+                <span className={`text-[11px] ${stageFilter === label ? "text-white/80" : "text-[#8B95A1]"}`}>{label}</span>
+                <span className={`text-[13px] font-bold ${stageFilter === label ? "text-white" : "text-[#191F28]"}`}>{count}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {/* 뷰 토글 */}
+            <div className="glass-strong rounded-2xl p-1 flex items-center gap-1">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-bold transition-colors ${
+                  viewMode === "table"
+                    ? "text-white bg-[#3182F6]"
+                    : "text-[#6B7684] hover:text-[#191F28]"
+                }`}
+              >
+                테이블
+              </button>
+              <button
+                onClick={() => setViewMode("board")}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-bold transition-colors ${
+                  viewMode === "board"
+                    ? "text-white bg-[#3182F6]"
+                    : "text-[#6B7684] hover:text-[#191F28]"
+                }`}
+              >
+                보드
+              </button>
+            </div>
+            <button
+              onClick={() => setModal("add")}
+              className="bg-[#3182F6] text-white px-5 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-[#1B64DA] transition-colors"
+            >
+              ＋ 수임 추가
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => setModal("add")}
-          className="bg-[#3182F6] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-[#1B64DA] transition-colors"
-        >
-          + 수임 추가
-        </button>
+
+        {/* 검색 */}
+        <div className="mt-3">
+          <div className="bg-white/80 rounded-2xl flex items-center gap-3 px-4 h-11 max-w-md">
+            <svg width={16} height={16} fill="none" stroke="#6B7684" strokeWidth={2.2} viewBox="0 0 24 24">
+              <circle cx={11} cy={11} r={8} /><path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="거래처명, 대표자, 사업자번호 검색…"
+              className="flex-1 bg-transparent outline-none text-[13.5px] text-[#191F28] placeholder:text-[#8B95A1]"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* 검색 */}
-      <div className="mb-3">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="거래처명, 대표자, 사업자번호 검색..."
-          className="w-full max-w-sm px-3 py-2 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] text-sm focus:outline-none focus:border-[#3182F6]/40"
-        />
-      </div>
-
-      {/* 테이블 */}
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-x-auto">
+      {/* 테이블 / 보드 뷰 */}
+      {viewMode === "table" && (
+      <div className="glass rounded-3xl overflow-hidden">
+       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[#F2F4F6] bg-[#F9FAFB]/60">
+            <tr className="border-b border-white/60 bg-white/50 backdrop-blur-md">
               <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[130px]">
                 거래처
               </th>
@@ -492,7 +527,7 @@ export default function CommissionBoard({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#F2F4F6]">
+          <tbody className="divide-y divide-white/40">
             {(() => {
               const q = searchQuery.trim().toLowerCase();
               const filtered = commissions.filter((c) => {
@@ -530,7 +565,7 @@ export default function CommissionBoard({
                 return (
                   <tr
                     key={c.id}
-                    className={`hover:bg-[#F9FAFB]/40 transition-colors ${
+                    className={`hover:bg-white/60 transition-colors ${
                       loading ? "opacity-60" : ""
                     }`}
                   >
@@ -847,7 +882,138 @@ export default function CommissionBoard({
             })()}
           </tbody>
         </table>
+       </div>
       </div>
+      )}
+
+      {/* ── 보드 뷰 ── */}
+      {viewMode === "board" && (() => {
+        const q = searchQuery.trim().toLowerCase();
+        const filtered = commissions.filter((c) => {
+          if (q && !c.client.name.toLowerCase().includes(q) && !(c.client.ceoName ?? "").toLowerCase().includes(q)) return false;
+          return true;
+        });
+        const STAGES: { key: string; label: string; dot: string }[] = [
+          { key: "해피콜 대기",   label: "해피콜 대기",   dot: "bg-[#8B95A1]" },
+          { key: "서류수집 중",   label: "서류수집 중",   dot: "bg-[#92400E]" },
+          { key: "수임 대기",     label: "홈택스 수임",   dot: "bg-[#3182F6]" },
+          { key: "위하고 대기",   label: "위하고 등록",   dot: "bg-[#6D28D9]" },
+          { key: "EDI 대기",      label: "EDI 대기",      dot: "bg-[#92400E]" },
+          { key: "완료처리 필요", label: "완료처리 필요", dot: "bg-[#15803D]" },
+        ];
+        const grouped: Record<string, CommissionData[]> = {};
+        STAGES.forEach(s => grouped[s.key] = []);
+        filtered.forEach(c => {
+          const lbl = getStage(c).label;
+          if (grouped[lbl]) grouped[lbl].push(c);
+          else (grouped["완료처리 필요"] ??= []).push(c);
+        });
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {STAGES.map(stage => {
+              const items = grouped[stage.key] ?? [];
+              return (
+                <div key={stage.key} className="glass rounded-2xl p-3 flex flex-col min-h-[400px]">
+                  <div className="flex items-center justify-between px-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${stage.dot}`} />
+                      <span className="text-[12px] font-bold text-[#191F28]">{stage.label}</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 text-[#6B7684]">{items.length}</span>
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    {items.length === 0 && (
+                      <div className="text-[11px] text-[#B0B8C1] text-center py-6">없음</div>
+                    )}
+                    {items.map(c => {
+                      const lastCall = c.happyCalls[c.happyCalls.length - 1] ?? null;
+                      const hasWage = (c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득");
+                      return (
+                        <div key={c.id} className="glass-strong rounded-xl p-2.5">
+                          <button
+                            onClick={() => { setAutoResult(null); setModal({ type: "idcard", id: c.id, clientId: c.client.id, clientName: c.client.name }); setEditingClientId(c.client.id); }}
+                            className="font-bold text-[12.5px] text-[#191F28] hover:underline text-left w-full truncate flex items-center gap-1"
+                          >
+                            {c.client.name}
+                            {(c.id in localIdCards ? localIdCards[c.id] : c.idCardPath)
+                              ? <span className="text-[#1AB266] text-[10px]">📄</span>
+                              : <span className="text-[#B0B8C1] text-[10px]">📄</span>}
+                          </button>
+                          {c.client.ceoName && <div className="text-[10.5px] text-[#6B7684] truncate">{c.client.ceoName}{c.client.phone ? ` · ${c.client.phone}` : ""}</div>}
+                          {c.client.assignedUser && (
+                            <div className="text-[10px] text-[#3182F6] mt-0.5">{c.client.assignedUser.name}</div>
+                          )}
+
+                          {/* 단계별 내부 액션 */}
+                          {stage.key === "해피콜 대기" && (
+                            <button
+                              onClick={() => { setModal({ type: "happycall", id: c.id }); setCallResult("no_answer"); setCallNotes(""); }}
+                              className="mt-2 w-full text-[10.5px] py-1 rounded-lg bg-[#E8F3FF] text-[#1B64DA] font-bold hover:bg-[#D6E9FF]"
+                            >
+                              ＋ 해피콜 기록
+                            </button>
+                          )}
+                          {stage.key === "서류수집 중" && (
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              <Pill checked={c.hasIdCard} label="신분증" onClick={() => doToggle(c.id, "hasIdCard", !c.hasIdCard)} disabled={loadingId === c.id} />
+                              <Pill checked={c.hasHometaxCredentials} label="홈택스" onClick={() => doToggle(c.id, "hasHometaxCredentials", !c.hasHometaxCredentials)} disabled={loadingId === c.id} />
+                            </div>
+                          )}
+                          {stage.key === "수임 대기" && (
+                            <button
+                              onClick={() => doToggle(c.id, "hometaxCommissionDone", true)}
+                              disabled={loadingId === c.id}
+                              className="mt-2 w-full text-[10.5px] py-1 rounded-lg bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA]"
+                            >
+                              ✓ 수임완료
+                            </button>
+                          )}
+                          {stage.key === "위하고 대기" && (
+                            <div className="mt-2 flex flex-col gap-1">
+                              <select
+                                value={c.wihagoType ?? ""}
+                                onChange={(e) => doSetWihagoType(c.id, e.target.value || null)}
+                                disabled={loadingId === c.id}
+                                className="text-[10.5px] border border-[#E5E8EB] rounded-md px-1.5 py-0.5 text-[#4E5968] bg-white"
+                              >
+                                <option value="">유형</option>
+                                <option value="new">신규</option>
+                                <option value="transfer">이관</option>
+                              </select>
+                              <Pill checked={c.wihagoDone} label="생성완료" onClick={() => doToggle(c.id, "wihagoDone", !c.wihagoDone)} disabled={loadingId === c.id} />
+                            </div>
+                          )}
+                          {stage.key === "EDI 대기" && hasWage && (
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              <Pill checked={c.nationalPensionDone} label="국민연금" onClick={() => doToggle(c.id, "nationalPensionDone", !c.nationalPensionDone)} disabled={loadingId === c.id} />
+                              <Pill checked={c.healthInsuranceDone} label="건강보험" onClick={() => doToggle(c.id, "healthInsuranceDone", !c.healthInsuranceDone)} disabled={loadingId === c.id} />
+                            </div>
+                          )}
+                          {stage.key === "완료처리 필요" && (
+                            <button
+                              onClick={() => doMarkComplete(c.id)}
+                              disabled={loadingId === c.id}
+                              className="mt-2 w-full text-[10.5px] py-1.5 rounded-lg bg-[#15803D] text-white font-bold hover:bg-[#166534] transition-colors"
+                            >
+                              ✓ 완료처리
+                            </button>
+                          )}
+
+                          {lastCall && stage.key !== "해피콜 대기" && (
+                            <div className="text-[9.5px] text-[#8B95A1] mt-1 truncate">
+                              해피콜 {c.happyCalls.length}차 · {fmtDate(lastCall.calledAt)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ── 완료된 수임 ── */}
       {completed.length > 0 && (
@@ -861,10 +1027,10 @@ export default function CommissionBoard({
           </button>
 
           {showCompleted && (
-            <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-x-auto opacity-80">
+            <div className="glass rounded-3xl overflow-x-auto opacity-90">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#F2F4F6] bg-[#F9FAFB]/60">
+                  <tr className="border-b border-white/60 bg-white/50 backdrop-blur-md">
                     <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">거래처</th>
                     <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">완료일</th>
                     <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">해피콜</th>
@@ -874,9 +1040,9 @@ export default function CommissionBoard({
                     <th className="px-4 py-2.5 text-center text-xs text-[#8B95A1] font-medium">다시 진행</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F2F4F6]">
+                <tbody className="divide-y divide-white/40">
                   {completed.map((c) => (
-                    <tr key={c.id} className="hover:bg-[#F9FAFB]/40">
+                    <tr key={c.id} className="hover:bg-white/60">
                       <td className="px-4 py-2.5 text-center">
                         <div className="font-medium text-[#4E5968]">{c.client.name}</div>
                         {c.client.ceoName && (
