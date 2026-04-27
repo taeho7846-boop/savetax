@@ -345,10 +345,23 @@ export default async function DashboardPage({
 
   return (
     <div>
-      {/* 히어로: 모든 탭 통일 — 인사말 + 폰 팝업 버튼 (위치 고정) */}
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div className="text-[13.5px] text-[#6B7684] font-[500]">
-          {firstName}님, {greeting}
+      {/* 히어로: 모든 탭 동일한 두 줄 헤더 (인사말 + 오늘의 업무 N건 + 폰 팝업 버튼) */}
+      <div className="mb-5 flex items-end justify-between gap-4">
+        <div>
+          <div className="text-[13.5px] text-[#6B7684] font-[500]">
+            {firstName}님, {greeting}
+          </div>
+          <div className="text-[28px] font-bold text-[#191F28] mt-1 tracking-tight leading-[1.3]">
+            {todayTasks.length > 0 ? (
+              <>
+                오늘 처리할 업무{" "}
+                <span className="text-[#3182F6]">{todayTasks.length}건</span>
+                이에요
+              </>
+            ) : (
+              "오늘 할 일을 모두 완료했어요"
+            )}
+          </div>
         </div>
         <PhonePopupButton />
       </div>
@@ -359,49 +372,50 @@ export default async function DashboardPage({
       {/* 현황 탭 */}
       {activeTab === "overview" && (
         <>
-          {/* 4 글래스 스탯카드 — 가로 컴팩트 레이아웃 */}
+          {/* 4 글래스 스탯카드 — 미니 위젯 패턴 (아래 3개 카드와 통일) */}
           <div className="grid grid-cols-4 gap-4 mb-4">
-            <Link href="/clients" className="stat-card glass rounded-2xl p-4 cursor-pointer flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl gradient-blue flex items-center justify-center text-white shrink-0">
-                <BuildingIcon width={20} height={20} strokeWidth={2.2} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-[#6B7684] font-medium">관리 고객사</div>
-                <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-[24px] font-bold tracking-tight leading-none text-[#191F28] tabular-nums">{totalClients}</span>
-                  <span className="text-[10.5px] text-[#8B95A1] tabular-nums whitespace-nowrap">개인 {individualClients} · 법인 {corporateClients}</span>
+            <Link href="/clients" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl gradient-blue flex items-center justify-center text-white">
+                  <BuildingIcon width={18} height={18} strokeWidth={2.2} />
                 </div>
+                <span className="text-[20px] font-bold tabular-nums text-[#191F28]">{totalClients}</span>
               </div>
+              <div className="text-[14px] font-bold text-[#191F28]">관리 고객사</div>
+              <div className="text-[11.5px] text-[#6B7684] mt-0.5 tabular-nums">개인 {individualClients} · 법인 {corporateClients}</div>
             </Link>
 
-            <Link href="/tasks" className="stat-card glass rounded-2xl p-4 cursor-pointer flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl gradient-purple flex items-center justify-center text-white shrink-0">
-                <ClockIcon width={20} height={20} strokeWidth={2.2} />
+            <Link href="/tasks" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl gradient-purple flex items-center justify-center text-white">
+                  <ClockIcon width={18} height={18} strokeWidth={2.2} />
+                </div>
+                <span className="text-[20px] font-bold tabular-nums text-[#191F28]">{totalTasks}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-[#6B7684] font-medium">내 업무</div>
-                <div className="text-[24px] font-bold tracking-tight leading-none text-[#191F28] tabular-nums mt-0.5">{totalTasks}</div>
-              </div>
+              <div className="text-[14px] font-bold text-[#191F28]">내 업무</div>
+              <div className="text-[11.5px] text-[#6B7684] mt-0.5">진행 중인 업무</div>
             </Link>
 
-            <Link href="/tasks" className="stat-card glass rounded-2xl p-4 cursor-pointer flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl gradient-amber flex items-center justify-center text-white shrink-0">
-                <CalendarIcon width={20} height={20} strokeWidth={2.2} />
+            <Link href="/tasks" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl gradient-amber flex items-center justify-center text-white">
+                  <CalendarIcon width={18} height={18} strokeWidth={2.2} />
+                </div>
+                <span className={`text-[20px] font-bold tabular-nums ${urgentTasks.length > 0 ? "text-[#D97706]" : "text-[#191F28]"}`}>{urgentTasks.length}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-[#6B7684] font-medium">마감 임박</div>
-                <div className={`text-[24px] font-bold tracking-tight leading-none tabular-nums mt-0.5 ${urgentTasks.length > 0 ? "text-[#D97706]" : "text-[#191F28]"}`}>{urgentTasks.length}</div>
-              </div>
+              <div className="text-[14px] font-bold text-[#191F28]">마감 임박</div>
+              <div className="text-[11.5px] text-[#6B7684] mt-0.5">3일 이내 마감</div>
             </Link>
 
-            <Link href="/tasks?status=delayed" className={`stat-card glass rounded-2xl p-4 cursor-pointer flex items-center gap-3.5 ${delayedTasks > 0 ? "ring-pulse" : ""}`}>
-              <div className="w-11 h-11 rounded-2xl gradient-rose flex items-center justify-center text-white shrink-0">
-                <BellIcon width={20} height={20} strokeWidth={2.2} />
+            <Link href="/tasks?status=delayed" className={`stat-card glass rounded-3xl p-5 cursor-pointer block ${delayedTasks > 0 ? "ring-pulse" : ""}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl gradient-rose flex items-center justify-center text-white">
+                  <BellIcon width={18} height={18} strokeWidth={2.2} />
+                </div>
+                <span className={`text-[20px] font-bold tabular-nums ${delayedTasks > 0 ? "text-[#DC2626]" : "text-[#191F28]"}`}>{delayedTasks}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-[#6B7684] font-medium">지연 업무</div>
-                <div className={`text-[24px] font-bold tracking-tight leading-none tabular-nums mt-0.5 ${delayedTasks > 0 ? "text-[#DC2626]" : "text-[#191F28]"}`}>{delayedTasks}</div>
-              </div>
+              <div className="text-[14px] font-bold text-[#191F28]">지연 업무</div>
+              <div className="text-[11.5px] text-[#6B7684] mt-0.5">{delayedTasks > 0 ? "확인 필요" : "지연 없음"}</div>
             </Link>
           </div>
 
