@@ -46,8 +46,13 @@ export default async function SettingsPage() {
         {/* ===== 왼쪽 열: 계정 설정 + 저장 ===== */}
         <form action={saveSettings} className="space-y-4">
           {/* 세무대리인 홈택스 */}
-          <div className="glass rounded-2xl p-5">
-            <h2 className="text-sm font-bold text-[#333D4B] mb-3">세무대리인 홈택스 계정</h2>
+          <div className={`glass rounded-2xl p-5 accent-glow ${(!settings?.agentHometaxId || !settings?.agentHometaxPw) ? "border-l-2 border-[#DC2626]" : ""}`}>
+            <SectionHeader
+              title="세무대리인 홈택스 계정"
+              desc="기본값으로 사용되며 거래처별 계정으로 덮어쓸 수 있어요"
+              connected={!!(settings?.agentHometaxId && settings?.agentHometaxPw)}
+            />
+            <div className="section-hairline mb-3" />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-[#6B7684] mb-1">홈택스 ID</label>
@@ -61,8 +66,13 @@ export default async function SettingsPage() {
           </div>
 
           {/* 공인인증서 */}
-          <div className="glass rounded-2xl p-5">
-            <h2 className="text-sm font-bold text-[#333D4B] mb-3">공인인증서</h2>
+          <div className={`glass rounded-2xl p-5 ${(!settings?.certName || !settings?.certPassword) ? "border-l-2 border-[#DC2626]" : ""}`}>
+            <SectionHeader
+              title="공인인증서"
+              desc="홈택스 자동 로그인 시 사용"
+              connected={!!(settings?.certName && settings?.certPassword)}
+            />
+            <div className="section-hairline mb-3" />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-[#6B7684] mb-1">인증서 이름</label>
@@ -75,32 +85,41 @@ export default async function SettingsPage() {
             </div>
           </div>
 
-          {/* 위하고 */}
-          <div className="glass rounded-2xl p-5">
-            <h2 className="text-sm font-bold text-[#333D4B] mb-3">위하고 계정</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-[#6B7684] mb-1">위하고 ID</label>
-                <input name="wehagoId" type="text" defaultValue={settings?.wehagoId ?? ""} placeholder="아이디" className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-xs text-[#6B7684] mb-1">위하고 PW</label>
-                <input name="wehagoPw" type="password" defaultValue={settings?.wehagoPw ?? ""} placeholder="비밀번호" className={inputClass} />
+          {/* 위하고 + 위멤버스 (2-col grid) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`glass rounded-2xl p-5 ${(!settings?.wehagoId || !settings?.wehagoPw) ? "border-l-2 border-[#DC2626]" : ""}`}>
+              <SectionHeader
+                title="위하고 계정"
+                connected={!!(settings?.wehagoId && settings?.wehagoPw)}
+              />
+              <div className="section-hairline mb-3" />
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs text-[#6B7684] mb-1">ID</label>
+                  <input name="wehagoId" type="text" defaultValue={settings?.wehagoId ?? ""} placeholder="아이디" className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#6B7684] mb-1">PW</label>
+                  <input name="wehagoPw" type="password" defaultValue={settings?.wehagoPw ?? ""} placeholder="비밀번호" className={inputClass} />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 위멤버스 */}
-          <div className="glass rounded-2xl p-5">
-            <h2 className="text-sm font-bold text-[#333D4B] mb-3">위멤버스 계정</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-[#6B7684] mb-1">위멤버스 ID</label>
-                <input name="wemembersId" type="text" defaultValue={settings?.wemembersId ?? ""} placeholder="아이디" className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-xs text-[#6B7684] mb-1">위멤버스 PW</label>
-                <input name="wemembersPw" type="password" defaultValue={settings?.wemembersPw ?? ""} placeholder="비밀번호" className={inputClass} />
+            <div className={`glass rounded-2xl p-5 ${(!settings?.wemembersId || !settings?.wemembersPw) ? "border-l-2 border-[#DC2626]" : ""}`}>
+              <SectionHeader
+                title="위멤버스 계정"
+                connected={!!(settings?.wemembersId && settings?.wemembersPw)}
+              />
+              <div className="section-hairline mb-3" />
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs text-[#6B7684] mb-1">ID</label>
+                  <input name="wemembersId" type="text" defaultValue={settings?.wemembersId ?? ""} placeholder="아이디" className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#6B7684] mb-1">PW</label>
+                  <input name="wemembersPw" type="password" defaultValue={settings?.wemembersPw ?? ""} placeholder="비밀번호" className={inputClass} />
+                </div>
               </div>
             </div>
           </div>
@@ -291,6 +310,30 @@ export default async function SettingsPage() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function SectionHeader({ title, desc, connected }: { title: string; desc?: string; connected?: boolean }) {
+  return (
+    <div className="flex items-start justify-between mb-2 gap-3">
+      <div className="min-w-0">
+        <h2 className="text-sm font-bold text-[#191F28]">{title}</h2>
+        {desc && <p className="text-[11px] text-[#8B95A1] mt-0.5">{desc}</p>}
+      </div>
+      {connected !== undefined && (
+        connected ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0] shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+            연결됨
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA] shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
+            미연결
+          </span>
+        )
+      )}
     </div>
   );
 }
