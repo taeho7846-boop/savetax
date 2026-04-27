@@ -15,6 +15,8 @@ import {
   LogOutIcon,
   LoaderIcon,
   CheckIcon,
+  CalendarIcon,
+  ClockIcon,
 } from "@/components/icons";
 
 type Settings = {
@@ -47,6 +49,7 @@ const CATEGORIES: Category[] = [
     icon: <BuildingIcon width={14} height={14} />,
     subs: [
       { href: "/clients", label: "고객사관리" },
+      { href: "/tax-agency", label: "신고대리" },
       { href: "/commission", label: "신규수임" },
       { href: "/receivables", label: "채권관리" },
     ],
@@ -56,7 +59,6 @@ const CATEGORIES: Category[] = [
     label: "신고",
     icon: <FileTextIcon width={14} height={14} />,
     subs: [
-      { href: "/tax-agency", label: "신고대리" },
       { href: "/withholding", label: "원천세" },
       { href: "/income-tax", label: "종합소득세" },
       { href: "/data-collect", label: "자료수집" },
@@ -88,14 +90,20 @@ const CATEGORIES: Category[] = [
 
 type LoginStatus = "idle" | "loading" | "success" | "error";
 
+type Notifications = {
+  distribution: number;
+  urgent: number;
+  delayed: number;
+};
+
 export default function TopNav({
   user,
   settings,
-  distributionCount = 0,
+  notifications = { distribution: 0, urgent: 0, delayed: 0 },
 }: {
   user: User;
   settings: Settings | null;
-  distributionCount?: number;
+  notifications?: Notifications;
 }) {
   const pathname = usePathname();
 
@@ -122,7 +130,7 @@ export default function TopNav({
   const activeSubs = visibleCategories.find((c) => c.key === activeCat)?.subs ?? [];
 
   return (
-    <header className="sticky top-0 z-30 px-6 pt-4 pb-2 bg-gradient-to-b from-[#F7FAFD]/95 via-[#F7FAFD]/70 to-transparent">
+    <header className="sticky top-0 z-30 px-6 pt-4 pb-2 bg-gradient-to-b from-[#f0f4ff]/95 via-[#f0f4ff]/70 to-transparent">
       {/* Row 1: 3 pills */}
       <div className="flex items-center gap-3 mb-2.5">
         {/* 좌: 로고 */}
@@ -163,18 +171,7 @@ export default function TopNav({
         {/* 우: 검색 + 알림 + 프로필 */}
         <div className="glass-strong rounded-2xl px-2 py-2 flex items-center gap-1.5">
           <SearchPill />
-          <Link
-            href="/distribution"
-            className="relative w-9 h-9 rounded-xl hover:bg-white/60 flex items-center justify-center text-[#6B7684]"
-            title={distributionCount > 0 ? `신규 배분 ${distributionCount}건` : "알림"}
-          >
-            <BellIcon width={16} height={16} />
-            {distributionCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#DC2626] text-white text-[9.5px] font-bold flex items-center justify-center leading-none">
-                {distributionCount > 99 ? "99+" : distributionCount}
-              </span>
-            )}
-          </Link>
+          <NotificationBell notifications={notifications} />
           <ProfileMenu user={user} settings={settings} />
         </div>
       </div>
@@ -227,9 +224,7 @@ function SearchPill() {
     <button
       className="px-3 h-9 rounded-xl flex items-center gap-2 text-[12.5px] text-[#6B7684] hover:text-[#3182F6] hover:bg-white/60 transition w-[200px]"
       onClick={() => {
-        // GlobalSearch는 슬래시 단축키 기반으로 동작 — 실제 트리거는 GlobalSearch 컴포넌트가 처리
-        const ev = new KeyboardEvent("keydown", { key: "/" });
-        window.dispatchEvent(ev);
+        window.dispatchEvent(new Event("savetax-open-global-search"));
       }}
       title="검색 (/)"
     >
@@ -359,6 +354,106 @@ function ProfileMenu({ user, settings }: { user: User; settings: Settings | null
               로그아웃
             </button>
           </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NotificationBell({ notifications }: { notifications: Notifications }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const total = notifications.distribution + notifications.urgent + notifications.delayed;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="relative w-9 h-9 rounded-xl hover:bg-white/60 flex items-center justify-center text-[#6B7684]"
+        title={total > 0 ? `알림 ${total}건` : "알림"}
+      >
+        <BellIcon width={16} height={16} />
+        {total > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#DC2626] text-white text-[9.5px] font-bold flex items-center justify-center leading-none">
+            {total > 99 ? "99+" : total}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-72 glass-strong rounded-2xl p-2 shadow-2xl z-40">
+          <div className="px-3 py-2 flex items-center justify-between">
+            <div className="text-[13px] font-bold text-[#191F28]">알림</div>
+            {total > 0 && (
+              <span className="text-[11px] text-[#DC2626] font-bold bg-[#DC2626]/10 px-2 py-0.5 rounded-full">{total}건</span>
+            )}
+          </div>
+          <div className="my-1 h-px bg-white/40" />
+          {total === 0 ? (
+            <div className="py-6 text-center text-[12px] text-[#8B95A1]">새 알림이 없어요</div>
+          ) : (
+            <div className="space-y-1">
+              {notifications.distribution > 0 && (
+                <Link
+                  href="/distribution"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/60 transition"
+                >
+                  <div className="w-9 h-9 rounded-xl gradient-blue flex items-center justify-center text-white shrink-0">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold text-[#191F28]">신규 거래처 배분</div>
+                    <div className="text-[11px] text-[#6B7684]">미확인 배정 건</div>
+                  </div>
+                  <span className="text-[14px] font-bold text-[#3182F6] tabular-nums shrink-0">{notifications.distribution}</span>
+                </Link>
+              )}
+              {notifications.urgent > 0 && (
+                <Link
+                  href="/tasks"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/60 transition"
+                >
+                  <div className="w-9 h-9 rounded-xl gradient-amber flex items-center justify-center text-white shrink-0">
+                    <CalendarIcon width={18} height={18} strokeWidth={2.2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold text-[#191F28]">마감 임박</div>
+                    <div className="text-[11px] text-[#6B7684]">3일 이내 마감</div>
+                  </div>
+                  <span className="text-[14px] font-bold text-[#D97706] tabular-nums shrink-0">{notifications.urgent}</span>
+                </Link>
+              )}
+              {notifications.delayed > 0 && (
+                <Link
+                  href="/tasks?status=delayed"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/60 transition"
+                >
+                  <div className="w-9 h-9 rounded-xl gradient-rose flex items-center justify-center text-white shrink-0">
+                    <ClockIcon width={18} height={18} strokeWidth={2.2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold text-[#191F28]">지연 업무</div>
+                    <div className="text-[11px] text-[#6B7684]">마감 지난 건</div>
+                  </div>
+                  <span className="text-[14px] font-bold text-[#DC2626] tabular-nums shrink-0">{notifications.delayed}</span>
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

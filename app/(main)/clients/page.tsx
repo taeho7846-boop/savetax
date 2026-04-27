@@ -129,10 +129,8 @@ export default async function ClientsPage({
         <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
           <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#15803D] rounded-r" />
           <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">월 기장료 합계</div>
-          <div className="text-[26px] font-extrabold text-[#191F28] mt-1.5 leading-none pl-2">
-            {monthlyFeeSum >= 1000000
-              ? <>{(monthlyFeeSum / 1000000).toFixed(1)}<span className="text-[16px] text-[#6B7684] font-bold">M</span></>
-              : monthlyFeeSum.toLocaleString()}
+          <div className="text-[26px] font-extrabold text-[#191F28] mt-1.5 leading-none pl-2 tabular-nums">
+            {monthlyFeeSum.toLocaleString()}<span className="text-[14px] text-[#6B7684] font-bold ml-1">원</span>
           </div>
           <div className="text-[11px] text-[#8B95A1] mt-1.5 pl-2">
             평균 {totalCount > 0 ? Math.round(monthlyFeeSum / totalCount).toLocaleString() : 0}원 / 곳
