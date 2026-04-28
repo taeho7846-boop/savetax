@@ -247,7 +247,13 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
         </div>
         <div className="text-[14px] font-bold text-[#191F28]">해피콜 대상</div>
         <div className="text-[11.5px] text-[#6B7684] mt-0.5">
-          {items.length > 0 ? "확인 통화 필요" : "처리 완료"}
+          {items.length > 0 ? (
+            <>
+              신규 {items.filter(i => i.noAnswerCount === 0).length}
+              <span className="mx-1 text-[#D1D6DB]">·</span>
+              부재중 {items.filter(i => i.noAnswerCount > 0).length}
+            </>
+          ) : "처리 완료"}
         </div>
       </button>
 

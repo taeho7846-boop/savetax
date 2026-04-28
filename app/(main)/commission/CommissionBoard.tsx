@@ -63,7 +63,9 @@ type AvailableClient = {
 function getStage(c: CommissionData) {
   if (c.completedAt)
     return { label: "완료", cls: "bg-[#E7F7EE] text-[#15803D]" };
-  if (c.happyCalls.length === 0)
+  // 해피콜 대기: 통화 연결(connected) 기록이 없으면 0회/부재중 N차 모두 포함
+  const hasConnected = c.happyCalls.some(h => h.result === "connected");
+  if (!hasConnected)
     return { label: "해피콜 대기", cls: "bg-[#F2F4F6] text-[#6B7684]" };
   if (!c.hasIdCard || !c.hasHometaxCredentials)
     return { label: "서류수집 중", cls: "bg-[#FFF4D0] text-[#B08809]" };
