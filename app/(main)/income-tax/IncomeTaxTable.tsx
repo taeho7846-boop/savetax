@@ -1076,7 +1076,7 @@ export function IncomeTaxTable({
           );
         })()
       ) : (
-      <div className="flex-1 overflow-auto glass rounded-2xl">
+      <div className="flex-1 min-h-0 overflow-auto glass rounded-2xl">
         <table className="text-xs whitespace-nowrap">
           <thead className="sticky top-0 z-30 bg-white shadow-[0_1px_0_0_#E5E8EB]">
             {/* 그룹 헤더 */}
