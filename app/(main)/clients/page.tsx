@@ -84,7 +84,8 @@ export default async function ClientsPage({
 
   // KPI 계산
   const monthlyFeeSum = clients.reduce((s, c) => s + (c.monthlyFee ?? 0), 0);
-  const noCmsClients = clients.filter(c => c.cmsStatus !== "active");
+  // CMS 등록 = 출금은행 + 출금계좌번호 둘 다 채워져 있어야 함
+  const noCmsClients = clients.filter(c => !c.bankName?.trim() || !c.bankAccount?.trim());
   const noDocsClients = clients.filter(c => !c.hometaxId || !c.hometaxPw);
   const noCmsCount = noCmsClients.length;
   const noDocsCount = noDocsClients.length;
