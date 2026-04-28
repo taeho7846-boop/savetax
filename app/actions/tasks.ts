@@ -51,6 +51,35 @@ export async function deleteTask(id: number) {
   revalidatePath("/dashboard");
 }
 
+export async function updateTaskNotesAndDueDate(
+  id: number,
+  notes: string,
+  dueDate: string | null,
+) {
+  const session = await requireAuth();
+
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: { createdByUserId: true, clientId: true },
+  });
+  if (!task) throw new Error("업무를 찾을 수 없습니다.");
+  if (task.createdByUserId !== session.id) {
+    throw new Error("본인이 만든 업무만 수정할 수 있습니다.");
+  }
+
+  await prisma.task.update({
+    where: { id },
+    data: {
+      notes: notes.trim() || null,
+      dueDate: dueDate ? new Date(dueDate) : null,
+    },
+  });
+
+  if (task.clientId) revalidatePath(`/clients/${task.clientId}`);
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+}
+
 export async function getCreateTaskData() {
   const session = await requireAuth();
   const clients = await prisma.client.findMany({

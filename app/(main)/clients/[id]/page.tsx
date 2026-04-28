@@ -2,9 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { STATUS_LABELS, STATUS_COLORS, TASK_TYPE_LABELS } from "@/lib/constants";
+import { getSession } from "@/lib/auth";
 import { deleteClient } from "@/app/actions/clients";
 import { ClientDeleteButton } from "./ClientDeleteButton";
 import { MemoContent } from "./MemoContent";
+import { TaskEditableSection } from "./TaskEditableSection";
 
 export default async function ClientDetailPage({
   params,
@@ -16,6 +18,8 @@ export default async function ClientDetailPage({
   const { id } = await params;
   const sp = await searchParams;
   const activeTab = sp.tab || "info";
+  const session = await getSession();
+  const currentUserId = session?.id ?? null;
 
   const client = await prisma.client.findUnique({
     where: { id: parseInt(id), isDeleted: false },
@@ -39,7 +43,7 @@ export default async function ClientDetailPage({
 
   // 히스토리: 업무+메모를 createdAt으로 정렬
   const history = [
-    ...client.tasks.map(t => ({ type: "task" as const, id: t.id, title: t.title, date: t.createdAt, status: t.status, taskType: t.taskType, dueDate: t.dueDate, user: t.assignedUser?.name, notes: t.notes })),
+    ...client.tasks.map(t => ({ type: "task" as const, id: t.id, title: t.title, date: t.createdAt, status: t.status, taskType: t.taskType, dueDate: t.dueDate, user: t.assignedUser?.name, notes: t.notes, createdByUserId: t.createdByUserId })),
     ...client.memos.map(m => ({ type: "memo" as const, id: m.id, title: m.title || m.content.slice(0, 50), date: m.createdAt, memoType: m.memoType, user: m.author.name, content: m.content })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -220,11 +224,13 @@ export default async function ClientDetailPage({
                       </span>
                     </div>
                     <div className="text-sm font-medium text-[#191F28]">{item.title}</div>
-                    {item.type === "task" && "dueDate" in item && item.dueDate && (
-                      <div className="text-xs text-[#8B95A1] mt-0.5">마감: {new Date(item.dueDate).toLocaleDateString("ko-KR")}</div>
-                    )}
-                    {item.type === "task" && "notes" in item && item.notes && (
-                      <MemoContent content={item.notes} />
+                    {item.type === "task" && (
+                      <TaskEditableSection
+                        taskId={item.id}
+                        notes={item.notes ?? null}
+                        dueDate={item.dueDate ? new Date(item.dueDate).toISOString() : null}
+                        canEdit={currentUserId !== null && item.createdByUserId === currentUserId}
+                      />
                     )}
                     {item.type === "memo" && "content" in item && (
                       <MemoContent content={item.content} />
