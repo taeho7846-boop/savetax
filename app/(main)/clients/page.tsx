@@ -84,12 +84,18 @@ export default async function ClientsPage({
 
   // KPI 계산
   const monthlyFeeSum = clients.reduce((s, c) => s + (c.monthlyFee ?? 0), 0);
-  // CMS 등록 = 출금은행 + 출금계좌번호 둘 다 채워져 있어야 함
-  const noCmsClients = clients.filter(c => !c.bankName?.trim() || !c.bankAccount?.trim());
+  // CMS 등록 상태: "done" = 등록 / "pending" = 등록요청중 / 그 외 = 미등록
+  // 카드/모달엔 (등록요청중 + 미등록) 모두 노출
+  const noCmsClients = clients.filter(c => c.cmsStatus !== "done");
   const noDocsClients = clients.filter(c => !c.hometaxId || !c.hometaxPw);
   const noCmsCount = noCmsClients.length;
   const noDocsCount = noDocsClients.length;
-  const noCmsList = noCmsClients.map(c => ({ id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType }));
+  const cmsPendingCount = noCmsClients.filter(c => c.cmsStatus === "pending").length;
+  const cmsNoneCount = noCmsCount - cmsPendingCount;
+  const noCmsList = noCmsClients.map(c => ({
+    id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType,
+    cmsStatus: c.cmsStatus === "pending" ? "pending" : "none",
+  }));
   const noDocsList = noDocsClients.map(c => ({ id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType }));
 
   return (
@@ -146,6 +152,8 @@ export default async function ClientsPage({
           totalCount={totalCount}
           noCmsCount={noCmsCount}
           noDocsCount={noDocsCount}
+          cmsPendingCount={cmsPendingCount}
+          cmsNoneCount={cmsNoneCount}
           noCmsList={noCmsList}
           noDocsList={noDocsList}
         />

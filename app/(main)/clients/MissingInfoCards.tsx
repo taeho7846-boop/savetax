@@ -8,12 +8,15 @@ type ClientItem = {
   name: string;
   ceoName: string | null;
   clientType: string | null;
+  cmsStatus?: "pending" | "none";
 };
 
 type Props = {
   totalCount: number;
   noCmsCount: number;
   noDocsCount: number;
+  cmsPendingCount: number;
+  cmsNoneCount: number;
   noCmsList: ClientItem[];
   noDocsList: ClientItem[];
 };
@@ -22,6 +25,8 @@ export function MissingInfoCards({
   totalCount,
   noCmsCount,
   noDocsCount,
+  cmsPendingCount,
+  cmsNoneCount,
   noCmsList,
   noDocsList,
 }: Props) {
@@ -37,8 +42,6 @@ export function MissingInfoCards({
     return () => document.removeEventListener("keydown", onKey);
   }, [modal]);
 
-  const cmsRatio = totalCount > 0 ? (noCmsCount / totalCount) * 100 : 0;
-
   return (
     <>
       {/* ── CMS 미등록 카드 ── */}
@@ -49,15 +52,23 @@ export function MissingInfoCards({
       >
         <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#92400E] rounded-r" />
         <div className="flex items-center justify-between pl-2">
-          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase">CMS 미등록</div>
+          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase">CMS 자동이체 미완료</div>
           <span className="text-[10px] text-[#92400E] font-bold opacity-60 group-hover:opacity-100">자세히 →</span>
         </div>
         <div className="flex items-end gap-1.5 mt-1.5 pl-2">
           <div className="text-[26px] font-extrabold text-[#92400E] leading-none">{noCmsCount}</div>
           <div className="text-[11px] text-[#8B95A1] mb-1">/ {totalCount}</div>
         </div>
-        <div className="progress mt-2.5 ml-2">
-          <div className="progress-fill bg-[#92400E]" style={{ width: `${cmsRatio}%` }} />
+        <div className="text-[11px] text-[#8B95A1] mt-1.5 pl-2">
+          {noCmsCount > 0 ? (
+            <>
+              <span className="text-[#B45309] font-semibold">요청중 {cmsPendingCount}</span>
+              <span className="mx-1 text-[#D1D6DB]">·</span>
+              <span className="text-[#92400E] font-semibold">미등록 {cmsNoneCount}</span>
+            </>
+          ) : (
+            "모두 등록 완료"
+          )}
         </div>
       </button>
 
@@ -108,8 +119,8 @@ function ClientListModal({
   const meta =
     variant === "cms"
       ? {
-          title: "CMS 미등록 거래처",
-          subtitle: "은행 자동이체 등록이 필요해요",
+          title: "CMS 자동이체 미완료",
+          subtitle: "등록요청중 + 미등록 거래처",
           accent: "#92400E",
           accentBg: "from-[#FEF3C7]/80 via-[#FDE68A]/40",
           ringColor: "ring-[#92400E]/15",
@@ -178,20 +189,44 @@ function ClientListModal({
           </div>
 
           {/* 카운트 칩 */}
-          <div className="mt-4 flex items-center gap-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 border border-white/60">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: meta.accent }}
-              />
-              <span className="text-[12px] font-bold tabular-nums" style={{ color: meta.accent }}>
-                {items.length}
-              </span>
-              <span className="text-[11px] text-[#6B7684]">곳</span>
-            </div>
-            <span className="text-[11px] text-[#8B95A1]">
-              전체 {totalCount}곳 중
-            </span>
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            {variant === "cms" ? (
+              <>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FEF3C7]/80 border border-[#FCD34D]/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#B45309]" />
+                  <span className="text-[12px] font-bold tabular-nums text-[#B45309]">
+                    {items.filter((i) => i.cmsStatus === "pending").length}
+                  </span>
+                  <span className="text-[11px] text-[#92400E]">요청중</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FEE2E2]/80 border border-[#FCA5A5]/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#92400E]" />
+                  <span className="text-[12px] font-bold tabular-nums text-[#92400E]">
+                    {items.filter((i) => i.cmsStatus === "none").length}
+                  </span>
+                  <span className="text-[11px] text-[#92400E]">미등록</span>
+                </div>
+                <span className="text-[11px] text-[#8B95A1]">
+                  전체 {totalCount}곳 중
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 border border-white/60">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: meta.accent }}
+                  />
+                  <span className="text-[12px] font-bold tabular-nums" style={{ color: meta.accent }}>
+                    {items.length}
+                  </span>
+                  <span className="text-[11px] text-[#6B7684]">곳</span>
+                </div>
+                <span className="text-[11px] text-[#8B95A1]">
+                  전체 {totalCount}곳 중
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -221,8 +256,21 @@ function ClientListModal({
                   {c.clientType === "corporate" ? "법" : "개"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] font-bold text-[#191F28] truncate">
-                    {c.name}
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-[13.5px] font-bold text-[#191F28] truncate">
+                      {c.name}
+                    </div>
+                    {variant === "cms" && c.cmsStatus && (
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 ${
+                          c.cmsStatus === "pending"
+                            ? "bg-[#FEF3C7] text-[#B45309] border border-[#FCD34D]/40"
+                            : "bg-[#FEE2E2] text-[#92400E] border border-[#FCA5A5]/40"
+                        }`}
+                      >
+                        {c.cmsStatus === "pending" ? "요청중" : "미등록"}
+                      </span>
+                    )}
                   </div>
                   {c.ceoName && (
                     <div className="text-[11px] text-[#8B95A1] truncate mt-0.5">
