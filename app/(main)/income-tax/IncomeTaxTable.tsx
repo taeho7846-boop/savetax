@@ -546,7 +546,7 @@ export function IncomeTaxTable({
       </div>
 
       {/* 테이블 + (단계 선택시) 우측 사이드 패널 */}
-      <div className={stageFilter ? "grid grid-cols-[minmax(0,1fr)_360px] gap-3 flex-1 min-h-0" : ""}>
+      <div className={stageFilter ? "grid grid-cols-[minmax(0,1fr)_360px] gap-3 flex-1 min-h-0" : "flex-1 min-h-0 flex flex-col"}>
       {stageFilter === "writing" ? (
         // ② 작성중 전용 레이아웃
         <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
@@ -1078,7 +1078,7 @@ export function IncomeTaxTable({
       ) : (
       <div className="flex-1 overflow-auto glass rounded-2xl">
         <table className="text-xs whitespace-nowrap">
-          <thead className="sticky top-0 z-10">
+          <thead className="sticky top-0 z-30 bg-white shadow-[0_1px_0_0_#E5E8EB]">
             {/* 그룹 헤더 */}
             <tr>
               {showGroup("기본") && <th className={`px-3 py-1.5 ${GROUP_COLORS["기본"]} border-b border-[#E5E8EB]`} colSpan={showAssignedUser ? 6 : 5}>기본</th>}
