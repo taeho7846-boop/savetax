@@ -4,6 +4,7 @@ import Link from "next/link";
 import { STATUS_LABELS, STATUS_COLORS, TASK_TYPE_LABELS } from "@/lib/constants";
 import { deleteClient } from "@/app/actions/clients";
 import { ClientDeleteButton } from "./ClientDeleteButton";
+import { MemoContent } from "./MemoContent";
 
 export default async function ClientDetailPage({
   params,
@@ -223,7 +224,7 @@ export default async function ClientDetailPage({
                       <div className="text-xs text-[#8B95A1] mt-0.5">마감: {new Date(item.dueDate).toLocaleDateString("ko-KR")}</div>
                     )}
                     {item.type === "memo" && "content" in item && (
-                      <p className="text-xs text-[#6B7684] mt-1 whitespace-pre-wrap line-clamp-3">{item.content}</p>
+                      <MemoContent content={item.content} />
                     )}
                     {item.user && <div className="text-[10px] text-[#8B95A1] mt-1">{item.user}</div>}
                   </div>
