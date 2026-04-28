@@ -94,7 +94,7 @@ export default async function ClientsPage({
   const cmsNoneCount = noCmsCount - cmsPendingCount;
   const noCmsList = noCmsClients.map(c => ({
     id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType,
-    cmsStatus: c.cmsStatus === "pending" ? "pending" : "none",
+    cmsStatus: (c.cmsStatus === "pending" ? "pending" : "none") as "pending" | "none",
   }));
   const noDocsList = noDocsClients.map(c => ({ id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType }));
 
