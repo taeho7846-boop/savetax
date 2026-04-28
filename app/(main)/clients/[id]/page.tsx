@@ -39,7 +39,7 @@ export default async function ClientDetailPage({
 
   // 히스토리: 업무+메모를 createdAt으로 정렬
   const history = [
-    ...client.tasks.map(t => ({ type: "task" as const, id: t.id, title: t.title, date: t.createdAt, status: t.status, taskType: t.taskType, dueDate: t.dueDate, user: t.assignedUser?.name })),
+    ...client.tasks.map(t => ({ type: "task" as const, id: t.id, title: t.title, date: t.createdAt, status: t.status, taskType: t.taskType, dueDate: t.dueDate, user: t.assignedUser?.name, notes: t.notes })),
     ...client.memos.map(m => ({ type: "memo" as const, id: m.id, title: m.title || m.content.slice(0, 50), date: m.createdAt, memoType: m.memoType, user: m.author.name, content: m.content })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -222,6 +222,9 @@ export default async function ClientDetailPage({
                     <div className="text-sm font-medium text-[#191F28]">{item.title}</div>
                     {item.type === "task" && "dueDate" in item && item.dueDate && (
                       <div className="text-xs text-[#8B95A1] mt-0.5">마감: {new Date(item.dueDate).toLocaleDateString("ko-KR")}</div>
+                    )}
+                    {item.type === "task" && "notes" in item && item.notes && (
+                      <MemoContent content={item.notes} />
                     )}
                     {item.type === "memo" && "content" in item && (
                       <MemoContent content={item.content} />
