@@ -5,6 +5,7 @@ import { ClientsTable } from "./ClientsTable";
 import { ClientCreateButton } from "./ClientCreateModal";
 import { BulkUploadButton, BulkUpdateButton } from "./BulkUploadModal";
 import { TrashBinButton } from "./TrashBin";
+import { MissingInfoCards } from "./MissingInfoCards";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "1인사업자": { border: "border-[#A3CAFD]", text: "text-[#3182F6]", bg: "bg-[#F5F9FF]" },
@@ -83,8 +84,12 @@ export default async function ClientsPage({
 
   // KPI 계산
   const monthlyFeeSum = clients.reduce((s, c) => s + (c.monthlyFee ?? 0), 0);
-  const noCmsCount = clients.filter(c => c.cmsStatus !== "active").length;
-  const noDocsCount = clients.filter(c => !c.hometaxId || !c.hometaxPw).length;
+  const noCmsClients = clients.filter(c => c.cmsStatus !== "active");
+  const noDocsClients = clients.filter(c => !c.hometaxId || !c.hometaxPw);
+  const noCmsCount = noCmsClients.length;
+  const noDocsCount = noDocsClients.length;
+  const noCmsList = noCmsClients.map(c => ({ id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType }));
+  const noDocsList = noDocsClients.map(c => ({ id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType }));
 
   return (
     <div className="flex flex-col h-full">
@@ -136,23 +141,13 @@ export default async function ClientsPage({
             평균 {totalCount > 0 ? Math.round(monthlyFeeSum / totalCount).toLocaleString() : 0}원 / 곳
           </div>
         </div>
-        <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
-          <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#92400E] rounded-r" />
-          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">CMS 미등록</div>
-          <div className="flex items-end gap-1.5 mt-1.5 pl-2">
-            <div className="text-[26px] font-extrabold text-[#92400E] leading-none">{noCmsCount}</div>
-            <div className="text-[11px] text-[#8B95A1] mb-1">/ {totalCount}</div>
-          </div>
-          <div className="progress mt-2.5 ml-2"><div className="progress-fill bg-[#92400E]" style={{ width: `${totalCount > 0 ? (noCmsCount / totalCount) * 100 : 0}%` }} /></div>
-        </div>
-        <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
-          <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#DC2626] rounded-r" />
-          <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">홈택스 정보 없음</div>
-          <div className="flex items-end gap-1.5 mt-1.5 pl-2">
-            <div className="text-[26px] font-extrabold text-[#DC2626] leading-none">{noDocsCount}</div>
-          </div>
-          <div className="text-[11px] text-[#8B95A1] mt-1.5 pl-2">홈택스 ID/PW 등록 필요</div>
-        </div>
+        <MissingInfoCards
+          totalCount={totalCount}
+          noCmsCount={noCmsCount}
+          noDocsCount={noDocsCount}
+          noCmsList={noCmsList}
+          noDocsList={noDocsList}
+        />
       </div>
 
       {/* 검색 + 탭 + 범례 — 하나의 글래스 카드로 */}
