@@ -165,13 +165,22 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
                   </button>
                 )}
                 {item.type === "transfer" && (
-                  <button
-                    onClick={() => { startTransition(async () => { await markTransferRequested(item.commissionId); router.refresh(); }); }}
-                    disabled={isPending}
-                    className="text-[10.5px] px-2.5 py-1 rounded-[6px] bg-[#D97706] text-white hover:bg-[#B45309] disabled:opacity-50 whitespace-nowrap font-bold transition-colors shrink-0"
-                  >
-                    요청완료
-                  </button>
+                  <>
+                    <button
+                      onClick={() => { startTransition(async () => { await markTransferRequested(item.commissionId); router.refresh(); }); }}
+                      disabled={isPending}
+                      className="text-[10.5px] px-2.5 py-1 rounded-[6px] bg-[#D97706] text-white hover:bg-[#B45309] disabled:opacity-50 whitespace-nowrap font-bold transition-colors shrink-0"
+                    >
+                      요청완료
+                    </button>
+                    <button
+                      onClick={() => { startTransition(async () => { await markTransferReceived(item.commissionId); router.refresh(); }); }}
+                      disabled={isPending}
+                      className="text-[10.5px] px-2.5 py-1 rounded-[6px] bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50 whitespace-nowrap font-bold transition-colors shrink-0"
+                    >
+                      수령완료
+                    </button>
+                  </>
                 )}
                 {item.type === "happycall" && (
                   <Link href="/commission" className="text-[10.5px] px-2.5 py-1 rounded-[6px] bg-white/70 text-[#4E5968] hover:bg-white hover:text-[#191F28] whitespace-nowrap font-bold transition-colors shrink-0">
