@@ -65,7 +65,7 @@ export default async function MainLayout({
   };
 
   return (
-    <div className="glass-canvas min-h-screen flex flex-col">
+    <div className="glass-canvas h-screen overflow-hidden flex flex-col">
       <TopNav user={session} settings={settings} notifications={notifications} />
       <main className="flex-1 px-6 pb-[100px] overflow-y-auto text-[#4E5968]">{children}</main>
       <DockBar />
