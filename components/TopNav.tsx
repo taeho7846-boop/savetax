@@ -468,13 +468,27 @@ function TransferDocsBell() {
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 마운트 시 신규 이관자료 카운트 조회
+  // 마운트 시 + 갱신 이벤트 수신 시 신규 이관자료 카운트 조회
   useEffect(() => {
+    function refetch() {
+      fetch("/api/transfer-docs")
+        .then((r) => r.json())
+        .then((d) => setCount((d.pending ?? []).length))
+        .catch(() => setCount(0));
+    }
+    refetch();
+    window.addEventListener("transfer-docs-updated", refetch);
+    return () => window.removeEventListener("transfer-docs-updated", refetch);
+  }, []);
+
+  // 드롭다운 열릴 때마다 최신 카운트로 갱신
+  useEffect(() => {
+    if (!open) return;
     fetch("/api/transfer-docs")
       .then((r) => r.json())
       .then((d) => setCount((d.pending ?? []).length))
-      .catch(() => setCount(0));
-  }, []);
+      .catch(() => {});
+  }, [open]);
 
   // 외부 클릭 시 닫기
   useEffect(() => {

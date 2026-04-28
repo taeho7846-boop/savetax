@@ -90,6 +90,7 @@ export function TransferDocsCard() {
           ...prev,
           [fileId]: { ...prev[fileId], copying: null, status: "copied", copiedClientName: data.clientName, copiedFileId: data.copiedFileId },
         }));
+        window.dispatchEvent(new CustomEvent("transfer-docs-updated"));
       } else {
         setFileStates((prev) => ({
           ...prev,
@@ -114,6 +115,7 @@ export function TransferDocsCard() {
       ...prev,
       [fileId]: { ...prev[fileId], status: "skipped" },
     }));
+    window.dispatchEvent(new CustomEvent("transfer-docs-updated"));
   }
 
   // 복사 취소 (복사된 파일 삭제)
@@ -131,6 +133,7 @@ export function TransferDocsCard() {
         ...prev,
         [fileId]: { ...prev[fileId], status: "pending", copiedClientName: undefined, copiedFileId: undefined },
       }));
+      window.dispatchEvent(new CustomEvent("transfer-docs-updated"));
     } catch {}
   }
 
