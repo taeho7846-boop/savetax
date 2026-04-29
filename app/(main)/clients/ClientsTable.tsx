@@ -486,9 +486,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto glass rounded-3xl">
+      <div className="glass rounded-3xl">
         <table className="w-full text-sm">
-          <thead className="bg-white/60 backdrop-blur-md border-b border-white/60 sticky top-0 z-10">
+          <thead className="bg-white/80 backdrop-blur-md border-b border-white/60 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
             <tr>
               <th className="px-3 py-3 w-10">
                 <input
