@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
       cells[colIndex("O")] = dayStr;
       cells[colIndex("T")] = supply;
       cells[colIndex("U")] = vat;
+      cells[colIndex("X")] = "기장료";                // 품목1
       cells[colIndex("AY")] = "01";
     } else {
       // === 일반발행 (공급자 정보 포함, 7행부터) ===
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
       cells[colIndex("T")] = supply;                  // 공급가액
       cells[colIndex("U")] = vat;                     // 부가세
       cells[colIndex("W")] = dayStr;                  // 일자 (2자리)
+      cells[colIndex("X")] = "기장료";                 // 품목1
       cells[colIndex("AB")] = supply;                 // = T
       cells[colIndex("AC")] = vat;                    // = U
       cells[colIndex("BG")] = "01";
