@@ -92,10 +92,26 @@ export default async function ClientsPage({
   const noDocsCount = noDocsClients.length;
   const cmsPendingCount = noCmsClients.filter(c => c.cmsStatus === "pending").length;
   const cmsNoneCount = noCmsCount - cmsPendingCount;
-  const noCmsList = noCmsClients.map(c => ({
-    id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType,
-    cmsStatus: (c.cmsStatus === "pending" ? "pending" : "none") as "pending" | "none",
-  }));
+
+  // 급한 순서대로 정렬: 최초출금월 빠른 순(과거→미래), 미설정은 맨 아래
+  // 같은 월이면 미등록(none)이 등록요청중(pending)보다 위
+  const statusOrder = (s: string) => (s === "pending" ? 1 : 0);
+  const noCmsList = noCmsClients
+    .map(c => ({
+      id: c.id,
+      name: c.name,
+      ceoName: c.ceoName,
+      clientType: c.clientType,
+      cmsStatus: (c.cmsStatus === "pending" ? "pending" : "none") as "pending" | "none",
+      firstWithdrawalMonth: c.firstWithdrawalMonth ?? null,
+    }))
+    .sort((a, b) => {
+      const aKey = a.firstWithdrawalMonth || "9999-99";
+      const bKey = b.firstWithdrawalMonth || "9999-99";
+      const cmp = aKey.localeCompare(bKey);
+      if (cmp !== 0) return cmp;
+      return statusOrder(a.cmsStatus) - statusOrder(b.cmsStatus);
+    });
   const noDocsList = noDocsClients.map(c => ({ id: c.id, name: c.name, ceoName: c.ceoName, clientType: c.clientType }));
 
   return (

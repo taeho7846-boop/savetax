@@ -9,7 +9,22 @@ type ClientItem = {
   ceoName: string | null;
   clientType: string | null;
   cmsStatus?: "pending" | "none";
+  firstWithdrawalMonth?: string | null; // "YYYY-MM"
 };
+
+// "2026-04" → "2026년 4월"
+function formatYM(ym: string | null | undefined): string | null {
+  if (!ym) return null;
+  const m = /^(\d{4})-(\d{1,2})$/.exec(ym);
+  if (!m) return ym;
+  return `${m[1]}년 ${parseInt(m[2], 10)}월`;
+}
+
+// 현재 연월 (YYYY-MM 문자열)
+function currentYM(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 type Props = {
   totalCount: number;
@@ -239,57 +254,90 @@ function ClientListModal({
               <div className="text-[11.5px] text-[#8B95A1] mt-1">처리해야 할 거래처가 없어요</div>
             </div>
           ) : (
-            items.map((c) => (
-              <Link
-                key={c.id}
-                href={`/clients/${c.id}/edit`}
-                onClick={onClose}
-                className="group flex items-center gap-3 px-3.5 py-3 rounded-2xl hover:bg-white/80 transition-all duration-150 ring-1 ring-transparent hover:ring-white/80"
-              >
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-[12.5px] font-bold shrink-0 ${
-                    c.clientType === "corporate"
-                      ? "bg-[#EAF2FF] text-[#1B64DA]"
-                      : "bg-[#F2F4F6] text-[#4E5968]"
-                  }`}
+            items.map((c) => {
+              const ym = c.firstWithdrawalMonth || null;
+              const isOverdue = !!ym && ym < currentYM();
+              const isThisMonth = !!ym && ym === currentYM();
+              return (
+                <Link
+                  key={c.id}
+                  href={`/clients/${c.id}/edit`}
+                  onClick={onClose}
+                  className="group flex items-center gap-3 px-3.5 py-3 rounded-2xl hover:bg-white/80 transition-all duration-150 ring-1 ring-transparent hover:ring-white/80"
                 >
-                  {c.clientType === "corporate" ? "법" : "개"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <div className="text-[13.5px] font-bold text-[#191F28] truncate">
-                      {c.name}
+                  <span
+                    className={`text-[10.5px] font-bold px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap ${
+                      c.clientType === "corporate"
+                        ? "bg-[#EAF2FF] text-[#1B64DA]"
+                        : "bg-[#F2F4F6] text-[#4E5968]"
+                    }`}
+                  >
+                    {c.clientType === "corporate" ? "법인" : "개인"}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="text-[13.5px] font-bold text-[#191F28] truncate">
+                        {c.name}
+                      </div>
+                      {variant === "cms" && c.cmsStatus && (
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 ${
+                            c.cmsStatus === "pending"
+                              ? "bg-[#FEF3C7] text-[#B45309] border border-[#FCD34D]/40"
+                              : "bg-[#FEE2E2] text-[#92400E] border border-[#FCA5A5]/40"
+                          }`}
+                        >
+                          {c.cmsStatus === "pending" ? "요청중" : "미등록"}
+                        </span>
+                      )}
                     </div>
-                    {variant === "cms" && c.cmsStatus && (
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 ${
-                          c.cmsStatus === "pending"
-                            ? "bg-[#FEF3C7] text-[#B45309] border border-[#FCD34D]/40"
-                            : "bg-[#FEE2E2] text-[#92400E] border border-[#FCA5A5]/40"
-                        }`}
-                      >
-                        {c.cmsStatus === "pending" ? "요청중" : "미등록"}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#8B95A1]">
+                      {c.ceoName && <span className="truncate">{c.ceoName}</span>}
+                      {variant === "cms" && (
+                        <>
+                          {c.ceoName && <span className="text-[#D1D6DB]">·</span>}
+                          <span
+                            className={`whitespace-nowrap font-semibold ${
+                              isOverdue
+                                ? "text-[#DC2626]"
+                                : isThisMonth
+                                  ? "text-[#D97706]"
+                                  : ym
+                                    ? "text-[#4E5968]"
+                                    : "text-[#B0B8C1]"
+                            }`}
+                          >
+                            {ym ? (
+                              <>
+                                최초출금 {formatYM(ym)}
+                                {isOverdue && (
+                                  <span className="ml-1 text-[10px]">⚠ 지연</span>
+                                )}
+                                {isThisMonth && (
+                                  <span className="ml-1 text-[10px]">이번달</span>
+                                )}
+                              </>
+                            ) : (
+                              "최초출금월 미설정"
+                            )}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  {c.ceoName && (
-                    <div className="text-[11px] text-[#8B95A1] truncate mt-0.5">
-                      {c.ceoName}
-                    </div>
-                  )}
-                </div>
-                <div
-                  className="text-[10.5px] font-bold px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap"
-                  style={{
-                    color: meta.accent,
-                    backgroundColor: "rgba(255, 255, 255, 0.85)",
-                    border: `1px solid ${meta.accent}33`,
-                  }}
-                >
-                  {meta.actionLabel} →
-                </div>
-              </Link>
-            ))
+                  <div
+                    className="text-[10.5px] font-bold px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap"
+                    style={{
+                      color: meta.accent,
+                      backgroundColor: "rgba(255, 255, 255, 0.85)",
+                      border: `1px solid ${meta.accent}33`,
+                    }}
+                  >
+                    {meta.actionLabel} →
+                  </div>
+                </Link>
+              );
+            })
           )}
         </div>
 
