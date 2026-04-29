@@ -364,7 +364,32 @@ function ProfileMenu({ user, settings }: { user: User; settings: Settings | null
 
 function NotificationBell({ notifications }: { notifications: Notifications }) {
   const [open, setOpen] = useState(false);
+  const [baseline, setBaseline] = useState<number>(0);
   const ref = useRef<HTMLDivElement>(null);
+
+  const total = notifications.distribution + notifications.urgent + notifications.delayed;
+
+  // 마운트 시 localStorage에서 baseline 로드
+  useEffect(() => {
+    const stored = parseInt(localStorage.getItem("bell_baseline") || "0", 10);
+    setBaseline(Number.isFinite(stored) ? stored : 0);
+  }, []);
+
+  // total이 baseline보다 작아지면 (업무 처리 등) baseline도 따라 내림
+  useEffect(() => {
+    if (total < baseline) {
+      localStorage.setItem("bell_baseline", String(total));
+      setBaseline(total);
+    }
+  }, [total, baseline]);
+
+  // 드롭다운 열면 자동으로 "읽음" 처리
+  useEffect(() => {
+    if (open && total > baseline) {
+      localStorage.setItem("bell_baseline", String(total));
+      setBaseline(total);
+    }
+  }, [open, total, baseline]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -374,19 +399,25 @@ function NotificationBell({ notifications }: { notifications: Notifications }) {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const total = notifications.distribution + notifications.urgent + notifications.delayed;
+  // 뱃지 = baseline 대비 새로 늘어난 만큼만
+  const badgeCount = Math.max(0, total - baseline);
+
+  function markAllRead() {
+    localStorage.setItem("bell_baseline", String(total));
+    setBaseline(total);
+  }
 
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative w-9 h-9 rounded-xl hover:bg-white/60 flex items-center justify-center text-[#6B7684]"
-        title={total > 0 ? `알림 ${total}건` : "알림"}
+        title={badgeCount > 0 ? `새 알림 ${badgeCount}건` : "알림"}
       >
         <BellIcon width={16} height={16} />
-        {total > 0 && (
+        {badgeCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#DC2626] text-white text-[9.5px] font-bold flex items-center justify-center leading-none">
-            {total > 99 ? "99+" : total}
+            {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         )}
       </button>
@@ -394,9 +425,21 @@ function NotificationBell({ notifications }: { notifications: Notifications }) {
         <div className="absolute right-0 mt-2 w-72 glass-strong rounded-2xl p-2 shadow-2xl z-40">
           <div className="px-3 py-2 flex items-center justify-between">
             <div className="text-[13px] font-bold text-[#191F28]">알림</div>
-            {total > 0 && (
-              <span className="text-[11px] text-[#DC2626] font-bold bg-[#DC2626]/10 px-2 py-0.5 rounded-full">{total}건</span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {total > 0 && (
+                <span className="text-[11px] text-[#DC2626] font-bold bg-[#DC2626]/10 px-2 py-0.5 rounded-full">{total}건</span>
+              )}
+              {badgeCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllRead}
+                  className="text-[11px] text-[#3182F6] font-bold hover:underline px-1"
+                  title="새 알림 표시 끄기"
+                >
+                  모두 읽음
+                </button>
+              )}
+            </div>
           </div>
           <div className="my-1 h-px bg-white/40" />
           {total === 0 ? (
