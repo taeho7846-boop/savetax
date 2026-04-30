@@ -202,8 +202,26 @@ export default async function DashboardPage({
     return until.getTime() > todayTs;
   }
 
-  const happyCallItems: { commissionId: number; clientId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number }[] = [];
-  const dataCollectItems: { commissionId: number; clientId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[] }[] = [];
+  // === 거래처별 알림톡 발송 카운트/마지막시각 (해피콜·자료수집) ===
+  const allCommissionClientIds = commissions.map((cp: any) => cp.clientId);
+  const alimtalkLogsRaw = allCommissionClientIds.length > 0
+    ? await prisma.alimtalkLog.findMany({
+        where: { clientId: { in: allCommissionClientIds }, status: "sent", type: { in: ["happy_call", "doc_remind"] } },
+        select: { clientId: true, type: true, sentAt: true },
+        orderBy: { sentAt: "desc" },
+      })
+    : [];
+  const alimtalkStats: Record<string, { count: number; lastSentAt: string }> = {};
+  for (const log of alimtalkLogsRaw) {
+    const key = `${log.clientId}:${log.type}`;
+    if (!alimtalkStats[key]) {
+      alimtalkStats[key] = { count: 0, lastSentAt: log.sentAt.toISOString() };
+    }
+    alimtalkStats[key].count++;
+  }
+
+  const happyCallItems: { commissionId: number; clientId: number; clientName: string; noAnswerCount: number; lastCallAt: string; daysElapsed: number; alimtalkCount: number; alimtalkLastSentAt: string | null }[] = [];
+  const dataCollectItems: { commissionId: number; clientId: number; clientName: string; connectedAt: string; daysFromConnect: number; requestCount: number; lastRequestAt: string | null; daysSinceRequest: number | null; missingDocs: string[]; alimtalkCount: number; alimtalkLastSentAt: string | null }[] = [];
   const todayTasks: { type: "happycall" | "datacollect" | "transfer"; commissionId: number; clientName: string; label: string }[] = [];
   const excludeItems: { commissionId: number; clientName: string; reason: string; daysElapsed: number; requestDays: number }[] = [];
   const postponedItems: { commissionId: number; clientName: string; until: string; note: string; type: string }[] = [];
@@ -259,12 +277,15 @@ export default async function DashboardPage({
         const missingDocs: string[] = [];
         if (!cp.hasIdCard) missingDocs.push("신분증");
         if (!cp.hasHometaxCredentials) missingDocs.push("홈택스 ID/PW");
+        const docStat = alimtalkStats[`${cp.clientId}:doc_remind`];
         dataCollectItems.push({
           commissionId: cp.id, clientId: cp.clientId, clientName, connectedAt: cp.connectedAt.toISOString(),
           daysFromConnect: dfc, requestCount: cp.dataRequestCount,
           lastRequestAt: cp.lastDataRequestAt?.toISOString() || null,
           daysSinceRequest: cp.lastDataRequestAt ? daysDiff(new Date(cp.lastDataRequestAt)) : null,
           missingDocs,
+          alimtalkCount: docStat?.count || 0,
+          alimtalkLastSentAt: docStat?.lastSentAt || null,
         });
       }
       continue;
@@ -278,11 +299,14 @@ export default async function DashboardPage({
       if (!cp.hasHometaxCredentials) missingDocs.push("홈택스 ID/PW");
       const daysSinceReq = cp.lastDataRequestAt ? daysDiff(new Date(cp.lastDataRequestAt)) : null;
 
+      const docStat = alimtalkStats[`${cp.clientId}:doc_remind`];
       dataCollectItems.push({
         commissionId: cp.id, clientId: cp.clientId, clientName, connectedAt: cp.connectedAt.toISOString(),
         daysFromConnect: dfc, requestCount: cp.dataRequestCount,
         lastRequestAt: cp.lastDataRequestAt?.toISOString() || null,
         daysSinceRequest: daysSinceReq, missingDocs,
+        alimtalkCount: docStat?.count || 0,
+        alimtalkLastSentAt: docStat?.lastSentAt || null,
       });
 
       // 오늘의 업무: 요청 0회이면 D+2, 이후에는 마지막 요청으로부터 2일 경과 (미루기 체크)
@@ -305,11 +329,14 @@ export default async function DashboardPage({
       const baseDate = lastCall ? new Date(lastCall.calledAt) : new Date(cp.createdAt);
       const daysElapsed = daysDiff(baseDate);
 
+      const hcStat = alimtalkStats[`${cp.clientId}:happy_call`];
       happyCallItems.push({
         commissionId: cp.id, clientId: cp.clientId, clientName,
         noAnswerCount: noAnswerCalls.length,
         lastCallAt: baseDate.toISOString(),
         daysElapsed,
+        alimtalkCount: hcStat?.count || 0,
+        alimtalkLastSentAt: hcStat?.lastSentAt || null,
       });
 
       // 오늘의 업무 (미루기 체크):

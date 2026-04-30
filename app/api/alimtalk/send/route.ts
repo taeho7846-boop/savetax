@@ -52,9 +52,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await prisma.alimtalkLog.create({
+      data: { clientId, type, status: "sent", sentByUserId: session.id },
+    });
+
     return NextResponse.json({ ok: true, result });
   } catch (e: any) {
     console.error("알림톡 발송 실패:", e);
+    await prisma.alimtalkLog.create({
+      data: { clientId, type, status: "failed", sentByUserId: session.id, errorMsg: e.message || "발송 실패" },
+    }).catch(() => {});
     return NextResponse.json({ error: e.message || "발송 실패" }, { status: 500 });
   }
 }

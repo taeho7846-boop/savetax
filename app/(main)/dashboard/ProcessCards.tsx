@@ -13,6 +13,8 @@ type HappyCallItem = {
   noAnswerCount: number;
   lastCallAt: string; // ISO
   daysElapsed: number;
+  alimtalkCount: number;
+  alimtalkLastSentAt: string | null;
 };
 
 type DataCollectItem = {
@@ -25,7 +27,18 @@ type DataCollectItem = {
   lastRequestAt: string | null;
   daysSinceRequest: number | null;
   missingDocs: string[]; // ["신분증", "홈택스 ID/PW"]
+  alimtalkCount: number;
+  alimtalkLastSentAt: string | null;
 };
+
+function formatSentBadge(count: number, iso: string | null): string {
+  if (!count || !iso) return "";
+  const d = new Date(iso);
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const ordinal = count === 1 ? "1차" : count === 2 ? "2차" : count === 3 ? "3차" : `${count}차`;
+  return `✓ ${ordinal} ${m}/${day} 발송`;
+}
 
 type TodayTaskItem = {
   type: "happycall" | "datacollect" | "transfer";
@@ -226,11 +239,15 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
 
 // ============ 해피콜 미니 위젯 + 팝업 ============
 export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [sendingId, setSendingId] = useState<number | null>(null);
 
-  async function handleAlimtalk(clientId: number, clientName: string) {
-    if (!confirm(`"${clientName}"에게 카카오톡 안내를 발송하시겠습니까?`)) return;
+  async function handleAlimtalk(clientId: number, clientName: string, prevCount: number) {
+    const msg = prevCount > 0
+      ? `"${clientName}"에게 이미 ${prevCount}차 발송했습니다.\n${prevCount + 1}차로 다시 발송하시겠습니까?`
+      : `"${clientName}"에게 카카오톡 안내를 발송하시겠습니까?`;
+    if (!confirm(msg)) return;
     setSendingId(clientId);
     try {
       const res = await fetch("/api/alimtalk/send", {
@@ -241,6 +258,7 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
       const data = await res.json();
       if (!res.ok) { alert(data.error); return; }
       alert("카카오톡 안내가 발송되었습니다");
+      router.refresh();
     } catch { alert("발송 실패"); }
     finally { setSendingId(null); }
   }
@@ -285,7 +303,14 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
               ) : items.map((item) => (
                 <div key={item.commissionId} className="bg-white/60 rounded-2xl px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-bold text-[#191F28] truncate">{item.clientName}</div>
+                    <div className="text-[14px] font-bold text-[#191F28] truncate flex items-center gap-2">
+                      <span className="truncate">{item.clientName}</span>
+                      {item.alimtalkCount > 0 && (
+                        <span className="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md bg-[#E8F3FF] text-[#3182F6] whitespace-nowrap">
+                          {formatSentBadge(item.alimtalkCount, item.alimtalkLastSentAt)}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11.5px] text-[#6B7684] mt-0.5 flex items-center gap-1.5">
                       <span>{item.noAnswerCount === 0 ? "1차 대기" : `${item.noAnswerCount}차 부재중`}</span>
                       <span className="text-[#D1D6DB]">·</span>
@@ -293,11 +318,15 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleAlimtalk(item.clientId, item.clientName)}
+                    onClick={() => handleAlimtalk(item.clientId, item.clientName, item.alimtalkCount)}
                     disabled={sendingId === item.clientId}
-                    className="text-[12px] px-3 py-2 rounded-xl bg-[#FBBF24] text-[#0b0d10] font-bold hover:bg-[#F59E0B] disabled:opacity-50 whitespace-nowrap"
+                    className={`text-[12px] px-3 py-2 rounded-xl font-bold disabled:opacity-50 whitespace-nowrap ${
+                      item.alimtalkCount > 0
+                        ? "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
+                        : "bg-[#FBBF24] text-[#0b0d10] hover:bg-[#F59E0B]"
+                    }`}
                   >
-                    {sendingId === item.clientId ? "발송중..." : "카카오톡 안내"}
+                    {sendingId === item.clientId ? "발송중..." : item.alimtalkCount > 0 ? "재발송" : "카카오톡 안내"}
                   </button>
                 </div>
               ))}
@@ -319,11 +348,15 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
 
 // ============ 자료수집 미니 위젯 + 팝업 ============
 export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [sendingId, setSendingId] = useState<number | null>(null);
 
-  async function handleAlimtalk(clientId: number, clientName: string) {
-    if (!confirm(`"${clientName}"에게 카카오톡 독촉을 발송하시겠습니까?`)) return;
+  async function handleAlimtalk(clientId: number, clientName: string, prevCount: number) {
+    const msg = prevCount > 0
+      ? `"${clientName}"에게 이미 ${prevCount}차 발송했습니다.\n${prevCount + 1}차로 다시 발송하시겠습니까?`
+      : `"${clientName}"에게 카카오톡 독촉을 발송하시겠습니까?`;
+    if (!confirm(msg)) return;
     setSendingId(clientId);
     try {
       const res = await fetch("/api/alimtalk/send", {
@@ -334,6 +367,7 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
       const data = await res.json();
       if (!res.ok) { alert(data.error); return; }
       alert("카카오톡 독촉이 발송되었습니다");
+      router.refresh();
     } catch { alert("발송 실패"); }
     finally { setSendingId(null); }
   }
@@ -373,7 +407,14 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
                 <div key={item.commissionId} className="bg-white/60 rounded-2xl px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="text-[14px] font-bold text-[#191F28] truncate">{item.clientName}</div>
+                      <div className="text-[14px] font-bold text-[#191F28] truncate flex items-center gap-2">
+                        <span className="truncate">{item.clientName}</span>
+                        {item.alimtalkCount > 0 && (
+                          <span className="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md bg-[#F3E8FF] text-[#8B5CF6] whitespace-nowrap">
+                            {formatSentBadge(item.alimtalkCount, item.alimtalkLastSentAt)}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11.5px] text-[#6B7684] mt-0.5 flex items-center gap-1.5">
                         <span>{item.requestCount > 0 ? `${item.requestCount}차 요청완료` : "요청 전"}</span>
                         <span className="text-[#D1D6DB]">·</span>
@@ -381,11 +422,15 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleAlimtalk(item.clientId, item.clientName)}
+                      onClick={() => handleAlimtalk(item.clientId, item.clientName, item.alimtalkCount)}
                       disabled={sendingId === item.clientId}
-                      className="text-[12px] px-3 py-2 rounded-xl bg-[#FBBF24] text-[#0b0d10] font-bold hover:bg-[#F59E0B] disabled:opacity-50 whitespace-nowrap"
+                      className={`text-[12px] px-3 py-2 rounded-xl font-bold disabled:opacity-50 whitespace-nowrap ${
+                        item.alimtalkCount > 0
+                          ? "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
+                          : "bg-[#FBBF24] text-[#0b0d10] hover:bg-[#F59E0B]"
+                      }`}
                     >
-                      {sendingId === item.clientId ? "발송중..." : "카카오톡 독촉"}
+                      {sendingId === item.clientId ? "발송중..." : item.alimtalkCount > 0 ? "재발송" : "카카오톡 독촉"}
                     </button>
                   </div>
                   {item.missingDocs.length > 0 && (

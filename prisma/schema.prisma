@@ -96,6 +96,20 @@ model Client {
   withholdingProcesses      WithholdingProcess[]
   withholdingRecords        WithholdingRecord[]
   unpaidPostpone            UnpaidPostpone?
+  alimtalkLogs              AlimtalkLog[]
+}
+
+model AlimtalkLog {
+  id           Int      @id @default(autoincrement())
+  clientId     Int
+  type         String
+  status       String   @default("sent")
+  sentAt       DateTime @default(now())
+  sentByUserId Int?
+  errorMsg     String?
+  client       Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, type, sentAt])
 }
 
 model FeeRecord {
