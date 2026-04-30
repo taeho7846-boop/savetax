@@ -12,6 +12,7 @@ type DockItem = {
   icon: ReactNode;
   href?: string;
   external?: boolean;
+  popup?: { width: number; height: number };
   badge?: number;
 };
 
@@ -85,6 +86,7 @@ const ITEMS: (DockItem | "divider")[] = [
       </svg>
     ),
     href: "/phone",
+    popup: { width: 350, height: 740 },
   },
 ];
 
@@ -128,6 +130,26 @@ function DockButton({ item }: { item: DockItem }) {
   );
   if (!item.href) {
     return <button title={item.title}>{innerNode}</button>;
+  }
+  if (item.popup) {
+    const { width: w, height: h } = item.popup;
+    return (
+      <button
+        type="button"
+        title={item.title}
+        onClick={() => {
+          const left = window.screen.availWidth - w - 40;
+          const top = 80;
+          window.open(
+            item.href!,
+            `savetax-${item.key}`,
+            `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+          );
+        }}
+      >
+        {innerNode}
+      </button>
+    );
   }
   if (item.external) {
     return (
