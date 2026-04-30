@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo } from "@/app/actions/income-tax";
 import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
 import { PinIcon } from "@/components/icons";
+import { NoticeUploadModal } from "./NoticeUploadModal";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -133,6 +134,7 @@ export function IncomeTaxTable({
     aiSme: string | null;
   } | null>(null);
   const [savedCalcIds, setSavedCalcIds] = useState<Set<number>>(new Set());
+  const [noticeUploadOpen, setNoticeUploadOpen] = useState(false);
 
   // 저장된 세액계산 거래처 목록 조회
   useState(() => {
@@ -398,6 +400,18 @@ export function IncomeTaxTable({
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">종합소득세 · {taxYear}년 귀속</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setNoticeUploadOpen(true)}
+            className="h-10 px-3.5 rounded-2xl glass text-[12.5px] font-bold text-[#191F28] hover:bg-white/80 inline-flex items-center gap-1.5"
+            title="위멤버스에서 받은 신고도움서비스 ZIP을 거래처별 구글드라이브에 자동 분류"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            신고도움서비스 업로드
+          </button>
           <div className="flex items-center gap-1 glass rounded-2xl px-1 h-10">
             <button
               onClick={() => handleYearChange(-1)}
@@ -1527,6 +1541,11 @@ export function IncomeTaxTable({
             setSavedCalcIds(prev => new Set(prev).add(taxCalcModal.clientId));
           }}
         />
+      )}
+
+      {/* 신고도움서비스 업로드 모달 */}
+      {noticeUploadOpen && (
+        <NoticeUploadModal taxYear={taxYear} onClose={() => setNoticeUploadOpen(false)} />
       )}
 
       {/* 고객사 수정 모달 */}
