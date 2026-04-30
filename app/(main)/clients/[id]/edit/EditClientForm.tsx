@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useTransition, useState } from "react";
+import { useRef, useTransition, useState } from "react";
 import Link from "next/link";
 import { BizNumberInput, PhoneInput, ResidentNumberInput } from "@/components/FormattedInputs";
 import { CheckboxGroup } from "@/components/CheckboxGroup";
@@ -109,17 +109,13 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
   const submitRef = useRef<HTMLButtonElement>(null);
   const [, startTransition] = useTransition();
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== "Enter") return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "TEXTAREA" || tag === "SELECT") return;
-      e.preventDefault();
-      submitRef.current?.click();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
+    if (e.key !== "Enter") return;
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === "TEXTAREA" || tag === "SELECT") return;
+    e.preventDefault();
+    submitRef.current?.click();
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -135,6 +131,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       data-modal-form=""
       action={onSuccess ? undefined : action}
       onSubmit={onSuccess ? handleSubmit : undefined}
+      onKeyDown={handleFormKeyDown}
       className="space-y-5"
     >
       {/* 행1: 고객사명 / 사업자등록번호 */}
