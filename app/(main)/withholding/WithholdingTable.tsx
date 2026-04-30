@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toggleWithholdingTask, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
 import { PinIcon } from "@/components/icons";
+import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 // 프로세스 단계도 withholdingRecords 테이블을 사용
 
 const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }> = {
@@ -106,6 +107,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["D"]));
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<{
@@ -566,7 +568,13 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                         </td>
                         <td className="px-4 py-2 text-[#191F28] font-medium">
                           <div className="flex items-center gap-1 truncate">
-                            {client.name}
+                            <button
+                              onClick={() => setSelectedClientId(client.id)}
+                              className="hover:text-[#3182F6] hover:underline cursor-pointer text-left truncate"
+                              title="거래처 정보 수정"
+                            >
+                              {client.name}
+                            </button>
                             {client.accountingProgram?.split(",").map(p => p.trim()).map(p => (
                               p === "위하고" ? <img key={p} src="/wehago.svg" alt="위하고" className="w-3.5 h-3.5 rounded shrink-0" /> :
                               p === "세무사랑" ? <img key={p} src="/semusarang.svg" alt="세무사랑" className="w-3.5 h-3.5 rounded shrink-0" /> : null
@@ -844,6 +852,13 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       )}
 
       {/* 검증 결과 모달 */}
+      {selectedClientId && (
+        <ClientEditModal
+          clientId={selectedClientId}
+          onClose={() => { setSelectedClientId(null); router.refresh(); }}
+        />
+      )}
+
       {verifyResult && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
