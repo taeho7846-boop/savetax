@@ -281,7 +281,8 @@ export function NoticeUploadModal({ taxYear, onClose }: { taxYear: string; onClo
                   <tbody>
                     {rows.map((row, idx) => {
                       const meta = STATUS_LABEL[row.result.status];
-                      const isUp = isUploadable(row.result);
+                      const r = row.result;
+                      const isUp = r.status === "matched";
                       return (
                         <tr key={idx} className="border-t border-[#F2F4F6] align-top">
                           <td className="px-3 py-2">
@@ -299,26 +300,26 @@ export function NoticeUploadModal({ taxYear, onClose }: { taxYear: string; onClo
                           </td>
                           <td className="px-3 py-2 text-[#191F28] break-all">{row.filename}</td>
                           <td className="px-3 py-2 text-[#333D4B]">
-                            {isUp ? (
+                            {r.status === "matched" ? (
                               <div>
                                 <div className="font-medium">
-                                  {row.result.clientName}{" "}
-                                  <span className="text-[#8B95A1]">({row.result.ceoName})</span>
+                                  {r.clientName}{" "}
+                                  <span className="text-[#8B95A1]">({r.ceoName})</span>
                                 </div>
-                                {row.result.warning && (
-                                  <div className="text-[11px] text-[#B45309] mt-0.5">⚠ {row.result.warning}</div>
+                                {r.warning && (
+                                  <div className="text-[11px] text-[#B45309] mt-0.5">⚠ {r.warning}</div>
                                 )}
                               </div>
-                            ) : row.result.status === "warning_no_drive" ? (
+                            ) : r.status === "warning_no_drive" ? (
                               <div>
                                 <div className="font-medium">
-                                  {row.result.clientName}{" "}
-                                  <span className="text-[#8B95A1]">({row.result.ceoName})</span>
+                                  {r.clientName}{" "}
+                                  <span className="text-[#8B95A1]">({r.ceoName})</span>
                                 </div>
-                                <div className="text-[11px] text-[#DC2626] mt-0.5">{row.result.reason}</div>
+                                <div className="text-[11px] text-[#DC2626] mt-0.5">{r.reason}</div>
                               </div>
                             ) : (
-                              <div className="text-[#DC2626]">{(row.result as any).reason}</div>
+                              <div className="text-[#DC2626]">{r.reason}</div>
                             )}
                             {row.uploadStatus === "uploaded" && row.uploadMessage && (
                               <a
