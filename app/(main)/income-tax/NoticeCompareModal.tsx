@@ -141,10 +141,11 @@ export function NoticeCompareModal({
       ? null
       : systemFilingType === noticeFiling;
 
+  // 비교 규칙: 안내문 값이 있으면 비교 가능. 시스템값이 비어있어도 "차이"로 처리해 적용 버튼 노출.
   const businessSalesMatch =
-    !data || sysSales === null || data.businessSales === null
+    !data || data.businessSales === null
       ? null
-      : sysSales === data.businessSales;
+      : (sysSales ?? 0) === data.businessSales;
 
   const totalDiff = data && sysSales !== null && data.totalSales
     ? Number(data.totalSales) - sysSales
@@ -155,13 +156,13 @@ export function NoticeCompareModal({
   const noticePrevSales = data?.raw?.salesHistory?.find?.((s: any) => s.year === prevYear)?.sales ?? null;
   const noticePrevTax = data?.incomeHistory?.find?.((s: any) => s.year === prevYear)?.decidedTax ?? null;
   const prevSalesMatch =
-    !data || sysPrevSales === null || noticePrevSales === null
+    !data || noticePrevSales === null
       ? null
-      : sysPrevSales === noticePrevSales;
+      : (sysPrevSales ?? 0) === noticePrevSales;
   const prevTaxMatch =
-    !data || sysPrevTax === null || noticePrevTax === null
+    !data || noticePrevTax === null
       ? null
-      : sysPrevTax === noticePrevTax;
+      : (sysPrevTax ?? 0) === noticePrevTax;
 
   // 액션
   function applyFilingType() {
@@ -312,51 +313,36 @@ export function NoticeCompareModal({
                 </button>
               </div>
 
-              {/* 1. 핵심 비교: 유형 + 사업장 매출 + 전기 데이터 */}
+              {/* 1. 핵심 비교: 유형 + 사업장 매출 + 전기 데이터
+                   적용 버튼은 안내문 값이 있으면 항상 노출 (누를지는 사용자 판단) */}
               <Section title="시스템 ↔ 안내문 비교" icon="⚖">
                 <CompareRow
                   label="신고 유형"
                   systemValue={systemFilingType ?? "-"}
                   noticeValue={noticeFiling ?? "-"}
                   match={filingMatch}
-                  action={
-                    !filingMatch && noticeFiling ? (
-                      <ApplyButton onClick={applyFilingType} />
-                    ) : null
-                  }
+                  action={noticeFiling ? <ApplyButton onClick={applyFilingType} subtle={filingMatch === true} /> : null}
                 />
                 <CompareRow
                   label="당기 사업장 매출 (부가세 신고분)"
                   systemValue={fmt(sysSales) + " 원"}
                   noticeValue={fmt(data.businessSales) + " 원"}
                   match={businessSalesMatch}
-                  action={
-                    businessSalesMatch === false && data.businessSales ? (
-                      <ApplyButton onClick={applyCurrSales} />
-                    ) : null
-                  }
+                  action={data.businessSales ? <ApplyButton onClick={applyCurrSales} subtle={businessSalesMatch === true} /> : null}
                 />
                 <CompareRow
                   label={`전기 매출 (${prevYear}년)`}
                   systemValue={fmt(sysPrevSales) + " 원"}
                   noticeValue={noticePrevSales ? fmt(noticePrevSales) + " 원" : "-"}
                   match={prevSalesMatch}
-                  action={
-                    prevSalesMatch === false && noticePrevSales ? (
-                      <ApplyButton onClick={applyPrevSales} />
-                    ) : null
-                  }
+                  action={noticePrevSales ? <ApplyButton onClick={applyPrevSales} subtle={prevSalesMatch === true} /> : null}
                 />
                 <CompareRow
                   label={`전기 결정세액 (${prevYear}년)`}
                   systemValue={fmt(sysPrevTax) + " 원"}
                   noticeValue={noticePrevTax ? fmt(noticePrevTax) + " 원" : "-"}
                   match={prevTaxMatch}
-                  action={
-                    prevTaxMatch === false && noticePrevTax ? (
-                      <ApplyButton onClick={applyPrevTax} />
-                    ) : null
-                  }
+                  action={noticePrevTax ? <ApplyButton onClick={applyPrevTax} subtle={prevTaxMatch === true} /> : null}
                 />
               </Section>
 
@@ -497,12 +483,21 @@ function Section({
   );
 }
 
-function ApplyButton({ onClick }: { onClick: () => void }) {
+function ApplyButton({ onClick, subtle }: { onClick: () => void; subtle?: boolean }) {
   return (
     <button
       onClick={onClick}
-      className="text-[11px] px-3 py-1 rounded-full bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA] transition-all whitespace-nowrap"
-      style={{ boxShadow: "0 4px 10px -2px rgba(49,130,246,0.35)" }}
+      title={subtle ? "이미 일치 — 한번 더 덮어쓰기" : "안내문 값으로 적용"}
+      className={
+        subtle
+          ? "text-[11px] px-3 py-1 rounded-full bg-white/80 text-[#3182F6] hover:bg-white font-bold transition-all whitespace-nowrap"
+          : "text-[11px] px-3 py-1 rounded-full bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA] transition-all whitespace-nowrap"
+      }
+      style={
+        subtle
+          ? { boxShadow: "0 0 0 1px rgba(49,130,246,0.3) inset" }
+          : { boxShadow: "0 4px 10px -2px rgba(49,130,246,0.35)" }
+      }
     >
       → 적용
     </button>
