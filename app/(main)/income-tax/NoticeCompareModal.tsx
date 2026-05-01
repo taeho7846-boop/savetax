@@ -20,6 +20,13 @@ type Analysis = {
   reviewedByAccountantAt: string | null;
 };
 
+type ReductionInfo = {
+  bizCode: string;
+  startupReduction: string | null;
+  smeReduction: string | null;
+  found: boolean;
+} | null;
+
 type Props = {
   clientId: number;
   clientName: string;
@@ -60,6 +67,7 @@ export function NoticeCompareModal({
   onClose,
 }: Props) {
   const [data, setData] = useState<Analysis | null>(null);
+  const [reduction, setReduction] = useState<ReductionInfo>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +86,7 @@ export function NoticeCompareModal({
         const j = await res.json();
         if (!alive) return;
         if (j.data) setData(j.data);
+        if (j.reductionInfo) setReduction(j.reductionInfo);
       } catch {
         // ignore
       } finally {
@@ -110,6 +119,7 @@ export function NoticeCompareModal({
         return;
       }
       setData(j.data);
+      setReduction(j.reductionInfo ?? null);
     } catch (e: any) {
       setError(e?.message || "네트워크 오류");
     } finally {
@@ -286,6 +296,11 @@ export function NoticeCompareModal({
                 <CompositionView data={data} />
               </Section>
 
+              {/* 3. AI 감면 판단 */}
+              <Section title="AI 감면 판단" icon="🤖" subtitle="안내문의 업종코드 기반 자동 분석">
+                <ReductionView reduction={reduction} />
+              </Section>
+
               {/* 3. 타소득 합산대상 */}
               <Section title="타소득 합산대상" icon="◎" subtitle="이자/배당/근로/연금/기타 소득 유무">
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -447,6 +462,96 @@ function CompareRow({
         </div>
       </div>
       <div className="flex items-center">{action}</div>
+    </div>
+  );
+}
+
+function ReductionView({ reduction }: { reduction: ReductionInfo }) {
+  if (!reduction) {
+    return (
+      <div className="px-3 py-3 text-[12px] text-[#8B95A1]">
+        업종코드를 추출하지 못했습니다. [↻ 재분석] 후 다시 확인해 주세요.
+      </div>
+    );
+  }
+  if (!reduction.found) {
+    return (
+      <div className="px-3 py-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-white/70 text-[#6B7684] font-bold">
+            업종코드 {reduction.bizCode}
+          </span>
+        </div>
+        <div className="text-[12px] text-[#8B95A1]">
+          감면 코드 테이블에 등록되지 않은 업종입니다. 직접 확인이 필요합니다.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2 px-1">
+        <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-[#F5F9FF] text-[#3182F6] font-bold">
+          업종코드 {reduction.bizCode}
+        </span>
+        <span className="text-[10.5px] text-[#8B95A1]">DB 매칭 OK</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <ReductionCard label="창업중소기업감면" status={reduction.startupReduction} />
+        <ReductionCard label="중소기업특별세액감면" status={reduction.smeReduction} />
+      </div>
+      <div className="text-[10.5px] text-[#8B95A1] mt-2.5 px-1 leading-relaxed">
+        ※ 업종코드 매핑 결과로, 실제 적용은 사업개시일·기업규모·연령·지역 등 추가 조건 확인 필요
+      </div>
+    </div>
+  );
+}
+
+function ReductionCard({ label, status }: { label: string; status: string | null }) {
+  const isYes = status === "O";
+  const isNo = status === "X";
+  const isUnknown = !isYes && !isNo;
+
+  return (
+    <div
+      className={`rounded-2xl p-3 transition-all`}
+      style={
+        isYes
+          ? {
+              background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.08))",
+              boxShadow: "0 0 0 1px rgba(16,185,129,0.3) inset, 0 4px 12px -4px rgba(16,185,129,0.2)",
+            }
+          : isNo
+          ? {
+              background: "rgba(255,255,255,0.55)",
+              boxShadow: "0 0 0 1px rgba(229,232,235,0.7) inset",
+            }
+          : {
+              background: "rgba(255,255,255,0.4)",
+              boxShadow: "0 0 0 1px rgba(229,232,235,0.6) inset",
+            }
+      }
+    >
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className={`text-[11.5px] font-bold ${isYes ? "text-[#059669]" : isNo ? "text-[#6B7684]" : "text-[#B0B8C1]"}`}>
+          {label}
+        </div>
+        <div
+          className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold ${
+            isYes
+              ? "bg-[#10B981] text-white"
+              : isNo
+              ? "bg-white text-[#B0B8C1] border border-[#E5E8EB]"
+              : "bg-white/60 text-[#B0B8C1] border border-[#E5E8EB]"
+          }`}
+          style={isYes ? { boxShadow: "0 2px 6px rgba(16,185,129,0.4)" } : undefined}
+        >
+          {isYes ? "✓" : isNo ? "·" : "?"}
+        </div>
+      </div>
+      <div className={`text-[15px] font-bold tracking-tight ${isYes ? "text-[#059669]" : isNo ? "text-[#6B7684]" : "text-[#B0B8C1]"}`}>
+        {isYes ? "대상" : isNo ? "비대상" : "정보 없음"}
+      </div>
     </div>
   );
 }

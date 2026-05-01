@@ -130,7 +130,8 @@ export async function POST(req: NextRequest) {
       where: { clientId_taxYear: { clientId, taxYear } },
     });
     if (cached) {
-      return NextResponse.json({ cached: true, data: serializeAnalysis(cached) });
+      const reductionInfo = await getReductionInfo(cached);
+      return NextResponse.json({ cached: true, data: serializeAnalysis(cached), reductionInfo });
     }
   }
 
@@ -212,7 +213,26 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ cached: false, data: serializeAnalysis(saved) });
+  const reductionInfo = await getReductionInfo(saved);
+  return NextResponse.json({ cached: false, data: serializeAnalysis(saved), reductionInfo });
+}
+
+async function getReductionInfo(analysis: any) {
+  let raw: any;
+  try {
+    raw = analysis?.rawJson ? JSON.parse(analysis.rawJson) : null;
+  } catch {
+    raw = null;
+  }
+  const bizCode = raw?.bizCode;
+  if (!bizCode) return null;
+  const code = await prisma.taxReductionCode.findUnique({ where: { bizCode } });
+  return {
+    bizCode,
+    startupReduction: code?.startupReduction ?? null,
+    smeReduction: code?.smeReduction ?? null,
+    found: !!code,
+  };
 }
 
 function serializeAnalysis(a: any) {
@@ -248,5 +268,6 @@ export async function GET(req: NextRequest) {
     where: { clientId_taxYear: { clientId, taxYear } },
   });
   if (!cached) return NextResponse.json({ data: null });
-  return NextResponse.json({ data: serializeAnalysis(cached) });
+  const reductionInfo = await getReductionInfo(cached);
+  return NextResponse.json({ data: serializeAnalysis(cached), reductionInfo });
 }
