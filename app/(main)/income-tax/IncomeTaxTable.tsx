@@ -763,9 +763,18 @@ export function IncomeTaxTable({
                             );
                           })}
                           <td className="px-2 py-2.5 text-center">
-                            <button onClick={(e) => { e.stopPropagation(); setEditClientId(client.id); }}
-                              className="text-[10.5px] bg-[#92400E] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C2D12]">
-                              상세
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`${client.name} 거래처를 [② 작성중] 단계로 넘기시겠어요?\n\n· 당기 수입금액에 임시값 1이 입력됩니다.\n· 작성중 단계에서 정확한 금액으로 수정해 주세요.`)) {
+                                  handleFieldBlur(client.id, "currSales", "1");
+                                }
+                              }}
+                              disabled={isPending}
+                              title="작성중 단계로 이동 (당기 수입에 1 입력)"
+                              className="text-[10.5px] bg-[#3182F6] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#1B64DA] disabled:opacity-50"
+                            >
+                              작성중 →
                             </button>
                           </td>
                         </tr>
@@ -775,8 +784,8 @@ export function IncomeTaxTable({
                 </table>
               </div>
               <div className="px-3 py-2 bg-white/40 flex items-center justify-between text-[11.5px] text-[#6B7684] border-t border-white/40">
-                <div>{list.length}건 표시</div>
-                <div>💡 칸 클릭 → 즉시 토글 · 행 클릭 → 우측 deep view</div>
+                <div>{list.length}건 표시 · 자료 수령 체크박스는 진행률 트래킹용 — 단계 전환은 [작성중 →] 버튼 또는 우측 [전체]에서 당기 수입 입력</div>
+                <div>💡 칸 클릭 → 즉시 토글</div>
               </div>
             </div>
           );
