@@ -283,7 +283,16 @@ export function NoticeCompareModal({
 
               {/* 2. 합산 매출 (안내문만 — 시스템엔 없음) */}
               <Section title="합산 사업소득" icon="∑" subtitle="종합소득세 신고 시 이 합산값으로 신고합니다">
-                <DataRow label="사업장 매출" value={fmt(data.businessSales)} />
+                <DataRow label="사업장 매출 (부가세 신고분)" value={fmt(data.businessSales)} />
+                {data.raw?.currYearTaxCreditSales ? (
+                  <DataRow indent label="└ 전자신고세액공제 등" value={fmt(data.raw.currYearTaxCreditSales)} />
+                ) : null}
+                {data.raw?.currYearCardCreditSales ? (
+                  <DataRow indent label="└ 신용카드매출전표 등 발행세액공제" value={fmt(data.raw.currYearCardCreditSales)} />
+                ) : null}
+                {data.raw?.currYearOtherBusinessSales ? (
+                  <DataRow indent label="└ 기타 사업장 관련" value={fmt(data.raw.currYearOtherBusinessSales)} />
+                ) : null}
                 <DataRow
                   label="인적용역 (프리랜서) 사업소득"
                   value={fmt(data.freelanceSales)}
@@ -468,22 +477,24 @@ function DataRow({
   bold,
   emphasize,
   diff,
+  indent,
 }: {
   label: string;
   value: string;
   bold?: boolean;
   emphasize?: boolean;
   diff?: number | null;
+  indent?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/40 transition-colors">
-      <div className={`text-[12.5px] ${bold ? "font-bold text-[#191F28]" : "text-[#4E5968]"}`}>
+    <div className={`flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/40 transition-colors ${indent ? "pl-7" : ""}`}>
+      <div className={`text-[12.5px] ${bold ? "font-bold text-[#191F28]" : indent ? "text-[#8B95A1]" : "text-[#4E5968]"}`}>
         {label}
       </div>
       <div className="flex items-baseline gap-2">
         <div
           className={`tabular-nums ${
-            bold ? "text-[16px] font-bold text-[#191F28]" : emphasize ? "text-[14px] font-bold text-[#3182F6]" : "text-[13.5px] text-[#191F28]"
+            bold ? "text-[16px] font-bold text-[#191F28]" : emphasize ? "text-[14px] font-bold text-[#3182F6]" : indent ? "text-[12.5px] text-[#6B7684]" : "text-[13.5px] text-[#191F28]"
           }`}
         >
           {value} <span className="text-[11px] text-[#8B95A1] font-medium">원</span>
