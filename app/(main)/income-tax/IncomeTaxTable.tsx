@@ -705,7 +705,6 @@ export function IncomeTaxTable({
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
                       <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[160px]">고객사</th>
-                      <th className="px-2 py-2.5">유형</th>
                       {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                       <th className="px-3 py-2.5 text-left min-w-[130px]">진행</th>
                       {docFields.map(f => <th key={f.key} className="px-2 py-2.5 text-center">{f.label}</th>)}
@@ -714,7 +713,7 @@ export function IncomeTaxTable({
                   </thead>
                   <tbody className="divide-y divide-white/40">
                     {list.length === 0 ? (
-                      <tr><td colSpan={11 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">자료수집 거래처가 없습니다</td></tr>
+                      <tr><td colSpan={10 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">자료수집 거래처가 없습니다</td></tr>
                     ) : list.map(client => {
                       const r = getRecord(client);
                       const done = docFields.filter(f => f.get(r)).length;
@@ -723,18 +722,6 @@ export function IncomeTaxTable({
                           <td className="px-3 py-2.5 font-bold sticky left-0 z-10 bg-white/70">
                             {client.name}
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
-                          </td>
-                          <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
-                            <select
-                              value={r.filingType ?? ""}
-                              onChange={(e) => handleFieldBlur(client.id, "filingType", e.target.value)}
-                              className="border border-[#E5E8EB] rounded px-1 py-0.5 text-[11px] bg-white focus:outline-none w-[88px]"
-                            >
-                              <option value="">-</option>
-                              {["자기조정", "외부조정", "간편장부", "추계-기준율", "추계-단순율", "성실신고"].map(o => (
-                                <option key={o} value={o}>{o}</option>
-                              ))}
-                            </select>
                           </td>
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5">
