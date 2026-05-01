@@ -28,9 +28,22 @@ const TOOL = {
     properties: {
       ceoName: { type: ["string", "null"] },
       birthDate: { type: ["string", "null"], description: "YY.MM.DD" },
-      noticeType: { type: ["string", "null"] },
-      bookkeepingDuty: { type: ["string", "null"] },
-      filingType: { type: ["string", "null"], enum: ["기준경비율", "단순경비율", null] },
+      noticeType: { type: ["string", "null"], description: "안내유형 줄 원문 (예: '간편장부대상자-기준경비율')" },
+      bookkeepingDuty: {
+        type: ["string", "null"],
+        enum: ["간편장부", "복식부기", "성실신고", null],
+        description: "기장의무. PDF의 '기장의무' 칸에서: '간편장부대상자'→'간편장부', '복식부기의무자'→'복식부기', '성실신고확인대상자'→'성실신고'",
+      },
+      filingType: {
+        type: ["string", "null"],
+        enum: ["기준경비율", "단순경비율", null],
+        description: "추계 시 적용경비율 (PDF '추계시 적용경비율' 칸)",
+      },
+      businessForm: {
+        type: ["string", "null"],
+        enum: ["단독", "공동", null],
+        description: "사업형태 (PDF '사업장별 수입금액' 표의 '사업형태' 컬럼). 사업장 여러 개면 첫 번째 또는 가장 빈도 높은 값",
+      },
       businessNumber: { type: ["string", "null"] },
       bizCode: { type: ["string", "null"] },
       currYearBusinessSales: { type: ["number", "null"], description: "부가가치세 업종별 수입금액 (사업장 매출, 원)" },
@@ -87,6 +100,37 @@ const TOOL = {
       },
       sincerityNoticeTarget: { type: ["boolean", "null"] },
       additionalTaxItems: { type: "array", items: { type: "string" } },
+      deductionItems: {
+        type: "array",
+        description: "공제 참고자료 (PDF 1페이지 '공제 참고자료' 표). 모든 행 추출 — 0원이어도 포함",
+        items: {
+          type: "object",
+          properties: {
+            category: {
+              type: "string",
+              enum: ["기납부세액", "소득공제", "세액공제"],
+              description: "구분 컬럼: 기납부세액 / 소득공제 항목 / 세액공제 항목",
+            },
+            name: { type: "string", description: "항목명 (예: '중간예납세액', '원천징수세액(인적용역 사업소득)', '국민연금보험료')" },
+            amount: { type: "number", description: "납입액(부담액) - 원 단위" },
+            note: { type: ["string", "null"], description: "공제 가능액 안내 문구 (옵션, 길면 짧게 요약)" },
+          },
+          required: ["category", "name", "amount"],
+        },
+      },
+      additionalTaxes: {
+        type: "array",
+        description: "가산세 항목 (PDF 2페이지). '※ 가산세 항목' 표에서 해당사유/금액이 있는 행만 추출. 사유나 금액이 없는(빈/0원) 항목은 제외",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "가산세 항목명 (예: '현금영수증미발급', '무신고 또는 무기장가산세')" },
+            reason: { type: ["string", "null"], description: "적용사유 또는 대상 (예: '추계신고시', '미(지연) 제출금액 0 원')" },
+            amount: { type: ["number", "null"], description: "관련 금액 (원). 텍스트 내 숫자 추출. 없으면 null" },
+          },
+          required: ["name"],
+        },
+      },
     },
     required: ["ceoName", "businessNumber"],
   },

@@ -193,12 +193,13 @@ export async function getIncomeTaxRejections(clientId: number, taxYear: string) 
   }));
 }
 
-// 신고도움서비스 분석 결과 적용 — 유형/매출/메모
+// 신고도움서비스 분석 결과 적용 — 유형/기장의무/매출/메모
 export async function applyNoticeAnalysis(
   clientId: number,
   taxYear: string,
   fields: {
     filingType?: string | null;
+    bookkeepingDuty?: string | null;
     memoAppend?: string | null;
     currSales?: string | null;
     prevSales?: string | null;
@@ -209,6 +210,7 @@ export async function applyNoticeAnalysis(
   await requireAuth();
   const data: Record<string, any> = {};
   if (fields.filingType !== undefined) data.filingType = fields.filingType || null;
+  if (fields.bookkeepingDuty !== undefined) data.bookkeepingDuty = fields.bookkeepingDuty || null;
 
   const toBig = (v: string | null | undefined) => {
     if (v === undefined) return undefined;

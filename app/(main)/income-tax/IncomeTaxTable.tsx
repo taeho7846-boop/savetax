@@ -159,7 +159,7 @@ export function IncomeTaxTable({
   } | null>(null);
   const [savedCalcIds, setSavedCalcIds] = useState<Set<number>>(new Set());
   const [noticeUploadOpen, setNoticeUploadOpen] = useState(false);
-  const [analyzeModal, setAnalyzeModal] = useState<{ clientId: number; clientName: string; ceoName: string | null; systemFilingType: string | null; systemCurrSales: string | null; systemPrevSales: string | null; systemPrevTax: string | null } | null>(null);
+  const [analyzeModal, setAnalyzeModal] = useState<{ clientId: number; clientName: string; ceoName: string | null; systemFilingType: string | null; systemBookkeepingDuty: string | null; systemCurrSales: string | null; systemPrevSales: string | null; systemPrevTax: string | null } | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ clientId: number; clientName: string } | null>(null);
 
   // 저장된 세액계산 거래처 목록 조회
@@ -650,6 +650,7 @@ export function IncomeTaxTable({
                                 clientName: client.name,
                                 ceoName: client.ceoName ?? null,
                                 systemFilingType: r.filingType,
+                                systemBookkeepingDuty: r.bookkeepingDuty,
                                 systemCurrSales: r.currSales,
                                 systemPrevSales: r.prevSales,
                                 systemPrevTax: r.prevTax,
@@ -903,6 +904,7 @@ export function IncomeTaxTable({
                                     clientName: client.name,
                                     ceoName: client.ceoName ?? null,
                                     systemFilingType: r.filingType,
+                                    systemBookkeepingDuty: r.bookkeepingDuty,
                                     systemCurrSales: r.currSales,
                                     systemPrevSales: r.prevSales,
                                     systemPrevTax: r.prevTax,
@@ -1643,6 +1645,7 @@ export function IncomeTaxTable({
           ceoName={analyzeModal.ceoName}
           taxYear={taxYear}
           systemFilingType={analyzeModal.systemFilingType}
+          systemBookkeepingDuty={analyzeModal.systemBookkeepingDuty}
           systemCurrSales={analyzeModal.systemCurrSales}
           systemPrevSales={analyzeModal.systemPrevSales}
           systemPrevTax={analyzeModal.systemPrevTax}

@@ -33,6 +33,7 @@ type Props = {
   ceoName: string | null;
   taxYear: string;
   systemFilingType: string | null;
+  systemBookkeepingDuty: string | null;
   systemCurrSales: string | null; // BigInt 문자열
   systemPrevSales: string | null;
   systemPrevTax: string | null;
@@ -65,6 +66,7 @@ export function NoticeCompareModal({
   ceoName,
   taxYear,
   systemFilingType,
+  systemBookkeepingDuty,
   systemCurrSales,
   systemPrevSales,
   systemPrevTax,
@@ -80,6 +82,7 @@ export function NoticeCompareModal({
 
   // 시스템 값들을 로컬 state로 관리 — 적용 시 즉시 갱신해 모달 안에서도 반영
   const [sysFilingType, setSysFilingType] = useState<string | null>(systemFilingType);
+  const [sysBookkeepingDuty, setSysBookkeepingDuty] = useState<string | null>(systemBookkeepingDuty);
   const [sysCurrSales, setSysCurrSales] = useState<string | null>(systemCurrSales);
   const [sysPrevSalesStr, setSysPrevSalesStr] = useState<string | null>(systemPrevSales);
   const [sysPrevTaxStr, setSysPrevTaxStr] = useState<string | null>(systemPrevTax);
@@ -147,6 +150,15 @@ export function NoticeCompareModal({
       ? null
       : sysFilingType === noticeFiling;
 
+  const noticeBookkeeping: string | null = data?.raw?.bookkeepingDuty ?? null;
+  const bookkeepingMatch =
+    !data || !sysBookkeepingDuty || !noticeBookkeeping
+      ? null
+      : sysBookkeepingDuty === noticeBookkeeping;
+  const businessForm: string | null = data?.raw?.businessForm ?? null;
+  const deductionItems: any[] = data?.raw?.deductionItems ?? [];
+  const additionalTaxes: any[] = data?.raw?.additionalTaxes ?? [];
+
   // 비교 규칙: 안내문 값이 있으면 비교 가능. 시스템값이 비어있어도 "차이"로 처리해 적용 버튼 노출.
   const businessSalesMatch =
     !data || data.businessSales === null
@@ -174,10 +186,20 @@ export function NoticeCompareModal({
   function applyFilingType() {
     if (!data || !noticeFiling) return;
     setSysFilingType(noticeFiling);
-    setAppliedFlash("유형 적용 완료");
+    setAppliedFlash("신고유형 적용 완료");
     setTimeout(() => setAppliedFlash(null), 1500);
     startTransition(async () => {
       await applyNoticeAnalysis(clientId, taxYear, { filingType: noticeFiling });
+    });
+  }
+
+  function applyBookkeepingDuty() {
+    if (!noticeBookkeeping) return;
+    setSysBookkeepingDuty(noticeBookkeeping);
+    setAppliedFlash("기장의무 적용 완료");
+    setTimeout(() => setAppliedFlash(null), 1500);
+    startTransition(async () => {
+      await applyNoticeAnalysis(clientId, taxYear, { bookkeepingDuty: noticeBookkeeping });
     });
   }
 
@@ -308,7 +330,7 @@ export function NoticeCompareModal({
           ) : (
             <>
               {/* 메타 정보 */}
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <span className="text-[11px] px-2.5 py-1 rounded-full bg-white/70 text-[#4E5968] font-medium">
                   분석: {new Date(data.analyzedAt).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}
                 </span>
@@ -326,9 +348,49 @@ export function NoticeCompareModal({
                 </button>
               </div>
 
-              {/* 1. 핵심 비교: 유형 + 사업장 매출 + 전기 데이터
+              {/* PDF 추가 정보 칩 — 추계경비율 / 사업형태 / 성실신고대상 */}
+              <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+                {noticeFiling && (
+                  <span
+                    className="text-[10.5px] px-2.5 py-1 rounded-full font-bold bg-[#F5F9FF] text-[#3182F6]"
+                    title="추계 시 적용되는 경비율 (PDF 1p '추계시 적용경비율')"
+                  >
+                    추계경비율 · {noticeFiling.replace("추계-", "").replace("율", "경비율")}
+                  </span>
+                )}
+                {businessForm && (
+                  <span
+                    className={`text-[10.5px] px-2.5 py-1 rounded-full font-bold ${
+                      businessForm === "공동"
+                        ? "bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E]"
+                        : "bg-[#F2F4F6] text-[#4E5968]"
+                    }`}
+                    style={businessForm === "공동" ? { boxShadow: "0 2px 6px rgba(245,158,11,0.3)" } : undefined}
+                    title="사업형태 (단독/공동)"
+                  >
+                    사업형태 · {businessForm}{businessForm === "공동" ? " ⚠" : ""}
+                  </span>
+                )}
+                {data.raw?.sincerityNoticeTarget && (
+                  <span
+                    className="text-[10.5px] px-2.5 py-1 rounded-full font-bold bg-[#FEF2F2] text-[#DC2626]"
+                    title="사전 성실신고지원 안내대상자"
+                  >
+                    🔴 성실신고 안내대상
+                  </span>
+                )}
+              </div>
+
+              {/* 1. 핵심 비교: 기장의무 + 유형 + 사업장 매출 + 전기 데이터
                    적용 버튼은 안내문 값이 있으면 항상 노출 (누를지는 사용자 판단) */}
               <Section title="시스템 ↔ 안내문 비교" icon="⚖">
+                <CompareRow
+                  label="기장의무"
+                  systemValue={sysBookkeepingDuty ?? "-"}
+                  noticeValue={noticeBookkeeping ?? "-"}
+                  match={bookkeepingMatch}
+                  action={noticeBookkeeping ? <ApplyButton onClick={applyBookkeepingDuty} subtle={bookkeepingMatch === true} /> : null}
+                />
                 <CompareRow
                   label="신고 유형"
                   systemValue={sysFilingType ?? "-"}
@@ -407,6 +469,20 @@ export function NoticeCompareModal({
                   </div>
                 )}
               </Section>
+
+              {/* 공제 참고자료 */}
+              {deductionItems.length > 0 && (
+                <Section title="공제 참고자료" icon="🧾" subtitle="안내문 1p · 기납부세액 / 소득공제 / 세액공제">
+                  <DeductionView items={deductionItems} />
+                </Section>
+              )}
+
+              {/* 가산세 항목 */}
+              {additionalTaxes.length > 0 && (
+                <Section title="가산세 항목" icon="⚠" subtitle="안내문 2p · 해당 사유 또는 금액 있는 항목">
+                  <AdditionalTaxView items={additionalTaxes} />
+                </Section>
+              )}
 
               {/* 4. 3년 추이 */}
               {data.incomeHistory.length > 0 && (
@@ -641,6 +717,105 @@ function ReductionCard({ label, status }: { label: string; status: string | null
       <div className={`text-[15px] font-bold tracking-tight ${isYes ? "text-[#059669]" : isNo ? "text-[#6B7684]" : "text-[#B0B8C1]"}`}>
         {isYes ? "대상" : isNo ? "비대상" : "정보 없음"}
       </div>
+    </div>
+  );
+}
+
+function DeductionView({ items }: { items: any[] }) {
+  const groups = {
+    기납부세액: items.filter((i) => i.category === "기납부세액"),
+    소득공제: items.filter((i) => i.category === "소득공제"),
+    세액공제: items.filter((i) => i.category === "세액공제"),
+  };
+  const groupMeta: Record<string, { textCls: string; bg: string; ring: string }> = {
+    기납부세액: { textCls: "text-[#3182F6]", bg: "rgba(49,130,246,0.06)", ring: "rgba(49,130,246,0.18)" },
+    소득공제: { textCls: "text-[#059669]", bg: "rgba(16,185,129,0.06)", ring: "rgba(16,185,129,0.18)" },
+    세액공제: { textCls: "text-[#A855F7]", bg: "rgba(168,85,247,0.06)", ring: "rgba(168,85,247,0.2)" },
+  };
+  return (
+    <div className="space-y-2">
+      {(Object.keys(groups) as Array<keyof typeof groups>).map((g) => {
+        const list = groups[g];
+        if (list.length === 0) return null;
+        const meta = groupMeta[g];
+        const hasAny = list.some((i) => i.amount > 0);
+        return (
+          <div
+            key={g}
+            className="rounded-2xl p-2.5"
+            style={{
+              background: meta.bg,
+              boxShadow: `0 0 0 1px ${meta.ring} inset`,
+            }}
+          >
+            <div className={`text-[10.5px] font-bold uppercase tracking-wider mb-1.5 px-1 ${meta.textCls}`}>
+              {g} {hasAny ? "" : <span className="opacity-50 normal-case font-medium">· 모두 0원</span>}
+            </div>
+            <div className="space-y-0.5">
+              {list.map((it, idx) => {
+                const has = it.amount > 0;
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-baseline justify-between px-2 py-1.5 rounded-lg hover:bg-white/40 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-[12px] ${has ? "font-bold text-[#191F28]" : "text-[#6B7684]"}`}>
+                        {it.name}
+                      </div>
+                      {it.note && (
+                        <div className="text-[10px] text-[#8B95A1] mt-0.5 truncate" title={it.note}>
+                          {it.note}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className={`text-[12.5px] tabular-nums shrink-0 ml-2 ${
+                        has ? "font-bold text-[#191F28]" : "text-[#B0B8C1]"
+                      }`}
+                    >
+                      {(it.amount ?? 0).toLocaleString("ko-KR")}{" "}
+                      <span className="text-[10px] font-medium text-[#8B95A1]">원</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AdditionalTaxView({ items }: { items: any[] }) {
+  return (
+    <div className="space-y-1.5">
+      {items.map((it, idx) => (
+        <div
+          key={idx}
+          className="rounded-xl p-2.5"
+          style={{
+            background: "rgba(220,38,38,0.04)",
+            boxShadow: "0 0 0 1px rgba(220,38,38,0.18) inset",
+          }}
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-[12.5px] font-bold text-[#DC2626]">{it.name}</div>
+              {it.reason && (
+                <div className="text-[11px] text-[#92400E] mt-0.5">{it.reason}</div>
+              )}
+            </div>
+            {typeof it.amount === "number" && it.amount > 0 && (
+              <div className="text-[13px] font-bold text-[#DC2626] tabular-nums shrink-0">
+                {it.amount.toLocaleString("ko-KR")}{" "}
+                <span className="text-[10.5px] font-medium">원</span>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
