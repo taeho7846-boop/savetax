@@ -60,6 +60,10 @@ export default async function IncomeTaxPage({
       incomeTaxRecords: {
         where: { taxYear },
       },
+      noticeAnalyses: {
+        where: { taxYear },
+        select: { id: true, filingType: true, businessSales: true, reviewedByStaffAt: true },
+      },
     },
     orderBy: [{ ceoName: "asc" }, { name: "asc" }],
   });
@@ -80,8 +84,9 @@ export default async function IncomeTaxPage({
     return a.name.localeCompare(b.name, "ko");
   });
 
-  const serialized = grouped.map(({ assignedUser, ...c }) => {
+  const serialized = grouped.map(({ assignedUser, noticeAnalyses, ...c }) => {
     const reduction = c.bizType ? reductionMap.get(c.bizType) : undefined;
+    const na = noticeAnalyses?.[0];
     return {
     ...c,
     assignedUserName: assignedUser?.name ?? null,
@@ -96,7 +101,14 @@ export default async function IncomeTaxPage({
       currIncome: r.currIncome?.toString() ?? null,
       currTax: r.currTax?.toString() ?? null,
       adjustmentFee: r.adjustmentFee?.toString() ?? null,
+      lastRejectedAt: r.lastRejectedAt ? r.lastRejectedAt.toISOString() : null,
     })),
+    noticeAnalysis: na ? {
+      id: na.id,
+      filingType: na.filingType,
+      businessSales: na.businessSales?.toString() ?? null,
+      reviewedByStaffAt: na.reviewedByStaffAt ? na.reviewedByStaffAt.toISOString() : null,
+    } : null,
   };
   });
 

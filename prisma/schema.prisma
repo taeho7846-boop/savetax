@@ -39,6 +39,8 @@ model User {
   employees          User[]             @relation("ManagerEmployees")
   bookmarks          Bookmark[]         @relation("bookmarks")
   createdBookmarks   Bookmark[]         @relation("createdBookmarks")
+  rejectedReports    IncomeTaxRejection[]    @relation("rejectedReports")
+  analyzedAnalyses   ClientNoticeAnalysis[]  @relation("analyzedAnalyses")
 }
 
 model Client {
@@ -97,6 +99,8 @@ model Client {
   withholdingRecords        WithholdingRecord[]
   unpaidPostpone            UnpaidPostpone?
   alimtalkLogs              AlimtalkLog[]
+  incomeTaxRejections       IncomeTaxRejection[]
+  noticeAnalyses            ClientNoticeAnalysis[]
 }
 
 model AlimtalkLog {
@@ -304,9 +308,49 @@ model IncomeTaxRecord {
   paymentSent       Boolean  @default(false)
   adjustmentFee     BigInt?
   memo              String?
+  rejectionCount    Int      @default(0)
+  lastRejectedAt    DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   client            Client   @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, taxYear])
+}
+
+model IncomeTaxRejection {
+  id           Int      @id @default(autoincrement())
+  clientId     Int
+  taxYear      String
+  sequence     Int
+  reason       String
+  rejectedById Int
+  rejectedAt   DateTime @default(now())
+  resolvedAt   DateTime?
+  client       Client   @relation(fields: [clientId], references: [id])
+  rejectedBy   User     @relation("rejectedReports", fields: [rejectedById], references: [id])
+
+  @@index([clientId, taxYear])
+}
+
+model ClientNoticeAnalysis {
+  id                     Int      @id @default(autoincrement())
+  clientId               Int
+  taxYear                String
+  analyzedAt             DateTime @default(now())
+  analyzedById           Int?
+  pdfFileId              String?
+  filingType             String?
+  totalSales             BigInt?
+  businessSales          BigInt?
+  freelanceSales         BigInt?
+  hasOtherIncome         Boolean  @default(false)
+  otherIncomeFlags       String?
+  incomeHistory          String?
+  rawJson                String
+  reviewedByStaffAt      DateTime?
+  reviewedByAccountantAt DateTime?
+  client                 Client   @relation(fields: [clientId], references: [id])
+  analyzedBy             User?    @relation("analyzedAnalyses", fields: [analyzedById], references: [id])
 
   @@unique([clientId, taxYear])
 }

@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo } from "@/app/actions/income-tax";
+import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport } from "@/app/actions/income-tax";
 import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
 import { PinIcon } from "@/components/icons";
 import { NoticeUploadModal } from "./NoticeUploadModal";
+import { NoticeCompareModal } from "./NoticeCompareModal";
+import { RejectModal } from "./RejectModal";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -33,6 +35,15 @@ type ITRecord = {
   paymentSent: boolean;
   adjustmentFee: string | null;
   memo: string | null;
+  rejectionCount: number;
+  lastRejectedAt: string | null;
+};
+
+type NoticeAnalysisSummary = {
+  id: number;
+  filingType: string | null;
+  businessSales: string | null;
+  reviewedByStaffAt: string | null;
 };
 
 type Client = {
@@ -49,6 +60,7 @@ type Client = {
   aiSmeReduction?: string | null;
   assignedUserName?: string | null;
   incomeTaxRecords: ITRecord[];
+  noticeAnalysis?: NoticeAnalysisSummary | null;
 };
 
 function getRecord(client: Client): ITRecord {
@@ -61,7 +73,19 @@ function getRecord(client: Client): ITRecord {
     bookkeepingCredit: false, startupReduction: false, smeReduction: false,
     investCredit: false, employmentCredit: false, depositReceived: false, filingDone: false, paymentSent: false,
     adjustmentFee: null, memo: null,
+    rejectionCount: 0, lastRejectedAt: null,
   };
+}
+
+// 분석 뱃지 도출 — 분석 있음 + 시스템값과 차이 여부
+function getAnalysisBadge(client: Client, r: ITRecord): { state: "none" | "match" | "diff" | "reviewed"; diffCount: number } {
+  const a = client.noticeAnalysis;
+  if (!a) return { state: "none", diffCount: 0 };
+  let diffCount = 0;
+  if (a.filingType && r.filingType && !r.filingType.includes(a.filingType.replace("경비율", "").trim())) diffCount++;
+  if (a.businessSales && r.currSales && a.businessSales !== r.currSales) diffCount++;
+  if (a.reviewedByStaffAt) return { state: "reviewed", diffCount };
+  return { state: diffCount > 0 ? "diff" : "match", diffCount };
 }
 
 function formatNumber(val: string | null): string {
@@ -135,6 +159,8 @@ export function IncomeTaxTable({
   } | null>(null);
   const [savedCalcIds, setSavedCalcIds] = useState<Set<number>>(new Set());
   const [noticeUploadOpen, setNoticeUploadOpen] = useState(false);
+  const [analyzeModal, setAnalyzeModal] = useState<{ clientId: number; clientName: string; ceoName: string | null; systemFilingType: string | null; systemCurrSales: string | null } | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ clientId: number; clientName: string } | null>(null);
 
   // 저장된 세액계산 거래처 목록 조회
   useState(() => {
@@ -612,7 +638,31 @@ export function IncomeTaxTable({
                       style={isSel ? { background: "rgba(49,130,246,0.10)" } : undefined}
                     >
                       <td className={`px-3 py-2.5 font-bold sticky left-0 z-10 ${isSel ? "" : "bg-white/70"}`} style={isSel ? { background: "rgba(49,130,246,0.10)" } : undefined}>
-                        {client.name}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{client.name}</span>
+                          <AnalysisBadge
+                            client={client}
+                            r={r}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAnalyzeModal({
+                                clientId: client.id,
+                                clientName: client.name,
+                                ceoName: client.ceoName ?? null,
+                                systemFilingType: r.filingType,
+                                systemCurrSales: r.currSales,
+                              });
+                            }}
+                          />
+                          {r.rejectionCount > 0 && (
+                            <span
+                              className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-[#FEF2F2] text-[#DC2626] font-bold"
+                              title={r.lastRejectedAt ? `최근 반려: ${new Date(r.lastRejectedAt).toLocaleDateString("ko-KR")}` : ""}
+                            >
+                              🔴 {r.rejectionCount}차반려
+                            </span>
+                          )}
+                        </div>
                         {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
                       </td>
                       <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
@@ -655,10 +705,17 @@ export function IncomeTaxTable({
                       </td>
                       <td className="px-2 py-2.5 text-center">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setEditClientId(client.id); }}
-                          className="text-[10.5px] bg-[#3182F6] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#1B64DA]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`${client.name} 거래처를 [③ 결재] 단계로 넘기시겠어요?\n\n· 세무사가 검토 후 컨펌 또는 반려합니다.`)) {
+                              startTransition(async () => { await moveToApproval(client.id, taxYear); });
+                            }
+                          }}
+                          disabled={isPending}
+                          title="결재 단계로 이동"
+                          className="text-[10.5px] bg-[#F59E0B] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#D97706] disabled:opacity-50"
                         >
-                          계속
+                          결재 →
                         </button>
                       </td>
                     </tr>
@@ -669,7 +726,7 @@ export function IncomeTaxTable({
           </div>
           <div className="px-3 py-2 bg-white/40 flex items-center justify-between text-[11.5px] text-[#6B7684] border-t border-white/40">
             <div>{writingClients.length}건 표시</div>
-            <div>💡 행 클릭 → 우측에 체크리스트 deep view</div>
+            <div>💡 거래처명 옆 뱃지 → 신고도움서비스 비교</div>
           </div>
         </div>
       ) : stageFilter === "collect" ? (
@@ -831,9 +888,28 @@ export function IncomeTaxTable({
                           className={`cursor-pointer transition ${isSel ? "" : isAnom ? "hover:bg-[#FEF2F2]/60" : "hover:bg-[#FFFBEB]/60"}`}
                           style={isSel ? { background: selBg, borderLeft: "3px solid #F59E0B" } : isAnom ? { borderLeft: "3px solid #DC2626" } : undefined}>
                           <td className={`px-3 py-2.5 font-bold sticky left-0 z-10 ${isSel ? "" : "bg-white/70"}`} style={isSel ? { background: selBg } : undefined}>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span>{client.name}</span>
                               {isAnom && <span title="전년대비 ±30% 변동" className="text-[10px] bg-[#DC2626]/15 text-[#DC2626] px-1 py-0.5 rounded font-bold">⚠</span>}
+                              <AnalysisBadge
+                                client={client}
+                                r={r}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAnalyzeModal({
+                                    clientId: client.id,
+                                    clientName: client.name,
+                                    ceoName: client.ceoName ?? null,
+                                    systemFilingType: r.filingType,
+                                    systemCurrSales: r.currSales,
+                                  });
+                                }}
+                              />
+                              {r.rejectionCount > 0 && (
+                                <span className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-[#FEF2F2] text-[#DC2626] font-bold">
+                                  🔴 {r.rejectionCount}차
+                                </span>
+                              )}
                             </div>
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
                           </td>
@@ -869,17 +945,28 @@ export function IncomeTaxTable({
                             ) : <span className="text-[#B0B8C1] text-[10.5px]">-</span>}
                           </td>
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => handleToggle(client.id, "depositReceived")}
-                              disabled={isPending}
-                              className={`text-[10.5px] px-2.5 py-1 rounded-lg font-bold whitespace-nowrap transition ${
-                                r.depositReceived
-                                  ? "bg-[#10B981] text-white shadow-sm shadow-[#10B981]/30"
-                                  : "bg-[#F59E0B] text-white hover:bg-[#D97706]"
-                              }`}
-                            >
-                              {r.depositReceived ? "✓ 결재" : "결재"}
-                            </button>
+                            <div className="flex items-center gap-1 justify-center">
+                              <button
+                                onClick={() => {
+                                  if (confirm(`${client.name} — [④ 컨펌] 단계로 넘기시겠어요?`)) {
+                                    startTransition(async () => { await confirmIncomeTaxReport(client.id, taxYear); });
+                                  }
+                                }}
+                                disabled={isPending}
+                                title="컨펌 (다음 단계로)"
+                                className="text-[10.5px] px-2.5 py-1 rounded-lg font-bold whitespace-nowrap bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50"
+                              >
+                                컨펌 →
+                              </button>
+                              <button
+                                onClick={() => setRejectTarget({ clientId: client.id, clientName: client.name })}
+                                disabled={isPending}
+                                title="반려 (작성중으로 되돌림)"
+                                className="text-[10.5px] px-2 py-1 rounded-lg font-bold whitespace-nowrap bg-white border border-[#DC2626]/30 text-[#DC2626] hover:bg-[#FEF2F2] disabled:opacity-50"
+                              >
+                                반려
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1544,6 +1631,30 @@ export function IncomeTaxTable({
         <NoticeUploadModal taxYear={taxYear} onClose={() => setNoticeUploadOpen(false)} />
       )}
 
+      {/* 신고도움서비스 비교 분석 모달 */}
+      {analyzeModal && (
+        <NoticeCompareModal
+          clientId={analyzeModal.clientId}
+          clientName={analyzeModal.clientName}
+          ceoName={analyzeModal.ceoName}
+          taxYear={taxYear}
+          systemFilingType={analyzeModal.systemFilingType}
+          systemCurrSales={analyzeModal.systemCurrSales}
+          onClose={() => setAnalyzeModal(null)}
+        />
+      )}
+
+      {/* 결재 반려 모달 */}
+      {rejectTarget && (
+        <RejectModal
+          clientId={rejectTarget.clientId}
+          clientName={rejectTarget.clientName}
+          taxYear={taxYear}
+          onClose={() => setRejectTarget(null)}
+          onRejected={() => router.refresh()}
+        />
+      )}
+
       {/* 고객사 수정 모달 */}
       {editClientId && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditClientId(null)}>
@@ -1560,6 +1671,61 @@ export function IncomeTaxTable({
         </div>
       )}
     </>
+  );
+}
+
+// 신고도움서비스 분석 뱃지 (글래스모피즘, iPad 스타일)
+function AnalysisBadge({ client, r, onClick }: {
+  client: Client;
+  r: ITRecord;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const { state, diffCount } = getAnalysisBadge(client, r);
+
+  if (state === "none") {
+    return (
+      <button
+        onClick={onClick}
+        title="신고도움서비스 PDF 분석"
+        className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-white/80 text-[#6B7684] hover:text-[#3182F6] hover:bg-white font-bold transition-all"
+        style={{ boxShadow: "0 0 0 1px rgba(229,232,235,0.8) inset" }}
+      >
+        🔍 분석필요
+      </button>
+    );
+  }
+  if (state === "diff") {
+    return (
+      <button
+        onClick={onClick}
+        title={`신고도움서비스와 ${diffCount}개 항목 차이`}
+        className="text-[9.5px] px-1.5 py-0.5 rounded-full font-bold bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] hover:from-[#FDE68A] hover:to-[#FBBF24] transition-all"
+        style={{ boxShadow: "0 1px 4px rgba(245,158,11,0.25)" }}
+      >
+        ⚠ 차이{diffCount}
+      </button>
+    );
+  }
+  if (state === "match") {
+    return (
+      <button
+        onClick={onClick}
+        title="신고도움서비스 분석 완료 - 시스템값과 일치"
+        className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-bold hover:bg-[#D1FAE5] transition-all"
+      >
+        ✓ 일치
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={onClick}
+      title="직원 검토 완료"
+      className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA] transition-all"
+      style={{ boxShadow: "0 1px 4px rgba(49,130,246,0.3)" }}
+    >
+      ✓✓ 검토됨
+    </button>
   );
 }
 
