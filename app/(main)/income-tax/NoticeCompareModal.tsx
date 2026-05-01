@@ -78,6 +78,12 @@ export function NoticeCompareModal({
   const [, startTransition] = useTransition();
   const [appliedFlash, setAppliedFlash] = useState<string | null>(null);
 
+  // 시스템 값들을 로컬 state로 관리 — 적용 시 즉시 갱신해 모달 안에서도 반영
+  const [sysFilingType, setSysFilingType] = useState<string | null>(systemFilingType);
+  const [sysCurrSales, setSysCurrSales] = useState<string | null>(systemCurrSales);
+  const [sysPrevSalesStr, setSysPrevSalesStr] = useState<string | null>(systemPrevSales);
+  const [sysPrevTaxStr, setSysPrevTaxStr] = useState<string | null>(systemPrevTax);
+
   // 처음 로드: 캐시 조회
   useEffect(() => {
     let alive = true;
@@ -131,15 +137,15 @@ export function NoticeCompareModal({
     }
   }
 
-  const sysSales = systemCurrSales ? Number(systemCurrSales) : null;
-  const sysPrevSales = systemPrevSales ? Number(systemPrevSales) : null;
-  const sysPrevTax = systemPrevTax ? Number(systemPrevTax) : null;
+  const sysSales = sysCurrSales ? Number(sysCurrSales) : null;
+  const sysPrevSales = sysPrevSalesStr ? Number(sysPrevSalesStr) : null;
+  const sysPrevTax = sysPrevTaxStr ? Number(sysPrevTaxStr) : null;
 
   const noticeFiling = data ? mapFilingType(data.filingType) : null;
   const filingMatch =
-    !data || !systemFilingType || !noticeFiling
+    !data || !sysFilingType || !noticeFiling
       ? null
-      : systemFilingType === noticeFiling;
+      : sysFilingType === noticeFiling;
 
   // 비교 규칙: 안내문 값이 있으면 비교 가능. 시스템값이 비어있어도 "차이"로 처리해 적용 버튼 노출.
   const businessSalesMatch =
@@ -164,40 +170,47 @@ export function NoticeCompareModal({
       ? null
       : (sysPrevTax ?? 0) === noticePrevTax;
 
-  // 액션
+  // 액션 — DB 적용 + 모달 내 표시값 즉시 갱신
   function applyFilingType() {
     if (!data || !noticeFiling) return;
+    setSysFilingType(noticeFiling);
+    setAppliedFlash("유형 적용 완료");
+    setTimeout(() => setAppliedFlash(null), 1500);
     startTransition(async () => {
       await applyNoticeAnalysis(clientId, taxYear, { filingType: noticeFiling });
-      setAppliedFlash("유형 적용 완료");
-      setTimeout(() => setAppliedFlash(null), 1500);
     });
   }
 
   function applyCurrSales() {
     if (!data?.businessSales) return;
+    const v = String(data.businessSales);
+    setSysCurrSales(v);
+    setAppliedFlash("당기 매출(사업장) 적용 완료");
+    setTimeout(() => setAppliedFlash(null), 1500);
     startTransition(async () => {
-      await applyNoticeAnalysis(clientId, taxYear, { currSales: String(data.businessSales) });
-      setAppliedFlash("당기 매출(사업장) 적용 완료");
-      setTimeout(() => setAppliedFlash(null), 1500);
+      await applyNoticeAnalysis(clientId, taxYear, { currSales: v });
     });
   }
 
   function applyPrevSales() {
     if (!noticePrevSales) return;
+    const v = String(noticePrevSales);
+    setSysPrevSalesStr(v);
+    setAppliedFlash("전기 매출 적용 완료");
+    setTimeout(() => setAppliedFlash(null), 1500);
     startTransition(async () => {
-      await applyNoticeAnalysis(clientId, taxYear, { prevSales: String(noticePrevSales) });
-      setAppliedFlash("전기 매출 적용 완료");
-      setTimeout(() => setAppliedFlash(null), 1500);
+      await applyNoticeAnalysis(clientId, taxYear, { prevSales: v });
     });
   }
 
   function applyPrevTax() {
     if (!noticePrevTax) return;
+    const v = String(noticePrevTax);
+    setSysPrevTaxStr(v);
+    setAppliedFlash("전기 결정세액 적용 완료");
+    setTimeout(() => setAppliedFlash(null), 1500);
     startTransition(async () => {
-      await applyNoticeAnalysis(clientId, taxYear, { prevTax: String(noticePrevTax) });
-      setAppliedFlash("전기 결정세액 적용 완료");
-      setTimeout(() => setAppliedFlash(null), 1500);
+      await applyNoticeAnalysis(clientId, taxYear, { prevTax: v });
     });
   }
 
@@ -318,7 +331,7 @@ export function NoticeCompareModal({
               <Section title="시스템 ↔ 안내문 비교" icon="⚖">
                 <CompareRow
                   label="신고 유형"
-                  systemValue={systemFilingType ?? "-"}
+                  systemValue={sysFilingType ?? "-"}
                   noticeValue={noticeFiling ?? "-"}
                   match={filingMatch}
                   action={noticeFiling ? <ApplyButton onClick={applyFilingType} subtle={filingMatch === true} /> : null}
