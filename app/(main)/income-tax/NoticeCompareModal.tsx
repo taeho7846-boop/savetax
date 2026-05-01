@@ -281,29 +281,9 @@ export function NoticeCompareModal({
                 />
               </Section>
 
-              {/* 2. 합산 매출 (안내문만 — 시스템엔 없음) */}
+              {/* 2. 합산 매출 — 그룹별 시각적 분리 + 비중 표시 */}
               <Section title="합산 사업소득" icon="∑" subtitle="종합소득세 신고 시 이 합산값으로 신고합니다">
-                <DataRow label="사업장 매출 (부가세 신고분)" value={fmt(data.businessSales)} />
-                {data.raw?.currYearTaxCreditSales ? (
-                  <DataRow indent label="└ 전자신고세액공제 등" value={fmt(data.raw.currYearTaxCreditSales)} />
-                ) : null}
-                {data.raw?.currYearCardCreditSales ? (
-                  <DataRow indent label="└ 신용카드매출전표 등 발행세액공제" value={fmt(data.raw.currYearCardCreditSales)} />
-                ) : null}
-                {data.raw?.currYearOtherBusinessSales ? (
-                  <DataRow indent label="└ 기타 사업장 관련" value={fmt(data.raw.currYearOtherBusinessSales)} />
-                ) : null}
-                <DataRow
-                  label="인적용역 (프리랜서) 사업소득"
-                  value={fmt(data.freelanceSales)}
-                  emphasize={!!data.freelanceSales}
-                />
-                <DataRow
-                  label="합계"
-                  value={fmt(data.totalSales)}
-                  bold
-                  diff={totalDiff !== null && totalDiff !== 0 ? totalDiff : null}
-                />
+                <CompositionView data={data} />
               </Section>
 
               {/* 3. 타소득 합산대상 */}
@@ -467,6 +447,148 @@ function CompareRow({
         </div>
       </div>
       <div className="flex items-center">{action}</div>
+    </div>
+  );
+}
+
+function CompositionView({ data }: { data: Analysis }) {
+  const business = Number(data.businessSales ?? 0);
+  const taxCredit = Number(data.raw?.currYearTaxCreditSales ?? 0);
+  const cardCredit = Number(data.raw?.currYearCardCreditSales ?? 0);
+  const otherBiz = Number(data.raw?.currYearOtherBusinessSales ?? 0);
+  const businessGroupTotal = business + taxCredit + cardCredit + otherBiz;
+  const freelance = Number(data.freelanceSales ?? 0);
+  const total = Number(data.totalSales ?? businessGroupTotal + freelance);
+  const businessPct = total > 0 ? (businessGroupTotal / total) * 100 : 0;
+  const freelancePct = total > 0 ? (freelance / total) * 100 : 0;
+
+  const subItems: { label: string; value: number; src: string }[] = [];
+  if (taxCredit) subItems.push({ label: "전자신고세액공제 등", value: taxCredit, src: "안내문 1p · 사업장별 수입금액" });
+  if (cardCredit) subItems.push({ label: "신용카드매출전표 등 발행세액공제", value: cardCredit, src: "안내문 1p · 사업장별 수입금액" });
+  if (otherBiz) subItems.push({ label: "기타 사업장 관련", value: otherBiz, src: "안내문 1p" });
+
+  return (
+    <div className="space-y-2.5">
+      {/* 사업장 그룹 */}
+      <div
+        className="rounded-2xl p-3"
+        style={{
+          background: "linear-gradient(180deg, rgba(49,130,246,0.06), rgba(49,130,246,0.02))",
+          boxShadow: "0 0 0 1px rgba(49,130,246,0.15) inset",
+        }}
+      >
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#3182F6]" />
+            <span className="text-[11.5px] font-bold text-[#3182F6] uppercase tracking-wider">사업장 소득</span>
+          </div>
+          <span className="text-[10.5px] font-bold text-[#3182F6] tabular-nums">{businessPct.toFixed(1)}%</span>
+        </div>
+        <div className="space-y-0.5">
+          <div className="flex items-baseline justify-between px-2 py-1.5">
+            <div>
+              <div className="text-[12.5px] text-[#191F28] font-medium">부가가치세 업종별 수입금액</div>
+              <div className="text-[10px] text-[#8B95A1] mt-0.5">위하고/홈택스에서 입력한 매출과 동일 기준</div>
+            </div>
+            <div className="text-[14px] font-bold text-[#191F28] tabular-nums">
+              {fmt(business)} <span className="text-[10.5px] text-[#8B95A1] font-medium">원</span>
+            </div>
+          </div>
+          {subItems.map((it) => (
+            <div key={it.label} className="flex items-baseline justify-between px-2 py-1 pl-7">
+              <div>
+                <div className="text-[12px] text-[#6B7684]">└ {it.label}</div>
+                <div className="text-[9.5px] text-[#B0B8C1] mt-0.5">{it.src}</div>
+              </div>
+              <div className="text-[12.5px] text-[#6B7684] tabular-nums">
+                +{fmt(it.value)} <span className="text-[10px] text-[#B0B8C1]">원</span>
+              </div>
+            </div>
+          ))}
+          {subItems.length > 0 && (
+            <div className="flex items-baseline justify-between px-2 py-1.5 mt-1 border-t border-[#3182F6]/15">
+              <div className="text-[11.5px] font-bold text-[#3182F6]">사업장 합계</div>
+              <div className="text-[13px] font-bold text-[#3182F6] tabular-nums">
+                {fmt(businessGroupTotal)} <span className="text-[10.5px] font-medium">원</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 인적용역 그룹 (값 있을 때만) */}
+      {freelance > 0 && (
+        <div
+          className="rounded-2xl p-3"
+          style={{
+            background: "linear-gradient(180deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02))",
+            boxShadow: "0 0 0 1px rgba(245,158,11,0.2) inset",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+              <span className="text-[11.5px] font-bold text-[#92400E] uppercase tracking-wider">기타 사업소득</span>
+            </div>
+            <span className="text-[10.5px] font-bold text-[#92400E] tabular-nums">{freelancePct.toFixed(1)}%</span>
+          </div>
+          <div className="flex items-baseline justify-between px-2 py-1.5">
+            <div>
+              <div className="text-[12.5px] text-[#191F28] font-medium">인적용역 (프리랜서) 사업소득</div>
+              <div className="text-[10px] text-[#8B95A1] mt-0.5">다른 사업자가 발급한 사업소득 지급명세서 합산</div>
+            </div>
+            <div className="text-[14px] font-bold text-[#92400E] tabular-nums">
+              {fmt(freelance)} <span className="text-[10.5px] text-[#92400E]/70 font-medium">원</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 비중 미니 막대 */}
+      {total > 0 && (
+        <div className="px-2 py-1">
+          <div className="h-1.5 rounded-full overflow-hidden flex" style={{ background: "rgba(229,232,235,0.5)" }}>
+            <div
+              className="h-full"
+              style={{
+                width: `${businessPct}%`,
+                background: "linear-gradient(90deg, #3182F6, #1B64DA)",
+              }}
+            />
+            {freelancePct > 0 && (
+              <div
+                className="h-full"
+                style={{
+                  width: `${freelancePct}%`,
+                  background: "linear-gradient(90deg, #F59E0B, #D97706)",
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 총 합계 */}
+      <div
+        className="rounded-2xl p-4 mt-1"
+        style={{
+          background: "linear-gradient(135deg, #191F28, #2D3748)",
+          boxShadow: "0 12px 28px -8px rgba(15,23,42,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset",
+        }}
+      >
+        <div className="flex items-baseline justify-between">
+          <div>
+            <div className="text-[10.5px] text-white/60 uppercase tracking-[0.12em] font-bold">Total · 종합소득세 신고용</div>
+            <div className="text-[12.5px] text-white/90 font-medium mt-0.5">총 합산 사업소득</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[20px] font-bold text-white tabular-nums leading-none">
+              {fmt(total)}
+            </div>
+            <div className="text-[11px] text-white/60 mt-1">원</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
