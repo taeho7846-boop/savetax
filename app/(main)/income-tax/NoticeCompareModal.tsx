@@ -34,6 +34,8 @@ type Props = {
   taxYear: string;
   systemFilingType: string | null;
   systemCurrSales: string | null; // BigInt 문자열
+  systemPrevSales: string | null;
+  systemPrevTax: string | null;
   onClose: () => void;
 };
 
@@ -64,6 +66,8 @@ export function NoticeCompareModal({
   taxYear,
   systemFilingType,
   systemCurrSales,
+  systemPrevSales,
+  systemPrevTax,
   onClose,
 }: Props) {
   const [data, setData] = useState<Analysis | null>(null);
@@ -128,6 +132,9 @@ export function NoticeCompareModal({
   }
 
   const sysSales = systemCurrSales ? Number(systemCurrSales) : null;
+  const sysPrevSales = systemPrevSales ? Number(systemPrevSales) : null;
+  const sysPrevTax = systemPrevTax ? Number(systemPrevTax) : null;
+
   const noticeFiling = data ? mapFilingType(data.filingType) : null;
   const filingMatch =
     !data || !systemFilingType || !noticeFiling
@@ -143,12 +150,52 @@ export function NoticeCompareModal({
     ? Number(data.totalSales) - sysSales
     : null;
 
+  // 전기(작년) 데이터 추출 — taxYear-1 기준
+  const prevYear = parseInt(taxYear) - 1;
+  const noticePrevSales = data?.raw?.salesHistory?.find?.((s: any) => s.year === prevYear)?.sales ?? null;
+  const noticePrevTax = data?.incomeHistory?.find?.((s: any) => s.year === prevYear)?.decidedTax ?? null;
+  const prevSalesMatch =
+    !data || sysPrevSales === null || noticePrevSales === null
+      ? null
+      : sysPrevSales === noticePrevSales;
+  const prevTaxMatch =
+    !data || sysPrevTax === null || noticePrevTax === null
+      ? null
+      : sysPrevTax === noticePrevTax;
+
   // 액션
   function applyFilingType() {
     if (!data || !noticeFiling) return;
     startTransition(async () => {
       await applyNoticeAnalysis(clientId, taxYear, { filingType: noticeFiling });
       setAppliedFlash("유형 적용 완료");
+      setTimeout(() => setAppliedFlash(null), 1500);
+    });
+  }
+
+  function applyCurrSales() {
+    if (!data?.businessSales) return;
+    startTransition(async () => {
+      await applyNoticeAnalysis(clientId, taxYear, { currSales: String(data.businessSales) });
+      setAppliedFlash("당기 매출(사업장) 적용 완료");
+      setTimeout(() => setAppliedFlash(null), 1500);
+    });
+  }
+
+  function applyPrevSales() {
+    if (!noticePrevSales) return;
+    startTransition(async () => {
+      await applyNoticeAnalysis(clientId, taxYear, { prevSales: String(noticePrevSales) });
+      setAppliedFlash("전기 매출 적용 완료");
+      setTimeout(() => setAppliedFlash(null), 1500);
+    });
+  }
+
+  function applyPrevTax() {
+    if (!noticePrevTax) return;
+    startTransition(async () => {
+      await applyNoticeAnalysis(clientId, taxYear, { prevTax: String(noticePrevTax) });
+      setAppliedFlash("전기 결정세액 적용 완료");
       setTimeout(() => setAppliedFlash(null), 1500);
     });
   }
@@ -265,7 +312,7 @@ export function NoticeCompareModal({
                 </button>
               </div>
 
-              {/* 1. 핵심 비교: 유형 + 사업장 매출 */}
+              {/* 1. 핵심 비교: 유형 + 사업장 매출 + 전기 데이터 */}
               <Section title="시스템 ↔ 안내문 비교" icon="⚖">
                 <CompareRow
                   label="신고 유형"
@@ -274,20 +321,42 @@ export function NoticeCompareModal({
                   match={filingMatch}
                   action={
                     !filingMatch && noticeFiling ? (
-                      <button
-                        onClick={applyFilingType}
-                        className="text-[11px] px-3 py-1 rounded-full bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA] transition-all"
-                      >
-                        → 적용
-                      </button>
+                      <ApplyButton onClick={applyFilingType} />
                     ) : null
                   }
                 />
                 <CompareRow
-                  label="사업장 매출 (부가세 신고분)"
+                  label="당기 사업장 매출 (부가세 신고분)"
                   systemValue={fmt(sysSales) + " 원"}
                   noticeValue={fmt(data.businessSales) + " 원"}
                   match={businessSalesMatch}
+                  action={
+                    businessSalesMatch === false && data.businessSales ? (
+                      <ApplyButton onClick={applyCurrSales} />
+                    ) : null
+                  }
+                />
+                <CompareRow
+                  label={`전기 매출 (${prevYear}년)`}
+                  systemValue={fmt(sysPrevSales) + " 원"}
+                  noticeValue={noticePrevSales ? fmt(noticePrevSales) + " 원" : "-"}
+                  match={prevSalesMatch}
+                  action={
+                    prevSalesMatch === false && noticePrevSales ? (
+                      <ApplyButton onClick={applyPrevSales} />
+                    ) : null
+                  }
+                />
+                <CompareRow
+                  label={`전기 결정세액 (${prevYear}년)`}
+                  systemValue={fmt(sysPrevTax) + " 원"}
+                  noticeValue={noticePrevTax ? fmt(noticePrevTax) + " 원" : "-"}
+                  match={prevTaxMatch}
+                  action={
+                    prevTaxMatch === false && noticePrevTax ? (
+                      <ApplyButton onClick={applyPrevTax} />
+                    ) : null
+                  }
                 />
               </Section>
 
@@ -425,6 +494,18 @@ function Section({
         {children}
       </div>
     </div>
+  );
+}
+
+function ApplyButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-[11px] px-3 py-1 rounded-full bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA] transition-all whitespace-nowrap"
+      style={{ boxShadow: "0 4px 10px -2px rgba(49,130,246,0.35)" }}
+    >
+      → 적용
+    </button>
   );
 }
 

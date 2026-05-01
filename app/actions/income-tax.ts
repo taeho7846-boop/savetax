@@ -193,15 +193,37 @@ export async function getIncomeTaxRejections(clientId: number, taxYear: string) 
   }));
 }
 
-// 신고도움서비스 분석 결과 적용 — 유형/메모 등
+// 신고도움서비스 분석 결과 적용 — 유형/매출/메모
 export async function applyNoticeAnalysis(
   clientId: number,
   taxYear: string,
-  fields: { filingType?: string | null; memoAppend?: string | null }
+  fields: {
+    filingType?: string | null;
+    memoAppend?: string | null;
+    currSales?: string | null;
+    prevSales?: string | null;
+    prevIncome?: string | null;
+    prevTax?: string | null;
+  }
 ) {
   await requireAuth();
   const data: Record<string, any> = {};
   if (fields.filingType !== undefined) data.filingType = fields.filingType || null;
+
+  const toBig = (v: string | null | undefined) => {
+    if (v === undefined) return undefined;
+    if (!v) return null;
+    const cleaned = v.replace(/[^0-9-]/g, "");
+    return cleaned ? BigInt(cleaned) : null;
+  };
+  const cs = toBig(fields.currSales);
+  if (cs !== undefined) data.currSales = cs;
+  const ps = toBig(fields.prevSales);
+  if (ps !== undefined) data.prevSales = ps;
+  const pi = toBig(fields.prevIncome);
+  if (pi !== undefined) data.prevIncome = pi;
+  const pt = toBig(fields.prevTax);
+  if (pt !== undefined) data.prevTax = pt;
 
   const existing = await prisma.incomeTaxRecord.findUnique({
     where: { clientId_taxYear: { clientId, taxYear } },
