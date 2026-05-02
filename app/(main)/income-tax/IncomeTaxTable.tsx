@@ -390,11 +390,11 @@ export function IncomeTaxTable({
               { label: "보험료",   checked: r.insurance,       onToggle: () => handleToggle(client.id, "insurance") },
               { label: "기부금",   checked: r.donation,        onToggle: () => handleToggle(client.id, "donation") },
             ]} />
-          <CheckGroup title="2. 공제/감면" done={reduce} total={5}
+          <CheckGroup title="2. 공제감면" done={reduce} total={5}
             items={[
               { label: "기장공제", checked: r.bookkeepingCredit, onToggle: () => handleToggle(client.id, "bookkeepingCredit") },
-              { label: "창업감면", checked: r.startupReduction,  onToggle: () => handleToggle(client.id, "startupReduction") },
-              { label: "중기감면", checked: r.smeReduction,      onToggle: () => handleToggle(client.id, "smeReduction") },
+              { label: "창중감",   checked: r.startupReduction,  onToggle: () => handleToggle(client.id, "startupReduction"), aiRecommended: client.aiStartupReduction === "O" },
+              { label: "중특감",   checked: r.smeReduction,      onToggle: () => handleToggle(client.id, "smeReduction"),     aiRecommended: client.aiSmeReduction === "O" },
               { label: "통합투자", checked: r.investCredit,      onToggle: () => handleToggle(client.id, "investCredit") },
               { label: "고용증대", checked: r.employmentCredit,  onToggle: () => handleToggle(client.id, "employmentCredit") },
             ]} />
@@ -1749,7 +1749,7 @@ function CheckGroup({ title, done, total, items, highlight }: {
   title: string;
   done: number;
   total: number;
-  items: { label: string; checked: boolean; onToggle?: () => void }[];
+  items: { label: string; checked: boolean; onToggle?: () => void; aiRecommended?: boolean }[];
   highlight?: boolean;
 }) {
   const isDone = done >= total;
@@ -1775,7 +1775,13 @@ function CheckGroup({ title, done, total, items, highlight }: {
             className={`flex items-center gap-1.5 text-left rounded px-1 py-0.5 ${it.onToggle ? "hover:bg-white/60 cursor-pointer" : ""} ${it.checked ? "" : "text-[#8B95A1]"}`}
           >
             <span className={`inline-block w-3 h-3 rounded-sm ${it.checked ? "bg-[#10B981]" : "bg-white border border-[#D1D6DB]"}`} />
-            {it.label}
+            <span>{it.label}</span>
+            {it.aiRecommended && (
+              <span
+                className="text-[8.5px] font-bold px-1 py-[1px] rounded bg-gradient-to-r from-[#A855F7] to-[#3182F6] text-white tracking-tight"
+                title="AI 추천 (업종코드 기반)"
+              >AI추천</span>
+            )}
           </button>
         ))}
       </div>
