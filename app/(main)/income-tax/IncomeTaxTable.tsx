@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport } from "@/app/actions/income-tax";
+import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport, revertConfirmToApproval } from "@/app/actions/income-tax";
 import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
 import { PinIcon } from "@/components/icons";
 import { NoticeUploadModal } from "./NoticeUploadModal";
@@ -1063,16 +1063,23 @@ export function IncomeTaxTable({
                               }`}>✓</button>
                           </td>
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                            {r.depositReceived && !r.filingDone ? (
-                              <button onClick={() => handleToggle(client.id, "filingDone")} disabled={isPending}
-                                className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">신고완료</button>
-                            ) : !r.depositReceived ? (
-                              <button onClick={() => setEditClientId(client.id)}
-                                className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">보수청구</button>
-                            ) : (
-                              <button onClick={() => setEditClientId(client.id)}
-                                className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#4E5968] px-2.5 py-1 rounded-lg font-bold hover:bg-white">상세</button>
-                            )}
+                            <div className="flex items-center justify-center gap-1">
+                              {r.depositReceived && !r.filingDone ? (
+                                <button onClick={() => handleToggle(client.id, "filingDone")} disabled={isPending}
+                                  className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">신고완료</button>
+                              ) : !r.depositReceived ? (
+                                <button onClick={() => setEditClientId(client.id)}
+                                  className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">보수청구</button>
+                              ) : (
+                                <button onClick={() => setEditClientId(client.id)}
+                                  className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#4E5968] px-2.5 py-1 rounded-lg font-bold hover:bg-white">상세</button>
+                              )}
+                              <button
+                                onClick={() => { startTransition(async () => { await revertConfirmToApproval(client.id, taxYear); }); }}
+                                disabled={isPending}
+                                title="결재 단계로 되돌리기"
+                                className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#F59E0B] px-2 py-1 rounded-lg font-bold hover:bg-[#F59E0B]/10 whitespace-nowrap">← 결재</button>
+                            </div>
                           </td>
                         </tr>
                       );

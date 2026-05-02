@@ -135,6 +135,16 @@ export async function confirmIncomeTaxReport(clientId: number, taxYear: string) 
   revalidatePath("/income-tax");
 }
 
+// 컨펌 → 결재 단계 (되돌리기)
+export async function revertConfirmToApproval(clientId: number, taxYear: string) {
+  await requireAuth();
+  await prisma.incomeTaxRecord.update({
+    where: { clientId_taxYear: { clientId, taxYear } },
+    data: { depositReceived: false },
+  });
+  revalidatePath("/income-tax");
+}
+
 // 결재 → 반려 (작성중 단계로 복귀, 반려 히스토리 기록)
 export async function rejectIncomeTaxReport(
   clientId: number,
