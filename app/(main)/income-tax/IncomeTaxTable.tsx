@@ -95,6 +95,46 @@ function formatNumber(val: string | null): string {
   return num.toLocaleString("ko-KR");
 }
 
+// 매출액 기반 예상 조정료 계산 (개인/법인 사업자 조정 보수표)
+// 단계: [매출하한, 기본보수, 초과액기준, 요율]
+const ADJ_FEE_TABLE_INDIVIDUAL: Array<[number, number, number, number]> = [
+  [0,            350_000,  0,            0],        // 1억 미만
+  [100_000_000,  350_000,  100_000_000,  0.0020],   // 1억~2억
+  [200_000_000,  550_000,  200_000_000,  0.0018],   // 2억~3억
+  [300_000_000,  730_000,  300_000_000,  0.0015],   // 3억~5억
+  [500_000_000,  1_030_000,500_000_000,  0.0012],   // 5억~10억
+  [1_000_000_000,1_630_000,1_000_000_000,0.0007],   // 10억~20억
+  [2_000_000_000,2_630_000,2_000_000_000,0.0007],   // 20억~30억
+  [3_000_000_000,3_330_000,3_000_000_000,0.0005],   // 30억~50억
+  [5_000_000_000,4_330_000,5_000_000_000,0.0004],   // 50억~100억
+  [10_000_000_000,6_330_000,10_000_000_000,0.0003], // 100억 이상
+];
+const ADJ_FEE_TABLE_CORP: Array<[number, number, number, number]> = [
+  [0,            500_000,  0,            0],
+  [100_000_000,  500_000,  100_000_000,  0.0025],
+  [200_000_000,  750_000,  200_000_000,  0.0020],
+  [300_000_000,  950_000,  300_000_000,  0.0018],
+  [500_000_000,  1_310_000,500_000_000,  0.0015],
+  [1_000_000_000,2_060_000,1_000_000_000,0.0012],
+  [2_000_000_000,3_260_000,2_000_000_000,0.0010],
+  [3_000_000_000,4_260_000,3_000_000_000,0.0008],
+  [5_000_000_000,5_660_000,5_000_000_000,0.0005],
+  [10_000_000_000,8_160_000,10_000_000_000,0.0004],
+];
+function calcAdjustmentFee(sales: string | null, clientType: string): number | null {
+  if (!sales) return null;
+  const s = parseInt(sales);
+  if (isNaN(s) || s <= 0) return null;
+  const table = clientType === "corporate" ? ADJ_FEE_TABLE_CORP : ADJ_FEE_TABLE_INDIVIDUAL;
+  let tier = table[0];
+  for (const row of table) {
+    if (s >= row[0]) tier = row;
+    else break;
+  }
+  const [, base, excessBase, rate] = tier;
+  return Math.round(base + Math.max(0, s - excessBase) * rate);
+}
+
 // 헤더 그룹 색상
 const GROUP_COLORS: Record<string, string> = {
   기본: "bg-[#F9FAFB]",
@@ -868,15 +908,14 @@ export function IncomeTaxTable({
                       <th className="px-3 py-2.5 text-right">전기 세액</th>
                       <th className="px-3 py-2.5 text-right bg-[#F59E0B]/10">당기 세액</th>
                       <th className="px-2 py-2.5 text-center">↕</th>
-                      <th className="px-2 py-2.5 text-center">AI 창중</th>
-                      <th className="px-2 py-2.5 text-center">AI 중특</th>
+                      <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">예상 조정료</th>
                       <th className="px-2 py-2.5 text-center">감면</th>
                       <th className="px-2 py-2.5 text-center">액션</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/40">
                     {list.length === 0 ? (
-                      <tr><td colSpan={13 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">결재 대기 거래처가 없습니다</td></tr>
+                      <tr><td colSpan={12 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">결재 대기 거래처가 없습니다</td></tr>
                     ) : list.map(client => {
                       const r = getRecord(client);
                       const ft = getFilingTypeBadge(r);
@@ -931,18 +970,30 @@ export function IncomeTaxTable({
                             ) : <span className="text-[#B0B8C1]">-</span>}
                           </td>
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.prevTax) || "-"}</td>
-                          <td className="px-3 py-2.5 text-right font-bold text-[#3182F6]">{formatNumber(r.currTax) || "-"}</td>
+                          <EditableNumberCell value={r.currTax} onSave={(v) => handleFieldBlur(client.id, "currTax", v)} className="font-bold text-[#3182F6]" />
                           <td className="px-2 py-2.5 text-center text-[10.5px] font-bold">
                             {dT.pct !== null ? (
                               <span className={dT.isAnomaly ? "text-[#DC2626] bg-[#DC2626]/10 px-1.5 py-0.5 rounded" : dT.pct >= 0 ? "text-[#10B981]" : "text-[#F59E0B]"}>{dT.pct > 0 ? "+" : ""}{dT.pct}%</span>
                             ) : <span className="text-[#B0B8C1]">-</span>}
                           </td>
-                          <td className="px-2 py-2.5 text-center text-[11px] font-bold">
-                            {client.aiStartupReduction === "O" ? <span className="text-[#10B981]">O</span> : client.aiStartupReduction === "X" ? <span className="text-[#DC2626]">X</span> : <span className="text-[#B0B8C1]">-</span>}
-                          </td>
-                          <td className="px-2 py-2.5 text-center text-[11px] font-bold">
-                            {client.aiSmeReduction === "O" ? <span className="text-[#10B981]">O</span> : client.aiSmeReduction === "X" ? <span className="text-[#DC2626]">X</span> : <span className="text-[#B0B8C1]">-</span>}
-                          </td>
+                          {(() => {
+                            const existing = r.adjustmentFee ? parseInt(r.adjustmentFee) : null;
+                            const estimated = calcAdjustmentFee(r.currSales, client.clientType);
+                            const showVal = existing && existing > 0 ? existing : estimated;
+                            const isEstimate = !(existing && existing > 0) && estimated !== null;
+                            return (
+                              <td className="px-3 py-2.5 text-right tabular-nums">
+                                {showVal !== null ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <span className={`font-bold ${isEstimate ? "text-[#A855F7]" : "text-[#191F28]"}`}>{showVal.toLocaleString("ko-KR")}</span>
+                                    {isEstimate && (
+                                      <span className="text-[8.5px] font-bold px-1 py-[1px] rounded bg-[#A855F7]/15 text-[#7C3AED]" title="매출 기반 자동 산출">예상</span>
+                                    )}
+                                  </div>
+                                ) : <span className="text-[#B0B8C1]">-</span>}
+                              </td>
+                            );
+                          })()}
                           <td className="px-2 py-2.5 text-center">
                             {reductions.length > 0 ? (
                               <div className="flex justify-center gap-0.5 flex-wrap">
