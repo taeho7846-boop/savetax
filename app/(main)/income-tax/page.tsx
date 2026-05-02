@@ -102,6 +102,7 @@ export default async function IncomeTaxPage({
       currTax: r.currTax?.toString() ?? null,
       adjustmentFee: r.adjustmentFee?.toString() ?? null,
       lastRejectedAt: r.lastRejectedAt ? r.lastRejectedAt.toISOString() : null,
+      excludedAt: r.excludedAt ? r.excludedAt.toISOString() : null,
     })),
     noticeAnalysis: na ? {
       id: na.id,
