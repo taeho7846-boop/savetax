@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport, revertConfirmToApproval } from "@/app/actions/income-tax";
+import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport, revertConfirmToApproval, setIncomeTaxExcluded } from "@/app/actions/income-tax";
 import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
 import { PinIcon } from "@/components/icons";
 import { NoticeUploadModal } from "./NoticeUploadModal";
@@ -32,6 +32,9 @@ type ITRecord = {
   employmentCredit: boolean;
   confirmStage: boolean;
   noticeRequestSent: boolean;
+  excluded: boolean;
+  excludedAt: string | null;
+  excludedReason: string | null;
   depositReceived: boolean;
   filingDone: boolean;
   paymentSent: boolean;
@@ -73,7 +76,7 @@ function getRecord(client: Client): ITRecord {
     prevSales: null, prevIncome: null, prevTax: null,
     currSales: null, currIncome: null, currTax: null,
     bookkeepingCredit: false, startupReduction: false, smeReduction: false,
-    investCredit: false, employmentCredit: false, confirmStage: false, noticeRequestSent: false, depositReceived: false, filingDone: false, paymentSent: false,
+    investCredit: false, employmentCredit: false, confirmStage: false, noticeRequestSent: false, excluded: false, excludedAt: null, excludedReason: null, depositReceived: false, filingDone: false, paymentSent: false,
     adjustmentFee: null, memo: null,
     rejectionCount: 0, lastRejectedAt: null,
   };
@@ -248,14 +251,18 @@ export function IncomeTaxTable({
     preStageClients = preStageClients.filter(c => c.assignedUserName === userFilter);
   }
 
-  // 단계별 카운트 (검색/담당자 필터 적용 후)
+  // 제외 거래처 분리 (단계 카운트/통계에서 빼고, 작성중 단계의 별도 섹션에서 표시)
+  const excludedClients = preStageClients.filter(c => getRecord(c).excluded);
+  const activeClients = preStageClients.filter(c => !getRecord(c).excluded);
+
+  // 단계별 카운트 (제외 제외)
   const stageCounts: Record<Stage, number> = { collect: 0, writing: 0, approval: 0, confirm: 0, done: 0 };
-  for (const c of preStageClients) stageCounts[getStage(getRecord(c))]++;
+  for (const c of activeClients) stageCounts[getStage(getRecord(c))]++;
 
   // 단계 필터 적용
   const filteredClients = stageFilter
-    ? preStageClients.filter(c => getStage(getRecord(c)) === stageFilter)
-    : preStageClients;
+    ? activeClients.filter(c => getStage(getRecord(c)) === stageFilter)
+    : activeClients;
 
   // 단계별로 표시할 컬럼 그룹
   const visibleGroups = STAGE_GROUPS[stageFilter ?? "all"];
@@ -276,9 +283,9 @@ export function IncomeTaxTable({
     return calcDelta(r.prevSales, r.currSales).isAnomaly || calcDelta(r.prevTax, r.currTax).isAnomaly;
   }
 
-  // 단계별 거래처 (사이드 패널 통계용)
+  // 단계별 거래처 (사이드 패널 통계용) — 제외 거래처 미포함
   const stageClients: Record<Stage, Client[]> = { collect: [], writing: [], approval: [], confirm: [], done: [] };
-  for (const c of preStageClients) stageClients[getStage(getRecord(c))].push(c);
+  for (const c of activeClients) stageClients[getStage(getRecord(c))].push(c);
 
   // 담당자별 카운트 helper
   function countByAssigned(clients: Client[]): Map<string, number> {
@@ -417,10 +424,33 @@ export function IncomeTaxTable({
             </div>
           );
         })()}
-        <div className="grid grid-cols-3 gap-1.5 mb-3">
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
           <button onClick={() => openClientDrive(client)} className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">📁 드라이브</button>
           <button onClick={() => openClientHometax(client)} className="bg-white hover:bg-[#3182F6] hover:text-white text-[#3182F6] border border-[#3182F6]/30 py-1.5 rounded-xl text-[11px] font-bold transition">🔐 홈택스</button>
           <button onClick={() => setEditClientId(client.id)} className="bg-[#3182F6] text-white py-1.5 rounded-xl text-[11px] font-bold shadow-md shadow-[#3182F6]/20">{currentStep === 4 ? "결재" : "신고서 작성"}</button>
+        </div>
+        <div className="mb-3">
+          {r.excluded ? (
+            <button
+              onClick={() => {
+                if (confirm(`${client.name} — 제외를 해제하고 작성중 단계로 복구할까요?`)) {
+                  startTransition(async () => { await setIncomeTaxExcluded(client.id, taxYear, false); });
+                }
+              }}
+              disabled={isPending}
+              className="w-full bg-white hover:bg-[#10B981] hover:text-white text-[#10B981] border border-[#10B981]/40 py-1.5 rounded-xl text-[11px] font-bold transition"
+            >↺ 제외 해제 (작성중으로 복구)</button>
+          ) : (
+            <button
+              onClick={() => {
+                const reason = prompt(`${client.name} — 이번 연도 신고를 제외할 사유를 입력하세요\n(예: 2026년 신규 개업, 폐업 등)`);
+                if (reason === null) return;
+                startTransition(async () => { await setIncomeTaxExcluded(client.id, taxYear, true, reason || undefined); });
+              }}
+              disabled={isPending}
+              className="w-full bg-white hover:bg-[#6B7684] hover:text-white text-[#6B7684] border border-[#E5E8EB] py-1.5 rounded-xl text-[11px] font-bold transition"
+            >🚫 이번 신고 제외</button>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto pr-1 space-y-2">
           <CheckGroup title="1. 자료 수집" done={dataCollect} total={6} highlight={currentStep === 1}
@@ -794,6 +824,18 @@ export function IncomeTaxTable({
             <div>{writingClients.length}건 표시</div>
             <div>💡 거래처명 옆 뱃지 → 신고도움서비스 비교</div>
           </div>
+          {excludedClients.length > 0 && (
+            <ExcludedSection
+              clients={excludedClients}
+              taxYear={taxYear}
+              isPending={isPending}
+              onRestore={(clientId) => {
+                startTransition(async () => { await setIncomeTaxExcluded(clientId, taxYear, false); });
+              }}
+              onSelect={setSelectedClientId}
+              selectedClientId={selectedClientId}
+            />
+          )}
         </div>
       ) : stageFilter === "collect" ? (
         // ① 자료수집 전용 레이아웃 (amber/brown 톤)
@@ -1844,6 +1886,62 @@ function AnalysisBadge({ client, r, onClick }: {
     >
       ✓✓ 검토됨
     </button>
+  );
+}
+
+function ExcludedSection({
+  clients, taxYear, isPending, onRestore, onSelect, selectedClientId,
+}: {
+  clients: Client[];
+  taxYear: string;
+  isPending: boolean;
+  onRestore: (clientId: number) => void;
+  onSelect: (id: number) => void;
+  selectedClientId: number | null;
+}) {
+  return (
+    <div className="mt-3 mx-3 mb-3 rounded-2xl bg-white/30 border border-dashed border-[#B0B8C1]/50">
+      <div className="px-3 py-2 border-b border-dashed border-[#B0B8C1]/40 flex items-center gap-2">
+        <span className="text-[11.5px] font-bold text-[#6B7684]">🚫 이번 신고 제외 — {clients.length}건</span>
+        <span className="text-[10px] text-[#8B95A1]">{taxYear}년 귀속 기준 · 우측 카드에서 해제 가능</span>
+      </div>
+      <div className="overflow-auto">
+        <table className="w-full text-[11.5px]">
+          <tbody className="divide-y divide-white/40">
+            {clients.map(c => {
+              const r = c.incomeTaxRecords[0];
+              const isSel = selectedClientId === c.id;
+              return (
+                <tr key={c.id}
+                  onClick={() => onSelect(c.id)}
+                  className={`cursor-pointer ${isSel ? "bg-[#F2F4F6]/70" : "hover:bg-white/40"}`}
+                >
+                  <td className="px-3 py-2 text-[#6B7684]">
+                    <span className="line-through">{c.name}</span>
+                    {c.ceoName && <span className="text-[10px] text-[#8B95A1] ml-1">· {c.ceoName}</span>}
+                  </td>
+                  <td className="px-3 py-2 text-[10.5px] text-[#8B95A1] italic">
+                    {r?.excludedReason || "-"}
+                  </td>
+                  <td className="px-3 py-2 text-[10px] text-[#B0B8C1] text-right whitespace-nowrap">
+                    {r?.excludedAt ? new Date(r.excludedAt).toLocaleDateString("ko-KR") : ""}
+                  </td>
+                  <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => {
+                        if (confirm(`${c.name} — 제외 해제하고 작성중으로 복구할까요?`)) onRestore(c.id);
+                      }}
+                      disabled={isPending}
+                      className="text-[10.5px] bg-white hover:bg-[#10B981] hover:text-white text-[#10B981] border border-[#10B981]/40 px-2 py-1 rounded-lg font-bold whitespace-nowrap disabled:opacity-50"
+                    >↺ 복구</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

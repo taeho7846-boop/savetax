@@ -141,6 +141,28 @@ export async function confirmIncomeTaxReport(clientId: number, taxYear: string) 
   revalidatePath("/income-tax");
 }
 
+// 신고 제외 / 제외 해제
+export async function setIncomeTaxExcluded(
+  clientId: number,
+  taxYear: string,
+  excluded: boolean,
+  reason?: string
+) {
+  await requireAuth();
+  const existing = await prisma.incomeTaxRecord.findUnique({
+    where: { clientId_taxYear: { clientId, taxYear } },
+  });
+  const data = excluded
+    ? { excluded: true, excludedAt: new Date(), excludedReason: reason || null }
+    : { excluded: false, excludedAt: null, excludedReason: null };
+  if (existing) {
+    await prisma.incomeTaxRecord.update({ where: { id: existing.id }, data });
+  } else {
+    await prisma.incomeTaxRecord.create({ data: { clientId, taxYear, ...data } });
+  }
+  revalidatePath("/income-tax");
+}
+
 // 컨펌 → 결재 단계 (되돌리기)
 export async function revertConfirmToApproval(clientId: number, taxYear: string) {
   await requireAuth();

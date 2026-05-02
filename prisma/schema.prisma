@@ -305,6 +305,9 @@ model IncomeTaxRecord {
   employmentCredit  Boolean  @default(false)
   confirmStage      Boolean  @default(false)
   noticeRequestSent Boolean  @default(false)
+  excluded          Boolean  @default(false)
+  excludedAt        DateTime?
+  excludedReason    String?
   depositReceived   Boolean  @default(false)
   filingDone        Boolean  @default(false)
   paymentSent       Boolean  @default(false)
