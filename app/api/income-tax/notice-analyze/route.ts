@@ -59,11 +59,26 @@ const TOOL = {
           required: ["businessNumber", "bizCode"],
         },
       },
-      currYearBusinessSales: { type: ["number", "null"], description: "부가가치세 업종별 수입금액 (사업장 매출, 원)" },
-      currYearTaxCreditSales: { type: ["number", "null"], description: "전자신고세액공제 등 (원)" },
-      currYearCardCreditSales: { type: ["number", "null"], description: "신용카드매출전표 등 발행세액공제 (원)" },
-      currYearOtherBusinessSales: { type: ["number", "null"], description: "기타 사업장 관련 수입금액(위 3개 외)" },
-      currYearTotalSales: { type: ["number", "null"], description: "사업장별 수입금액 총계 (원)" },
+      currYearBusinessSales: {
+        type: ["number", "null"],
+        description: "PDF 1페이지 '사업장별 수입금액' 표 → '수입종류구분(코드)' 열에서 '부가가치세 업종별 수입금액' 행의 합계 금액 (원). 사업장 여러 개면 모두 합산"
+      },
+      currYearTaxCreditSales: {
+        type: ["number", "null"],
+        description: "PDF 1페이지 '사업장별 수입금액' 표 → '수입종류구분(코드)' 열에서 '전자신고세액공제' 또는 '전자신고세액공제 등' 행의 합계 금액 (원). 없으면 null"
+      },
+      currYearCardCreditSales: {
+        type: ["number", "null"],
+        description: "PDF 1페이지 '사업장별 수입금액' 표 → '수입종류구분(코드)' 열에서 '신용카드매출전표 등 발행세액공제' 또는 '신용카드발행세액공제등' 행의 합계 금액 (원). '신용카드'·'발행세액공제' 키워드 포함된 행이면 모두 여기로. 없으면 null"
+      },
+      currYearOtherBusinessSales: {
+        type: ["number", "null"],
+        description: "PDF 1페이지 '사업장별 수입금액' 표에서 위 3개(부가가치세업종별/전자신고세액공제/신용카드발행세액공제) 외 사업장 관련 수입금액 행 합계 (원). 위 3개 행에 해당하는 금액은 절대 여기에 포함시키지 말 것"
+      },
+      currYearTotalSales: {
+        type: ["number", "null"],
+        description: "PDF 1페이지 '사업장별 수입금액' 표의 총계(합계) 행 금액 (원)"
+      },
       currYearFreelanceSales: { type: ["number", "null"], description: "사업소득 지급명세서 등 결정자료(인적용역) (원)" },
       currYearWithholdingTax: { type: ["number", "null"] },
       currYearPrepaidTax: { type: ["number", "null"] },
