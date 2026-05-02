@@ -1023,6 +1023,14 @@ export function IncomeTaxTable({
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1 justify-center">
                               <button
+                                onClick={() => setRejectTarget({ clientId: client.id, clientName: client.name })}
+                                disabled={isPending}
+                                title="반려 (작성중으로 되돌림)"
+                                className="text-[10.5px] px-2 py-1 rounded-lg font-bold whitespace-nowrap bg-white border border-[#DC2626]/30 text-[#DC2626] hover:bg-[#FEF2F2] disabled:opacity-50"
+                              >
+                                반려
+                              </button>
+                              <button
                                 onClick={() => {
                                   if (confirm(`${client.name} — [④ 컨펌] 단계로 넘기시겠어요?`)) {
                                     startTransition(async () => { await confirmIncomeTaxReport(client.id, taxYear); });
@@ -1030,17 +1038,9 @@ export function IncomeTaxTable({
                                 }}
                                 disabled={isPending}
                                 title="컨펌 (다음 단계로)"
-                                className="text-[10.5px] px-2.5 py-1 rounded-lg font-bold whitespace-nowrap bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50"
+                                className="text-[10.5px] px-2.5 py-1 rounded-lg font-bold whitespace-nowrap bg-[#A855F7] text-white hover:bg-[#7C3AED] disabled:opacity-50 shadow-sm shadow-[#A855F7]/30"
                               >
                                 컨펌 →
-                              </button>
-                              <button
-                                onClick={() => setRejectTarget({ clientId: client.id, clientName: client.name })}
-                                disabled={isPending}
-                                title="반려 (작성중으로 되돌림)"
-                                className="text-[10.5px] px-2 py-1 rounded-lg font-bold whitespace-nowrap bg-white border border-[#DC2626]/30 text-[#DC2626] hover:bg-[#FEF2F2] disabled:opacity-50"
-                              >
-                                반려
                               </button>
                             </div>
                           </td>
@@ -1172,7 +1172,7 @@ export function IncomeTaxTable({
                                 }}
                                 disabled={isPending || r.filingDone}
                                 title="신고완료 단계로 이동"
-                                className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED] disabled:opacity-50 shadow-sm shadow-[#A855F7]/30">신고완료 →</button>
+                                className="text-[10.5px] bg-[#10B981] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#059669] disabled:opacity-50 shadow-sm shadow-[#10B981]/30">신고완료 →</button>
                             </div>
                           </td>
                         </tr>
