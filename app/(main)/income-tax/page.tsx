@@ -120,6 +120,7 @@ export default async function IncomeTaxPage({
         clients={serialized}
         taxYear={taxYear}
         showAssignedUser={isManager}
+        canApprove={isManager}
         activeTab={activeTab}
         agentHometaxId={settings?.agentHometaxId ?? null}
         agentHometaxPw={settings?.agentHometaxPw ?? null}

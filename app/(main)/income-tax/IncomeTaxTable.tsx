@@ -176,10 +176,10 @@ const STAGE_META: Record<Stage, { label: string; color: string; bgDot: string; a
 };
 
 export function IncomeTaxTable({
-  clients, taxYear, showAssignedUser = false, activeTab = "bookkeeping",
+  clients, taxYear, showAssignedUser = false, canApprove = false, activeTab = "bookkeeping",
   agentHometaxId = null, agentHometaxPw = null, certName = null, certPassword = null,
 }: {
-  clients: Client[]; taxYear: string; showAssignedUser?: boolean; activeTab?: string;
+  clients: Client[]; taxYear: string; showAssignedUser?: boolean; canApprove?: boolean; activeTab?: string;
   agentHometaxId?: string | null; agentHometaxPw?: string | null;
   certName?: string | null; certPassword?: string | null;
 }) {
@@ -547,19 +547,27 @@ export function IncomeTaxTable({
             const meta = STAGE_META[s];
             const count = stageCounts[s];
             const active = stageFilter === s;
+            const locked = s === "approval" && !canApprove;
             return (
               <button
                 key={s}
-                onClick={() => setStageFilter(active ? null : s)}
+                onClick={() => { if (!locked) setStageFilter(active ? null : s); }}
+                disabled={locked}
+                title={locked ? "결재 단계는 세무사만 접근 가능합니다" : undefined}
                 className={`rounded-xl px-3 py-2 transition flex items-center gap-2.5 text-left ${
-                  active
+                  locked
+                    ? "bg-white/40 cursor-not-allowed opacity-50"
+                    : active
                     ? `${meta.activeBg} ring-2 ${meta.activeRing} -translate-y-0.5 shadow-md`
                     : "bg-white/70 hover:bg-white hover:-translate-y-0.5"
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${meta.bgDot} shrink-0`} />
                 <div className="flex-1 min-w-0">
-                  <div className={`text-[10.5px] font-bold ${meta.color}`}>{meta.label}</div>
+                  <div className={`text-[10.5px] font-bold ${meta.color} flex items-center gap-1`}>
+                    <span>{meta.label}</span>
+                    {locked && <span title="세무사 전용" className="text-[9px]">🔒</span>}
+                  </div>
                   <div className={`text-[16px] font-bold leading-tight ${active ? meta.color : "text-[#191F28]"}`}>{count}</div>
                 </div>
               </button>
@@ -892,7 +900,7 @@ export function IncomeTaxTable({
             </div>
           );
         })()
-      ) : stageFilter === "approval" ? (
+      ) : stageFilter === "approval" && canApprove ? (
         // ③ 결재 전용 레이아웃 (amber/orange 톤, 이상치 강조)
         (() => {
           const list = stageClients.approval;
