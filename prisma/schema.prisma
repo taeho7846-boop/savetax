@@ -303,6 +303,8 @@ model IncomeTaxRecord {
   smeReduction      Boolean  @default(false)
   investCredit      Boolean  @default(false)
   employmentCredit  Boolean  @default(false)
+  confirmStage      Boolean  @default(false)
+  noticeRequestSent Boolean  @default(false)
   depositReceived   Boolean  @default(false)
   filingDone        Boolean  @default(false)
   paymentSent       Boolean  @default(false)

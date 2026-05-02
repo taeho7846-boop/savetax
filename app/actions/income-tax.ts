@@ -125,12 +125,17 @@ export async function moveToApproval(clientId: number, taxYear: string) {
   revalidatePath("/income-tax");
 }
 
-// 결재 → 컨펌 단계
+// 결재 → 컨펌 단계 (자동체크 없이 단계만 이동)
 export async function confirmIncomeTaxReport(clientId: number, taxYear: string) {
   await requireAuth();
   await prisma.incomeTaxRecord.update({
     where: { clientId_taxYear: { clientId, taxYear } },
-    data: { depositReceived: true },
+    data: {
+      confirmStage: true,
+      noticeRequestSent: false,
+      depositReceived: false,
+      filingDone: false,
+    },
   });
   revalidatePath("/income-tax");
 }
@@ -140,7 +145,12 @@ export async function revertConfirmToApproval(clientId: number, taxYear: string)
   await requireAuth();
   await prisma.incomeTaxRecord.update({
     where: { clientId_taxYear: { clientId, taxYear } },
-    data: { depositReceived: false },
+    data: {
+      confirmStage: false,
+      noticeRequestSent: false,
+      depositReceived: false,
+      filingDone: false,
+    },
   });
   revalidatePath("/income-tax");
 }

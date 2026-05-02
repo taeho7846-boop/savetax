@@ -30,6 +30,8 @@ type ITRecord = {
   smeReduction: boolean;
   investCredit: boolean;
   employmentCredit: boolean;
+  confirmStage: boolean;
+  noticeRequestSent: boolean;
   depositReceived: boolean;
   filingDone: boolean;
   paymentSent: boolean;
@@ -71,7 +73,7 @@ function getRecord(client: Client): ITRecord {
     prevSales: null, prevIncome: null, prevTax: null,
     currSales: null, currIncome: null, currTax: null,
     bookkeepingCredit: false, startupReduction: false, smeReduction: false,
-    investCredit: false, employmentCredit: false, depositReceived: false, filingDone: false, paymentSent: false,
+    investCredit: false, employmentCredit: false, confirmStage: false, noticeRequestSent: false, depositReceived: false, filingDone: false, paymentSent: false,
     adjustmentFee: null, memo: null,
     rejectionCount: 0, lastRejectedAt: null,
   };
@@ -150,7 +152,7 @@ const GROUP_COLORS: Record<string, string> = {
 type Stage = "collect" | "writing" | "approval" | "confirm" | "done";
 function getStage(r: ITRecord): Stage {
   if (r.filingDone) return "done";
-  if (r.depositReceived) return "confirm";
+  if (r.confirmStage || r.depositReceived) return "confirm";
   if (r.preSettlement) return "approval";
   if (r.currSales) return "writing";
   return "collect";
@@ -445,7 +447,7 @@ export function IncomeTaxTable({
               { label: "공제 적용",  checked: !!r.currTax },
               { label: "최종 검산",  checked: r.preSettlement, onToggle: () => handleToggle(client.id, "preSettlement") },
             ]} />
-          <StageRow num={4} title="결재 (세무사)" done={r.depositReceived} highlight={currentStep === 4} />
+          <StageRow num={4} title="결재 (세무사)" done={r.confirmStage || r.depositReceived} highlight={currentStep === 4} />
           <StageRow num={5} title="컨펌 + 보수수취" done={r.depositReceived} />
           <StageRow num={6} title="신고 완료" done={r.filingDone} />
         </div>
@@ -648,7 +650,8 @@ export function IncomeTaxTable({
               <thead className="bg-white/60 sticky top-0 z-10">
                 <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
                   <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[160px]">고객사</th>
-                  <th className="px-2 py-2.5">유형</th>
+                  <th className="px-2 py-2.5">기장의무</th>
+                  <th className="px-2 py-2.5">적용</th>
                   {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                   <th className="px-3 py-2.5 text-left min-w-[140px]">진행률</th>
                   <th className="px-3 py-2.5 text-right">전기 매출</th>
@@ -662,7 +665,7 @@ export function IncomeTaxTable({
               </thead>
               <tbody className="divide-y divide-white/40">
                 {writingClients.length === 0 ? (
-                  <tr><td colSpan={11} className="text-center py-12 text-[#6B7684] text-sm">작성중 거래처가 없습니다</td></tr>
+                  <tr><td colSpan={12} className="text-center py-12 text-[#6B7684] text-sm">작성중 거래처가 없습니다</td></tr>
                 ) : writingClients.map(client => {
                   const r = getRecord(client);
                   const wp = getWritingProgress(r);
@@ -707,6 +710,18 @@ export function IncomeTaxTable({
                           )}
                         </div>
                         {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
+                      </td>
+                      <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={r.bookkeepingDuty ?? ""}
+                          onChange={(e) => handleFieldBlur(client.id, "bookkeepingDuty", e.target.value)}
+                          className="border border-[#E5E8EB] rounded px-1 py-0.5 text-[11px] bg-white focus:outline-none w-[80px]"
+                        >
+                          <option value="">-</option>
+                          {["간편장부", "복식부기", "성실신고"].map(o => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                         <select
@@ -900,7 +915,8 @@ export function IncomeTaxTable({
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
                       <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[170px]">고객사</th>
-                      <th className="px-2 py-2.5">유형</th>
+                      <th className="px-2 py-2.5">기장의무</th>
+                      <th className="px-2 py-2.5">적용</th>
                       {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                       <th className="px-3 py-2.5 text-right">전기 매출</th>
                       <th className="px-3 py-2.5 text-right bg-[#F59E0B]/10">당기 매출</th>
@@ -915,7 +931,7 @@ export function IncomeTaxTable({
                   </thead>
                   <tbody className="divide-y divide-white/40">
                     {list.length === 0 ? (
-                      <tr><td colSpan={12 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">결재 대기 거래처가 없습니다</td></tr>
+                      <tr><td colSpan={13 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">결재 대기 거래처가 없습니다</td></tr>
                     ) : list.map(client => {
                       const r = getRecord(client);
                       const ft = getFilingTypeBadge(r);
@@ -957,6 +973,9 @@ export function IncomeTaxTable({
                               )}
                             </div>
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
+                            {r.bookkeepingDuty ?? <span className="text-[#B0B8C1]">-</span>}
                           </td>
                           <td className="px-2 py-2.5 text-center">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
@@ -1064,11 +1083,13 @@ export function IncomeTaxTable({
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
                       <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[170px]">고객사</th>
-                      <th className="px-2 py-2.5">유형</th>
+                      <th className="px-2 py-2.5">기장의무</th>
+                      <th className="px-2 py-2.5">적용</th>
                       {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                       <th className="px-3 py-2.5 text-right">당기 매출</th>
                       <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">결정세액</th>
                       <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">조정료</th>
+                      <th className="px-2 py-2.5 text-center bg-[#A855F7]/5">안내 및 입금요청</th>
                       <th className="px-2 py-2.5 text-center">입금</th>
                       <th className="px-2 py-2.5 text-center">신고</th>
                       <th className="px-2 py-2.5 text-center">액션</th>
@@ -1076,7 +1097,7 @@ export function IncomeTaxTable({
                   </thead>
                   <tbody className="divide-y divide-white/40">
                     {list.length === 0 ? (
-                      <tr><td colSpan={9 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">컨펌 대기 거래처가 없습니다</td></tr>
+                      <tr><td colSpan={11 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">컨펌 대기 거래처가 없습니다</td></tr>
                     ) : list.map(client => {
                       const r = getRecord(client);
                       const ft = getFilingTypeBadge(r);
@@ -1090,13 +1111,35 @@ export function IncomeTaxTable({
                             {client.name}
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
                           </td>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
+                            {r.bookkeepingDuty ?? <span className="text-[#B0B8C1]">-</span>}
+                          </td>
                           <td className="px-2 py-2.5 text-center">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
                           </td>
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
                           <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.currTax) || "-"}</td>
-                          <td className="px-3 py-2.5 text-right font-bold text-[#A855F7]">{formatNumber(r.adjustmentFee) || "-"}</td>
+                          {(() => {
+                            const existing = r.adjustmentFee ? parseInt(r.adjustmentFee) : null;
+                            const estimated = calcAdjustmentFee(r.currSales, client.clientType);
+                            const hasActual = existing !== null && existing > 0;
+                            return (
+                              <EditableNumberCell
+                                value={hasActual ? r.adjustmentFee : (estimated !== null ? String(estimated) : null)}
+                                onSave={(v) => handleFieldBlur(client.id, "adjustmentFee", v)}
+                                className={hasActual ? "font-bold text-[#A855F7]" : "font-bold text-[#A855F7]/60 italic"}
+                              />
+                            );
+                          })()}
+                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => handleToggle(client.id, "noticeRequestSent")} disabled={isPending} title="안내 및 입금요청"
+                              className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
+                                r.noticeRequestSent
+                                  ? "bg-[#A855F7] text-white shadow-sm shadow-[#A855F7]/30"
+                                  : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#A855F7]/50 hover:bg-[#A855F7]/10"
+                              }`}>✓</button>
+                          </td>
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => handleToggle(client.id, "depositReceived")} disabled={isPending} title="입금"
                               className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
