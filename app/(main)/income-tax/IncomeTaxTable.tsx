@@ -977,8 +977,8 @@ export function IncomeTaxTable({
                           <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
                             {r.bookkeepingDuty ?? <span className="text-[#B0B8C1]">-</span>}
                           </td>
-                          <td className="px-2 py-2.5 text-center">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
+                            {r.filingType ?? <span className="text-[#B0B8C1]">-</span>}
                           </td>
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.prevSales) || "-"}</td>
@@ -1114,8 +1114,8 @@ export function IncomeTaxTable({
                           <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
                             {r.bookkeepingDuty ?? <span className="text-[#B0B8C1]">-</span>}
                           </td>
-                          <td className="px-2 py-2.5 text-center">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
+                            {r.filingType ?? <span className="text-[#B0B8C1]">-</span>}
                           </td>
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
@@ -1158,21 +1158,21 @@ export function IncomeTaxTable({
                           </td>
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
-                              {r.depositReceived && !r.filingDone ? (
-                                <button onClick={() => handleToggle(client.id, "filingDone")} disabled={isPending}
-                                  className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">신고완료</button>
-                              ) : !r.depositReceived ? (
-                                <button onClick={() => setEditClientId(client.id)}
-                                  className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED]">보수청구</button>
-                              ) : (
-                                <button onClick={() => setEditClientId(client.id)}
-                                  className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#4E5968] px-2.5 py-1 rounded-lg font-bold hover:bg-white">상세</button>
-                              )}
                               <button
                                 onClick={() => { startTransition(async () => { await revertConfirmToApproval(client.id, taxYear); }); }}
                                 disabled={isPending}
                                 title="결재 단계로 되돌리기"
                                 className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#F59E0B] px-2 py-1 rounded-lg font-bold hover:bg-[#F59E0B]/10 whitespace-nowrap">← 결재</button>
+                              <button
+                                onClick={() => {
+                                  if (r.filingDone) return;
+                                  if (confirm(`${client.name} — [⑤ 신고완료] 단계로 넘기시겠어요?`)) {
+                                    handleToggle(client.id, "filingDone");
+                                  }
+                                }}
+                                disabled={isPending || r.filingDone}
+                                title="신고완료 단계로 이동"
+                                className="text-[10.5px] bg-[#A855F7] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#7C3AED] disabled:opacity-50 shadow-sm shadow-[#A855F7]/30">신고완료 →</button>
                             </div>
                           </td>
                         </tr>
