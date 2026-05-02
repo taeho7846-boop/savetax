@@ -8,6 +8,7 @@ type Analysis = {
   clientId: number;
   taxYear: string;
   analyzedAt: string;
+  pdfFileId: string | null;
   filingType: string | null;
   totalSales: number | null;
   businessSales: number | null;
@@ -342,10 +343,21 @@ export function NoticeCompareModal({
                     ✓ 직원 검토됨
                   </span>
                 )}
+                {data.pdfFileId && (
+                  <a
+                    href={`https://drive.google.com/file/d/${data.pdfFileId}/view`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto text-[11px] px-2.5 py-1 rounded-full bg-[#3182F6]/10 text-[#3182F6] hover:bg-[#3182F6] hover:text-white font-bold inline-flex items-center gap-1 transition"
+                    title="신고도움서비스 PDF 새 탭에서 열기"
+                  >
+                    📄 안내문 PDF 열기
+                  </a>
+                )}
                 <button
                   onClick={() => runAnalyze(true)}
                   disabled={analyzing}
-                  className="ml-auto text-[11px] px-2.5 py-1 rounded-full bg-white/70 text-[#6B7684] hover:bg-white hover:text-[#191F28] font-medium disabled:opacity-50"
+                  className={`text-[11px] px-2.5 py-1 rounded-full bg-white/70 text-[#6B7684] hover:bg-white hover:text-[#191F28] font-medium disabled:opacity-50 ${data.pdfFileId ? "" : "ml-auto"}`}
                 >
                   {analyzing ? "다시 분석 중..." : "↻ 재분석"}
                 </button>
