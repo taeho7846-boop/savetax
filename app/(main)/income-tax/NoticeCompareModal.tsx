@@ -22,6 +22,9 @@ type Analysis = {
 
 type ReductionInfo = {
   bizCode: string;
+  matchedBizCode?: string;
+  partialMatch?: boolean;
+  matchSource?: "client_match" | "first_site" | "fallback_top" | null;
   startupReduction: string | null;
   smeReduction: string | null;
   found: boolean;
@@ -653,13 +656,26 @@ function ReductionView({ reduction }: { reduction: ReductionInfo }) {
       </div>
     );
   }
+  const sourceLabel =
+    reduction.matchSource === "client_match"
+      ? "거래처 사업자번호 매칭"
+      : reduction.matchSource === "first_site"
+      ? "첫 사업장 기준"
+      : reduction.matchSource === "fallback_top"
+      ? "대표 업종코드"
+      : "DB 매칭 OK";
   return (
     <div>
-      <div className="flex items-center gap-2 mb-2 px-1">
+      <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
         <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-[#F5F9FF] text-[#3182F6] font-bold">
-          업종코드 {reduction.bizCode}
+          업종코드 {reduction.matchedBizCode || reduction.bizCode}
         </span>
-        <span className="text-[10.5px] text-[#8B95A1]">DB 매칭 OK</span>
+        {reduction.partialMatch && reduction.matchedBizCode !== reduction.bizCode && (
+          <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">
+            유사 코드 ({reduction.bizCode} → {reduction.matchedBizCode})
+          </span>
+        )}
+        <span className="text-[10.5px] text-[#8B95A1]">{sourceLabel}</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <ReductionCard label="창업중소기업감면" status={reduction.startupReduction} />

@@ -44,8 +44,21 @@ const TOOL = {
         enum: ["단독", "공동", null],
         description: "사업형태 (PDF '사업장별 수입금액' 표의 '사업형태' 컬럼). 사업장 여러 개면 첫 번째 또는 가장 빈도 높은 값",
       },
-      businessNumber: { type: ["string", "null"] },
-      bizCode: { type: ["string", "null"] },
+      businessNumber: { type: ["string", "null"], description: "대표 사업자등록번호 (1페이지 상단). 하이픈 포함 형식 예: '123-45-67890'" },
+      bizCode: { type: ["string", "null"], description: "대표 업종코드 6자리 숫자 (1페이지 '사업장별 수입금액' 표 첫 행 또는 매출 가장 큰 행의 '업종코드' 컬럼). 숫자만, 하이픈/공백 제외" },
+      businessSites: {
+        type: "array",
+        description: "사업장별 (사업자등록번호, 업종코드) 페어. PDF 1페이지 '사업장별 수입금액' 표의 모든 행 추출. 각 행의 사업자등록번호와 같은 행의 업종코드를 짝지어 추출",
+        items: {
+          type: "object",
+          properties: {
+            businessNumber: { type: "string", description: "사업자등록번호 (하이픈 포함 또는 숫자만)" },
+            bizCode: { type: "string", description: "업종코드 6자리 숫자" },
+            sales: { type: ["number", "null"], description: "해당 사업장 수입금액 (원)" },
+          },
+          required: ["businessNumber", "bizCode"],
+        },
+      },
       currYearBusinessSales: { type: ["number", "null"], description: "부가가치세 업종별 수입금액 (사업장 매출, 원)" },
       currYearTaxCreditSales: { type: ["number", "null"], description: "전자신고세액공제 등 (원)" },
       currYearCardCreditSales: { type: ["number", "null"], description: "신용카드매출전표 등 발행세액공제 (원)" },
@@ -174,7 +187,8 @@ export async function POST(req: NextRequest) {
       where: { clientId_taxYear: { clientId, taxYear } },
     });
     if (cached) {
-      const reductionInfo = await getReductionInfo(cached);
+      const c = await prisma.client.findUnique({ where: { id: clientId }, select: { bizNumber: true } });
+      const reductionInfo = await getReductionInfo(cached, c?.bizNumber);
       return NextResponse.json({ cached: true, data: serializeAnalysis(cached), reductionInfo });
     }
   }
@@ -182,7 +196,7 @@ export async function POST(req: NextRequest) {
   // 거래처 + 드라이브 폴더
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { id: true, name: true, driveFolderId: true },
+    select: { id: true, name: true, driveFolderId: true, bizNumber: true },
   });
   if (!client?.driveFolderId) return NextResponse.json({ error: "NO_DRIVE_FOLDER" }, { status: 400 });
 
@@ -257,22 +271,73 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const reductionInfo = await getReductionInfo(saved);
+  const reductionInfo = await getReductionInfo(saved, client.bizNumber);
   return NextResponse.json({ cached: false, data: serializeAnalysis(saved), reductionInfo });
 }
 
-async function getReductionInfo(analysis: any) {
+function normalizeBizNumber(s: string | null | undefined): string {
+  return (s || "").replace(/[^0-9]/g, "");
+}
+
+function normalizeBizCode(s: string | null | undefined): string {
+  return (s || "").replace(/[^0-9]/g, "");
+}
+
+async function getReductionInfo(analysis: any, clientBizNumber?: string | null) {
   let raw: any;
   try {
     raw = analysis?.rawJson ? JSON.parse(analysis.rawJson) : null;
   } catch {
     raw = null;
   }
-  const bizCode = raw?.bizCode;
+
+  // 1) 거래처 사업자등록번호와 매칭되는 행의 업종코드 우선
+  let bizCode: string | null = null;
+  let matchSource: "client_match" | "first_site" | "fallback_top" | null = null;
+
+  const sites: Array<{ businessNumber?: string; bizCode?: string }> = Array.isArray(raw?.businessSites) ? raw.businessSites : [];
+  const clientNum = normalizeBizNumber(clientBizNumber);
+
+  if (clientNum && sites.length > 0) {
+    const matched = sites.find((s) => normalizeBizNumber(s.businessNumber) === clientNum);
+    if (matched?.bizCode) {
+      bizCode = normalizeBizCode(matched.bizCode);
+      matchSource = "client_match";
+    }
+  }
+
+  // 2) 매칭 실패 시 첫 사업장 또는 최상위 bizCode
+  if (!bizCode && sites.length > 0 && sites[0]?.bizCode) {
+    bizCode = normalizeBizCode(sites[0].bizCode);
+    matchSource = "first_site";
+  }
+  if (!bizCode && raw?.bizCode) {
+    bizCode = normalizeBizCode(raw.bizCode);
+    matchSource = "fallback_top";
+  }
+
   if (!bizCode) return null;
-  const code = await prisma.taxReductionCode.findUnique({ where: { bizCode } });
+
+  // 3) 정확 6자리 매칭 → 실패 시 5자리 prefix fallback
+  let code = await prisma.taxReductionCode.findUnique({ where: { bizCode } });
+  let matchedBizCode = bizCode;
+  let partialMatch = false;
+  if (!code && bizCode.length >= 5) {
+    const partial = await prisma.taxReductionCode.findFirst({
+      where: { bizCode: { startsWith: bizCode.slice(0, 5) } },
+    });
+    if (partial) {
+      code = partial;
+      matchedBizCode = partial.bizCode;
+      partialMatch = true;
+    }
+  }
+
   return {
     bizCode,
+    matchedBizCode,
+    partialMatch,
+    matchSource,
     startupReduction: code?.startupReduction ?? null,
     smeReduction: code?.smeReduction ?? null,
     found: !!code,
@@ -312,6 +377,7 @@ export async function GET(req: NextRequest) {
     where: { clientId_taxYear: { clientId, taxYear } },
   });
   if (!cached) return NextResponse.json({ data: null });
-  const reductionInfo = await getReductionInfo(cached);
+  const c = await prisma.client.findUnique({ where: { id: clientId }, select: { bizNumber: true } });
+  const reductionInfo = await getReductionInfo(cached, c?.bizNumber);
   return NextResponse.json({ data: serializeAnalysis(cached), reductionInfo });
 }
