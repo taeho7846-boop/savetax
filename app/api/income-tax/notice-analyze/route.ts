@@ -84,15 +84,21 @@ const TOOL = {
       currYearPrepaidTax: { type: ["number", "null"] },
       otherIncomeFlags: {
         type: "object",
-        description: "타소득(합산대상) 자료유무. 각 항목은 'O' 또는 'X'",
+        description:
+          "타소득(합산대상) 자료유무. PDF 1페이지 '타소득(합산대상) 자료유무' 표에서 추출. " +
+          "표 헤더는 좌→우로 [이자, 배당, 근로(단일|복수), 연금, 기타, 종교인기타]. " +
+          "⚠ 중요: '근로' 컬럼은 '단일'과 '복수' 두 개의 하위 셀로 나뉘므로 한 행에 셀이 7개. " +
+          "절대 위치(인덱스)로 읽지 말고 헤더 텍스트(이자/배당/근로단일/근로복수/연금/기타/종교인기타)와 매칭해 추출. " +
+          "연금 컬럼은 근로 두 칸 다음에 나오는 컬럼임 (네 번째 셀 X, 다섯 번째 셀 O). " +
+          "각 항목은 'O'(자료있음) 또는 'X'(자료없음).",
         properties: {
-          interest: { type: "string", enum: ["O", "X"] },
-          dividend: { type: "string", enum: ["O", "X"] },
-          salarySingle: { type: "string", enum: ["O", "X"], description: "근로 단일" },
-          salaryMulti: { type: "string", enum: ["O", "X"], description: "근로 복수" },
-          pension: { type: "string", enum: ["O", "X"] },
-          etc: { type: "string", enum: ["O", "X"] },
-          religion: { type: "string", enum: ["O", "X"] },
+          interest: { type: "string", enum: ["O", "X"], description: "이자소득 합산자료 유무 (1번째 컬럼)" },
+          dividend: { type: "string", enum: ["O", "X"], description: "배당소득 합산자료 유무 (2번째 컬럼)" },
+          salarySingle: { type: "string", enum: ["O", "X"], description: "근로(단일) — '근로' 묶음 헤더 아래 첫 번째 하위 컬럼" },
+          salaryMulti: { type: "string", enum: ["O", "X"], description: "근로(복수) — '근로' 묶음 헤더 아래 두 번째 하위 컬럼" },
+          pension: { type: "string", enum: ["O", "X"], description: "연금소득 합산자료 유무. 근로 두 칸 다음 컬럼 (전체 5번째 셀)" },
+          etc: { type: "string", enum: ["O", "X"], description: "기타소득 합산자료 유무 (연금 다음 컬럼)" },
+          religion: { type: "string", enum: ["O", "X"], description: "종교인기타 합산자료 유무 (마지막 컬럼)" },
         },
       },
       incomeHistory: {
