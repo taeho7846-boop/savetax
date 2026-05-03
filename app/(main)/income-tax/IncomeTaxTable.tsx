@@ -388,17 +388,31 @@ export function IncomeTaxTable({
     const reduce = [r.bookkeepingCredit, r.startupReduction, r.smeReduction, r.investCredit, r.employmentCredit].filter(Boolean).length;
     return (
       <aside className="glass rounded-2xl p-4 flex flex-col overflow-y-auto">
-        <div className="flex items-start justify-between mb-3 pb-3 border-b border-white/40">
-          <div>
+        <div className="flex items-start justify-between mb-3 pb-3 border-b border-white/40 gap-2">
+          <div className="min-w-0">
             <div className="text-[10px] text-[#3182F6] font-bold uppercase tracking-wider">선택됨</div>
-            <div className="text-[18px] font-bold tracking-tight mt-0.5">{client.name}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="text-[18px] font-bold tracking-tight truncate">{client.name}</div>
+              <button
+                type="button"
+                onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: r.memo ?? "" })}
+                title={r.memo ? `메모 보기/수정\n\n${r.memo}` : "결재자에게 전달할 메모 작성"}
+                className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition ${
+                  r.memo
+                    ? "bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]"
+                    : "bg-white/70 text-[#6B7684] border border-dashed border-[#E5E8EB] hover:bg-white"
+                }`}
+              >
+                {r.memo ? "📝 메모 있음" : "＋ 메모"}
+              </button>
+            </div>
             {client.ceoName && <div className="text-[11px] text-[#6B7684]">{client.ceoName}{client.assignedUserName ? ` · ${client.assignedUserName} 담당` : ""}</div>}
             <div className="flex gap-1.5 mt-1.5">
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}경비율</span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${stageBadgeColor}`}>{stageBadgeLabel}</span>
             </div>
           </div>
-          <button onClick={() => setSelectedClientId(null)} className="w-7 h-7 rounded-lg hover:bg-white/60 flex items-center justify-center text-[#6B7684] text-[16px]">✕</button>
+          <button onClick={() => setSelectedClientId(null)} className="w-7 h-7 rounded-lg hover:bg-white/60 flex items-center justify-center text-[#6B7684] text-[16px] shrink-0">✕</button>
         </div>
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="bg-white/70 rounded-xl p-2.5">
