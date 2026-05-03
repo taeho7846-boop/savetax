@@ -1899,13 +1899,21 @@ function ExcludedSection({
   onSelect: (id: number) => void;
   selectedClientId: number | null;
 }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="mt-3 mx-3 mb-3 rounded-2xl bg-white/30 border border-dashed border-[#B0B8C1]/50">
-      <div className="px-3 py-2 border-b border-dashed border-[#B0B8C1]/40 flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-white/40 rounded-2xl transition"
+      >
+        <span className={`text-[10px] text-[#6B7684] transition-transform inline-block ${open ? "rotate-90" : ""}`}>▶</span>
         <span className="text-[11.5px] font-bold text-[#6B7684]">🚫 이번 신고 제외 — {clients.length}건</span>
-        <span className="text-[10px] text-[#8B95A1]">{taxYear}년 귀속 기준 · 우측 카드에서 해제 가능</span>
-      </div>
-      <div className="overflow-auto">
+        <span className="text-[10px] text-[#8B95A1]">{taxYear}년 귀속 · 우측 카드에서 해제 가능</span>
+        <span className="ml-auto text-[10px] text-[#8B95A1]">{open ? "접기" : "펼치기"}</span>
+      </button>
+      {!open ? null : (
+      <div className="overflow-auto border-t border-dashed border-[#B0B8C1]/40">
         <table className="w-full text-[11.5px]">
           <tbody className="divide-y divide-white/40">
             {clients.map(c => {
@@ -1941,6 +1949,7 @@ function ExcludedSection({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
