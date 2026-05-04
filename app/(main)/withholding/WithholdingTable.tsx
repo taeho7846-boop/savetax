@@ -472,8 +472,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       </div>
 
       {/* 통합 테이블 */}
-      <div className="flex-1 min-h-0 glass rounded-2xl overflow-hidden flex flex-col">
-        <div className="overflow-auto flex-1">
+      <div className="glass rounded-2xl">
         <table className="w-full text-[12.5px]">
           <thead className="bg-white/60 backdrop-blur sticky top-0 z-10">
             <tr className="border-b border-white/40">
@@ -812,7 +811,6 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             })}
           </tbody>
         </table>
-        </div>
       </div>
 
       {/* 특이사항 모달 */}

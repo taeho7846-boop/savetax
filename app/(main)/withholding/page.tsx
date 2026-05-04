@@ -70,7 +70,7 @@ export default async function WithholdingPage({
   });
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
       <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser={isManager} wehagoCompanyId={settings?.wehagoId || ""} wehagoTaxNum={settings?.wehagoTaxNum || ""} />
     </div>
   );
