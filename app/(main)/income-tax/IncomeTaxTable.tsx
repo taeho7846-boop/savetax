@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport, revertConfirmToApproval, setIncomeTaxExcluded } from "@/app/actions/income-tax";
+import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport, revertConfirmToApproval, revertWritingToCollect, revertDoneToConfirm, setIncomeTaxExcluded } from "@/app/actions/income-tax";
 import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
 import { PinIcon } from "@/components/icons";
 import { NoticeUploadModal } from "./NoticeUploadModal";
@@ -42,6 +42,7 @@ type ITRecord = {
   memo: string | null;
   rejectionCount: number;
   lastRejectedAt: string | null;
+  backToCollect: boolean;
 };
 
 type NoticeAnalysisSummary = {
@@ -79,6 +80,7 @@ function getRecord(client: Client): ITRecord {
     investCredit: false, employmentCredit: false, confirmStage: false, noticeRequestSent: false, excluded: false, excludedAt: null, excludedReason: null, depositReceived: false, filingDone: false, paymentSent: false,
     adjustmentFee: null, memo: null,
     rejectionCount: 0, lastRejectedAt: null,
+    backToCollect: false,
   };
 }
 
@@ -157,6 +159,7 @@ function getStage(r: ITRecord): Stage {
   if (r.filingDone) return "done";
   if (r.confirmStage || r.depositReceived) return "confirm";
   if (r.preSettlement) return "approval";
+  if (r.backToCollect) return "collect";
   if (r.currSales) return "writing";
   return "collect";
 }
@@ -813,20 +816,29 @@ export function IncomeTaxTable({
                           </div>
                         ) : <span className="text-[#B0B8C1] text-[10.5px]">-</span>}
                       </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`${client.name} 거래처를 [③ 결재] 단계로 넘기시겠어요?\n\n· 세무사가 검토 후 컨펌 또는 반려합니다.`)) {
-                              startTransition(async () => { await moveToApproval(client.id, taxYear); });
-                            }
-                          }}
-                          disabled={isPending}
-                          title="결재 단계로 이동"
-                          className="text-[10.5px] bg-[#F59E0B] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#D97706] disabled:opacity-50"
-                        >
-                          결재 →
-                        </button>
+                      <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => { startTransition(async () => { await revertWritingToCollect(client.id, taxYear); }); }}
+                            disabled={isPending}
+                            title="자료수집 단계로 되돌리기 (입력값 보존)"
+                            className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#92400E] px-2 py-1 rounded-lg font-bold hover:bg-[#92400E]/10 whitespace-nowrap disabled:opacity-50"
+                          >
+                            ← 수집
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`${client.name} 거래처를 [③ 결재] 단계로 넘기시겠어요?\n\n· 세무사가 검토 후 컨펌 또는 반려합니다.`)) {
+                                startTransition(async () => { await moveToApproval(client.id, taxYear); });
+                              }
+                            }}
+                            disabled={isPending}
+                            title="결재 단계로 이동"
+                            className="text-[10.5px] bg-[#F59E0B] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#D97706] disabled:opacity-50"
+                          >
+                            결재 →
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1322,13 +1334,27 @@ export function IncomeTaxTable({
                               }`}>✓</button>
                           </td>
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                            {!r.paymentSent ? (
-                              <button onClick={() => handleToggle(client.id, "paymentSent")} disabled={isPending}
-                                className="text-[10.5px] bg-[#10B981] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#059669]">납부서 발송</button>
-                            ) : (
-                              <button onClick={() => setEditClientId(client.id)}
-                                className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#4E5968] px-2.5 py-1 rounded-lg font-bold hover:bg-white">영수증</button>
-                            )}
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => {
+                                  if (confirm(`${client.name} 거래처를 [④ 컨펌] 단계로 되돌리시겠어요?\n\n· 되돌리기 기록이 남습니다.`)) {
+                                    startTransition(async () => { await revertDoneToConfirm(client.id, taxYear); });
+                                  }
+                                }}
+                                disabled={isPending}
+                                title="컨펌 단계로 되돌리기 (기록 남음)"
+                                className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#A855F7] px-2 py-1 rounded-lg font-bold hover:bg-[#A855F7]/10 whitespace-nowrap disabled:opacity-50"
+                              >
+                                ← 컨펌
+                              </button>
+                              {!r.paymentSent ? (
+                                <button onClick={() => handleToggle(client.id, "paymentSent")} disabled={isPending}
+                                  className="text-[10.5px] bg-[#10B981] text-white px-2.5 py-1 rounded-lg font-bold whitespace-nowrap hover:bg-[#059669]">납부서 발송</button>
+                              ) : (
+                                <button onClick={() => setEditClientId(client.id)}
+                                  className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#4E5968] px-2.5 py-1 rounded-lg font-bold hover:bg-white">영수증</button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

@@ -41,6 +41,7 @@ model User {
   createdBookmarks   Bookmark[]         @relation("createdBookmarks")
   rejectedReports    IncomeTaxRejection[]    @relation("rejectedReports")
   analyzedAnalyses   ClientNoticeAnalysis[]  @relation("analyzedAnalyses")
+  revertedReports    IncomeTaxRevertHistory[] @relation("revertedReports")
 }
 
 model Client {
@@ -101,6 +102,7 @@ model Client {
   alimtalkLogs              AlimtalkLog[]
   incomeTaxRejections       IncomeTaxRejection[]
   noticeAnalyses            ClientNoticeAnalysis[]
+  incomeTaxRevertHistories  IncomeTaxRevertHistory[]
 }
 
 model AlimtalkLog {
@@ -315,11 +317,26 @@ model IncomeTaxRecord {
   memo              String?
   rejectionCount    Int      @default(0)
   lastRejectedAt    DateTime?
+  backToCollect     Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   client            Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, taxYear])
+}
+
+model IncomeTaxRevertHistory {
+  id           Int      @id @default(autoincrement())
+  clientId     Int
+  taxYear      String
+  fromStage    String
+  toStage      String
+  revertedById Int
+  revertedAt   DateTime @default(now())
+  client       Client   @relation(fields: [clientId], references: [id])
+  revertedBy   User     @relation("revertedReports", fields: [revertedById], references: [id])
+
+  @@index([clientId, taxYear])
 }
 
 model IncomeTaxRejection {

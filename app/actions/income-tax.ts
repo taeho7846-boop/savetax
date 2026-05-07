@@ -63,9 +63,10 @@ export async function updateIncomeTaxField(
   });
 
   if (existing) {
+    // 필드 수정 시 backToCollect 자동 해제 (수집중에서 다시 작성중으로 자연 복귀)
     await prisma.incomeTaxRecord.update({
       where: { id: existing.id },
-      data,
+      data: { ...data, backToCollect: false },
     });
   } else {
     await prisma.incomeTaxRecord.create({
@@ -116,7 +117,7 @@ export async function moveToApproval(clientId: number, taxYear: string) {
     });
     await prisma.incomeTaxRecord.update({
       where: { id: existing.id },
-      data: { preSettlement: true },
+      data: { preSettlement: true, backToCollect: false },
     });
   } else {
     await prisma.incomeTaxRecord.create({
@@ -124,6 +125,61 @@ export async function moveToApproval(clientId: number, taxYear: string) {
     });
   }
   revalidatePath("/income-tax");
+}
+
+// 작성중 → 수집중 (한 번 클릭, 데이터 보존)
+export async function revertWritingToCollect(clientId: number, taxYear: string) {
+  await requireAuth();
+  const existing = await prisma.incomeTaxRecord.findUnique({
+    where: { clientId_taxYear: { clientId, taxYear } },
+  });
+  if (existing) {
+    await prisma.incomeTaxRecord.update({
+      where: { id: existing.id },
+      data: { backToCollect: true },
+    });
+  } else {
+    await prisma.incomeTaxRecord.create({
+      data: { clientId, taxYear, backToCollect: true },
+    });
+  }
+  revalidatePath("/income-tax");
+}
+
+// 신고완료 → 컨펌 (히스토리 기록)
+export async function revertDoneToConfirm(clientId: number, taxYear: string) {
+  const session = await requireAuth();
+  await prisma.incomeTaxRecord.update({
+    where: { clientId_taxYear: { clientId, taxYear } },
+    data: { filingDone: false },
+  });
+  await prisma.incomeTaxRevertHistory.create({
+    data: {
+      clientId,
+      taxYear,
+      fromStage: "done",
+      toStage: "confirm",
+      revertedById: session.id,
+    },
+  });
+  revalidatePath("/income-tax");
+}
+
+// 되돌리기 히스토리 조회 (뱃지/툴팁용)
+export async function getIncomeTaxRevertHistory(clientId: number, taxYear: string) {
+  await requireAuth();
+  const rows = await prisma.incomeTaxRevertHistory.findMany({
+    where: { clientId, taxYear },
+    orderBy: { revertedAt: "desc" },
+    include: { revertedBy: { select: { id: true, name: true } } },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    fromStage: r.fromStage,
+    toStage: r.toStage,
+    revertedAt: r.revertedAt.toISOString(),
+    revertedByName: r.revertedBy?.name ?? null,
+  }));
 }
 
 // 결재 → 컨펌 단계 (자동체크 없이 단계만 이동)
