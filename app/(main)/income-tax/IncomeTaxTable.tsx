@@ -390,7 +390,7 @@ export function IncomeTaxTable({
     const dataCollect = [r.noticeSent, r.linkPass, r.depreciation, r.interestExpense, r.insurance, r.donation].filter(Boolean).length;
     const reduce = [r.bookkeepingCredit, r.startupReduction, r.smeReduction, r.investCredit, r.employmentCredit].filter(Boolean).length;
     return (
-      <aside className="glass rounded-2xl p-4 flex flex-col overflow-y-auto">
+      <aside className="glass rounded-2xl p-4 flex flex-col sticky top-3 self-start max-h-[calc(100vh-120px)] overflow-y-auto">
         <div className="flex items-start justify-between mb-3 pb-3 border-b border-white/40 gap-2">
           <div className="min-w-0">
             <div className="text-[10px] text-[#3182F6] font-bold uppercase tracking-wider">선택됨</div>
@@ -683,10 +683,10 @@ export function IncomeTaxTable({
       </div>
 
       {/* 테이블 + (단계 선택시) 우측 사이드 패널 */}
-      <div className={stageFilter ? "grid grid-cols-[minmax(0,1fr)_360px] gap-3 flex-1 min-h-0" : ""}>
+      <div className={stageFilter ? "grid grid-cols-[minmax(0,1fr)_360px] gap-3 items-start" : ""}>
       {stageFilter === "writing" ? (
         // ② 작성중 전용 레이아웃
-        <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+        <div className="glass rounded-2xl overflow-hidden">
           <div className="px-4 py-2.5 bg-[#3182F6]/8 border-b border-white/40 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#3182F6] animate-pulse" />
@@ -700,7 +700,7 @@ export function IncomeTaxTable({
               <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#6B7684]">복식 {writingByType.복식}</span>
             </div>
           </div>
-          <div className="overflow-auto flex-1">
+          <div className="overflow-x-auto">
             <table className="w-full text-[12px] tabular-nums">
               <thead className="bg-white/60 sticky top-0 z-10">
                 <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
@@ -879,7 +879,7 @@ export function IncomeTaxTable({
           const gotDocs = list.reduce((s, c) => s + docFields.filter(f => f.get(getRecord(c))).length, 0);
           const avgPct = totalDocs === 0 ? 0 : Math.round((gotDocs / totalDocs) * 100);
           return (
-            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+            <div className="glass rounded-2xl overflow-hidden">
               <div className="px-4 py-2.5 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#92400E] animate-pulse" />
@@ -891,7 +891,7 @@ export function IncomeTaxTable({
                   <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#92400E]">평균 수령률 {avgPct}%</span>
                 </div>
               </div>
-              <div className="overflow-auto flex-1">
+              <div className="overflow-x-auto">
                 <table className="w-full text-[12px]">
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
@@ -974,7 +974,7 @@ export function IncomeTaxTable({
           const list = stageClients.approval;
           const anomalyCount = list.filter(isAnomalyClient).length;
           return (
-            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+            <div className="glass rounded-2xl overflow-hidden">
               <div className="px-4 py-2.5 bg-gradient-to-r from-[#F59E0B]/15 via-[#F59E0B]/8 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
@@ -986,7 +986,7 @@ export function IncomeTaxTable({
                   {anomalyCount > 0 && <span className="px-2.5 py-1 bg-[#DC2626] text-white rounded-full font-bold">⚠ 이상치 {anomalyCount}</span>}
                 </div>
               </div>
-              <div className="overflow-auto flex-1">
+              <div className="overflow-x-auto">
                 <table className="w-full text-[12px] tabular-nums">
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
@@ -1140,7 +1140,7 @@ export function IncomeTaxTable({
           const depositCount = list.filter(c => getRecord(c).depositReceived).length;
           const adjustmentTotal = sumOf(list, "adjustmentFee");
           return (
-            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+            <div className="glass rounded-2xl overflow-hidden">
               <div className="px-4 py-2.5 bg-gradient-to-r from-[#A855F7]/15 via-[#A855F7]/8 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#A855F7] animate-pulse" />
@@ -1154,7 +1154,7 @@ export function IncomeTaxTable({
                   <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#A855F7]">조정료 ₩{adjustmentTotal.toLocaleString("ko-KR")}</span>
                 </div>
               </div>
-              <div className="overflow-auto flex-1">
+              <div className="overflow-x-auto">
                 <table className="w-full text-[12px] tabular-nums">
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
@@ -1270,7 +1270,7 @@ export function IncomeTaxTable({
           const list = stageClients.done;
           const paymentSentCount = list.filter(c => getRecord(c).paymentSent).length;
           return (
-            <div className="glass rounded-2xl overflow-hidden flex flex-col min-h-0">
+            <div className="glass rounded-2xl overflow-hidden">
               <div className="px-4 py-2.5 bg-gradient-to-r from-[#10B981]/15 via-[#10B981]/8 to-transparent border-b border-white/40 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
@@ -1283,7 +1283,7 @@ export function IncomeTaxTable({
                   <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#10B981]">미발송 {list.length - paymentSentCount}</span>
                 </div>
               </div>
-              <div className="overflow-auto flex-1">
+              <div className="overflow-x-auto">
                 <table className="w-full text-[12px] tabular-nums">
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
@@ -1605,7 +1605,7 @@ export function IncomeTaxTable({
 
       {/* 우측 사이드 패널 (단계 선택시) */}
       {stageFilter === "collect" && (
-        <aside className="space-y-3 overflow-y-auto">
+        <aside className="space-y-3 sticky top-3 self-start">
           <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#FBBF24]/15 to-transparent">
             <div className="text-[12px] font-bold text-[#92400E] mb-2">📋 자료수집</div>
             <div className="text-[24px] font-bold leading-none">{stageClients.collect.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
@@ -1637,7 +1637,7 @@ export function IncomeTaxTable({
         selectedClient
           ? renderDeepView(selectedClient, 2, "② 작성중", "bg-[#3182F6]/15 text-[#3182F6]")
           : (
-            <aside className="space-y-3 overflow-y-auto">
+            <aside className="space-y-3 sticky top-3 self-start">
               <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#3182F6]/8 to-transparent">
                 <div className="text-[12px] font-bold text-[#3182F6] mb-2">✏️ 작성중</div>
                 <div className="text-[24px] font-bold leading-none">{stageClients.writing.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
@@ -1661,7 +1661,7 @@ export function IncomeTaxTable({
       {stageFilter === "approval" && !selectedClient && (() => {
         const anomalyClients = stageClients.approval.filter(isAnomalyClient);
         return (
-          <aside className="space-y-3 overflow-y-auto">
+          <aside className="space-y-3 sticky top-3 self-start">
             <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#DC2626]/8 to-transparent">
               <div className="text-[12px] font-bold text-[#DC2626] mb-2">⚠️ AI 검출 이상치</div>
               <div className="text-[11.5px] text-[#4E5968] mb-3">전년 대비 ±30% 이상 변동</div>
@@ -1705,7 +1705,7 @@ export function IncomeTaxTable({
       })()}
 
       {stageFilter === "confirm" && (
-        <aside className="space-y-3 overflow-y-auto">
+        <aside className="space-y-3 sticky top-3 self-start">
           <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#A855F7]/12 to-transparent">
             <div className="text-[12px] font-bold text-[#A855F7] mb-2">💰 컨펌+보수 단계</div>
             <div className="text-[24px] font-bold leading-none">{stageClients.confirm.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
@@ -1729,7 +1729,7 @@ export function IncomeTaxTable({
       )}
 
       {stageFilter === "done" && (
-        <aside className="space-y-3 overflow-y-auto">
+        <aside className="space-y-3 sticky top-3 self-start">
           <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/12 to-transparent">
             <div className="text-[12px] font-bold text-[#10B981] mb-2">🎉 시즌 신고 완료</div>
             <div className="text-[28px] font-bold tabular-nums leading-none">{stageCounts.done}<span className="text-[12px] text-[#6B7684]"> / {total}</span></div>
