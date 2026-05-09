@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "회원명 컬럼을 찾을 수 없습니다." }, { status: 400 });
   }
 
+  // 거래처명 정규화: 모든 공백 제거 (CMS 엑셀과 시스템 등록명의 띄어쓰기 차이 무시)
+  const normalizeName = (s: string) => s.replace(/\s+/g, "");
+
   // 엑셀 파싱
   type ExcelEntry = {
     name: string;
@@ -65,11 +68,12 @@ export async function POST(req: NextRequest) {
     excelEntries.push({ name, result, isSuccess, amount });
   }
 
-  // 엑셀 이름 → Map (같은 이름 여러 건 있을 수 있으므로 첫 번째 사용)
+  // 엑셀 이름 → Map (정규화된 이름을 키로 사용, 같은 이름 여러 건이면 첫 번째 사용)
   const excelMap = new Map<string, ExcelEntry>();
   for (const entry of excelEntries) {
-    if (!excelMap.has(entry.name)) {
-      excelMap.set(entry.name, entry);
+    const key = normalizeName(entry.name);
+    if (!excelMap.has(key)) {
+      excelMap.set(key, entry);
     }
   }
 
@@ -131,7 +135,7 @@ export async function POST(req: NextRequest) {
     // 최초출금월 이전이면 스킵
     if (client.firstWithdrawalMonth && targetMonth < client.firstWithdrawalMonth) continue;
 
-    const excel = excelMap.get(client.name.trim());
+    const excel = excelMap.get(normalizeName(client.name));
     const currentPaid = paidMap.get(client.id) === "paid";
 
     if (excel) {
