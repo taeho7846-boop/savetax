@@ -1328,7 +1328,7 @@ export function IncomeTaxTable({
                       {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                       <th className="px-3 py-2.5 text-right">당기 매출</th>
                       <th className="px-3 py-2.5 text-right bg-[#10B981]/10">신고세액</th>
-                      <th className="px-3 py-2.5 text-right bg-[#10B981]/10">조정료</th>
+                      <th className="px-3 py-2.5 text-right bg-[#10B981]/10">조정료<div className="text-[8.5px] font-normal text-[#10B981]/70 normal-case tracking-normal">공급대가 (VAT포함)</div></th>
                       <th className="px-2 py-2.5 text-center">납부서</th>
                       <th className="px-2 py-2.5 text-center">액션</th>
                     </tr>
@@ -1360,7 +1360,7 @@ export function IncomeTaxTable({
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
                           <td className={`px-3 py-2.5 text-right font-bold ${isRefund ? "text-[#3182F6]" : "text-[#10B981]"}`}>{formatNumber(r.currTax) || "-"}</td>
-                          <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.adjustmentFee) || "-"}</td>
+                          <td className="px-3 py-2.5 text-right font-bold">{r.adjustmentFee ? formatNumber(String(parseInt(r.adjustmentFee) + Math.round(parseInt(r.adjustmentFee) * 0.1))) : "-"}</td>
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => handleToggle(client.id, "paymentSent")} disabled={isPending} title="납부서 발송"
                               className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
