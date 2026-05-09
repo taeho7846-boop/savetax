@@ -43,6 +43,7 @@ type ITRecord = {
   rejectionCount: number;
   lastRejectedAt: string | null;
   backToCollect: boolean;
+  onHold: boolean;
 };
 
 type NoticeAnalysisSummary = {
@@ -81,6 +82,7 @@ function getRecord(client: Client): ITRecord {
     adjustmentFee: null, memo: null,
     rejectionCount: 0, lastRejectedAt: null,
     backToCollect: false,
+    onHold: false,
   };
 }
 
@@ -1136,7 +1138,13 @@ export function IncomeTaxTable({
       ) : stageFilter === "confirm" ? (
         // ④ 컨펌+보수 전용 레이아웃 (보라톤)
         (() => {
-          const list = stageClients.confirm;
+          // 대기(onHold) 거래처는 맨 아래로 (안정 정렬: 원래 순서 유지)
+          const list = [...stageClients.confirm].sort((a, b) => {
+            const aHold = getRecord(a).onHold ? 1 : 0;
+            const bHold = getRecord(b).onHold ? 1 : 0;
+            return aHold - bHold;
+          });
+          const holdCount = list.filter(c => getRecord(c).onHold).length;
           const depositCount = list.filter(c => getRecord(c).depositReceived).length;
           const adjustmentTotal = sumOf(list, "adjustmentFee");
           return (
@@ -1151,6 +1159,7 @@ export function IncomeTaxTable({
                   <span className="px-2.5 py-1 bg-[#A855F7] text-white rounded-full font-bold">전체 {list.length}</span>
                   <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#A855F7]">입금 {depositCount}</span>
                   <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#A855F7]">미입금 {list.length - depositCount}</span>
+                  {holdCount > 0 && <span className="px-2.5 py-1 bg-[#FEE2E2] rounded-full font-bold text-[#B91C1C]">⏸ 대기 {holdCount}</span>}
                   <span className="px-2.5 py-1 bg-white/70 rounded-full font-bold text-[#A855F7]">조정료 ₩{adjustmentTotal.toLocaleString("ko-KR")}</span>
                 </div>
               </div>
@@ -1181,11 +1190,11 @@ export function IncomeTaxTable({
                       const selBg = "rgba(168,85,247,0.12)";
                       return (
                         <tr key={client.id} onClick={() => setSelectedClientId(client.id)}
-                          className={`cursor-pointer transition ${isSel ? "" : "hover:bg-[#FAF5FF]/60"}`}
+                          className={`cursor-pointer transition ${isSel ? "" : "hover:bg-[#FAF5FF]/60"} ${r.onHold && !isSel ? "opacity-60" : ""}`}
                           style={isSel ? { background: selBg, borderLeft: "3px solid #A855F7" } : undefined}>
                           <td className={`px-3 py-2.5 font-bold sticky left-0 z-10 ${isSel ? "" : "bg-white/70"}`} style={isSel ? { background: selBg } : undefined}>
                             <div className="flex items-center gap-1.5">
-                              <span>{client.name}</span>
+                              <span className={r.onHold ? "text-[#8B95A1]" : ""}>{client.name}</span>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setMemoModal({ clientId: client.id, clientName: client.name, value: r.memo ?? "" }); }}
@@ -1197,6 +1206,19 @@ export function IncomeTaxTable({
                                 }`}
                               >
                                 {r.memo ? "📝" : "＋"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleToggle(client.id, "onHold"); }}
+                                disabled={isPending}
+                                title={r.onHold ? "대기 해제" : "대기 처리 (신고 보류, 맨 아래로 이동)"}
+                                className={`shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9.5px] font-bold transition ${
+                                  r.onHold
+                                    ? "bg-[#FEE2E2] text-[#B91C1C] hover:bg-[#FECACA]"
+                                    : "bg-white/60 text-[#B0B8C1] border border-dashed border-[#E5E8EB] hover:bg-white hover:text-[#6B7684]"
+                                }`}
+                              >
+                                {r.onHold ? "⏸ 대기" : "⏸"}
                               </button>
                             </div>
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}

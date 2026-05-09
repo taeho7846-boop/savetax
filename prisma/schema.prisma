@@ -318,6 +318,7 @@ model IncomeTaxRecord {
   rejectionCount    Int      @default(0)
   lastRejectedAt    DateTime?
   backToCollect     Boolean  @default(false)
+  onHold            Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   client            Client   @relation(fields: [clientId], references: [id])

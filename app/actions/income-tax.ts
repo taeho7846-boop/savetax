@@ -17,6 +17,7 @@ export async function toggleIncomeTaxCheck(
     "bookkeepingCredit", "startupReduction", "smeReduction",
     "investCredit", "employmentCredit", "confirmStage", "noticeRequestSent",
     "depositReceived", "filingDone", "paymentSent",
+    "onHold",
   ];
   if (!boolFields.includes(field)) return;
 
