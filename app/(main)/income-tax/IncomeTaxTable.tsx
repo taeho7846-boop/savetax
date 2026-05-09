@@ -1367,22 +1367,30 @@ export function IncomeTaxTable({
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
                           <td className={`px-3 py-2.5 text-right font-bold ${isRefund ? "text-[#3182F6]" : "text-[#10B981]"}`}>{formatNumber(r.currTax) || "-"}</td>
                           <td className="px-3 py-2.5 text-right font-bold">{r.adjustmentFee ? formatNumber(String(parseInt(r.adjustmentFee) + Math.round(parseInt(r.adjustmentFee) * 0.1))) : "-"}</td>
-                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => handleToggle(client.id, "cmsWithdrawn")} disabled={isPending} title="CMS 자동출금 완료"
-                              className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
-                                r.cmsWithdrawn
-                                  ? "bg-[#10B981] text-white shadow-sm shadow-[#10B981]/30"
-                                  : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#10B981]/50 hover:bg-[#10B981]/10"
-                              }`}>✓</button>
-                          </td>
-                          <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => handleToggle(client.id, "directDeposit")} disabled={isPending} title="직접 입금 완료"
-                              className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
-                                r.directDeposit
-                                  ? "bg-[#10B981] text-white shadow-sm shadow-[#10B981]/30"
-                                  : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#10B981]/50 hover:bg-[#10B981]/10"
-                              }`}>✓</button>
-                          </td>
+                          {(() => {
+                            const unpaid = !r.cmsWithdrawn && !r.directDeposit;
+                            const unpaidBg = unpaid ? "bg-[#FEE2E2]/50" : "";
+                            return (
+                              <>
+                                <td className={`px-2 py-2.5 text-center ${unpaidBg}`} onClick={(e) => e.stopPropagation()}>
+                                  <button onClick={() => handleToggle(client.id, "cmsWithdrawn")} disabled={isPending} title="CMS 자동출금 완료"
+                                    className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
+                                      r.cmsWithdrawn
+                                        ? "bg-[#10B981] text-white shadow-sm shadow-[#10B981]/30"
+                                        : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#10B981]/50 hover:bg-[#10B981]/10"
+                                    }`}>✓</button>
+                                </td>
+                                <td className={`px-2 py-2.5 text-center ${unpaidBg}`} onClick={(e) => e.stopPropagation()}>
+                                  <button onClick={() => handleToggle(client.id, "directDeposit")} disabled={isPending} title="직접 입금 완료"
+                                    className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
+                                      r.directDeposit
+                                        ? "bg-[#10B981] text-white shadow-sm shadow-[#10B981]/30"
+                                        : "bg-white/70 border border-[#E5E8EB] text-transparent hover:border-[#10B981]/50 hover:bg-[#10B981]/10"
+                                    }`}>✓</button>
+                                </td>
+                              </>
+                            );
+                          })()}
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => handleToggle(client.id, "paymentSent")} disabled={isPending} title="납부서 발송"
                               className={`w-5 h-5 rounded-md inline-flex items-center justify-center text-[11px] transition ${
