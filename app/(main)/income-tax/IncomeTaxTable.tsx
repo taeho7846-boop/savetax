@@ -1328,7 +1328,8 @@ export function IncomeTaxTable({
                   <thead className="bg-white/60 sticky top-0 z-10">
                     <tr className="text-[10.5px] uppercase tracking-wider text-[#6B7684] border-b border-white/40">
                       <th className="px-3 py-2.5 text-left sticky left-0 bg-white/80 z-20 min-w-[170px]">고객사</th>
-                      <th className="px-2 py-2.5">유형</th>
+                      <th className="px-2 py-2.5">기장의무</th>
+                      <th className="px-2 py-2.5">적용</th>
                       {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                       <th className="px-3 py-2.5 text-right">당기 매출</th>
                       <th className="px-3 py-2.5 text-right bg-[#10B981]/10">신고세액</th>
@@ -1341,10 +1342,9 @@ export function IncomeTaxTable({
                   </thead>
                   <tbody className="divide-y divide-white/40">
                     {list.length === 0 ? (
-                      <tr><td colSpan={10 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">신고완료된 거래처가 없습니다</td></tr>
+                      <tr><td colSpan={11 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">신고완료된 거래처가 없습니다</td></tr>
                     ) : list.map(client => {
                       const r = getRecord(client);
-                      const ft = getFilingTypeBadge(r);
                       const isSel = selectedClientId === client.id;
                       const selBg = "rgba(16,185,129,0.12)";
                       const taxNum = r.currTax ? parseInt(r.currTax) : null;
@@ -1360,8 +1360,11 @@ export function IncomeTaxTable({
                             </div>
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
                           </td>
-                          <td className="px-2 py-2.5 text-center">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ft.color}`}>{ft.label}</span>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
+                            {r.bookkeepingDuty ?? <span className="text-[#B0B8C1]">-</span>}
+                          </td>
+                          <td className="px-2 py-2.5 text-center text-[10.5px] text-[#4E5968]">
+                            {r.filingType ?? <span className="text-[#B0B8C1]">-</span>}
                           </td>
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
