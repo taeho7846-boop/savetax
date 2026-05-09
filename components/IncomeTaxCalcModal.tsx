@@ -11,7 +11,9 @@ const RATES = {
   employment: 0.009,     // 고용보험 0.9%
 };
 
-function calcIncomeTax(monthlySalary: number, dependents: number, isCeo: boolean): number {
+type CalcOpts = { noPension: boolean; noEmployment: boolean };
+
+function calcIncomeTax(monthlySalary: number, dependents: number, opts: CalcOpts): number {
   const taxable = monthlySalary;
   if (taxable <= 1060000) return 0;
 
@@ -28,12 +30,12 @@ function calcIncomeTax(monthlySalary: number, dependents: number, isCeo: boolean
   if (earned <= 0) return 0;
 
   const personalDeduction = 1500000 * Math.max(dependents, 1);
-  const pensionMonthly = Math.min(Math.round(taxable * RATES.pension), RATES.pensionCap);
+  const pensionMonthly = opts.noPension ? 0 : Math.min(Math.round(taxable * RATES.pension), RATES.pensionCap);
   const pensionYearly = pensionMonthly * 12;
   const healthMonthly = Math.round(taxable * RATES.health);
   const longcareMonthly = Math.round(healthMonthly * RATES.longcare);
   const insuranceYearly = (healthMonthly + longcareMonthly) * 12;
-  const employmentYearly = isCeo ? 0 : Math.round(taxable * RATES.employment) * 12;
+  const employmentYearly = opts.noEmployment ? 0 : Math.round(taxable * RATES.employment) * 12;
 
   const taxBase = Math.max(earned - personalDeduction - pensionYearly - insuranceYearly - employmentYearly - 700000, 0);
   if (taxBase <= 0) return 0;
@@ -67,14 +69,14 @@ function pct(n: number, base: number): string {
 }
 
 // 세전 급여로 공제액 계산
-function calcDeductions(gross: number, nonTax: number, deps: number, isCeo: boolean) {
+function calcDeductions(gross: number, nonTax: number, deps: number, opts: CalcOpts) {
   const taxable = Math.max(gross - nonTax, 0);
-  const pension = Math.min(Math.round(taxable * RATES.pension), RATES.pensionCap);
+  const pension = opts.noPension ? 0 : Math.min(Math.round(taxable * RATES.pension), RATES.pensionCap);
   const health = Math.round(taxable * RATES.health);
   const longcare = Math.round(health * RATES.longcare);
-  const employment = isCeo ? 0 : Math.round(taxable * RATES.employment);
+  const employment = opts.noEmployment ? 0 : Math.round(taxable * RATES.employment);
   const insuranceTotal = pension + health + longcare + employment;
-  const incomeTax = calcIncomeTax(taxable, deps, isCeo);
+  const incomeTax = calcIncomeTax(taxable, deps, opts);
   const localTax = Math.round(incomeTax * 0.1 / 10) * 10;
   const taxTotal = incomeTax + localTax;
   const totalDeduction = insuranceTotal + taxTotal;
@@ -82,12 +84,12 @@ function calcDeductions(gross: number, nonTax: number, deps: number, isCeo: bool
 }
 
 // 세후→세전 역산 (이분탐색)
-function reverseCalc(targetNet: number, nonTax: number, deps: number, isCeo: boolean): number {
+function reverseCalc(targetNet: number, nonTax: number, deps: number, opts: CalcOpts): number {
   let lo = targetNet;
   let hi = targetNet * 2;
   for (let i = 0; i < 100; i++) {
     const mid = Math.round((lo + hi) / 2);
-    const { netPay } = calcDeductions(mid, nonTax, deps, isCeo);
+    const { netPay } = calcDeductions(mid, nonTax, deps, opts);
     if (Math.abs(netPay - targetNet) <= 10) return mid;
     if (netPay < targetNet) lo = mid;
     else hi = mid;
@@ -100,26 +102,32 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
   const [nonTaxable, setNonTaxable] = useState("200,000");
   const [dependents, setDependents] = useState(1);
   const [type, setType] = useState<"worker" | "ceo">("worker");
+  const [excludePension, setExcludePension] = useState(false);    // 노인 등 → 국민연금 미적용
+  const [excludeEmployment, setExcludeEmployment] = useState(false); // 특수관계인 등 → 고용보험 미적용
   const [mode, setMode] = useState<"gross" | "net">("gross"); // gross: 세전→세후, net: 세후→세전
 
   const inputNum = parseInt(salary.replace(/,/g, "")) || 0;
   const nonTaxableNum = parseInt(nonTaxable.replace(/,/g, "")) || 0;
   const isCeo = type === "ceo";
+  const opts: CalcOpts = {
+    noPension: excludePension,
+    noEmployment: isCeo || excludeEmployment, // 법인 대표는 자동으로 고용보험 미적용
+  };
 
   // 모드에 따라 세전 급여 결정
-  const grossSalary = mode === "gross" ? inputNum : reverseCalc(inputNum, nonTaxableNum, dependents, isCeo);
+  const grossSalary = mode === "gross" ? inputNum : reverseCalc(inputNum, nonTaxableNum, dependents, opts);
   const salaryNum = grossSalary;
   const taxableSalary = Math.max(salaryNum - nonTaxableNum, 0);
 
   // 4대보험 (2026년 요율)
-  const pension = Math.min(Math.round(taxableSalary * RATES.pension), RATES.pensionCap);
+  const pension = opts.noPension ? 0 : Math.min(Math.round(taxableSalary * RATES.pension), RATES.pensionCap);
   const health = Math.round(taxableSalary * RATES.health);
   const longcare = Math.round(health * RATES.longcare);
-  const employment = isCeo ? 0 : Math.round(taxableSalary * RATES.employment);
+  const employment = opts.noEmployment ? 0 : Math.round(taxableSalary * RATES.employment);
   const insuranceTotal = pension + health + longcare + employment;
 
   // 소득세/지방소득세
-  const incomeTax = calcIncomeTax(taxableSalary, dependents, isCeo);
+  const incomeTax = calcIncomeTax(taxableSalary, dependents, opts);
   const localTax = Math.round(incomeTax * 0.1 / 10) * 10;
   const taxTotal = incomeTax + localTax;
 
@@ -235,6 +243,35 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
               </select>
             </div>
           </div>
+
+          {/* 보험 제외 옵션 */}
+          <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-1.5 px-3 py-2 bg-[#F9FAFB] hover:bg-[#F2F4F6] rounded-xl cursor-pointer transition-colors border border-[#E5E8EB]">
+              <input
+                type="checkbox"
+                checked={excludePension}
+                onChange={e => setExcludePension(e.target.checked)}
+                className="accent-[#3182F6] w-3.5 h-3.5 cursor-pointer"
+              />
+              <span className="text-xs text-[#4E5968] font-medium">국민연금 미적용</span>
+              <span className="text-[10px] text-[#8B95A1]">(노인 등)</span>
+            </label>
+            <label className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-colors ${
+              isCeo
+                ? "bg-[#F2F4F6] border-[#E5E8EB] cursor-not-allowed opacity-70"
+                : "bg-[#F9FAFB] hover:bg-[#F2F4F6] border-[#E5E8EB] cursor-pointer"
+            }`}>
+              <input
+                type="checkbox"
+                checked={isCeo || excludeEmployment}
+                disabled={isCeo}
+                onChange={e => setExcludeEmployment(e.target.checked)}
+                className="accent-[#3182F6] w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed"
+              />
+              <span className="text-xs text-[#4E5968] font-medium">고용보험 미적용</span>
+              <span className="text-[10px] text-[#8B95A1]">(특수관계인 등)</span>
+            </label>
+          </div>
         </div>
 
         {/* 결과 */}
@@ -271,12 +308,20 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
 
             {/* 상세 내역 */}
             <div className="space-y-1">
-              <Row label="국민연금" rate={`${(RATES.pension * 100).toFixed(1)}%`} amount={pension} />
+              {opts.noPension ? (
+                <Row label="국민연금" rate="미적용" amount={0} muted />
+              ) : (
+                <Row label="국민연금" rate={`${(RATES.pension * 100).toFixed(1)}%`} amount={pension} />
+              )}
               <Row label="건강보험" rate={`${(RATES.health * 100).toFixed(2)}%`} amount={health} />
               <Row label="장기요양보험" rate={`건보 ${(RATES.longcare * 100).toFixed(2)}%`} amount={longcare} />
-              {!isCeo && <Row label="고용보험" rate={`${(RATES.employment * 100).toFixed(1)}%`} amount={employment} />}
+              {opts.noEmployment ? (
+                <Row label="고용보험" rate="미적용" amount={0} muted />
+              ) : (
+                <Row label="고용보험" rate={`${(RATES.employment * 100).toFixed(1)}%`} amount={employment} />
+              )}
               <div className="flex items-center justify-between py-1.5 bg-[#F9FAFB]/50 -mx-2 px-2 rounded border-b border-[#F2F4F6]">
-                <span className="text-xs font-medium text-[#4E5968]">{isCeo ? "3대보험 소계" : "4대보험 소계"}</span>
+                <span className="text-xs font-medium text-[#4E5968]">보험 소계</span>
                 <span className="text-xs font-bold text-[#191F28]">{fmt(insuranceTotal)}원</span>
               </div>
               <Row label="소득세" rate="" amount={incomeTax} className="mt-1" />
@@ -303,9 +348,9 @@ export function IncomeTaxCalcModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Row({ label, rate, amount, className = "" }: { label: string; rate: string; amount: number; className?: string }) {
+function Row({ label, rate, amount, className = "", muted = false }: { label: string; rate: string; amount: number; className?: string; muted?: boolean }) {
   return (
-    <div className={`flex items-center justify-between py-1.5 border-b border-[#F2F4F6] ${className}`}>
+    <div className={`flex items-center justify-between py-1.5 border-b border-[#F2F4F6] ${className} ${muted ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-2">
         <span className="text-xs text-[#6B7684]">{label}</span>
         {rate && <span className="text-[10px] text-[#8B95A1]">{rate}</span>}
