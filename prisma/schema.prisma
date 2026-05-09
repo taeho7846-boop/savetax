@@ -319,6 +319,8 @@ model IncomeTaxRecord {
   lastRejectedAt    DateTime?
   backToCollect     Boolean  @default(false)
   onHold            Boolean  @default(false)
+  cmsWithdrawn      Boolean  @default(false)
+  directDeposit     Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   client            Client   @relation(fields: [clientId], references: [id])
