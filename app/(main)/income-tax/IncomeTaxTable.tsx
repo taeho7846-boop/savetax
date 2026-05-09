@@ -1173,7 +1173,7 @@ export function IncomeTaxTable({
                       {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                       <th className="px-3 py-2.5 text-right">당기 매출</th>
                       <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">결정세액</th>
-                      <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">조정료</th>
+                      <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">조정료<div className="text-[8.5px] font-normal text-[#A855F7]/70 normal-case tracking-normal">공급·VAT·합계</div></th>
                       <th className="px-2 py-2.5 text-center bg-[#A855F7]/5">안내 및 입금요청</th>
                       <th className="px-2 py-2.5 text-center">입금</th>
                       <th className="px-2 py-2.5 text-center">신고</th>
@@ -1237,10 +1237,10 @@ export function IncomeTaxTable({
                             const estimated = calcAdjustmentFee(r.currSales, client.clientType);
                             const hasActual = existing !== null && existing > 0;
                             return (
-                              <EditableNumberCell
+                              <AdjustmentFeeCell3
                                 value={hasActual ? r.adjustmentFee : (estimated !== null ? String(estimated) : null)}
                                 onSave={(v) => handleFieldBlur(client.id, "adjustmentFee", v)}
-                                className={hasActual ? "font-bold text-[#A855F7]" : "font-bold text-[#A855F7]/60 italic"}
+                                isActual={hasActual}
                               />
                             );
                           })()}
@@ -1740,29 +1740,70 @@ export function IncomeTaxTable({
         );
       })()}
 
-      {stageFilter === "confirm" && (
+      {stageFilter === "confirm" && (() => {
+        const cList = stageClients.confirm;
+        const cTotal = cList.length;
+        const cNotice = cList.filter(c => getRecord(c).noticeRequestSent).length;
+        const cDeposit = cList.filter(c => getRecord(c).depositReceived).length;
+        const cFiling = cList.filter(c => getRecord(c).filingDone).length;
+        const cHold = cList.filter(c => getRecord(c).onHold).length;
+        const adjSupply = sumOf(cList, "adjustmentFee");
+        const adjVat = Math.round(adjSupply * 0.1);
+        const adjTotal = adjSupply + adjVat;
+        const fmt = (n: number) => n.toLocaleString("ko-KR");
+        const pctOf = (n: number) => cTotal > 0 ? Math.round((n / cTotal) * 100) : 0;
+        return (
         <aside className="space-y-3 sticky top-3 self-start">
           <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#A855F7]/12 to-transparent">
             <div className="text-[12px] font-bold text-[#A855F7] mb-2">💰 컨펌+보수 단계</div>
-            <div className="text-[24px] font-bold leading-none">{stageClients.confirm.length}<span className="text-[12px] text-[#6B7684]">건</span></div>
+            <div className="text-[24px] font-bold leading-none">{cTotal}<span className="text-[12px] text-[#6B7684]">건</span></div>
+            {cHold > 0 && (
+              <div className="mt-2 text-[10.5px] text-[#B91C1C] font-medium">⏸ 대기 {cHold}건</div>
+            )}
           </div>
+
           <div className="glass rounded-2xl p-4">
-            <div className="text-[12px] font-bold mb-2">조정료 합계 (컨펌 단계)</div>
-            <div className="text-[18px] font-bold tabular-nums">₩{sumOf(stageClients.confirm, "adjustmentFee").toLocaleString("ko-KR")}</div>
+            <div className="text-[12px] font-bold mb-3">📊 진행 현황</div>
+            <div className="space-y-2.5">
+              <ProgressLine label="안내·입금요청" done={cNotice} total={cTotal} pct={pctOf(cNotice)} color="#A855F7" />
+              <ProgressLine label="입금 확인" done={cDeposit} total={cTotal} pct={pctOf(cDeposit)} color="#A855F7" />
+              <ProgressLine label="신고 완료" done={cFiling} total={cTotal} pct={pctOf(cFiling)} color="#10B981" />
+            </div>
           </div>
+
+          <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#A855F7]/8 to-transparent">
+            <div className="text-[12px] font-bold mb-2 text-[#A855F7]">💵 조정료 합계</div>
+            <div className="space-y-1 text-[12px]">
+              <div className="flex justify-between">
+                <span className="text-[#6B7684]">공급가액</span>
+                <span className="font-medium tabular-nums">₩{fmt(adjSupply)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8B95A1]">부가세 (10%)</span>
+                <span className="text-[#8B95A1] tabular-nums">₩{fmt(adjVat)}</span>
+              </div>
+              <div className="border-t border-white/40 pt-1.5 flex justify-between">
+                <span className="font-bold text-[#A855F7]">합계 (VAT포함)</span>
+                <span className="font-bold text-[#A855F7] text-[14px] tabular-nums">₩{fmt(adjTotal)}</span>
+              </div>
+            </div>
+          </div>
+
           <div className="glass rounded-2xl p-4">
             <div className="text-[12px] font-bold mb-3">담당자별 컨펌 대기</div>
             <div className="space-y-2 text-[12px]">
-              {[...countByAssigned(stageClients.confirm).entries()].slice(0, 6).map(([name, n]) => (
+              {[...countByAssigned(cList).entries()].slice(0, 6).map(([name, n]) => (
                 <div key={name} className="flex items-center justify-between">
                   <span className="text-[#4E5968]">{name}</span>
                   <span className="font-bold tabular-nums">{n}건</span>
                 </div>
               ))}
+              {countByAssigned(cList).size === 0 && <div className="text-[11px] text-[#8B95A1]">데이터 없음</div>}
             </div>
           </div>
         </aside>
-      )}
+        );
+      })()}
 
       {stageFilter === "done" && (
         <aside className="space-y-3 sticky top-3 self-start">
@@ -1772,17 +1813,31 @@ export function IncomeTaxTable({
             <div className="progress mt-2"><div className="progress-fill gradient-emerald" style={{ width: `${donePct}%` }} /></div>
             <div className="text-[10.5px] text-[#6B7684] mt-1">진행률 {donePct}%</div>
           </div>
-          <div className="glass rounded-2xl p-4">
-            <div className="text-[12px] font-bold mb-3">💵 시즌 정산 합계</div>
-            <div className="space-y-2 text-[12px]">
-              <div className="flex justify-between"><span className="text-[#6B7684]">신고세액</span><span className="font-bold tabular-nums">{sumOf(stageClients.done, "currTax").toLocaleString("ko-KR")}</span></div>
-              <div className="flex justify-between"><span className="text-[#6B7684]">조정료</span><span className="font-bold tabular-nums">{sumOf(stageClients.done, "adjustmentFee").toLocaleString("ko-KR")}</span></div>
-              <div className="border-t border-white/40 pt-2 flex justify-between">
-                <span className="font-bold">정산 총액</span>
-                <span className="font-bold text-[#10B981] tabular-nums">{(sumOf(stageClients.done, "currTax") + sumOf(stageClients.done, "adjustmentFee")).toLocaleString("ko-KR")}</span>
+          {(() => {
+            const adjSupply = sumOf(stageClients.done, "adjustmentFee");
+            const adjVat = Math.round(adjSupply * 0.1);
+            const adjTotal = adjSupply + adjVat;
+            const fmt = (n: number) => n.toLocaleString("ko-KR");
+            return (
+              <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/8 to-transparent">
+                <div className="text-[12px] font-bold mb-2 text-[#10B981]">💵 조정료 합계</div>
+                <div className="space-y-1 text-[12px]">
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7684]">공급가액</span>
+                    <span className="font-medium tabular-nums">₩{fmt(adjSupply)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#8B95A1]">부가세 (10%)</span>
+                    <span className="text-[#8B95A1] tabular-nums">₩{fmt(adjVat)}</span>
+                  </div>
+                  <div className="border-t border-white/40 pt-1.5 flex justify-between">
+                    <span className="font-bold text-[#10B981]">합계 (VAT포함)</span>
+                    <span className="font-bold text-[#10B981] text-[14px] tabular-nums">₩{fmt(adjTotal)}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
           <div className="glass rounded-2xl p-4">
             <div className="text-[12px] font-bold mb-3">담당자별 완료</div>
             <div className="space-y-2 text-[12px]">
@@ -2142,6 +2197,71 @@ function NumberCell({ value, onSave, colorType }: { value: string | null; onSave
       onClick={() => { setVal(value ?? ""); setEditing(true); }}
     >
       {formatNumber(value) || <span className="text-[#B0B8C1]">-</span>}
+    </td>
+  );
+}
+
+// 진행률 한 줄 표시 (라벨 / N건 · M% / 진행바)
+function ProgressLine({ label, done, total, pct, color }: { label: string; done: number; total: number; pct: number; color: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1 text-[11px]">
+        <span className="text-[#4E5968] font-medium">{label}</span>
+        <span className="tabular-nums text-[#6B7684]">
+          <span className="font-bold text-[#191F28]">{done}</span><span className="text-[#B0B8C1]"> / {total}</span>
+          <span className="ml-1.5 text-[10.5px] font-bold" style={{ color }}>{pct}%</span>
+        </span>
+      </div>
+      <div className="h-1.5 bg-white/60 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+// 조정료 3-값 셀: 공급가액(편집) / 부가세(자동) / 합계(자동) 세로 표시
+function AdjustmentFeeCell3({ value, onSave, isActual }: { value: string | null; onSave: (v: string) => void; isActual: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value ?? "");
+  const supply = value ? parseInt(value) : 0;
+  const vat = Math.round(supply * 0.1);
+  const total = supply + vat;
+  if (editing) {
+    return (
+      <td className="px-1 py-1 text-right" onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          type="text"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onBlur={() => { onSave(val); setEditing(false); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { onSave(val); setEditing(false); } if (e.key === "Escape") { setEditing(false); } }}
+          className="w-24 border border-blue-300 rounded px-1 py-0.5 text-[12px] text-right focus:outline-none"
+          placeholder="공급가액"
+        />
+      </td>
+    );
+  }
+  if (!value) {
+    return (
+      <td className="px-3 py-2.5 text-right cursor-pointer hover:bg-[#F5F9FF]"
+        onClick={(e) => { e.stopPropagation(); setVal(""); setEditing(true); }}>
+        <span className="text-[#B0B8C1]">-</span>
+      </td>
+    );
+  }
+  return (
+    <td className="px-3 py-2 text-right cursor-pointer hover:bg-[#F5F9FF] leading-tight"
+      onClick={(e) => { e.stopPropagation(); setVal(value); setEditing(true); }}>
+      <div className={`text-[11.5px] tabular-nums ${isActual ? "text-[#A855F7]" : "text-[#A855F7]/60 italic"}`}>
+        <span className="text-[9px] text-[#8B95A1] mr-1 not-italic">공급</span>{formatNumber(String(supply))}
+      </div>
+      <div className="text-[10px] tabular-nums text-[#8B95A1]">
+        <span className="text-[9px] mr-1">VAT</span>{formatNumber(String(vat))}
+      </div>
+      <div className={`text-[12px] font-bold tabular-nums ${isActual ? "text-[#A855F7]" : "text-[#A855F7]/60 italic"}`}>
+        <span className="text-[9px] text-[#8B95A1] mr-1 font-normal not-italic">합계</span>{formatNumber(String(total))}
+      </div>
     </td>
   );
 }
