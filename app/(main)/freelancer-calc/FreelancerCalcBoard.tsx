@@ -226,15 +226,34 @@ export function FreelancerCalcBoard() {
   const extraExpNum = parse(extraExpense);
   const totalExpense = actualExpense + extraExpNum;
 
-  // 사업장별 매출비율 → 경비/소득 자동 분배
-  const bizDistribution = businesses.map(b => {
+  // 사업장별 계산 (실제경비는 매출비율 분배, 가공경비는 단순경비율-0.5% 도달까지 필요한 만큼 분배)
+  const bizCalc = businesses.map(b => {
     const rev = parse(b.revenue);
-    const ratio = totalRevenue > 0 ? rev / totalRevenue : 0;
-    const distributedExpense = Math.round(totalExpense * ratio);
-    const distributedIncome = Math.max(rev - distributedExpense, 0);
-    const expenseRatio = rev > 0 ? (distributedExpense / rev) * 100 : 0;
+    const revRatio = totalRevenue > 0 ? rev / totalRevenue : 0;
+    const actualShare = Math.round(actualExpense * revRatio);
+    const targetExpense = Math.max(rev * (b.simpleRate - 0.5) / 100, 0);
+    const gakgongNeeded = Math.max(0, Math.round(targetExpense - actualShare));
     const simpleLimit = Math.round(rev * b.simpleRate / 100);
-    return { id: b.id, rev, ratio, distributedExpense, distributedIncome, expenseRatio, simpleLimit };
+    return { id: b.id, rev, revRatio, actualShare, targetExpense, gakgongNeeded, simpleLimit };
+  });
+
+  const optimalGakgong = bizCalc.reduce((s, c) => s + c.gakgongNeeded, 0);
+
+  // 가공경비를 사업장별로 분배 (gakgongNeeded 비율 우선, fallback 매출비율)
+  const useNeededRatio = optimalGakgong > 0;
+  const bizDistribution = bizCalc.map(c => {
+    let gakgongShare = 0;
+    if (extraExpNum > 0 && c.rev > 0) {
+      if (useNeededRatio) {
+        gakgongShare = Math.round(extraExpNum * (c.gakgongNeeded / optimalGakgong));
+      } else {
+        gakgongShare = Math.round(extraExpNum * c.revRatio);
+      }
+    }
+    const distributedExpense = c.actualShare + gakgongShare;
+    const distributedIncome = Math.max(c.rev - distributedExpense, 0);
+    const expenseRatio = c.rev > 0 ? (distributedExpense / c.rev) * 100 : 0;
+    return { ...c, gakgongShare, distributedExpense, distributedIncome, expenseRatio };
   });
 
   // 종합소득금액
@@ -323,25 +342,31 @@ export function FreelancerCalcBoard() {
     if (extraExpNum <= 0 || totalRevenue <= 0) return;
     const enabledRatios = ratios.filter(r => enabledKeys.has(r.key));
 
-    // 매출비율로 사업장별 가공경비 분배 (반올림 차이는 마지막 사업장에 흡수)
+    // 가공경비 필요량 비율로 분배 (없으면 매출비율, 반올림 차이는 마지막 사업장에 흡수)
     const allocs: BusinessAllocation[] = [];
     let assigned = 0;
-    businesses.forEach((b, idx) => {
-      const rev = parse(b.revenue);
-      if (rev <= 0) return;
-      const isLast = idx === businesses.length - 1;
-      const bizExtra = isLast
-        ? extraExpNum - assigned
-        : Math.round(extraExpNum * (rev / totalRevenue));
+    const eligible = businesses.map((b, idx) => ({ b, idx, calc: bizCalc[idx] })).filter(x => x.calc.rev > 0);
+    eligible.forEach((x, eIdx) => {
+      const { b, idx, calc } = x;
+      const isLast = eIdx === eligible.length - 1;
+      let bizExtra: number;
+      if (isLast) {
+        bizExtra = extraExpNum - assigned;
+      } else if (useNeededRatio) {
+        bizExtra = Math.round(extraExpNum * (calc.gakgongNeeded / optimalGakgong));
+      } else {
+        bizExtra = Math.round(extraExpNum * calc.revRatio);
+      }
       assigned += bizExtra;
 
-      // 사업장별 접대비 한도 = 1,200만 + 매출 0.3%
-      const bizEntertainmentLimit = ENTERTAINMENT_BASE_LIMIT + Math.round(rev * 0.003);
+      const bizEntertainmentLimit = ENTERTAINMENT_BASE_LIMIT + Math.round(calc.rev * 0.003);
       const items = randomAllocate(bizExtra, enabledRatios, bizEntertainmentLimit);
 
+      const codePart = b.bizCode ? ` (${b.bizCode})` : "";
+      const namePart = b.bizName ? ` ${b.bizName}` : "";
       allocs.push({
         bizId: b.id,
-        bizLabel: `사업장 ${idx + 1}${b.bizName ? ` · ${b.bizName}` : ""}`,
+        bizLabel: `사업장 ${idx + 1}${codePart}${namePart}`,
         bizExtra,
         items,
       });
@@ -349,7 +374,19 @@ export function FreelancerCalcBoard() {
 
     setBusinessAllocations(allocs);
     setGenerated(true);
-  }, [extraExpNum, ratios, enabledKeys, businesses, totalRevenue]);
+  }, [extraExpNum, ratios, enabledKeys, businesses, totalRevenue, bizCalc, useNeededRatio, optimalGakgong]);
+
+  const handleOptimal = useCallback(() => {
+    if (totalRevenue <= 0) {
+      alert("먼저 매출을 입력해주세요.");
+      return;
+    }
+    if (optimalGakgong <= 0) {
+      alert("이미 단순경비율 한도(-0.5%)에 도달했거나 초과했습니다.");
+      return;
+    }
+    setExtraExpense(fmt(optimalGakgong));
+  }, [totalRevenue, optimalGakgong]);
 
   const updateRatio = (key: string, field: "min" | "max", value: number) => {
     setRatios(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r));
@@ -465,6 +502,17 @@ export function FreelancerCalcBoard() {
           {/* 가공경비 (통합) */}
           <Card title="가공경비 배분" accent>
             <div className="space-y-3">
+              {/* 최적 추천 */}
+              {totalRevenue > 0 && optimalGakgong > 0 && (
+                <button
+                  onClick={handleOptimal}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-bold rounded-[10px] hover:from-emerald-600 hover:to-teal-700 shadow shadow-emerald-200/50 transition-all flex items-center justify-center gap-2"
+                  title="단순경비율보다 0.5%p 낮은 안전 한도까지 채우는 최적 가공경비"
+                >
+                  🎯 최적 가공경비 추천: {fmt(optimalGakgong)}원
+                </button>
+              )}
+
               <div className="grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-8">
                   <NumField label="가공경비 총액" value={extraExpense} onChange={setExtraExpense} suffix="원" placeholder="투입할 가공경비" />
@@ -604,7 +652,7 @@ export function FreelancerCalcBoard() {
 function BusinessRow({ business: b, index, distribution: d, onChange, onCodeChange, onRemove, showRemove }: {
   business: Business;
   index: number;
-  distribution: { rev: number; ratio: number; distributedExpense: number; distributedIncome: number; expenseRatio: number; simpleLimit: number; };
+  distribution: { rev: number; distributedExpense: number; distributedIncome: number; expenseRatio: number; simpleLimit: number; gakgongShare: number; gakgongNeeded: number; };
   onChange: (u: Partial<Business>) => void;
   onCodeChange: (code: string) => void;
   onRemove: () => void;
