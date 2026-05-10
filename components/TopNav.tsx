@@ -118,7 +118,7 @@ export default function TopNav({
   const visibleCategories = CATEGORIES.map((cat) => {
     const subs = cat.subs.filter((s) => {
       if (s.href === "/staff" && !(user.role === "owner" || user.role === "admin")) return false;
-      if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/settings") return false;
+      if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/settings" && s.href !== "/freelancer-calc") return false;
       return true;
     });
     return { ...cat, subs };

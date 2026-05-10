@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 
+// ── 헬퍼 ──
 function fmt(n: number): string { return n.toLocaleString("ko-KR"); }
 function numInput(v: string): string {
   const num = v.replace(/[^\d]/g, "");
@@ -32,12 +33,38 @@ function getTaxRateLabel(tb: number): string {
   return "45%";
 }
 
-// ── 업종코드별 경비율 (2025 귀속, 일반율) ──
+function getBirthYear(rn: string): number | null {
+  if (rn.length < 6) return null;
+  const yy = parseInt(rn.slice(0, 2));
+  return yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
+}
+function isElderly(rn: string, taxYear: number): boolean {
+  const by = getBirthYear(rn);
+  return by ? by <= taxYear - 70 : false;
+}
+function isChildCreditAge(rn: string, taxYear: number): boolean {
+  const by = getBirthYear(rn);
+  if (!by) return false;
+  return by >= taxYear - 20 && by <= taxYear - 8;
+}
+function calcChildCredit(count: number): number {
+  if (count <= 0) return 0;
+  if (count === 1) return 250000;
+  if (count === 2) return 550000;
+  return 550000 + (count - 2) * 400000;
+}
+function calcBirthCredit(order: number): number {
+  if (order === 1) return 300000;
+  if (order === 2) return 500000;
+  return 700000;
+}
+
+// ── 업종코드 (2025 귀속, 일반율) ──
 type BizCode = {
   code: string;
   name: string;
-  simpleRate: number;   // 단순경비율 일반율 (%)
-  standardRate: number; // 기준경비율 일반율 (%)
+  simpleRate: number;
+  standardRate: number;
 };
 
 const BIZ_CODES: BizCode[] = [
@@ -83,7 +110,11 @@ const BIZ_CODES: BizCode[] = [
   { code: "940929", name: "중고자동차판매원 (중고차딜러)", simpleRate: 75.0, standardRate: 24.2 },
 ];
 
-// 통계 기반 권장 비율 (프리랜서 평균 비용구조)
+function lookupBizCode(code: string): BizCode | undefined {
+  return BIZ_CODES.find(b => b.code === code);
+}
+
+// ── 가공경비 비율 ──
 type CategoryRatio = {
   name: string;
   key: string;
@@ -101,135 +132,203 @@ const DEFAULT_RATIOS: CategoryRatio[] = [
   { name: "기타", key: "other", min: 8, max: 18, note: "통신비·잡비 포함" },
 ];
 
-const ENTERTAINMENT_BASE_LIMIT = 12000000; // 기본한도
+const ENTERTAINMENT_BASE_LIMIT = 12000000;
 
-type AllocatedExpense = {
-  key: string;
-  name: string;
-  amount: number;
-  ratio: number;
-};
+type AllocatedExpense = { key: string; name: string; amount: number; ratio: number };
 
 function randomAllocate(total: number, ratios: CategoryRatio[], entertainmentLimit: number): AllocatedExpense[] {
   if (total <= 0) return ratios.map(r => ({ key: r.key, name: r.name, amount: 0, ratio: 0 }));
-
-  const rawRatios = ratios.map(r => {
-    const range = r.max - r.min;
-    return r.min + Math.random() * range;
-  });
-  const sum = rawRatios.reduce((a, b) => a + b, 0);
-  const normalized = rawRatios.map(r => r / sum);
-
-  let results = normalized.map((ratio, i) => {
+  const raw = ratios.map(r => r.min + Math.random() * (r.max - r.min));
+  const sum = raw.reduce((a, b) => a + b, 0);
+  const norm = raw.map(r => r / sum);
+  let res = norm.map((ratio, i) => {
     let amount = Math.round(total * ratio);
-    if (ratios[i].key === "entertainment") {
-      amount = Math.min(amount, entertainmentLimit);
-    }
+    if (ratios[i].key === "entertainment") amount = Math.min(amount, entertainmentLimit);
     return { key: ratios[i].key, name: ratios[i].name, amount, ratio: ratio * 100 };
   });
-
-  // 합계 보정 (반올림 오차 + 접대비 한도 차감분) → 지급수수료에 반영
-  const allocated = results.reduce((s, r) => s + r.amount, 0);
+  const allocated = res.reduce((s, r) => s + r.amount, 0);
   const diff = total - allocated;
-  const commissionIdx = results.findIndex(r => r.key === "commission");
-  if (commissionIdx >= 0) results[commissionIdx].amount += diff;
-
-  const finalTotal = results.reduce((s, r) => s + r.amount, 0);
-  results = results.map(r => ({ ...r, ratio: finalTotal > 0 ? (r.amount / finalTotal) * 100 : 0 }));
-
-  return results;
+  const ci = res.findIndex(r => r.key === "commission");
+  if (ci >= 0) res[ci].amount += diff;
+  const ft = res.reduce((s, r) => s + r.amount, 0);
+  res = res.map(r => ({ ...r, ratio: ft > 0 ? (r.amount / ft) * 100 : 0 }));
+  return res;
 }
 
+// ── 사업장 / 부양가족 타입 ──
+type Business = {
+  id: string;
+  bizCode: string;
+  bizName: string;
+  simpleRate: number;
+  standardRate: number;
+  rateManual: boolean;
+  revenue: string;
+  creditCard: string;
+  debitCard: string;
+  cashReceipt: string;
+  extraExpense: string;
+  allocated: AllocatedExpense[];
+  generated: boolean;
+  isDoubleEntry: boolean;
+};
+
+function newBusiness(): Business {
+  return {
+    id: `biz_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    bizCode: "", bizName: "", simpleRate: 0, standardRate: 0, rateManual: false,
+    revenue: "", creditCard: "", debitCard: "", cashReceipt: "",
+    extraExpense: "", allocated: [], generated: false, isDoubleEntry: false,
+  };
+}
+
+type Dependent = {
+  id: string;
+  name: string;
+  relation: "spouse" | "father" | "mother" | "child" | "other";
+  birthOrder: number;
+  residentNumber: string;
+  isDisabled: boolean;
+};
+
 export function FreelancerCalcBoard() {
-  // 매출
-  const [revenue, setRevenue] = useState("");
+  const taxYear = new Date().getFullYear() - 1;
+
+  // 사업장 목록
+  const [businesses, setBusinesses] = useState<Business[]>([newBusiness()]);
+
+  // 기납부세액
   const [prepaidTax, setPrepaidTax] = useState("");
   const [prepaidManual, setPrepaidManual] = useState(false);
 
-  // 업종
-  const [bizCode, setBizCode] = useState<string>(BIZ_CODES[0].code);
-
-  // 연말정산간소화 실제 사용액
-  const [creditCard, setCreditCard] = useState("");
-  const [debitCard, setDebitCard] = useState("");
-  const [cashReceipt, setCashReceipt] = useState("");
-
-  // 소득공제
-  const [pension, setPension] = useState("");
-  const [dependentCount, setDependentCount] = useState("0");
-  const [hasSpouse, setHasSpouse] = useState(false);
-
-  // 가공경비
-  const [extraExpense, setExtraExpense] = useState("");
+  // 가공경비 비율 (전체 공통)
   const [ratios, setRatios] = useState<CategoryRatio[]>(DEFAULT_RATIOS);
   const [enabledKeys, setEnabledKeys] = useState<Set<string>>(
     new Set(["commission", "travel", "entertainment", "supplies", "vehicle", "other"])
   );
-  const [allocated, setAllocated] = useState<AllocatedExpense[]>([]);
-  const [generated, setGenerated] = useState(false);
+  const [showRatioConfig, setShowRatioConfig] = useState(false);
 
-  const selectedBiz = useMemo(() => BIZ_CODES.find(b => b.code === bizCode), [bizCode]);
+  // 소득공제
+  const [dependents, setDependents] = useState<Dependent[]>([]);
+  const [hasSpouse, setHasSpouse] = useState(false);
+  const [deductWoman, setDeductWoman] = useState(false);
+  const [deductSingleParent, setDeductSingleParent] = useState(false);
+  const [pension, setPension] = useState("");
+  const [umbrella, setUmbrella] = useState("");
 
-  // 자동 기납부세액 (3.3%)
-  const revenueNum = parse(revenue);
-  const autoPrepaid = Math.round(revenueNum * 0.033);
+  // 세액공제
+  const [marriageCredit, setMarriageCredit] = useState(false);
+  const [pensionSaving, setPensionSaving] = useState("");
+  const [retirementPension, setRetirementPension] = useState("");
+
+  // ── 계산 ──
+  const totalRevenue = businesses.reduce((s, b) => s + parse(b.revenue), 0);
+  const autoPrepaid = Math.round(totalRevenue * 0.033);
   const effectivePrepaid = prepaidManual ? parse(prepaidTax) : autoPrepaid;
 
-  // 실제경비 합계
-  const actualExpense = parse(creditCard) + parse(debitCard) + parse(cashReceipt);
-  const extraExpNum = parse(extraExpense);
-  const totalExpense = actualExpense + extraExpNum;
+  // 사업장별 소득금액
+  const bizIncomes = businesses.map(b => {
+    const rev = parse(b.revenue);
+    const actual = parse(b.creditCard) + parse(b.debitCard) + parse(b.cashReceipt);
+    const extra = parse(b.extraExpense);
+    const expense = actual + extra;
+    const income = Math.max(rev - expense, 0);
+    const expenseRatio = rev > 0 ? (expense / rev) * 100 : 0;
+    const simpleLimit = Math.round(rev * b.simpleRate / 100);
+    return { id: b.id, rev, actual, extra, expense, income, expenseRatio, simpleLimit, isDoubleEntry: b.isDoubleEntry };
+  });
 
-  // 경비율 가이드 (단순경비율 기준 권장 한도)
-  const simpleRateLimit = selectedBiz ? Math.round(revenueNum * selectedBiz.simpleRate / 100) : 0;
-  const expenseRatio = revenueNum > 0 ? (totalExpense / revenueNum) * 100 : 0;
-  const recommendedExtra = Math.max(simpleRateLimit - actualExpense, 0); // 권장 가공경비
-
-  // 경비율 위험도 판단
-  let riskLevel: "safe" | "caution" | "danger" = "safe";
-  if (selectedBiz && revenueNum > 0) {
-    if (expenseRatio > selectedBiz.simpleRate + 5) riskLevel = "danger";
-    else if (expenseRatio > selectedBiz.simpleRate) riskLevel = "caution";
-  }
-
-  // 접대비 한도 = 1,200만원 + 매출의 0.3% (간편장부 기준 단순화)
-  const entertainmentLimit = ENTERTAINMENT_BASE_LIMIT + Math.round(revenueNum * 0.003);
-
-  // 소득금액
-  const income = Math.max(revenueNum - totalExpense, 0);
+  const totalIncome = bizIncomes.reduce((s, b) => s + b.income, 0);
+  const totalActualExpense = bizIncomes.reduce((s, b) => s + b.actual, 0);
+  const totalExtraExpense = bizIncomes.reduce((s, b) => s + b.extra, 0);
+  const doubleEntryIncome = bizIncomes.filter(b => b.isDoubleEntry).reduce((s, b) => s + b.income, 0);
 
   // 소득공제
   const basicDeduct = 1500000;
-  const depCount = parseInt(dependentCount) || 0;
-  const dependentDeduct = depCount * 1500000;
   const spouseDeduct = hasSpouse ? 1500000 : 0;
+  const personDeduct = dependents.length * 1500000;
+  const elderlyCount = dependents.filter(d => isElderly(d.residentNumber, taxYear)).length;
+  const elderlyDeduct = elderlyCount * 1000000;
+  const disabledCount = dependents.filter(d => d.isDisabled).length;
+  const disabledDeduct = disabledCount * 2000000;
+  const womanDeduct = deductWoman ? 500000 : 0;
+  const singleParentDeduct = deductSingleParent ? 1000000 : 0;
   const pensionDeduct = parse(pension);
-  const totalDeduction = basicDeduct + dependentDeduct + spouseDeduct + pensionDeduct;
+  const umbrellaDeduct = parse(umbrella);
+  const totalDeduction = basicDeduct + spouseDeduct + personDeduct + elderlyDeduct + disabledDeduct + womanDeduct + singleParentDeduct + pensionDeduct + umbrellaDeduct;
 
-  // 과세표준 / 세액
-  const taxBase = Math.max(income - totalDeduction, 0);
+  // 과세표준 / 산출세액
+  const taxBase = Math.max(totalIncome - totalDeduction, 0);
   const computedTax = Math.round(calcTax(taxBase));
+
+  // 세액공제
   const standardCredit = 70000;
-  const totalCredit = standardCredit;
+
+  // 자녀세액공제
+  const childCount = dependents.filter(d => d.relation === "child" && isChildCreditAge(d.residentNumber, taxYear)).length;
+  const childCreditAmt = calcChildCredit(childCount);
+
+  // 출산세액공제
+  const birthCreditAmt = dependents
+    .filter(d => d.relation === "child" && d.birthOrder > 0 && getBirthYear(d.residentNumber) === taxYear)
+    .reduce((s, d) => s + calcBirthCredit(d.birthOrder), 0);
+
+  // 혼인세액공제
+  const marriageCreditAmt = marriageCredit ? 500000 : 0;
+
+  // 기장세액공제 (복식부기 소득금액 / 종합소득금액 × 산출세액 × 20%, 한도 100만)
+  const bookkeepingCreditAmt = totalIncome > 0 && doubleEntryIncome > 0
+    ? Math.min(Math.round(computedTax * (doubleEntryIncome / totalIncome) * 0.2), 1000000)
+    : 0;
+
+  // 연금계좌 세액공제
+  const pSaving = parse(pensionSaving);
+  const rPension = parse(retirementPension);
+  const pensionLimit = 6000000 + Math.min(rPension, 3000000);
+  const pensionBase = Math.min(pSaving + rPension, pensionLimit);
+  const pensionRate = totalIncome <= 45000000 ? 0.15 : 0.12;
+  const pensionCreditAmt = Math.round(pensionBase * pensionRate);
+
+  const totalCredit = standardCredit + childCreditAmt + birthCreditAmt + marriageCreditAmt + bookkeepingCreditAmt + pensionCreditAmt;
+
   const determinedTax = Math.max(computedTax - totalCredit, 0);
   const localTax = Math.round(determinedTax * 0.1);
   const totalTax = determinedTax + localTax;
   const finalPayment = totalTax - effectivePrepaid;
 
-  // 가공경비 미투입 시 비교
-  const incomeNoExtra = Math.max(revenueNum - actualExpense, 0);
-  const tbNoExtra = Math.max(incomeNoExtra - totalDeduction, 0);
-  const ctNoExtra = Math.round(calcTax(tbNoExtra));
-  const dtNoExtra = Math.max(ctNoExtra - totalCredit, 0);
-  const totalTaxNoExtra = dtNoExtra + Math.round(dtNoExtra * 0.1);
-  const taxSaved = totalTaxNoExtra - totalTax;
+  // ── 핸들러 ──
+  function updateBusiness(id: string, updates: Partial<Business>) {
+    setBusinesses(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  }
 
-  const handleGenerate = useCallback(() => {
+  function handleCodeChange(id: string, code: string) {
+    const found = lookupBizCode(code);
+    if (found) {
+      updateBusiness(id, { bizCode: code, bizName: found.name, simpleRate: found.simpleRate, standardRate: found.standardRate, rateManual: false });
+    } else {
+      updateBusiness(id, { bizCode: code });
+    }
+  }
+
+  function addBusiness() {
+    setBusinesses(prev => [...prev, newBusiness()]);
+  }
+
+  function removeBusiness(id: string) {
+    if (businesses.length === 1) return alert("최소 1개의 사업장은 있어야 합니다.");
+    if (!confirm("이 사업장을 삭제하시겠습니까?")) return;
+    setBusinesses(prev => prev.filter(b => b.id !== id));
+  }
+
+  const handleGenerate = useCallback((id: string) => {
+    const b = businesses.find(x => x.id === id);
+    if (!b) return;
+    const rev = parse(b.revenue);
+    const entertainmentLimit = ENTERTAINMENT_BASE_LIMIT + Math.round(rev * 0.003);
     const enabledRatios = ratios.filter(r => enabledKeys.has(r.key));
-    const result = randomAllocate(extraExpNum, enabledRatios, entertainmentLimit);
-    setAllocated(result);
-    setGenerated(true);
-  }, [extraExpNum, ratios, enabledKeys, entertainmentLimit]);
+    const result = randomAllocate(parse(b.extraExpense), enabledRatios, entertainmentLimit);
+    updateBusiness(id, { allocated: result, generated: true });
+  }, [businesses, ratios, enabledKeys]);
 
   const updateRatio = (key: string, field: "min" | "max", value: number) => {
     setRatios(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r));
@@ -243,12 +342,6 @@ export function FreelancerCalcBoard() {
     });
   };
 
-  const applyRecommended = () => {
-    if (recommendedExtra > 0) {
-      setExtraExpense(fmt(recommendedExtra));
-    }
-  };
-
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-5">
       {/* 헤더 */}
@@ -256,310 +349,535 @@ export function FreelancerCalcBoard() {
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow-lg shadow-blue-200">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold text-[#191F28]">프리랜서 간편장부 계산기</h1>
-          <p className="text-xs text-[#8B95A1]">업종별 경비율 가이드 · 가공경비 통계 배분 · 종합소득세 즉시 산출</p>
+          <p className="text-xs text-[#8B95A1]">다중 사업장 · 가공경비 통계 배분 · 종합소득세 즉시 산출 ({taxYear}귀속)</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRatioConfig(s => !s)}
+            className="text-xs px-3 py-2 bg-[#F2F4F6] text-[#4E5968] rounded-lg hover:bg-[#E5E8EB]"
+          >⚙️ 비율 설정</button>
         </div>
       </div>
 
-      {/* 업종 + 매출 한 줄 카드 */}
-      <Card title="업종 & 매출 정보" accent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs text-[#6B7684] mb-1 block">업종코드</label>
-            <select
-              value={bizCode}
-              onChange={e => setBizCode(e.target.value)}
-              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
-            >
-              {BIZ_CODES.map(b => (
-                <option key={b.code} value={b.code}>{b.code} {b.name}</option>
-              ))}
-            </select>
+      {/* 비율 설정 (접이식) */}
+      {showRatioConfig && (
+        <div className="bg-white border border-[#E5E8EB] rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-[#333D4B]">가공경비 계정과목별 비율 범위 (전체 공통)</h3>
+            <button
+              onClick={() => { setRatios(DEFAULT_RATIOS); setEnabledKeys(new Set(["commission", "travel", "entertainment", "supplies", "vehicle", "other"])); }}
+              className="text-[10px] px-2 py-1 bg-[#F2F4F6] text-[#6B7684] rounded hover:bg-[#E5E8EB]"
+            >초기화</button>
           </div>
-          <NumField label="총 수입금액 (매출)" value={revenue} onChange={setRevenue} suffix="원" placeholder="프리랜서 수입금액" />
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <NumField
-                label="기납부세액 (3.3%)"
+          <div className="grid grid-cols-2 gap-2">
+            {ratios.map(r => {
+              const enabled = enabledKeys.has(r.key);
+              return (
+                <div key={r.key} className={`flex items-center gap-2 rounded-lg px-3 py-2 ${enabled ? "bg-[#F9FAFB]" : "bg-[#F2F4F6] opacity-50"}`}>
+                  <input type="checkbox" checked={enabled} onChange={() => toggleCategory(r.key)} className="accent-[#3182F6] w-3.5 h-3.5" />
+                  <div className="w-24 shrink-0">
+                    <div className="text-xs text-[#4E5968]">{r.name}</div>
+                    {r.note && <div className="text-[9px] text-[#8B95A1]">{r.note}</div>}
+                  </div>
+                  <input type="number" min={0} max={100} value={r.min} disabled={!enabled}
+                    onChange={e => updateRatio(r.key, "min", parseInt(e.target.value) || 0)}
+                    className="w-12 border border-[#E5E8EB] rounded px-1.5 py-1 text-xs text-center disabled:bg-[#F2F4F6]" />
+                  <span className="text-[10px] text-[#8B95A1]">~</span>
+                  <input type="number" min={0} max={100} value={r.max} disabled={!enabled}
+                    onChange={e => updateRatio(r.key, "max", parseInt(e.target.value) || 0)}
+                    className="w-12 border border-[#E5E8EB] rounded px-1.5 py-1 text-xs text-center disabled:bg-[#F2F4F6]" />
+                  <span className="text-[10px] text-[#8B95A1]">%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 사업장 목록 */}
+      <datalist id="bizcodes-list">
+        {BIZ_CODES.map(b => <option key={b.code} value={b.code}>{b.code} {b.name}</option>)}
+      </datalist>
+
+      {businesses.map((b, idx) => (
+        <BusinessCard
+          key={b.id}
+          business={b}
+          index={idx}
+          incomeData={bizIncomes[idx]}
+          onChange={updates => updateBusiness(b.id, updates)}
+          onCodeChange={code => handleCodeChange(b.id, code)}
+          onRemove={() => removeBusiness(b.id)}
+          onGenerate={() => handleGenerate(b.id)}
+          showRemove={businesses.length > 1}
+        />
+      ))}
+
+      <button
+        onClick={addBusiness}
+        className="w-full py-3 border-2 border-dashed border-[#A3CAFD] rounded-xl text-sm font-medium text-[#3182F6] hover:bg-[#F5F9FF] hover:border-[#3182F6]"
+      >+ 사업장 추가</button>
+
+      {/* 기납부세액 */}
+      <div className="bg-white border border-[#E5E8EB] rounded-xl p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1">
+            <div className="text-xs text-[#6B7684] mb-1">기납부세액 (3.3% 원천징수)</div>
+            <div className="relative">
+              <input
+                type="text"
                 value={prepaidManual ? prepaidTax : (autoPrepaid > 0 ? fmt(autoPrepaid) : "")}
-                onChange={v => { setPrepaidManual(true); setPrepaidTax(v); }}
-                suffix="원"
+                onChange={e => { setPrepaidManual(true); setPrepaidTax(numInput(e.target.value)); }}
                 placeholder="자동계산"
+                className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-right pr-8 focus:outline-none focus:border-[#3182F6]"
               />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[#8B95A1]">원</span>
             </div>
-            {prepaidManual && (
-              <button
-                onClick={() => { setPrepaidManual(false); setPrepaidTax(""); }}
-                className="mt-5 text-[10px] px-2 py-1 bg-[#F2F4F6] text-[#6B7684] rounded hover:bg-[#E5E8EB]"
-              >자동</button>
-            )}
+          </div>
+          {prepaidManual && (
+            <button
+              onClick={() => { setPrepaidManual(false); setPrepaidTax(""); }}
+              className="mt-5 text-[10px] px-2 py-1.5 bg-[#F2F4F6] text-[#6B7684] rounded hover:bg-[#E5E8EB]"
+            >자동복원</button>
+          )}
+          <div className="text-[11px] text-[#8B95A1] mt-5 w-40 text-right">
+            매출합계 {fmt(totalRevenue)} × 3.3%
+          </div>
+        </div>
+      </div>
+
+      {/* 소득공제 */}
+      <DeductionCard
+        taxYear={taxYear}
+        dependents={dependents} setDependents={setDependents}
+        hasSpouse={hasSpouse} setHasSpouse={setHasSpouse}
+        deductWoman={deductWoman} setDeductWoman={setDeductWoman}
+        deductSingleParent={deductSingleParent} setDeductSingleParent={setDeductSingleParent}
+        pension={pension} setPension={setPension}
+        umbrella={umbrella} setUmbrella={setUmbrella}
+        totalDeduction={totalDeduction}
+      />
+
+      {/* 세액공제 */}
+      <CreditCard
+        marriageCredit={marriageCredit} setMarriageCredit={setMarriageCredit}
+        pensionSaving={pensionSaving} setPensionSaving={setPensionSaving}
+        retirementPension={retirementPension} setRetirementPension={setRetirementPension}
+        totalIncome={totalIncome}
+        bookkeepingCreditAmt={bookkeepingCreditAmt}
+        doubleEntryIncome={doubleEntryIncome}
+        childCreditAmt={childCreditAmt}
+        birthCreditAmt={birthCreditAmt}
+        pensionCreditAmt={pensionCreditAmt}
+      />
+
+      {/* 결과 */}
+      {totalRevenue > 0 && (
+        <ResultCard
+          totalRevenue={totalRevenue}
+          totalActualExpense={totalActualExpense}
+          totalExtraExpense={totalExtraExpense}
+          totalIncome={totalIncome}
+          totalDeduction={totalDeduction}
+          taxBase={taxBase}
+          computedTax={computedTax}
+          standardCredit={standardCredit}
+          childCreditAmt={childCreditAmt}
+          birthCreditAmt={birthCreditAmt}
+          marriageCreditAmt={marriageCreditAmt}
+          bookkeepingCreditAmt={bookkeepingCreditAmt}
+          pensionCreditAmt={pensionCreditAmt}
+          determinedTax={determinedTax}
+          localTax={localTax}
+          totalTax={totalTax}
+          effectivePrepaid={effectivePrepaid}
+          finalPayment={finalPayment}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── 사업장 카드 ──
+function BusinessCard({ business: b, index, incomeData, onChange, onCodeChange, onRemove, onGenerate, showRemove }: {
+  business: Business;
+  index: number;
+  incomeData: { rev: number; actual: number; extra: number; expense: number; income: number; expenseRatio: number; simpleLimit: number; };
+  onChange: (u: Partial<Business>) => void;
+  onCodeChange: (code: string) => void;
+  onRemove: () => void;
+  onGenerate: () => void;
+  showRemove: boolean;
+}) {
+  const known = !!lookupBizCode(b.bizCode);
+  const allocatedSum = b.allocated.reduce((s, a) => s + a.amount, 0);
+
+  // 위험도
+  let risk: "safe" | "caution" | "danger" = "safe";
+  if (b.simpleRate > 0 && incomeData.rev > 0) {
+    if (incomeData.expenseRatio > b.simpleRate + 5) risk = "danger";
+    else if (incomeData.expenseRatio > b.simpleRate) risk = "caution";
+  }
+  const riskColor = risk === "danger" ? "text-red-600" : risk === "caution" ? "text-amber-600" : "text-emerald-600";
+
+  return (
+    <div className="bg-white border border-[#E5E8EB] rounded-xl shadow-sm overflow-hidden">
+      {/* 헤더 */}
+      <div className="bg-gradient-to-r from-[#3182F6] to-[#1B64DA] px-4 py-2.5 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-white">사업장 {index + 1} {b.bizName && `· ${b.bizName}`}</h3>
+        {showRemove && (
+          <button onClick={onRemove} className="text-white/70 hover:text-white text-sm">✕ 삭제</button>
+        )}
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* 1행: 업종코드 + 매출 + 복식부기 */}
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-5">
+            <label className="text-xs text-[#6B7684] mb-1 block">업종코드</label>
+            <input
+              type="text" value={b.bizCode} onChange={e => onCodeChange(e.target.value.replace(/\D/g, ""))}
+              list="bizcodes-list" maxLength={6} placeholder="예: 940903"
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+            />
+            <div className="text-[10px] mt-1 min-h-[14px]">
+              {known ? (
+                <span className="text-[#1B64DA]">✓ {b.bizName}</span>
+              ) : b.bizCode ? (
+                <span className="text-amber-600">코드 미등록 — 경비율 직접 입력</span>
+              ) : (
+                <span className="text-[#8B95A1]">코드 입력시 자동완성</span>
+              )}
+            </div>
+          </div>
+          <div className="col-span-5">
+            <NumField label="매출 (수입금액)" value={b.revenue} onChange={v => onChange({ revenue: v })} suffix="원" />
+          </div>
+          <div className="col-span-2 flex items-end pb-1">
+            <label className="flex items-center gap-1.5 text-xs text-[#4E5968] cursor-pointer bg-[#F5F9FF] rounded-lg px-2 py-2 w-full justify-center border border-blue-100">
+              <input type="checkbox" checked={b.isDoubleEntry} onChange={e => onChange({ isDoubleEntry: e.target.checked })} className="accent-[#3182F6] w-3.5 h-3.5" />
+              <span className="font-medium">복식부기</span>
+            </label>
           </div>
         </div>
 
-        {/* 경비율 가이드 */}
-        {selectedBiz && revenueNum > 0 && (
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <RateBox
-              label="단순경비율"
-              value={`${selectedBiz.simpleRate}%`}
-              amount={Math.round(revenueNum * selectedBiz.simpleRate / 100)}
-              hint="이 안쪽이면 안전"
-              tone="green"
-            />
-            <RateBox
-              label="기준경비율"
-              value={`${selectedBiz.standardRate}%`}
-              amount={Math.round(revenueNum * selectedBiz.standardRate / 100)}
-              hint="추계신고시 주요경비外"
-              tone="blue"
-            />
-            <RateBox
-              label="현재 총경비율"
-              value={`${expenseRatio.toFixed(1)}%`}
-              amount={totalExpense}
-              hint={
-                riskLevel === "danger" ? "위험: 경비 과다" :
-                riskLevel === "caution" ? "주의: 단순경비율 초과" :
-                "양호"
-              }
-              tone={riskLevel === "danger" ? "red" : riskLevel === "caution" ? "amber" : "green"}
-            />
+        {/* 경비율 (자동/수동) */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[10px] text-[#6B7684] block mb-0.5">단순경비율 (일반율)</label>
+            <div className="relative">
+              <input type="number" min={0} max={100} step={0.1} value={b.simpleRate || ""}
+                onChange={e => onChange({ simpleRate: parseFloat(e.target.value) || 0, rateManual: true })}
+                className={`w-full border rounded-[10px] px-2 py-1.5 text-sm text-right pr-6 ${known && !b.rateManual ? "border-[#E5E8EB] bg-[#F0FDF4] text-emerald-700" : "border-[#F2F4F6] bg-[#F9FAFB]"}`}
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B95A1]">%</span>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-[#6B7684] block mb-0.5">기준경비율 (일반율)</label>
+            <div className="relative">
+              <input type="number" min={0} max={100} step={0.1} value={b.standardRate || ""}
+                onChange={e => onChange({ standardRate: parseFloat(e.target.value) || 0, rateManual: true })}
+                className={`w-full border rounded-[10px] px-2 py-1.5 text-sm text-right pr-6 ${known && !b.rateManual ? "border-[#E5E8EB] bg-[#F5F9FF] text-blue-700" : "border-[#F2F4F6] bg-[#F9FAFB]"}`}
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B95A1]">%</span>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-[#6B7684] block mb-0.5">현재 총경비율</label>
+            <div className={`border rounded-[10px] px-2 py-1.5 text-sm text-right font-bold ${
+              risk === "danger" ? "border-red-200 bg-red-50 text-red-700" :
+              risk === "caution" ? "border-amber-200 bg-amber-50 text-amber-700" :
+              "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}>
+              {incomeData.expenseRatio.toFixed(1)}%
+            </div>
+          </div>
+        </div>
+
+        {b.simpleRate > 0 && incomeData.rev > 0 && (
+          <div className={`text-[11px] ${riskColor} bg-[#F9FAFB] rounded-lg px-3 py-2`}>
+            단순경비율 한도 {fmt(incomeData.simpleLimit)}원 / 현재경비 {fmt(incomeData.expense)}원
+            {risk === "danger" && " — ⚠ 한도 5%p 이상 초과, 의심 위험"}
+            {risk === "caution" && " — ⚡ 한도 살짝 초과"}
+            {risk === "safe" && " — ✓ 안전 범위"}
           </div>
         )}
-      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* 좌측: 입력 */}
-        <div className="space-y-4">
-          {/* 연말정산간소화 */}
-          <Card title="연말정산간소화 실제 사용액">
-            <div className="space-y-3">
-              <NumField label="신용카드" value={creditCard} onChange={setCreditCard} suffix="원" />
-              <NumField label="직불카드 (체크카드)" value={debitCard} onChange={setDebitCard} suffix="원" />
-              <NumField label="현금영수증" value={cashReceipt} onChange={setCashReceipt} suffix="원" />
-              <div className="bg-[#F5F9FF] rounded-lg px-3 py-2 flex justify-between items-center">
-                <span className="text-xs font-medium text-[#1B64DA]">실제 사용액 합계</span>
-                <span className="text-sm font-bold text-[#1B64DA]">{fmt(actualExpense)}원</span>
-              </div>
-              {selectedBiz && revenueNum > 0 && recommendedExtra > 0 && (
-                <button
-                  onClick={applyRecommended}
-                  className="w-full text-xs px-3 py-2 bg-[#F0FDF4] text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100"
-                >
-                  💡 권장 가공경비: <strong>{fmt(recommendedExtra)}원</strong> 자동입력
-                  <span className="text-[10px] text-emerald-600 ml-1">(단순경비율 한도 기준)</span>
-                </button>
-              )}
-            </div>
-          </Card>
-
-          {/* 소득공제 */}
-          <Card title="소득공제">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 bg-[#F9FAFB] rounded-lg px-3 py-2">
-                <span className="text-xs text-[#6B7684]">기본공제 (본인)</span>
-                <span className="text-xs font-bold text-[#191F28] ml-auto">1,500,000원</span>
-              </div>
-              <label className="flex items-center gap-2 text-xs text-[#4E5968] cursor-pointer bg-[#F9FAFB] rounded-lg px-3 py-2">
-                <input type="checkbox" checked={hasSpouse} onChange={e => setHasSpouse(e.target.checked)} className="accent-[#3182F6] w-3.5 h-3.5" />
-                배우자 공제 (150만원)
-              </label>
-              <div>
-                <label className="text-xs text-[#6B7684] mb-1 block">부양가족 수 (배우자 제외)</label>
-                <select
-                  value={dependentCount}
-                  onChange={e => setDependentCount(e.target.value)}
-                  className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
-                >
-                  {[0, 1, 2, 3, 4, 5].map(n => (
-                    <option key={n} value={n}>{n}명 ({fmt(n * 1500000)}원)</option>
-                  ))}
-                </select>
-              </div>
-              <NumField label="국민연금 납입액" value={pension} onChange={setPension} suffix="원" />
-              <div className="bg-[#F9FAFB] rounded-lg px-3 py-2 flex justify-between items-center border-t border-[#E5E8EB]">
-                <span className="text-xs font-bold text-[#4E5968]">소득공제 합계</span>
-                <span className="text-sm font-bold text-[#191F28]">{fmt(totalDeduction)}원</span>
-              </div>
-            </div>
-          </Card>
+        {/* 실제 사용액 */}
+        <div className="grid grid-cols-3 gap-3">
+          <NumField label="신용카드" value={b.creditCard} onChange={v => onChange({ creditCard: v })} suffix="원" />
+          <NumField label="직불카드" value={b.debitCard} onChange={v => onChange({ debitCard: v })} suffix="원" />
+          <NumField label="현금영수증" value={b.cashReceipt} onChange={v => onChange({ cashReceipt: v })} suffix="원" />
         </div>
 
-        {/* 우측: 가공경비 + 결과 */}
-        <div className="space-y-4">
-          {/* 가공경비 배분 */}
-          <Card title="가공경비 배분 (통계 기반)" accent>
-            <div className="space-y-4">
-              <NumField label="가공경비 총액" value={extraExpense} onChange={setExtraExpense} suffix="원" placeholder="투입할 가공경비 금액" />
-
-              {/* 위험도 경고 */}
-              {riskLevel === "danger" && (
-                <div className="bg-[#FEF2F2] border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
-                  ⚠️ 총경비율 {expenseRatio.toFixed(1)}%가 단순경비율({selectedBiz?.simpleRate}%)을 5%p 이상 초과합니다. 의심받을 수 있어요.
-                </div>
-              )}
-              {riskLevel === "caution" && (
-                <div className="bg-[#FFFBEB] border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
-                  ⚡ 총경비율 {expenseRatio.toFixed(1)}%가 단순경비율({selectedBiz?.simpleRate}%)을 살짝 초과합니다. 가공경비를 줄여보세요.
-                </div>
-              )}
-
-              {/* 비율 설정 */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[#4E5968]">계정과목별 비율 범위 (%)</span>
-                  <button
-                    onClick={() => { setRatios(DEFAULT_RATIOS); setEnabledKeys(new Set(["commission", "travel", "entertainment", "supplies", "vehicle", "other"])); }}
-                    className="text-[10px] px-2 py-1 bg-[#F2F4F6] text-[#6B7684] rounded hover:bg-[#E5E8EB]"
-                  >초기화</button>
-                </div>
-                <div className="space-y-1.5">
-                  {ratios.map(r => {
-                    const enabled = enabledKeys.has(r.key);
-                    return (
-                      <div key={r.key} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${enabled ? "bg-[#F9FAFB]" : "bg-[#F2F4F6] opacity-50"}`}>
-                        <input
-                          type="checkbox" checked={enabled}
-                          onChange={() => toggleCategory(r.key)}
-                          className="accent-[#3182F6] w-3.5 h-3.5"
-                        />
-                        <div className="w-24 shrink-0">
-                          <div className="text-xs text-[#4E5968]">{r.name}</div>
-                          {r.note && <div className="text-[9px] text-[#8B95A1]">{r.note}</div>}
-                        </div>
-                        <input
-                          type="number" min={0} max={100} value={r.min} disabled={!enabled}
-                          onChange={e => updateRatio(r.key, "min", parseInt(e.target.value) || 0)}
-                          className="w-12 border border-[#E5E8EB] rounded px-1.5 py-1 text-xs text-center focus:outline-none focus:border-[#3182F6] disabled:bg-[#F2F4F6]"
-                        />
-                        <span className="text-[10px] text-[#8B95A1]">~</span>
-                        <input
-                          type="number" min={0} max={100} value={r.max} disabled={!enabled}
-                          onChange={e => updateRatio(r.key, "max", parseInt(e.target.value) || 0)}
-                          className="w-12 border border-[#E5E8EB] rounded px-1.5 py-1 text-xs text-center focus:outline-none focus:border-[#3182F6] disabled:bg-[#F2F4F6]"
-                        />
-                        <span className="text-[10px] text-[#8B95A1]">%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {revenueNum > 0 && enabledKeys.has("entertainment") && (
-                  <div className="text-[10px] text-[#8B95A1] mt-1.5">
-                    접대비 한도: 1,200만원 + 매출 0.3%({fmt(Math.round(revenueNum * 0.003))}원) = <strong>{fmt(entertainmentLimit)}원</strong>
-                  </div>
-                )}
-              </div>
-
-              {/* 랜덤 생성 버튼 */}
-              <button
-                onClick={handleGenerate}
-                disabled={extraExpNum <= 0}
-                className="w-full py-3 bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white font-bold rounded-xl hover:from-[#1B64DA] hover:to-[#1551B0] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-200"
-              >
-                🎲 랜덤 배분 생성
-              </button>
-
-              {/* 배분 결과 */}
-              {generated && allocated.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#333D4B]">배분 결과</span>
-                    <button
-                      onClick={handleGenerate}
-                      className="text-[10px] px-2 py-1 bg-[#E8F3FF] text-[#1B64DA] rounded hover:bg-[#D4E8FF]"
-                    >🔄 다시 생성</button>
-                  </div>
-                  {allocated.map(item => (
-                    <div key={item.key} className="flex items-center justify-between bg-white border border-[#E5E8EB] rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-[#4E5968]">{item.name}</span>
-                        <span className="text-[10px] text-[#8B95A1]">({item.ratio.toFixed(1)}%)</span>
-                      </div>
-                      <span className="text-sm font-bold text-[#191F28]">{fmt(item.amount)}원</span>
-                    </div>
-                  ))}
-                  <div className="bg-[#F5F9FF] rounded-lg px-3 py-2 flex justify-between items-center border border-blue-100">
-                    <span className="text-xs font-bold text-[#1B64DA]">가공경비 합계</span>
-                    <span className="text-sm font-bold text-[#1B64DA]">{fmt(allocated.reduce((s, a) => s + a.amount, 0))}원</span>
-                  </div>
-                </div>
-              )}
+        {/* 가공경비 */}
+        <div className="bg-gradient-to-br from-[#F5F9FF] to-[#EFF6FF] border border-blue-100 rounded-xl p-3 space-y-3">
+          <div className="grid grid-cols-12 gap-2 items-end">
+            <div className="col-span-8">
+              <NumField label="가공경비 총액" value={b.extraExpense} onChange={v => onChange({ extraExpense: v })} suffix="원" placeholder="투입할 가공경비" />
             </div>
-          </Card>
+            <div className="col-span-4">
+              <button
+                onClick={onGenerate}
+                disabled={parse(b.extraExpense) <= 0}
+                className="w-full py-2 bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white text-sm font-bold rounded-[10px] hover:from-[#1B64DA] hover:to-[#1551B0] disabled:opacity-40 transition-all shadow shadow-blue-200/50"
+              >🎲 랜덤 배분</button>
+            </div>
+          </div>
 
-          {/* 세액 계산 결과 */}
-          {revenueNum > 0 && (
-            <Card title="종합소득세 계산 결과" result>
-              <div className="space-y-1 text-[12px]">
-                <ResultRow label="총 수입금액" value={revenueNum} />
-                <ResultRow label="실제 경비 (간소화자료)" value={actualExpense} sub />
-                <ResultRow label="가공경비" value={extraExpNum} sub />
-                <div className="border-t border-[#E5E8EB] pt-1">
-                  <ResultRow label="총 경비" value={totalExpense} bold />
-                </div>
-                <ResultRow label="소득금액" value={income} bold />
-                <ResultRow label="소득공제" value={totalDeduction} sub />
-                <div className="border-t border-[#E5E8EB] pt-1">
-                  <ResultRow label="과세표준" value={taxBase} bold note={getTaxRateLabel(taxBase)} />
-                </div>
-                <ResultRow label="산출세액" value={computedTax} />
-                <ResultRow label="세액공제 (표준)" value={standardCredit} sub />
-                <div className="border-t border-[#E5E8EB] pt-1">
-                  <ResultRow label="결정세액" value={determinedTax} bold />
-                  <ResultRow label="지방소득세 (10%)" value={localTax} />
-                  <ResultRow label="총 세액" value={totalTax} bold />
-                </div>
-                <ResultRow label="기납부세액" value={effectivePrepaid} sub />
-
-                <div className={`mt-2 -mx-4 px-4 py-3 ${finalPayment >= 0 ? "bg-gradient-to-r from-amber-50 to-orange-50" : "bg-gradient-to-r from-blue-50 to-indigo-50"}`}>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-[#333D4B]">
-                      {finalPayment >= 0 ? "납부할 세액" : "환급 세액"}
-                    </span>
-                    <span className={`text-2xl font-bold ${finalPayment >= 0 ? "text-[#B45309]" : "text-[#3182F6]"}`}>
-                      {fmt(Math.abs(finalPayment))}원
-                    </span>
+          {b.generated && b.allocated.length > 0 && (
+            <div className="space-y-1.5">
+              {b.allocated.map(item => (
+                <div key={item.key} className="flex items-center justify-between bg-white rounded-lg px-3 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-[#4E5968]">{item.name}</span>
+                    <span className="text-[10px] text-[#8B95A1]">({item.ratio.toFixed(1)}%)</span>
                   </div>
+                  <span className="text-sm font-bold text-[#191F28]">{fmt(item.amount)}원</span>
                 </div>
-
-                {/* 가공경비 효과 */}
-                {extraExpNum > 0 && taxSaved > 0 && (
-                  <div className="mt-3 bg-[#F0FDF4] border border-emerald-200 rounded-lg px-3 py-2">
-                    <div className="flex justify-between items-center">
-                      <div className="text-[11px] text-emerald-700">
-                        <strong>가공경비 절세효과</strong>
-                        <span className="block text-[10px] text-emerald-600">{fmt(extraExpNum)}원 투입 → 절감률 {((taxSaved / extraExpNum) * 100).toFixed(1)}%</span>
-                      </div>
-                      <span className="text-base font-bold text-emerald-700">-{fmt(taxSaved)}원</span>
-                    </div>
-                  </div>
-                )}
+              ))}
+              <div className="flex items-center justify-between bg-blue-100 rounded-lg px-3 py-1.5">
+                <span className="text-xs font-bold text-[#1B64DA]">합계</span>
+                <span className="text-sm font-bold text-[#1B64DA]">{fmt(allocatedSum)}원</span>
               </div>
-            </Card>
+            </div>
           )}
         </div>
+
+        {/* 사업장 소득금액 */}
+        <div className="flex items-center justify-between bg-[#F9FAFB] rounded-lg px-4 py-2.5 border border-[#E5E8EB]">
+          <span className="text-xs font-bold text-[#4E5968]">사업장 소득금액</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#8B95A1]">매출 {fmt(incomeData.rev)} − 경비 {fmt(incomeData.expense)} =</span>
+            <span className="text-base font-bold text-[#191F28]">{fmt(incomeData.income)}원</span>
+            {b.isDoubleEntry && <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-[#1B64DA] rounded font-medium">복식부기</span>}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function Card({ title, children, accent, result }: { title: string; children: React.ReactNode; accent?: boolean; result?: boolean }) {
-  const headerBg = accent
-    ? "bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white"
-    : result
-      ? "bg-gradient-to-r from-[#2a4a6a] to-[#1a3a5a] text-white"
-      : "bg-[#F9FAFB] text-[#333D4B]";
+// ── 소득공제 카드 ──
+function DeductionCard({
+  taxYear, dependents, setDependents,
+  hasSpouse, setHasSpouse,
+  deductWoman, setDeductWoman,
+  deductSingleParent, setDeductSingleParent,
+  pension, setPension,
+  umbrella, setUmbrella,
+  totalDeduction,
+}: any) {
   return (
-    <div className="bg-white border border-[#E5E8EB] rounded-xl overflow-hidden shadow-sm">
-      <div className={`px-4 py-2.5 border-b border-[#E5E8EB] ${headerBg}`}>
-        <h3 className="text-sm font-bold">{title}</h3>
+    <div className="bg-white border border-[#E5E8EB] rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-[#F9FAFB] px-4 py-2.5 border-b border-[#E5E8EB] flex items-center justify-between">
+        <h3 className="text-sm font-bold text-[#333D4B]">소득공제</h3>
+        <span className="text-xs text-[#8B95A1]">합계 {fmt(totalDeduction)}원</span>
       </div>
-      <div className="px-4 py-3">{children}</div>
+      <div className="p-4 space-y-3">
+        {/* 본인 + 배우자 */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-2 bg-[#F5F9FF] rounded-lg px-3 py-2 border border-blue-100">
+            <span className="text-xs font-medium text-[#1B64DA]">기본공제 (본인)</span>
+            <span className="text-xs font-bold text-blue-800 ml-auto">1,500,000원</span>
+          </div>
+          <label className="flex-1 flex items-center gap-2 bg-[#F9FAFB] rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" checked={hasSpouse} onChange={(e: any) => setHasSpouse(e.target.checked)} className="accent-[#3182F6] w-3.5 h-3.5" />
+            <span className="text-xs text-[#4E5968]">배우자공제 (1,500,000원)</span>
+          </label>
+        </div>
+
+        {/* 부양가족 */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-[#4E5968]">부양가족 (배우자 외)</span>
+            <button
+              onClick={() => setDependents((prev: Dependent[]) => [...prev, { id: `dep_${Date.now()}`, name: "", relation: "child", residentNumber: "", isDisabled: false, birthOrder: 0 }])}
+              className="text-[10px] px-2 py-1 bg-[#3182F6] text-white rounded hover:bg-[#1B64DA]"
+            >+ 추가</button>
+          </div>
+          {dependents.length === 0 && (
+            <div className="text-xs text-[#8B95A1] text-center py-2 bg-[#F9FAFB] rounded-lg">부양가족이 없습니다</div>
+          )}
+          {dependents.map((dep: Dependent, idx: number) => {
+            const elderly = isElderly(dep.residentNumber, taxYear);
+            const childCredit = dep.relation === "child" && isChildCreditAge(dep.residentNumber, taxYear);
+            const personSum = 1500000 + (elderly ? 1000000 : 0) + (dep.isDisabled ? 2000000 : 0);
+            return (
+              <div key={dep.id} className="flex items-center gap-1.5 mb-1.5 bg-[#F9FAFB] rounded-lg px-3 py-2">
+                <span className="text-[10px] text-[#8B95A1] w-4 shrink-0">{idx + 1}</span>
+                <input type="text" value={dep.name} placeholder="이름"
+                  onChange={(e: any) => setDependents((prev: Dependent[]) => prev.map(d => d.id === dep.id ? { ...d, name: e.target.value } : d))}
+                  className="border border-[#E5E8EB] bg-white rounded px-2 py-1 text-xs w-16" />
+                <select value={dep.relation}
+                  onChange={(e: any) => setDependents((prev: Dependent[]) => prev.map(d => d.id === dep.id ? { ...d, relation: e.target.value as Dependent["relation"] } : d))}
+                  className="border border-[#E5E8EB] bg-white rounded px-1 py-1 text-xs">
+                  <option value="child">자녀</option>
+                  <option value="father">부</option>
+                  <option value="mother">모</option>
+                  <option value="other">기타</option>
+                </select>
+                <input type="text" value={dep.residentNumber} placeholder="앞6자리" maxLength={6}
+                  onChange={(e: any) => setDependents((prev: Dependent[]) => prev.map(d => d.id === dep.id ? { ...d, residentNumber: e.target.value.replace(/\D/g, "") } : d))}
+                  className="border border-[#E5E8EB] bg-white rounded px-2 py-1 text-xs w-20" />
+                {elderly && <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-[#1B64DA] rounded shrink-0">70+</span>}
+                {childCredit && <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded shrink-0">자녀공제</span>}
+                {dep.relation === "child" && getBirthYear(dep.residentNumber) === taxYear && (
+                  <select value={dep.birthOrder}
+                    onChange={(e: any) => setDependents((prev: Dependent[]) => prev.map(d => d.id === dep.id ? { ...d, birthOrder: parseInt(e.target.value) } : d))}
+                    className="border border-[#E5E8EB] bg-white rounded px-1 py-1 text-[10px]">
+                    <option value={0}>출산순서</option><option value={1}>첫째</option><option value={2}>둘째</option><option value={3}>셋째+</option>
+                  </select>
+                )}
+                <label className="flex items-center gap-1 text-[10px] text-[#6B7684] shrink-0 cursor-pointer">
+                  <input type="checkbox" checked={dep.isDisabled}
+                    onChange={(e: any) => setDependents((prev: Dependent[]) => prev.map(d => d.id === dep.id ? { ...d, isDisabled: e.target.checked } : d))}
+                    className="accent-[#3182F6] w-3 h-3" />
+                  장애
+                </label>
+                <div className="flex-1" />
+                <span className="text-[10px] text-[#191F28] font-medium shrink-0">{fmt(personSum)}원</span>
+                <button onClick={() => setDependents((prev: Dependent[]) => prev.filter(d => d.id !== dep.id))} className="text-[#B0B8C1] hover:text-red-600 text-sm shrink-0">✕</button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 부녀자 / 한부모 */}
+        <div className="flex items-center gap-3">
+          <label className="flex-1 flex items-center gap-2 bg-[#F9FAFB] rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" checked={deductWoman} onChange={(e: any) => setDeductWoman(e.target.checked)} className="accent-[#3182F6] w-3.5 h-3.5" />
+            <span className="text-xs text-[#4E5968]">부녀자공제 (500,000원)</span>
+          </label>
+          <label className="flex-1 flex items-center gap-2 bg-[#F9FAFB] rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" checked={deductSingleParent} onChange={(e: any) => setDeductSingleParent(e.target.checked)} className="accent-[#3182F6] w-3.5 h-3.5" />
+            <span className="text-xs text-[#4E5968]">한부모가족 (1,000,000원)</span>
+          </label>
+        </div>
+
+        {/* 국민연금 + 노란우산 */}
+        <div className="grid grid-cols-2 gap-3">
+          <NumField label="국민연금 납입액" value={pension} onChange={setPension} suffix="원" />
+          <NumField label="노란우산공제" value={umbrella} onChange={setUmbrella} suffix="원" />
+        </div>
+      </div>
     </div>
   );
 }
 
+// ── 세액공제 카드 ──
+function CreditCard({
+  marriageCredit, setMarriageCredit,
+  pensionSaving, setPensionSaving,
+  retirementPension, setRetirementPension,
+  totalIncome, bookkeepingCreditAmt, doubleEntryIncome,
+  childCreditAmt, birthCreditAmt, pensionCreditAmt,
+}: any) {
+  return (
+    <div className="bg-white border border-[#E5E8EB] rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-[#F9FAFB] px-4 py-2.5 border-b border-[#E5E8EB]">
+        <h3 className="text-sm font-bold text-[#333D4B]">세액공제</h3>
+      </div>
+      <div className="p-4 space-y-3">
+        {/* 자동 표시 (정보) */}
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
+          {childCreditAmt > 0 && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 flex justify-between">
+              <span className="text-emerald-700">자녀세액공제 (자동)</span>
+              <span className="font-bold text-emerald-800">{fmt(childCreditAmt)}원</span>
+            </div>
+          )}
+          {birthCreditAmt > 0 && (
+            <div className="bg-pink-50 border border-pink-200 rounded-lg px-3 py-1.5 flex justify-between">
+              <span className="text-pink-700">출산세액공제 (자동)</span>
+              <span className="font-bold text-pink-800">{fmt(birthCreditAmt)}원</span>
+            </div>
+          )}
+          {bookkeepingCreditAmt > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex justify-between col-span-2">
+              <span className="text-amber-700">기장세액공제 (복식부기 소득 {fmt(doubleEntryIncome)}원, 한도 100만)</span>
+              <span className="font-bold text-amber-800">{fmt(bookkeepingCreditAmt)}원</span>
+            </div>
+          )}
+        </div>
+
+        {/* 혼인 */}
+        <label className="flex items-center gap-2 bg-[#F9FAFB] rounded-lg px-3 py-2 cursor-pointer">
+          <input type="checkbox" checked={marriageCredit} onChange={(e: any) => setMarriageCredit(e.target.checked)} className="accent-[#3182F6] w-3.5 h-3.5" />
+          <span className="text-xs text-[#4E5968]">혼인세액공제 (500,000원)</span>
+        </label>
+
+        {/* 연금계좌 */}
+        <div className="grid grid-cols-2 gap-3">
+          <NumField label="연금저축 납입액" value={pensionSaving} onChange={setPensionSaving} suffix="원" />
+          <NumField label="퇴직연금 납입액" value={retirementPension} onChange={setRetirementPension} suffix="원" />
+        </div>
+        {pensionCreditAmt > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 flex justify-between text-[11px]">
+            <span className="text-blue-700">연금계좌세액공제 ({totalIncome <= 45000000 ? "15%" : "12%"} 적용)</span>
+            <span className="font-bold text-blue-800">{fmt(pensionCreditAmt)}원</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 결과 카드 ──
+function ResultCard({
+  totalRevenue, totalActualExpense, totalExtraExpense,
+  totalIncome, totalDeduction, taxBase, computedTax,
+  standardCredit, childCreditAmt, birthCreditAmt, marriageCreditAmt,
+  bookkeepingCreditAmt, pensionCreditAmt,
+  determinedTax, localTax, totalTax, effectivePrepaid, finalPayment,
+}: any) {
+  return (
+    <div className="bg-white border border-[#E5E8EB] rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-gradient-to-r from-[#2a4a6a] to-[#1a3a5a] px-4 py-2.5">
+        <h3 className="text-sm font-bold text-white">종합소득세 계산 결과</h3>
+      </div>
+      <div className="p-4 space-y-1 text-[12px]">
+        <Row label="총 수입금액" value={totalRevenue} />
+        <Row label="실제 경비 (간소화)" value={totalActualExpense} sub />
+        <Row label="가공경비" value={totalExtraExpense} sub />
+        <div className="border-t border-[#E5E8EB] pt-1">
+          <Row label="종합소득금액" value={totalIncome} bold />
+        </div>
+        <Row label="소득공제" value={totalDeduction} sub />
+        <div className="border-t border-[#E5E8EB] pt-1">
+          <Row label="과세표준" value={taxBase} bold note={getTaxRateLabel(taxBase)} />
+        </div>
+        <Row label="산출세액" value={computedTax} />
+        <Row label="표준세액공제" value={standardCredit} sub />
+        {childCreditAmt > 0 && <Row label="자녀세액공제" value={childCreditAmt} sub />}
+        {birthCreditAmt > 0 && <Row label="출산세액공제" value={birthCreditAmt} sub />}
+        {marriageCreditAmt > 0 && <Row label="혼인세액공제" value={marriageCreditAmt} sub />}
+        {bookkeepingCreditAmt > 0 && <Row label="기장세액공제" value={bookkeepingCreditAmt} sub />}
+        {pensionCreditAmt > 0 && <Row label="연금계좌세액공제" value={pensionCreditAmt} sub />}
+        <div className="border-t border-[#E5E8EB] pt-1">
+          <Row label="결정세액" value={determinedTax} bold />
+          <Row label="지방소득세 (10%)" value={localTax} />
+          <Row label="총 세액" value={totalTax} bold />
+        </div>
+        <Row label="기납부세액" value={effectivePrepaid} sub />
+
+        <div className={`mt-2 -mx-4 px-4 py-3 ${finalPayment >= 0 ? "bg-gradient-to-r from-amber-50 to-orange-50" : "bg-gradient-to-r from-blue-50 to-indigo-50"}`}>
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-bold text-[#333D4B]">{finalPayment >= 0 ? "납부할 세액" : "환급 세액"}</span>
+            <span className={`text-2xl font-bold ${finalPayment >= 0 ? "text-[#B45309]" : "text-[#3182F6]"}`}>
+              {fmt(Math.abs(finalPayment))}원
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 공통 컴포넌트 ──
 function NumField({ label, value, onChange, suffix, placeholder }: {
   label: string; value: string; onChange: (v: string) => void; suffix: string; placeholder?: string;
 }) {
@@ -579,32 +897,11 @@ function NumField({ label, value, onChange, suffix, placeholder }: {
   );
 }
 
-function ResultRow({ label, value, sub, bold, note }: { label: string; value: number; sub?: boolean; bold?: boolean; note?: string }) {
+function Row({ label, value, sub, bold, note }: { label: string; value: number; sub?: boolean; bold?: boolean; note?: string }) {
   return (
     <div className={`flex justify-between py-0.5 ${bold ? "font-medium" : ""}`}>
       <span className="text-[#6B7684]">{label} {note && <span className="text-[9px] text-[#8B95A1]">({note})</span>}</span>
       <span className={sub ? "text-[#E02E2E]" : "text-[#191F28]"}>{sub ? "-" : ""}{fmt(value)}원</span>
-    </div>
-  );
-}
-
-function RateBox({ label, value, amount, hint, tone }: {
-  label: string; value: string; amount: number; hint: string; tone: "green" | "blue" | "amber" | "red";
-}) {
-  const tones = {
-    green: "bg-[#F0FDF4] border-emerald-200 text-emerald-700",
-    blue: "bg-[#F5F9FF] border-blue-200 text-blue-700",
-    amber: "bg-[#FFFBEB] border-amber-200 text-amber-700",
-    red: "bg-[#FEF2F2] border-red-200 text-red-700",
-  };
-  return (
-    <div className={`rounded-xl border px-3 py-2 ${tones[tone]}`}>
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium opacity-80">{label}</span>
-        <span className="text-sm font-bold">{value}</span>
-      </div>
-      <div className="text-sm font-bold mt-0.5">{fmt(amount)}원</div>
-      <div className="text-[9px] opacity-70 mt-0.5">{hint}</div>
     </div>
   );
 }
