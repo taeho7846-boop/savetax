@@ -64,6 +64,7 @@ const CATEGORIES: Category[] = [
     subs: [
       { href: "/withholding", label: "원천세" },
       { href: "/income-tax", label: "종합소득세" },
+      { href: "/freelancer-calc", label: "프리랜서 장부" },
       { href: "/data-collect", label: "자료수집" },
     ],
   },
