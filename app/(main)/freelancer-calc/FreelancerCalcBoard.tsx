@@ -125,6 +125,13 @@ const ENTERTAINMENT_BASE_LIMIT = 12000000;
 
 type AllocatedExpense = { key: string; name: string; amount: number; ratio: number };
 
+type BusinessAllocation = {
+  bizId: string;
+  bizLabel: string;
+  bizExtra: number;
+  items: AllocatedExpense[];
+};
+
 function randomAllocate(total: number, ratios: CategoryRatio[], entertainmentLimit: number): AllocatedExpense[] {
   if (total <= 0) return ratios.map(r => ({ key: r.key, name: r.name, amount: 0, ratio: 0 }));
   const raw = ratios.map(r => r.min + Math.random() * (r.max - r.min));
@@ -184,9 +191,9 @@ export function FreelancerCalcBoard() {
   const [debitCard, setDebitCard] = useState("");
   const [cashReceipt, setCashReceipt] = useState("");
 
-  // 가공경비 (전체 통합)
+  // 가공경비 (전체 통합 입력 → 사업장별 배분 결과)
   const [extraExpense, setExtraExpense] = useState("");
-  const [allocated, setAllocated] = useState<AllocatedExpense[]>([]);
+  const [businessAllocations, setBusinessAllocations] = useState<BusinessAllocation[]>([]);
   const [generated, setGenerated] = useState(false);
 
   // 기납부세액
@@ -313,11 +320,36 @@ export function FreelancerCalcBoard() {
   }
 
   const handleGenerate = useCallback(() => {
+    if (extraExpNum <= 0 || totalRevenue <= 0) return;
     const enabledRatios = ratios.filter(r => enabledKeys.has(r.key));
-    const result = randomAllocate(extraExpNum, enabledRatios, entertainmentLimit);
-    setAllocated(result);
+
+    // 매출비율로 사업장별 가공경비 분배 (반올림 차이는 마지막 사업장에 흡수)
+    const allocs: BusinessAllocation[] = [];
+    let assigned = 0;
+    businesses.forEach((b, idx) => {
+      const rev = parse(b.revenue);
+      if (rev <= 0) return;
+      const isLast = idx === businesses.length - 1;
+      const bizExtra = isLast
+        ? extraExpNum - assigned
+        : Math.round(extraExpNum * (rev / totalRevenue));
+      assigned += bizExtra;
+
+      // 사업장별 접대비 한도 = 1,200만 + 매출 0.3%
+      const bizEntertainmentLimit = ENTERTAINMENT_BASE_LIMIT + Math.round(rev * 0.003);
+      const items = randomAllocate(bizExtra, enabledRatios, bizEntertainmentLimit);
+
+      allocs.push({
+        bizId: b.id,
+        bizLabel: `사업장 ${idx + 1}${b.bizName ? ` · ${b.bizName}` : ""}`,
+        bizExtra,
+        items,
+      });
+    });
+
+    setBusinessAllocations(allocs);
     setGenerated(true);
-  }, [extraExpNum, ratios, enabledKeys, entertainmentLimit]);
+  }, [extraExpNum, ratios, enabledKeys, businesses, totalRevenue]);
 
   const updateRatio = (key: string, field: "min" | "max", value: number) => {
     setRatios(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r));
@@ -452,21 +484,33 @@ export function FreelancerCalcBoard() {
                 </div>
               )}
 
-              {generated && allocated.length > 0 && (
-                <div className="space-y-1.5">
-                  {allocated.map(item => (
-                    <div key={item.key} className="flex items-center justify-between bg-white border border-[#E5E8EB] rounded-lg px-3 py-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-[#4E5968]">{item.name}</span>
-                        <span className="text-[10px] text-[#8B95A1]">({item.ratio.toFixed(1)}%)</span>
+              {generated && businessAllocations.length > 0 && (
+                <div className="space-y-3">
+                  {businessAllocations.map(ba => (
+                    <div key={ba.bizId} className="bg-white border border-[#E5E8EB] rounded-lg overflow-hidden">
+                      <div className="bg-gradient-to-r from-[#F5F9FF] to-[#EFF6FF] px-3 py-2 flex items-center justify-between border-b border-blue-100">
+                        <span className="text-xs font-bold text-[#1B64DA]">{ba.bizLabel}</span>
+                        <span className="text-sm font-bold text-[#1B64DA]">{fmt(ba.bizExtra)}원</span>
                       </div>
-                      <span className="text-sm font-bold text-[#191F28]">{fmt(item.amount)}원</span>
+                      <div className="p-2 space-y-0.5">
+                        {ba.items.map(item => (
+                          <div key={item.key} className="flex items-center justify-between px-2 py-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-[#4E5968]">{item.name}</span>
+                              <span className="text-[9px] text-[#8B95A1]">({item.ratio.toFixed(1)}%)</span>
+                            </div>
+                            <span className="text-xs font-medium text-[#191F28]">{fmt(item.amount)}원</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between bg-[#F5F9FF] rounded-lg px-3 py-1.5 border border-blue-100">
-                    <span className="text-xs font-bold text-[#1B64DA]">합계</span>
-                    <span className="text-sm font-bold text-[#1B64DA]">{fmt(allocated.reduce((s, a) => s + a.amount, 0))}원</span>
-                  </div>
+                  {businessAllocations.length > 1 && (
+                    <div className="flex items-center justify-between bg-[#1B64DA] text-white rounded-lg px-3 py-2">
+                      <span className="text-xs font-bold">전체 가공경비 합계</span>
+                      <span className="text-sm font-bold">{fmt(businessAllocations.reduce((s, a) => s + a.bizExtra, 0))}원</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
