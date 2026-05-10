@@ -496,8 +496,8 @@ export function FreelancerCalcBoard() {
           </Card>
         </div>
 
-        {/* ── 우측 (2/5): 결과 sticky ── */}
-        <div className="lg:col-span-2 space-y-4 lg:sticky lg:top-4 self-start">
+        {/* ── 우측 (2/5): 결과 sticky + 내부 스크롤 ── */}
+        <div className="lg:col-span-2 space-y-4 lg:sticky lg:top-4 self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1">
           {/* 결과 (먼저) */}
           {totalRevenue > 0 ? (
             <ResultCard
