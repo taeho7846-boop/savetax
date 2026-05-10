@@ -112,13 +112,14 @@ function lookupBizCode(code: string): BizCode | undefined {
 // ── 가공경비 비율 ──
 type CategoryRatio = { name: string; key: string; min: number; max: number; note?: string };
 
+// 간편장부 양식 순서: 29(기업업무추진비) → 32(차량유지비) → 33(지급수수료) → 34(소모품비) → 38(여비교통비) → 39(기타)
 const DEFAULT_RATIOS: CategoryRatio[] = [
-  { name: "지급수수료", key: "commission", min: 22, max: 38, note: "안전·소명용이" },
-  { name: "여비교통비", key: "travel", min: 15, max: 28, note: "출장·이동" },
-  { name: "접대비", key: "entertainment", min: 10, max: 18, note: "결혼·부고 등" },
-  { name: "소모품비", key: "supplies", min: 10, max: 20, note: "사무용품" },
-  { name: "차량유지비", key: "vehicle", min: 8, max: 15, note: "차량 보유시" },
-  { name: "기타", key: "other", min: 8, max: 18, note: "통신비·잡비" },
+  { name: "기업업무추진비", key: "entertainment", min: 10, max: 18, note: "29번 · 결혼·부고 등 (한도 적용)" },
+  { name: "차량유지비", key: "vehicle", min: 8, max: 15, note: "32번 · 차량 보유시" },
+  { name: "지급수수료", key: "commission", min: 22, max: 38, note: "33번 · 안전·소명용이" },
+  { name: "소모품비", key: "supplies", min: 10, max: 20, note: "34번 · 사무용품" },
+  { name: "여비교통비", key: "travel", min: 15, max: 28, note: "38번 · 출장·이동" },
+  { name: "기타", key: "other", min: 8, max: 18, note: "39번 · 통신비·잡비" },
 ];
 
 const ENTERTAINMENT_BASE_LIMIT = 12000000;
