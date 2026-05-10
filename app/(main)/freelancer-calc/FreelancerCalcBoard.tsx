@@ -129,7 +129,9 @@ type AllocatedExpense = { key: string; name: string; amount: number; ratio: numb
 type BusinessAllocation = {
   bizId: string;
   bizLabel: string;
+  bizActual: number;
   bizExtra: number;
+  bizTotal: number;
   items: AllocatedExpense[];
 };
 
@@ -340,42 +342,57 @@ export function FreelancerCalcBoard() {
   }
 
   const handleGenerate = useCallback(() => {
-    if (extraExpNum <= 0 || totalRevenue <= 0) return;
+    if (totalRevenue <= 0 || (actualExpense + extraExpNum) <= 0) return;
     const enabledRatios = ratios.filter(r => enabledKeys.has(r.key));
 
-    // 가공경비 필요량 비율로 분배 (없으면 매출비율, 반올림 차이는 마지막 사업장에 흡수)
+    // 가공경비는 필요량 비율(or 매출비율) 분배, 실제경비는 매출비율 분배
+    // 둘을 합쳐 사업장 총경비를 6개 계정과목에 배분
     const allocs: BusinessAllocation[] = [];
-    let assigned = 0;
+    let assignedActual = 0;
+    let assignedExtra = 0;
     const eligible = businesses.map((b, idx) => ({ b, idx, calc: bizCalc[idx] })).filter(x => x.calc.rev > 0);
     eligible.forEach((x, eIdx) => {
       const { b, idx, calc } = x;
       const isLast = eIdx === eligible.length - 1;
+
+      // 실제경비 분배 (매출비율, 반올림 차이는 마지막 사업장에 흡수)
+      const bizActual = isLast
+        ? actualExpense - assignedActual
+        : Math.round(actualExpense * calc.revRatio);
+      assignedActual += bizActual;
+
+      // 가공경비 분배 (필요량 비율 우선)
       let bizExtra: number;
       if (isLast) {
-        bizExtra = extraExpNum - assigned;
+        bizExtra = extraExpNum - assignedExtra;
       } else if (useNeededRatio) {
         bizExtra = Math.round(extraExpNum * (calc.gakgongNeeded / optimalGakgong));
       } else {
         bizExtra = Math.round(extraExpNum * calc.revRatio);
       }
-      assigned += bizExtra;
+      assignedExtra += bizExtra;
 
+      const bizTotal = bizActual + bizExtra;
+
+      // 접대비 한도 (사업장 매출 기준)
       const bizEntertainmentLimit = ENTERTAINMENT_BASE_LIMIT + Math.round(calc.rev * 0.003);
-      const items = randomAllocate(bizExtra, enabledRatios, bizEntertainmentLimit);
+      const items = randomAllocate(bizTotal, enabledRatios, bizEntertainmentLimit);
 
       const codePart = b.bizCode ? ` (${b.bizCode})` : "";
       const namePart = b.bizName ? ` ${b.bizName}` : "";
       allocs.push({
         bizId: b.id,
         bizLabel: `사업장 ${idx + 1}${codePart}${namePart}`,
+        bizActual,
         bizExtra,
+        bizTotal,
         items,
       });
     });
 
     setBusinessAllocations(allocs);
     setGenerated(true);
-  }, [extraExpNum, ratios, enabledKeys, businesses, totalRevenue, bizCalc, useNeededRatio, optimalGakgong]);
+  }, [actualExpense, extraExpNum, ratios, enabledKeys, businesses, totalRevenue, bizCalc, useNeededRatio, optimalGakgong]);
 
   const handleOptimal = useCallback(() => {
     if (totalRevenue <= 0) {
@@ -521,7 +538,7 @@ export function FreelancerCalcBoard() {
                 <div className="col-span-4">
                   <button
                     onClick={handleGenerate}
-                    disabled={extraExpNum <= 0}
+                    disabled={(actualExpense + extraExpNum) <= 0 || totalRevenue <= 0}
                     className="w-full py-2 bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white text-sm font-bold rounded-[10px] hover:from-[#1B64DA] hover:to-[#1551B0] disabled:opacity-40 transition-all shadow shadow-blue-200/50"
                   >🎲 랜덤 배분</button>
                 </div>
@@ -537,9 +554,14 @@ export function FreelancerCalcBoard() {
                 <div className="space-y-3">
                   {businessAllocations.map(ba => (
                     <div key={ba.bizId} className="bg-white border border-[#E5E8EB] rounded-lg overflow-hidden">
-                      <div className="bg-gradient-to-r from-[#F5F9FF] to-[#EFF6FF] px-3 py-2 flex items-center justify-between border-b border-blue-100">
-                        <span className="text-xs font-bold text-[#1B64DA]">{ba.bizLabel}</span>
-                        <span className="text-sm font-bold text-[#1B64DA]">{fmt(ba.bizExtra)}원</span>
+                      <div className="bg-gradient-to-r from-[#F5F9FF] to-[#EFF6FF] px-3 py-2 border-b border-blue-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#1B64DA]">{ba.bizLabel}</span>
+                          <span className="text-sm font-bold text-[#1B64DA]">{fmt(ba.bizTotal)}원</span>
+                        </div>
+                        <div className="text-[10px] text-[#6B7684] mt-0.5">
+                          실제 {fmt(ba.bizActual)} + 가공 {fmt(ba.bizExtra)} = 총 {fmt(ba.bizTotal)}원
+                        </div>
                       </div>
                       <div className="p-2 space-y-0.5">
                         {ba.items.map(item => (
@@ -555,9 +577,14 @@ export function FreelancerCalcBoard() {
                     </div>
                   ))}
                   {businessAllocations.length > 1 && (
-                    <div className="flex items-center justify-between bg-[#1B64DA] text-white rounded-lg px-3 py-2">
-                      <span className="text-xs font-bold">전체 가공경비 합계</span>
-                      <span className="text-sm font-bold">{fmt(businessAllocations.reduce((s, a) => s + a.bizExtra, 0))}원</span>
+                    <div className="bg-[#1B64DA] text-white rounded-lg px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold">전체 경비 합계</span>
+                        <span className="text-sm font-bold">{fmt(businessAllocations.reduce((s, a) => s + a.bizTotal, 0))}원</span>
+                      </div>
+                      <div className="text-[10px] text-blue-100 mt-0.5">
+                        실제 {fmt(businessAllocations.reduce((s, a) => s + a.bizActual, 0))} + 가공 {fmt(businessAllocations.reduce((s, a) => s + a.bizExtra, 0))}
+                      </div>
                     </div>
                   )}
                 </div>
