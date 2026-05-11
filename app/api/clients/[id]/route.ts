@@ -22,12 +22,5 @@ export async function GET(
 
   if (!client) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  // 권한 체크: 내 고객사 또는 readonly role
-  if (session.role !== "readonly" && session.role !== "owner" && session.role !== "admin") {
-    if (client.assignedUserId !== session.id) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
-    }
-  }
-
   return NextResponse.json({ client });
 }
