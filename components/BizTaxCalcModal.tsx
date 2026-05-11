@@ -72,15 +72,18 @@ type CalcResult = {
   taxBase: number;
   taxRate: string;
   computedTax: number;
+  // 최저한세 적용대상
   startupReduction: number;
   smeReduction: number;
   investCredit: number;
   employmentCredit: number;
-  standardCreditAmt: number;
-  bookkeepingCreditAmt: number;
-  afterReduction: number;
+  afterMinTaxCredits: number;
   minTax: number;
   hitMinTax: boolean;
+  afterMinTax: number;
+  // 최저한세 적용제외
+  standardCreditAmt: number;
+  bookkeepingCreditAmt: number;
   finalTax: number;
   localTax: number;
   totalTax: number;
@@ -103,29 +106,25 @@ function calculate(input: CalcInput): CalcResult {
   const taxRate = getTaxRateLabel(taxBase);
   const computedTax = Math.round(calcTax(taxBase));
 
-  // 세액감면
+  // ── 최저한세 적용대상 (감면 + 일부 세액공제) ──
   const startupReduction = Math.round(computedTax * input.startupRate / 100);
   const afterStartup = computedTax - startupReduction;
   const smeReduction = Math.round(afterStartup * input.smeRate / 100);
   const afterSme = afterStartup - smeReduction;
+  const afterMinTaxCredits = Math.max(afterSme - input.investCredit - input.employmentCredit, 0);
 
-  // 세액공제
+  // ── 최저한세 비교 ──
+  const minTax = calcMinTax(computedTax);
+  const hitMinTax = input.startupRate !== 100 && afterMinTaxCredits < minTax;
+  const afterMinTax = input.startupRate === 100 ? afterMinTaxCredits : Math.max(afterMinTaxCredits, minTax);
+
+  // ── 최저한세 적용제외 (표준·기장세액공제는 최저한세 이후 차감) ──
   const standardCreditAmt = input.standardCredit ? 70000 : 0;
-  // 기장세액공제: 산출세액 × 20%, 한도 100만원
   const bookkeepingCreditAmt = input.bookkeepingCredit
     ? Math.min(Math.round(computedTax * 0.2), 1000000)
     : 0;
 
-  const afterCredits = Math.max(
-    afterSme - input.investCredit - input.employmentCredit - standardCreditAmt - bookkeepingCreditAmt,
-    0
-  );
-  const afterReduction = afterCredits;
-
-  // 최저한세
-  const minTax = calcMinTax(computedTax);
-  const hitMinTax = input.startupRate !== 100 && afterReduction < minTax;
-  const finalTax = input.startupRate === 100 ? afterReduction : Math.max(afterReduction, minTax);
+  const finalTax = Math.max(afterMinTax - standardCreditAmt - bookkeepingCreditAmt, 0);
 
   const localTax = Math.round(finalTax * 0.1);
   const totalTax = finalTax + localTax;
@@ -136,8 +135,9 @@ function calculate(input: CalcInput): CalcResult {
     taxBase, taxRate, computedTax,
     startupReduction, smeReduction,
     investCredit: input.investCredit, employmentCredit: input.employmentCredit,
+    afterMinTaxCredits, minTax, hitMinTax, afterMinTax,
     standardCreditAmt, bookkeepingCreditAmt,
-    afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax,
+    finalTax, localTax, totalTax,
   };
 }
 
@@ -172,8 +172,6 @@ function ResultCard({ result, label, color }: { result: CalcResult; label: strin
         {result.smeReduction > 0 && <Row label="중소기업특별 감면" value={result.smeReduction} sub red />}
         {result.investCredit > 0 && <Row label="통합투자 세액공제" value={result.investCredit} sub red />}
         {result.employmentCredit > 0 && <Row label="고용증대 세액공제" value={result.employmentCredit} sub red />}
-        {result.standardCreditAmt > 0 && <Row label="표준세액공제" value={result.standardCreditAmt} sub red />}
-        {result.bookkeepingCreditAmt > 0 && <Row label="기장세액공제 (20%, 한도 100만)" value={result.bookkeepingCreditAmt} sub red />}
         {result.minTax > 0 && (
           <div className={`flex items-center justify-between py-1.5 border-b border-[#F2F4F6] ${result.hitMinTax ? "bg-[#FEF2F2]/50 -mx-1.5 px-1.5 rounded" : ""}`}>
             <div className="flex items-center gap-1.5">
@@ -183,10 +181,15 @@ function ResultCard({ result, label, color }: { result: CalcResult; label: strin
             <span className="font-medium text-[#333D4B]">{fmt(result.minTax)}원</span>
           </div>
         )}
+        {(result.minTax > 0 || result.standardCreditAmt > 0 || result.bookkeepingCreditAmt > 0) && (
+          <Row label={result.hitMinTax ? "최저한세 적용 후 세액" : "최저한세 비교 후 세액"} value={result.afterMinTax} />
+        )}
+        {result.standardCreditAmt > 0 && <Row label="표준세액공제 (최저한세 적용제외)" value={result.standardCreditAmt} sub red />}
+        {result.bookkeepingCreditAmt > 0 && <Row label="기장세액공제 (20%, 한도 100만, 최저한세 적용제외)" value={result.bookkeepingCreditAmt} sub red />}
         <div className={`flex items-center justify-between py-1.5 -mx-1.5 px-1.5 rounded border-b border-[#F2F4F6] ${result.hitMinTax ? "bg-[#FEF2F2]/80" : "bg-[#F9FAFB]/80"}`}>
           <div className="flex items-center gap-1.5">
             <span className="font-medium text-[#333D4B]">결정세액 (소득세)</span>
-            {result.hitMinTax && <span className="text-[10px] text-[#E02E2E]">= 최저한세</span>}
+            {result.hitMinTax && <span className="text-[10px] text-[#E02E2E]">최저한세 적용</span>}
           </div>
           <span className="font-bold text-[#191F28]">{fmt(result.finalTax)}원</span>
         </div>
