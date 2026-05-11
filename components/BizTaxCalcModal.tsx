@@ -335,6 +335,9 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
   // 기납부세액
   const [prepaidTaxInput, setPrepaidTaxInput] = useState("");
 
+  // 목표 소득률
+  const [targetIncomeRate, setTargetIncomeRate] = useState("");
+
   // 저장된 설정 불러오기
   useState(() => {
     if (!clientId || !taxYear) return;
@@ -445,6 +448,20 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
 
   // 결정세액 0 만들기 추천 가공경비
   const zeroTaxGakgong = !useIncome && revenueNum > 0 ? findZeroTaxGakgong(baseInput) : 0;
+
+  // 현재 소득률 = (매출 - 기존경비) / 매출 × 100
+  const currentIncomeRate = !useIncome && revenueNum > 0
+    ? ((revenueNum - expenseNum) / revenueNum) * 100
+    : 0;
+
+  // 목표 소득률 기준 추천 가공경비
+  // 가공경비 = 매출 × (1 - 목표률/100) - 기존경비
+  const targetRateNum = parseFloat(targetIncomeRate) || 0;
+  let targetGakgong: number | null = null;
+  if (!useIncome && revenueNum > 0 && targetRateNum > 0 && targetRateNum < 100) {
+    const calculated = Math.round(revenueNum * (1 - targetRateNum / 100) - expenseNum);
+    targetGakgong = calculated; // 음수면 "추가 불필요"로 처리
+  }
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center" onClick={onClose}>
@@ -704,6 +721,46 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8B95A1]">원</span>
             </div>
           </div>
+
+          {/* 목표 소득률 → 추천 가공경비 */}
+          {!useIncome && revenueNum > 0 && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold text-indigo-800">📊 소득률 맞추기</h3>
+                <span className="text-[11px] text-indigo-600">
+                  현재 소득률 <strong>{currentIncomeRate.toFixed(1)}%</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center gap-2">
+                  <label className="text-[11px] text-indigo-700 shrink-0">목표 소득률</label>
+                  <div className="relative flex-1">
+                    <input
+                      type="number" step={0.1} min={0} max={100}
+                      value={targetIncomeRate}
+                      onChange={e => setTargetIncomeRate(e.target.value)}
+                      placeholder="예: 15"
+                      className="w-full border border-indigo-200 bg-white rounded-lg px-2.5 py-1.5 text-xs text-right pr-7 focus:outline-none focus:border-indigo-500"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400">%</span>
+                  </div>
+                </div>
+                {targetGakgong !== null && targetGakgong > 0 && (
+                  <button
+                    onClick={() => setExtraExpense(numInput(String(targetGakgong)))}
+                    className="text-[11px] px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium whitespace-nowrap"
+                  >
+                    가공경비 {fmt(targetGakgong)}원 적용
+                  </button>
+                )}
+                {targetGakgong !== null && targetGakgong <= 0 && targetRateNum > 0 && (
+                  <span className="text-[10px] px-2 py-1 bg-[#F2F4F6] text-[#8B95A1] rounded-lg whitespace-nowrap">
+                    이미 목표 도달
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 가공경비 비교 */}
           <div>
