@@ -449,9 +449,9 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
   // 결정세액 0 만들기 추천 가공경비
   const zeroTaxGakgong = !useIncome && revenueNum > 0 ? findZeroTaxGakgong(baseInput) : 0;
 
-  // 현재 소득률 = (매출 - 기존경비) / 매출 × 100
+  // 현재 소득률 = (매출 - 기존경비 - 가공경비) / 매출 × 100
   const currentIncomeRate = !useIncome && revenueNum > 0
-    ? ((revenueNum - expenseNum) / revenueNum) * 100
+    ? ((revenueNum - expenseNum - extraNum) / revenueNum) * 100
     : 0;
 
   // 목표 소득률 기준 추천 가공경비
