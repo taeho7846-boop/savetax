@@ -16,51 +16,18 @@ function calcTax(taxBase: number): number {
   return 384060000 + (taxBase - 1000000000) * 0.45;
 }
 
-// 최저한세 계산
 function calcMinTax(computedTax: number): number {
   if (computedTax <= 30000000) return Math.round(computedTax * 0.35);
   return Math.round(30000000 * 0.35 + (computedTax - 30000000) * 0.45);
 }
 
-// 감면 적용 + 최저한세 반영
-function applyReduction(
-  computedTax: number,
-  startupRate: number,
-  smeRate: number,
-  investCredit: number,
-  employmentCredit: number,
-): { startupReduction: number; smeReduction: number; investCredit: number; employmentCredit: number; afterReduction: number; minTax: number; hitMinTax: boolean; finalTax: number } {
-  const startupReduction = Math.round(computedTax * startupRate / 100);
-  const afterStartup = computedTax - startupReduction;
-  const smeReduction = Math.round(afterStartup * smeRate / 100);
-  const afterSme = afterStartup - smeReduction;
-  const afterReduction = Math.max(afterSme - investCredit - employmentCredit, 0);
-
-  const minTax = calcMinTax(computedTax);
-
-  if (startupRate === 100) {
-    return { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax: 0, hitMinTax: false, finalTax: afterReduction };
-  }
-
-  const hitMinTax = afterReduction < minTax;
-  const finalTax = Math.max(afterReduction, minTax);
-  return { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax };
-}
-
-function fmt(n: number): string {
-  return n.toLocaleString("ko-KR");
-}
-
+function fmt(n: number): string { return n.toLocaleString("ko-KR"); }
 function numInput(v: string): string {
   const num = v.replace(/[^\d]/g, "");
   return num ? parseInt(num).toLocaleString("ko-KR") : "";
 }
+function parse(v: string): number { return parseInt(v.replace(/,/g, "")) || 0; }
 
-function parse(v: string): number {
-  return parseInt(v.replace(/,/g, "")) || 0;
-}
-
-// 과세표준 구간별 세율 표시
 function getTaxRateLabel(taxBase: number): string {
   if (taxBase <= 14000000) return "6%";
   if (taxBase <= 50000000) return "15%";
@@ -72,10 +39,35 @@ function getTaxRateLabel(taxBase: number): string {
   return "45%";
 }
 
+type CalcInput = {
+  revenue: number;
+  expense: number;
+  income: number;
+  useIncome: boolean;
+  // 소득공제
+  hasSpouse: boolean;
+  dependentCount: number;
+  pension: number;
+  umbrella: number;
+  // 세액감면
+  startupRate: number;
+  smeRate: number;
+  // 세액공제
+  investCredit: number;
+  employmentCredit: number;
+  standardCredit: boolean;
+  bookkeepingCredit: boolean;
+};
+
 type CalcResult = {
   revenue: number;
   expense: number;
   income: number;
+  basicDeduct: number;
+  spouseDeduct: number;
+  dependentDeduct: number;
+  pensionDeduct: number;
+  umbrellaDeduct: number;
   deduction: number;
   taxBase: number;
   taxRate: string;
@@ -84,6 +76,8 @@ type CalcResult = {
   smeReduction: number;
   investCredit: number;
   employmentCredit: number;
+  standardCreditAmt: number;
+  bookkeepingCreditAmt: number;
   afterReduction: number;
   minTax: number;
   hitMinTax: boolean;
@@ -92,40 +86,59 @@ type CalcResult = {
   totalTax: number;
 };
 
-function calculate(
-  revenue: number,
-  expense: number,
-  startupRate: number,
-  smeRate: number,
-  investCreditAmt: number = 0,
-  employmentCreditAmt: number = 0,
-): CalcResult {
-  const income = Math.max(revenue - expense, 0);
-  const deduction = 1500000;
-  const taxBase = Math.max(income - deduction, 0);
-  const taxRate = getTaxRateLabel(taxBase);
-  const computedTax = Math.round(calcTax(taxBase));
-  const { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax } = applyReduction(computedTax, startupRate, smeRate, investCreditAmt, employmentCreditAmt);
-  const localTax = Math.round(finalTax * 0.1);
-  const totalTax = finalTax + localTax;
-  return { revenue, expense, income, deduction, taxBase, taxRate, computedTax, startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax };
-}
+function calculate(input: CalcInput): CalcResult {
+  const baseIncome = input.useIncome
+    ? input.income
+    : Math.max(input.revenue - input.expense, 0);
 
-function calculateFromIncome(
-  incomeAmt: number,
-  startupRate: number,
-  smeRate: number,
-  investCreditAmt: number = 0,
-  employmentCreditAmt: number = 0,
-): CalcResult {
-  const deduction = 1500000;
-  const taxBase = Math.max(incomeAmt - deduction, 0);
+  // 소득공제
+  const basicDeduct = 1500000;
+  const spouseDeduct = input.hasSpouse ? 1500000 : 0;
+  const dependentDeduct = input.dependentCount * 1500000;
+  const pensionDeduct = input.pension;
+  const umbrellaDeduct = input.umbrella;
+  const deduction = basicDeduct + spouseDeduct + dependentDeduct + pensionDeduct + umbrellaDeduct;
+
+  const taxBase = Math.max(baseIncome - deduction, 0);
   const taxRate = getTaxRateLabel(taxBase);
   const computedTax = Math.round(calcTax(taxBase));
-  const { startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax } = applyReduction(computedTax, startupRate, smeRate, investCreditAmt, employmentCreditAmt);
+
+  // 세액감면
+  const startupReduction = Math.round(computedTax * input.startupRate / 100);
+  const afterStartup = computedTax - startupReduction;
+  const smeReduction = Math.round(afterStartup * input.smeRate / 100);
+  const afterSme = afterStartup - smeReduction;
+
+  // 세액공제
+  const standardCreditAmt = input.standardCredit ? 70000 : 0;
+  // 기장세액공제: 산출세액 × 20%, 한도 100만원
+  const bookkeepingCreditAmt = input.bookkeepingCredit
+    ? Math.min(Math.round(computedTax * 0.2), 1000000)
+    : 0;
+
+  const afterCredits = Math.max(
+    afterSme - input.investCredit - input.employmentCredit - standardCreditAmt - bookkeepingCreditAmt,
+    0
+  );
+  const afterReduction = afterCredits;
+
+  // 최저한세
+  const minTax = calcMinTax(computedTax);
+  const hitMinTax = input.startupRate !== 100 && afterReduction < minTax;
+  const finalTax = input.startupRate === 100 ? afterReduction : Math.max(afterReduction, minTax);
+
   const localTax = Math.round(finalTax * 0.1);
   const totalTax = finalTax + localTax;
-  return { revenue: 0, expense: 0, income: incomeAmt, deduction, taxBase, taxRate, computedTax, startupReduction, smeReduction, investCredit, employmentCredit, afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax };
+
+  return {
+    revenue: input.revenue, expense: input.expense, income: baseIncome,
+    basicDeduct, spouseDeduct, dependentDeduct, pensionDeduct, umbrellaDeduct, deduction,
+    taxBase, taxRate, computedTax,
+    startupReduction, smeReduction,
+    investCredit: input.investCredit, employmentCredit: input.employmentCredit,
+    standardCreditAmt, bookkeepingCreditAmt,
+    afterReduction, minTax, hitMinTax, finalTax, localTax, totalTax,
+  };
 }
 
 function ResultCard({ result, label, color }: { result: CalcResult; label: string; color: "blue" | "green" }) {
@@ -144,21 +157,23 @@ function ResultCard({ result, label, color }: { result: CalcResult; label: strin
         </div>
       </div>
 
-      {/* 상세 */}
       <div className="text-xs space-y-0.5">
         {result.revenue > 0 && <Row label="매출액" value={result.revenue} />}
         {result.expense > 0 && <Row label="비용" value={result.expense} sub />}
         <RowBold label="사업소득금액" value={result.income} />
-        <Row label="기본공제" value={result.deduction} sub />
+        <Row label="본인 기본공제" value={result.basicDeduct} sub />
+        {result.spouseDeduct > 0 && <Row label="배우자공제" value={result.spouseDeduct} sub />}
+        {result.dependentDeduct > 0 && <Row label="부양가족공제" value={result.dependentDeduct} sub />}
+        {result.pensionDeduct > 0 && <Row label="국민연금" value={result.pensionDeduct} sub />}
+        {result.umbrellaDeduct > 0 && <Row label="노란우산공제" value={result.umbrellaDeduct} sub />}
         <RowBold label="과세표준" value={result.taxBase} note={result.taxRate} />
         <Row label="산출세액" value={result.computedTax} />
         {result.startupReduction > 0 && <Row label="창업중소기업 감면" value={result.startupReduction} sub red />}
         {result.smeReduction > 0 && <Row label="중소기업특별 감면" value={result.smeReduction} sub red />}
         {result.investCredit > 0 && <Row label="통합투자 세액공제" value={result.investCredit} sub red />}
         {result.employmentCredit > 0 && <Row label="고용증대 세액공제" value={result.employmentCredit} sub red />}
-        {(result.startupReduction > 0 || result.smeReduction > 0) && (
-          <Row label="감면 후 세액" value={result.afterReduction} />
-        )}
+        {result.standardCreditAmt > 0 && <Row label="표준세액공제" value={result.standardCreditAmt} sub red />}
+        {result.bookkeepingCreditAmt > 0 && <Row label="기장세액공제 (20%, 한도 100만)" value={result.bookkeepingCreditAmt} sub red />}
         {result.minTax > 0 && (
           <div className={`flex items-center justify-between py-1.5 border-b border-[#F2F4F6] ${result.hitMinTax ? "bg-[#FEF2F2]/50 -mx-1.5 px-1.5 rounded" : ""}`}>
             <div className="flex items-center gap-1.5">
@@ -172,7 +187,6 @@ function ResultCard({ result, label, color }: { result: CalcResult; label: strin
           <div className="flex items-center gap-1.5">
             <span className="font-medium text-[#333D4B]">결정세액 (소득세)</span>
             {result.hitMinTax && <span className="text-[10px] text-[#E02E2E]">= 최저한세</span>}
-            {(result.startupReduction > 0 || result.smeReduction > 0) && !result.hitMinTax && <span className="text-[10px] text-[#3182F6]">= 감면 후 세액</span>}
           </div>
           <span className="font-bold text-[#191F28]">{fmt(result.finalTax)}원</span>
         </div>
@@ -232,6 +246,23 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
   const [saving, setSaving] = useState(false);
   const [savedOnce, setSavedOnce] = useState(false);
 
+  // 소득공제
+  const [hasSpouse, setHasSpouse] = useState(false);
+  const [dependentCount, setDependentCount] = useState("0");
+  const [pensionInput, setPensionInput] = useState("");
+  const [umbrellaInput, setUmbrellaInput] = useState("");
+
+  // 가공경비 / 감면
+  const [extraExpense, setExtraExpense] = useState("");
+  const [startupRate, setStartupRate] = useState(0);
+  const [smeRate, setSmeRate] = useState(0);
+  const [investCreditInput, setInvestCreditInput] = useState("");
+  const [employmentCreditInput, setEmploymentCreditInput] = useState("");
+
+  // 세액공제
+  const [standardCredit, setStandardCredit] = useState(true); // 기본 적용
+  const [bookkeepingCredit, setBookkeepingCredit] = useState(false);
+
   // 저장된 설정 불러오기
   useState(() => {
     if (!clientId || !taxYear) return;
@@ -249,17 +280,20 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
           if (s.investCredit) setInvestCreditInput(numInput(s.investCredit));
           if (s.employmentCredit) setEmploymentCreditInput(numInput(s.employmentCredit));
           if (s.extraExpense) setExtraExpense(numInput(s.extraExpense));
+          // fullData에서 새 필드 복원
+          const f = s.fullData || {};
+          if (f.hasSpouse) setHasSpouse(!!f.hasSpouse);
+          if (f.dependentCount != null) setDependentCount(String(f.dependentCount));
+          if (f.pension) setPensionInput(numInput(String(f.pension)));
+          if (f.umbrella) setUmbrellaInput(numInput(String(f.umbrella)));
+          if (f.standardCredit != null) setStandardCredit(!!f.standardCredit);
+          if (f.bookkeepingCredit != null) setBookkeepingCredit(!!f.bookkeepingCredit);
           setSavedOnce(true);
           setLoaded(true);
         }
       })
       .catch(() => {});
-  }); // 종합소득금액 직접 입력 모드
-  const [extraExpense, setExtraExpense] = useState("");
-  const [startupRate, setStartupRate] = useState(0);
-  const [smeRate, setSmeRate] = useState(0);
-  const [investCreditInput, setInvestCreditInput] = useState("");
-  const [employmentCreditInput, setEmploymentCreditInput] = useState("");
+  });
 
   async function handleSave() {
     if (!clientId || !taxYear) return;
@@ -278,6 +312,14 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
           investCredit: investCreditInput.replace(/,/g, "") || null,
           employmentCredit: employmentCreditInput.replace(/,/g, "") || null,
           extraExpense: extraExpense.replace(/,/g, "") || null,
+          fullData: {
+            hasSpouse,
+            dependentCount: parseInt(dependentCount) || 0,
+            pension: parse(pensionInput),
+            umbrella: parse(umbrellaInput),
+            standardCredit,
+            bookkeepingCredit,
+          },
         }),
       });
       setSavedOnce(true);
@@ -305,14 +347,22 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
   const extraNum = parse(extraExpense);
   const investCreditNum = parse(investCreditInput);
   const employmentCreditNum = parse(employmentCreditInput);
+  const pensionNum = parse(pensionInput);
+  const umbrellaNum = parse(umbrellaInput);
+  const dependentCountNum = parseInt(dependentCount) || 0;
 
-  const base = useIncome
-    ? calculateFromIncome(incomeNum, startupRate, smeRate, investCreditNum, employmentCreditNum)
-    : calculate(revenueNum, expenseNum, startupRate, smeRate, investCreditNum, employmentCreditNum);
-  const withExtra = extraNum > 0
-    ? (useIncome
-      ? calculateFromIncome(incomeNum, startupRate, smeRate, investCreditNum, employmentCreditNum) // 가공경비는 매출-비용 모드에서만
-      : calculate(revenueNum, expenseNum + extraNum, startupRate, smeRate, investCreditNum, employmentCreditNum))
+  const baseInput: CalcInput = {
+    revenue: revenueNum, expense: expenseNum, income: incomeNum, useIncome,
+    hasSpouse, dependentCount: dependentCountNum,
+    pension: pensionNum, umbrella: umbrellaNum,
+    startupRate, smeRate,
+    investCredit: investCreditNum, employmentCredit: employmentCreditNum,
+    standardCredit, bookkeepingCredit,
+  };
+
+  const base = calculate(baseInput);
+  const withExtra = extraNum > 0 && !useIncome
+    ? calculate({ ...baseInput, expense: expenseNum + extraNum })
     : null;
   const taxDiff = withExtra ? base.totalTax - withExtra.totalTax : 0;
 
@@ -320,7 +370,7 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
     <div className="fixed inset-0 z-[110] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[92vh] overflow-y-auto"
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden max-h-[92vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
@@ -449,6 +499,48 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
             </div>
           )}
 
+          {/* 소득공제 */}
+          <div className="bg-[#F9FAFB] rounded-xl p-3 border border-[#E5E8EB]">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-[#4E5968]">소득공제</h3>
+              <span className="text-[10px] text-[#8B95A1]">본인 150만 자동</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <label className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-[#E5E8EB] cursor-pointer">
+                <input type="checkbox" checked={hasSpouse} onChange={e => setHasSpouse(e.target.checked)} className="accent-[#3182F6] w-3.5 h-3.5" />
+                <span className="text-xs text-[#4E5968]">배우자공제 (150만)</span>
+              </label>
+              <div className="bg-white rounded-lg px-3 py-1.5 border border-[#E5E8EB] flex items-center gap-2">
+                <span className="text-[11px] text-[#6B7684] shrink-0">부양가족</span>
+                <select
+                  value={dependentCount}
+                  onChange={e => setDependentCount(e.target.value)}
+                  className="flex-1 text-xs border-0 focus:outline-none bg-transparent"
+                >
+                  {[0,1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}명 ({fmt(n*1500000)})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-[#6B7684] mb-0.5 block">국민연금</label>
+                <div className="relative">
+                  <input type="text" value={pensionInput} onChange={e => setPensionInput(numInput(e.target.value))}
+                    placeholder="0"
+                    className="w-full border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 text-xs text-right pr-7 focus:outline-none focus:border-[#3182F6]" />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B95A1]">원</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-[#6B7684] mb-0.5 block">노란우산공제</label>
+                <div className="relative">
+                  <input type="text" value={umbrellaInput} onChange={e => setUmbrellaInput(numInput(e.target.value))}
+                    placeholder="0"
+                    className="w-full border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 text-xs text-right pr-7 focus:outline-none focus:border-[#3182F6]" />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B95A1]">원</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* 세액감면 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -481,33 +573,39 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
           </div>
 
           {/* 세액공제 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-[#6B7684] mb-1 block">통합투자 세액공제</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={investCreditInput}
-                  onChange={e => setInvestCreditInput(numInput(e.target.value))}
-                  placeholder="금액 입력"
-                  className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] text-right pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8B95A1]">원</span>
+          <div className="bg-[#F9FAFB] rounded-xl p-3 border border-[#E5E8EB]">
+            <h3 className="text-xs font-bold text-[#4E5968] mb-2">세액공제</h3>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[10px] text-[#6B7684] mb-0.5 block">통합투자 세액공제</label>
+                <div className="relative">
+                  <input type="text" value={investCreditInput} onChange={e => setInvestCreditInput(numInput(e.target.value))}
+                    placeholder="0"
+                    className="w-full border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 text-xs text-right pr-7 focus:outline-none focus:border-[#3182F6]" />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B95A1]">원</span>
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[#6B7684] mb-1 block">고용증대 세액공제</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={employmentCreditInput}
-                  onChange={e => setEmploymentCreditInput(numInput(e.target.value))}
-                  placeholder="금액 입력"
-                  className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] text-right pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8B95A1]">원</span>
+              <div>
+                <label className="text-[10px] text-[#6B7684] mb-0.5 block">고용증대 세액공제</label>
+                <div className="relative">
+                  <input type="text" value={employmentCreditInput} onChange={e => setEmploymentCreditInput(numInput(e.target.value))}
+                    placeholder="0"
+                    className="w-full border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 text-xs text-right pr-7 focus:outline-none focus:border-[#3182F6]" />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B95A1]">원</span>
+                </div>
               </div>
+              <label className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-[#E5E8EB] cursor-pointer">
+                <input type="checkbox" checked={standardCredit} onChange={e => setStandardCredit(e.target.checked)} className="accent-[#3182F6] w-3.5 h-3.5" />
+                <span className="text-xs text-[#4E5968]">표준세액공제 (7만원)</span>
+              </label>
+              <label className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-amber-200 bg-amber-50 cursor-pointer">
+                <input type="checkbox" checked={bookkeepingCredit} onChange={e => setBookkeepingCredit(e.target.checked)} className="accent-amber-600 w-3.5 h-3.5" />
+                <span className="text-xs text-amber-800 font-medium">기장세액공제 (20%, 한도 100만)</span>
+              </label>
             </div>
+            <p className="text-[10px] text-[#8B95A1] mt-2">
+              기장세액공제 = 간편장부 대상자가 복식부기로 작성한 경우 산출세액의 20% 감면 (한도 100만원)
+            </p>
           </div>
 
           {/* 가공경비 비교 */}
@@ -531,6 +629,14 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
         {/* 결과 */}
         {(useIncome ? incomeNum > 0 : revenueNum > 0) && (
           <div className="px-6 pb-6">
+            {/* 납부세액 0 도달 안내 */}
+            {!useIncome && base.totalTax === 0 && (
+              <div className="mb-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                <span className="text-emerald-600 text-lg">🎯</span>
+                <span className="text-sm font-bold text-emerald-700">납부세액 0원 도달!</span>
+              </div>
+            )}
+
             {withExtra ? (
               <>
                 {/* 비교 모드 */}
@@ -555,7 +661,7 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
             )}
 
             <p className="text-[10px] text-[#8B95A1] mt-4 text-center">
-              * 간이 계산 예상치이며, 실제 세액과 다를 수 있습니다. 소득공제 항목은 추후 추가 예정
+              * 간이 계산 예상치이며, 실제 세액과 다를 수 있습니다.
             </p>
           </div>
         )}
