@@ -8,10 +8,22 @@ export default async function TaxAgencyPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const isManager = session.role === "accountant" || session.role === "admin";
+
+  let assignedFilter: any = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    const userIds = [session.id, ...employees.map(e => e.id)];
+    assignedFilter = { assignedUserId: { in: userIds } };
+  }
+
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      assignedUserId: session.id,
+      ...assignedFilter,
       taxTypes: { contains: "신고대리" },
     },
     select: {
@@ -34,6 +46,7 @@ export default async function TaxAgencyPage() {
       affiliation: true,
       contractDate: true,
       myboxLink: true,
+      assignedUser: isManager ? { select: { name: true } } : undefined,
     },
     orderBy: { name: "asc" },
   });
@@ -49,6 +62,7 @@ export default async function TaxAgencyPage() {
       </div>
       <ClientsTable
         clients={clients}
+        showAssignedUser={isManager}
         hideCols={["labor", "monthlyFee", "affiliation", "contractDate"]}
       />
     </div>
