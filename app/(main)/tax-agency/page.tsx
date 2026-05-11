@@ -8,7 +8,7 @@ export default async function TaxAgencyPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const isManager = session.role === "accountant" || session.role === "admin";
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
 
   let assignedFilter: any = { assignedUserId: session.id };
   if (isManager) {
