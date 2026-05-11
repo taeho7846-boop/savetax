@@ -57,6 +57,8 @@ type CalcInput = {
   employmentCredit: number;
   standardCredit: boolean;
   bookkeepingCredit: boolean;
+  // 기납부세액
+  prepaidTax: number;
 };
 
 type CalcResult = {
@@ -87,6 +89,8 @@ type CalcResult = {
   finalTax: number;
   localTax: number;
   totalTax: number;
+  prepaidTax: number;
+  finalPayment: number; // 양수=납부, 음수=환급
 };
 
 function calculate(input: CalcInput): CalcResult {
@@ -128,6 +132,7 @@ function calculate(input: CalcInput): CalcResult {
 
   const localTax = Math.round(finalTax * 0.1);
   const totalTax = finalTax + localTax;
+  const finalPayment = totalTax - input.prepaidTax;
 
   return {
     revenue: input.revenue, expense: input.expense, income: baseIncome,
@@ -138,22 +143,66 @@ function calculate(input: CalcInput): CalcResult {
     afterMinTaxCredits, minTax, hitMinTax, afterMinTax,
     standardCreditAmt, bookkeepingCreditAmt,
     finalTax, localTax, totalTax,
+    prepaidTax: input.prepaidTax, finalPayment,
   };
 }
 
+// 결정세액 0원이 되는 가공경비 (binary search)
+function findZeroTaxGakgong(input: CalcInput): number {
+  if (input.useIncome) return 0;
+  const base = calculate({ ...input, expense: input.expense });
+  if (base.finalTax <= 0) return 0;
+  // 매출 한도까지 binary search (가공경비 더해 비용 = 매출 되면 소득금액 0)
+  let lo = 0;
+  let hi = Math.max(input.revenue - input.expense, 0);
+  // hi가 작아도 못 만들면 반환 0
+  const hiResult = calculate({ ...input, expense: input.expense + hi });
+  if (hiResult.finalTax > 0) return -1; // 만들 수 없음
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const r = calculate({ ...input, expense: input.expense + mid });
+    if (r.finalTax <= 0) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
 function ResultCard({ result, label, color }: { result: CalcResult; label: string; color: "blue" | "green" }) {
-  const bg = color === "blue" ? "from-blue-50 to-indigo-50" : "from-emerald-50 to-teal-50";
-  const textColor = color === "blue" ? "text-[#3182F6]" : "text-emerald-700";
+  const hasPrepaid = result.prepaidTax > 0;
+  const isRefund = result.finalPayment < 0;
+
+  // 큰 결과 박스: 기납부세액 있으면 납부/환급 표시, 없으면 총 세액
+  let resultLabel: string;
+  let resultValue: number;
+  let resultBg: string;
+  let resultTextColor: string;
+  if (hasPrepaid) {
+    if (isRefund) {
+      resultLabel = "환급 세액";
+      resultValue = -result.finalPayment;
+      resultBg = "from-blue-50 to-indigo-50";
+      resultTextColor = "text-[#3182F6]";
+    } else {
+      resultLabel = "납부할 세액";
+      resultValue = result.finalPayment;
+      resultBg = "from-amber-50 to-orange-50";
+      resultTextColor = "text-[#B45309]";
+    }
+  } else {
+    resultLabel = "총 납부세액";
+    resultValue = result.totalTax;
+    resultBg = color === "blue" ? "from-blue-50 to-indigo-50" : "from-emerald-50 to-teal-50";
+    resultTextColor = color === "blue" ? "text-[#3182F6]" : "text-emerald-700";
+  }
 
   return (
     <div className="space-y-1.5">
       <h3 className="text-xs font-bold text-[#6B7684] uppercase tracking-wider">{label}</h3>
 
-      {/* 총 납부세액 */}
-      <div className={`bg-gradient-to-r ${bg} rounded-xl p-3.5`}>
+      <div className={`bg-gradient-to-r ${resultBg} rounded-xl p-3.5`}>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-[#4E5968]">총 납부세액</span>
-          <span className={`text-xl font-bold ${textColor}`}>{fmt(result.totalTax)}원</span>
+          <span className="text-sm font-medium text-[#4E5968]">{resultLabel}</span>
+          <span className={`text-xl font-bold ${resultTextColor}`}>{fmt(resultValue)}원</span>
         </div>
       </div>
 
@@ -194,6 +243,23 @@ function ResultCard({ result, label, color }: { result: CalcResult; label: strin
           <span className="font-bold text-[#191F28]">{fmt(result.finalTax)}원</span>
         </div>
         <Row label="지방소득세 (10%)" value={result.localTax} />
+        <div className="flex items-center justify-between py-1.5 bg-[#F9FAFB]/80 -mx-1.5 px-1.5 rounded border-b border-[#F2F4F6]">
+          <span className="font-medium text-[#333D4B]">총 세액</span>
+          <span className="font-bold text-[#191F28]">{fmt(result.totalTax)}원</span>
+        </div>
+        {hasPrepaid && (
+          <>
+            <Row label="기납부세액" value={result.prepaidTax} sub red />
+            <div className={`flex items-center justify-between py-2 -mx-1.5 px-1.5 rounded ${isRefund ? "bg-blue-50/60" : "bg-amber-50/60"}`}>
+              <span className={`font-bold ${isRefund ? "text-[#3182F6]" : "text-[#B45309]"}`}>
+                {isRefund ? "환급할 세액" : "납부할 세액"}
+              </span>
+              <span className={`font-bold ${isRefund ? "text-[#3182F6]" : "text-[#B45309]"}`}>
+                {fmt(Math.abs(result.finalPayment))}원
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -266,6 +332,9 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
   const [standardCredit, setStandardCredit] = useState(true); // 기본 적용
   const [bookkeepingCredit, setBookkeepingCredit] = useState(false);
 
+  // 기납부세액
+  const [prepaidTaxInput, setPrepaidTaxInput] = useState("");
+
   // 저장된 설정 불러오기
   useState(() => {
     if (!clientId || !taxYear) return;
@@ -291,6 +360,7 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
           if (f.umbrella) setUmbrellaInput(numInput(String(f.umbrella)));
           if (f.standardCredit != null) setStandardCredit(!!f.standardCredit);
           if (f.bookkeepingCredit != null) setBookkeepingCredit(!!f.bookkeepingCredit);
+          if (f.prepaidTax) setPrepaidTaxInput(numInput(String(f.prepaidTax)));
           setSavedOnce(true);
           setLoaded(true);
         }
@@ -322,6 +392,7 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
             umbrella: parse(umbrellaInput),
             standardCredit,
             bookkeepingCredit,
+            prepaidTax: parse(prepaidTaxInput),
           },
         }),
       });
@@ -354,6 +425,8 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
   const umbrellaNum = parse(umbrellaInput);
   const dependentCountNum = parseInt(dependentCount) || 0;
 
+  const prepaidTaxNum = parse(prepaidTaxInput);
+
   const baseInput: CalcInput = {
     revenue: revenueNum, expense: expenseNum, income: incomeNum, useIncome,
     hasSpouse, dependentCount: dependentCountNum,
@@ -361,6 +434,7 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
     startupRate, smeRate,
     investCredit: investCreditNum, employmentCredit: employmentCreditNum,
     standardCredit, bookkeepingCredit,
+    prepaidTax: prepaidTaxNum,
   };
 
   const base = calculate(baseInput);
@@ -368,6 +442,9 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
     ? calculate({ ...baseInput, expense: expenseNum + extraNum })
     : null;
   const taxDiff = withExtra ? base.totalTax - withExtra.totalTax : 0;
+
+  // 결정세액 0 만들기 추천 가공경비
+  const zeroTaxGakgong = !useIncome && revenueNum > 0 ? findZeroTaxGakgong(baseInput) : 0;
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center" onClick={onClose}>
@@ -611,11 +688,48 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
             </p>
           </div>
 
-          {/* 가공경비 비교 */}
+          {/* 기납부세액 */}
           <div>
             <label className="text-xs font-medium text-[#6B7684] mb-1 block">
-              가공경비 추가 시 비교 <span className="text-[#8B95A1] font-normal">(선택)</span>
+              기납부세액 <span className="text-[#8B95A1] font-normal">(원천징수·중간예납 등)</span>
             </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={prepaidTaxInput}
+                onChange={e => setPrepaidTaxInput(numInput(e.target.value))}
+                placeholder="0"
+                className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] text-right pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8B95A1]">원</span>
+            </div>
+          </div>
+
+          {/* 가공경비 비교 */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-[#6B7684]">
+                가공경비 추가 시 비교 <span className="text-[#8B95A1] font-normal">(선택)</span>
+              </label>
+              {!useIncome && zeroTaxGakgong > 0 && (
+                <button
+                  onClick={() => setExtraExpense(numInput(String(zeroTaxGakgong)))}
+                  className="text-[10px] px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 font-medium"
+                >
+                  🎯 결정세액 0원: {fmt(zeroTaxGakgong)}원
+                </button>
+              )}
+              {!useIncome && zeroTaxGakgong === -1 && (
+                <span className="text-[10px] px-2 py-1 bg-[#F2F4F6] text-[#8B95A1] rounded-lg">
+                  매출 한도 내에서 0원 불가능
+                </span>
+              )}
+              {!useIncome && zeroTaxGakgong === 0 && base.finalTax === 0 && revenueNum > 0 && (
+                <span className="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg">
+                  ✓ 이미 0원
+                </span>
+              )}
+            </div>
             <div className="relative">
               <input
                 type="text"
