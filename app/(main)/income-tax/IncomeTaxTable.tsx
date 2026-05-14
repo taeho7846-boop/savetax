@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import * as XLSX from "xlsx";
 import { toggleIncomeTaxCheck, updateIncomeTaxField, setIncomeTaxMemo, moveToApproval, confirmIncomeTaxReport, revertConfirmToApproval, revertWritingToCollect, revertDoneToConfirm, setIncomeTaxExcluded } from "@/app/actions/income-tax";
 import { ComprehensiveTaxCalcModal } from "@/components/ComprehensiveTaxCalcModal";
 import { PinIcon } from "@/components/icons";
@@ -245,6 +246,24 @@ export function IncomeTaxTable({
     startTransition(async () => {
       await updateIncomeTaxField(clientId, taxYear, field, value);
     });
+  }
+
+  function handleExcelDownload() {
+    const rows = filteredClients.map(c => {
+      const r = getRecord(c);
+      return {
+        "거래처명": c.name,
+        "대표자명": c.ceoName ?? "",
+        "기장의무": r.bookkeepingDuty ?? "",
+        "신고유형": r.filingType ?? "",
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 24 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    const tabLabel = activeTab === "bookkeeping" ? "기장" : "단건";
+    XLSX.utils.book_append_sheet(wb, ws, `종합소득세_${tabLabel}`);
+    XLSX.writeFile(wb, `종합소득세_${tabLabel}_${taxYear}.xlsx`);
   }
 
   // 담당자 목록 추출
@@ -686,6 +705,19 @@ export function IncomeTaxTable({
             ))}
           </select>
         )}
+
+        <button
+          onClick={handleExcelDownload}
+          title="현재 보이는 거래처를 엑셀로 다운로드 (거래처명/대표자명/기장의무/신고유형)"
+          className="bg-[#10B981] text-white rounded-xl px-3 h-9 text-[12.5px] font-bold hover:bg-[#0EA371] transition flex items-center gap-1.5 shadow-sm"
+        >
+          <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1={12} y1={15} x2={12} y2={3} />
+          </svg>
+          엑셀 다운로드
+        </button>
       </div>
 
       {/* 테이블 + (단계 선택시) 우측 사이드 패널 */}
