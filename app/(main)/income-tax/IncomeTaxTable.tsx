@@ -1208,6 +1208,7 @@ export function IncomeTaxTable({
                       <th className="px-2 py-2.5">적용</th>
                       {showAssignedUser && <th className="px-2 py-2.5">담당</th>}
                       <th className="px-3 py-2.5 text-right">당기 매출</th>
+                      <th className="px-3 py-2.5 text-right">당기 소득<div className="text-[8.5px] font-normal text-[#6B7684]/70 normal-case tracking-normal">작성중 단계</div></th>
                       <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">결정세액</th>
                       <th className="px-3 py-2.5 text-right bg-[#A855F7]/10">조정료<div className="text-[8.5px] font-normal text-[#A855F7]/70 normal-case tracking-normal">공급·VAT·합계</div></th>
                       <th className="px-2 py-2.5 text-center bg-[#A855F7]/5">안내 및 입금요청</th>
@@ -1218,7 +1219,7 @@ export function IncomeTaxTable({
                   </thead>
                   <tbody className="divide-y divide-white/40">
                     {list.length === 0 ? (
-                      <tr><td colSpan={11 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">컨펌 대기 거래처가 없습니다</td></tr>
+                      <tr><td colSpan={12 + (showAssignedUser ? 1 : 0)} className="text-center py-12 text-[#6B7684] text-sm">컨펌 대기 거래처가 없습니다</td></tr>
                     ) : list.map(client => {
                       const r = getRecord(client);
                       const ft = getFilingTypeBadge(r);
@@ -1267,6 +1268,7 @@ export function IncomeTaxTable({
                           </td>
                           {showAssignedUser && <td className="px-2 py-2.5 text-center text-[#4E5968]">{client.assignedUserName ?? "-"}</td>}
                           <td className="px-3 py-2.5 text-right text-[#6B7684]">{formatNumber(r.currSales) || "-"}</td>
+                          <td className="px-3 py-2.5 text-right text-[#4E5968]">{formatNumber(r.currIncome) || "-"}</td>
                           <td className="px-3 py-2.5 text-right font-bold">{formatNumber(r.currTax) || "-"}</td>
                           {(() => {
                             const existing = r.adjustmentFee ? parseInt(r.adjustmentFee) : null;
