@@ -1903,6 +1903,46 @@ export function IncomeTaxTable({
               </div>
             );
           })()}
+          {(() => {
+            let paidCount = 0;
+            let unpaidCount = 0;
+            let paidAmount = 0;
+            let unpaidAmount = 0;
+            for (const c of stageClients.done) {
+              const r = getRecord(c);
+              const supply = r.adjustmentFee ? parseInt(r.adjustmentFee) : 0;
+              const total = supply + Math.round(supply * 0.1);
+              if (r.cmsWithdrawn || r.directDeposit) {
+                paidCount += 1;
+                paidAmount += total;
+              } else {
+                unpaidCount += 1;
+                unpaidAmount += total;
+              }
+            }
+            const grandTotal = paidAmount + unpaidAmount;
+            const paidPct = grandTotal > 0 ? Math.round((paidAmount / grandTotal) * 100) : 0;
+            const fmt = (n: number) => n.toLocaleString("ko-KR");
+            return (
+              <div className="glass rounded-2xl p-4 bg-gradient-to-br from-[#10B981]/8 to-transparent">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[12px] font-bold text-[#10B981]">💳 입금 현황</div>
+                  <span className="text-[10px] text-[#6B7684] tabular-nums">{paidPct}% 회수</span>
+                </div>
+                <div className="space-y-1.5 text-[12px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B7684]">입금완료 <span className="text-[10.5px] text-[#8B95A1]">({paidCount}건)</span></span>
+                    <span className="font-bold text-[#10B981] tabular-nums">₩{fmt(paidAmount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B7684]">미수 <span className="text-[10.5px] text-[#8B95A1]">({unpaidCount}건)</span></span>
+                    <span className="font-bold text-[#E02E2E] tabular-nums">₩{fmt(unpaidAmount)}</span>
+                  </div>
+                  <div className="progress mt-1.5"><div className="progress-fill gradient-emerald" style={{ width: `${paidPct}%` }} /></div>
+                </div>
+              </div>
+            );
+          })()}
           <div className="glass rounded-2xl p-4">
             <div className="text-[12px] font-bold mb-3">담당자별 완료</div>
             <div className="space-y-2 text-[12px]">
