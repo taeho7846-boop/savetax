@@ -1391,6 +1391,18 @@ export function IncomeTaxTable({
                             <div className="flex items-center gap-1.5">
                               <span>{client.name}</span>
                               {isRefund && <span title="환급" className="text-[9px] bg-[#3182F6]/15 text-[#3182F6] px-1.5 py-0.5 rounded font-bold">↩ 환급</span>}
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setMemoModal({ clientId: client.id, clientName: client.name, value: r.memo ?? "" }); }}
+                                title={r.memo ? `메모 보기/수정\n\n${r.memo}` : "메모 작성 (출금 관련 요청사항 등)"}
+                                className={`shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9.5px] font-bold transition ${
+                                  r.memo
+                                    ? "bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]"
+                                    : "bg-white/60 text-[#B0B8C1] border border-dashed border-[#E5E8EB] hover:bg-white hover:text-[#6B7684]"
+                                }`}
+                              >
+                                {r.memo ? "📝" : "＋"}
+                              </button>
                             </div>
                             {client.ceoName && <div className="text-[10.5px] text-[#6B7684] font-normal">{client.ceoName}</div>}
                           </td>
