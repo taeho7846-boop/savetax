@@ -28,9 +28,11 @@ export async function GET(
     const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
-    // settings 폴더 파일은 자주 교체되므로 캐시 안 함
-    const isSettings = segments[0] === "settings";
-    const cacheControl = isSettings
+    // settings / idcards 폴더 파일은 자주 교체(재생성)되므로 캐시 안 함
+    // - settings: 사용자가 업로드한 템플릿이 갱신될 수 있음
+    // - idcards: 수임신청서 PDF가 거래처 정보 수정 후 재생성될 수 있음
+    const isMutable = segments[0] === "settings" || segments[0] === "idcards";
+    const cacheControl = isMutable
       ? "no-cache, no-store, must-revalidate"
       : "public, max-age=31536000, immutable";
 
