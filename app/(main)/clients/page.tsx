@@ -26,7 +26,7 @@ export default async function ClientsPage({
   const q = params.q || "";
   const clientType = params.type || "all"; // "all" | "individual" | "corporate"
   const isReadonly = session.role === "readonly";
-  const isManager = session.role === "accountant" || session.role === "admin";
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
 
   // 세무사/관리자: 본인 + 소속 직원의 거래처
   let assignedFilter: any = { assignedUserId: session.id };
