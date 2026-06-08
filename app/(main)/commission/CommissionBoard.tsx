@@ -948,12 +948,21 @@ export default function CommissionBoard({
 
                           {/* 단계별 내부 액션 */}
                           {stage.key === "해피콜 대기" && (
-                            <button
-                              onClick={() => { setModal({ type: "happycall", id: c.id }); setCallResult("no_answer"); setCallNotes(""); }}
-                              className="mt-2 w-full text-[10.5px] py-1 rounded-lg bg-[#E8F3FF] text-[#1B64DA] font-bold hover:bg-[#D6E9FF]"
-                            >
-                              ＋ 해피콜 기록
-                            </button>
+                            <div className="mt-2 flex flex-col gap-1">
+                              <button
+                                onClick={() => { setModal({ type: "happycall", id: c.id }); setCallResult("no_answer"); setCallNotes(""); }}
+                                className="w-full text-[10.5px] py-1 rounded-lg bg-[#E8F3FF] text-[#1B64DA] font-bold hover:bg-[#D6E9FF]"
+                              >
+                                ＋ 해피콜 기록
+                              </button>
+                              <button
+                                onClick={() => doMarkComplete(c.id)}
+                                disabled={loadingId === c.id}
+                                className="w-full text-[10.5px] py-1 rounded-lg bg-[#F1FBF4] text-[#15803D] font-bold hover:bg-[#DCFCE7] border border-[#BBF7D0] disabled:opacity-50"
+                              >
+                                ⚡ 즉시완료
+                              </button>
+                            </div>
                           )}
                           {stage.key === "서류수집 중" && (
                             <div className="mt-2 grid grid-cols-2 gap-1">
