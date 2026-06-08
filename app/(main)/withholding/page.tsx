@@ -36,6 +36,7 @@ export default async function WithholdingPage({
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      contractStatus: "active",
       ...assignedFilter,
       OR: [
         { taxTypes: null },

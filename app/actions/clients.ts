@@ -464,6 +464,18 @@ export async function getAssignableUsers() {
   return allUsers;
 }
 
+// 거래처 해지처리 / 해지취소 (삭제와 별개: 데이터 보존, 데이터 페이지엔 계속 노출)
+export async function setClientContractStatus(id: number, status: "active" | "terminated") {
+  await requireAuth();
+  await prisma.client.update({ where: { id }, data: { contractStatus: status } });
+  revalidatePath("/clients");
+  revalidatePath("/receivables");
+  revalidatePath("/withholding");
+  revalidatePath("/data-collect");
+  revalidatePath("/tax-agency");
+  return { status };
+}
+
 export async function cycleCmsStatus(id: number) {
   await requireAuth();
   const client = await prisma.client.findUnique({ where: { id }, select: { cmsStatus: true } });

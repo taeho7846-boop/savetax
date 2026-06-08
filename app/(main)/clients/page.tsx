@@ -41,31 +41,45 @@ export default async function ClientsPage({
     assignedFilter = { assignedUserId: { in: userIds } };
   }
 
-  const clients = await prisma.client.findMany({
-    where: {
-      isDeleted: false,
-      ...assignedFilter,
-      ...(clientType !== "all" && { clientType }),
-      OR: [
-        { taxTypes: null },
-        { NOT: { taxTypes: { contains: "신고대리" } } },
-      ],
-      ...(q && {
-        AND: {
-          OR: [
-            { name: { contains: q } },
-            { ceoName: { contains: q } },
-            { bizNumber: { contains: q } },
-          ],
-        },
-      }),
-    },
-    include: (isReadonly || isManager) ? { assignedUser: { select: { name: true } } } : undefined,
-    orderBy: { name: "asc" },
-  });
+  // 목록 공통 필터 (검색/탭 포함). 계약상태(active/해지)는 아래에서 분리 적용
+  const listWhere: any = {
+    isDeleted: false,
+    ...assignedFilter,
+    ...(clientType !== "all" && { clientType }),
+    OR: [
+      { taxTypes: null },
+      { NOT: { taxTypes: { contains: "신고대리" } } },
+    ],
+    ...(q && {
+      AND: {
+        OR: [
+          { name: { contains: q } },
+          { ceoName: { contains: q } },
+          { bizNumber: { contains: q } },
+        ],
+      },
+    }),
+  };
+  const includeAssigned = (isReadonly || isManager) ? { assignedUser: { select: { name: true } } } : undefined;
 
+  // 활성(계약중) = 메인 목록·집계 / 해지(계약종료) = 접힌 그룹, 집계 제외
+  const [clients, terminatedClients] = await Promise.all([
+    prisma.client.findMany({
+      where: { ...listWhere, contractStatus: "active" },
+      include: includeAssigned,
+      orderBy: { name: "asc" },
+    }),
+    prisma.client.findMany({
+      where: { ...listWhere, contractStatus: { not: "active" } },
+      include: includeAssigned,
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  // KPI/카운트는 활성 거래처만 집계 (해지 제외)
   const baseWhere = {
     isDeleted: false,
+    contractStatus: "active",
     ...assignedFilter,
     OR: [
       { taxTypes: null },
@@ -236,7 +250,7 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser={isReadonly || isManager} />
+      <ClientsTable clients={clients} terminatedClients={terminatedClients} readonly={isReadonly} showAssignedUser={isReadonly || isManager} />
     </div>
   );
 }

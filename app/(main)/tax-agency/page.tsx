@@ -23,6 +23,7 @@ export default async function TaxAgencyPage() {
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      contractStatus: "active",
       ...assignedFilter,
       taxTypes: { contains: "신고대리" },
     },

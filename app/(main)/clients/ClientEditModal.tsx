@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getClientById, updateClientInModal, deleteClient, getClientHistory } from "@/app/actions/clients";
+import { getClientById, updateClientInModal, deleteClient, getClientHistory, setClientContractStatus } from "@/app/actions/clients";
 import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 
@@ -47,6 +47,25 @@ export function ClientEditModal({
   function handleSuccess() {
     router.refresh();
     onClose();
+  }
+
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  async function handleToggleContract() {
+    if (!data?.client) return;
+    const next = data.client.contractStatus === "active" ? "terminated" : "active";
+    const msg = next === "terminated"
+      ? `'${data.client.name}'을(를) 해지처리하시겠습니까?\n\n· 삭제가 아니라 '계약종료' 상태로 바뀝니다 (데이터 보존)\n· 종합소득세·채권관리에서는 계속 보입니다\n· 기장대리 목록에서는 '해지 거래처' 그룹으로 접히고 집계에서 빠집니다`
+      : `'${data.client.name}'을(를) 다시 '계약중'으로 되돌리시겠습니까?`;
+    if (!confirm(msg)) return;
+    setStatusUpdating(true);
+    try {
+      await setClientContractStatus(data.client.id, next);
+      const fresh = await getClientById(clientId);
+      setData(fresh);
+      router.refresh();
+    } finally {
+      setStatusUpdating(false);
+    }
   }
 
   // 히스토리 타임라인 데이터
@@ -107,6 +126,22 @@ export function ClientEditModal({
             )}
           </div>
           <div className="flex items-center gap-3">
+            {tab === "edit" && data?.client && (
+              <button
+                type="button"
+                onClick={handleToggleContract}
+                disabled={statusUpdating}
+                className={`text-sm px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
+                  data.client.contractStatus === "active"
+                    ? "text-[#B45309] border-[#FDE68A] hover:bg-[#FFFBEB]"
+                    : "text-[#15803D] border-[#BBF7D0] hover:bg-[#F1FBF4]"
+                }`}
+              >
+                {statusUpdating
+                  ? "처리 중..."
+                  : data.client.contractStatus === "active" ? "해지처리" : "해지취소"}
+              </button>
+            )}
             {tab === "edit" && data?.client && (
               <form
                 action={deleteClient.bind(null, data.client.id)}

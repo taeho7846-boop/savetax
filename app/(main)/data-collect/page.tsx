@@ -17,6 +17,7 @@ export default async function DataCollectPage({
   const clients = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      contractStatus: "active",
       assignedUserId: session.id,
     },
     select: {

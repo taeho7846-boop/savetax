@@ -230,6 +230,7 @@ async function CmsTab({ sessionId, role }: { sessionId: number; role: string }) 
   const cmsClients = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      contractStatus: "active",
       ...assignedFilter,
       OR: [
         { taxTypes: null },
