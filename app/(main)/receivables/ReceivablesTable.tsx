@@ -427,11 +427,11 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
 
       {/* 테이블 */}
       <div className="glass rounded-3xl overflow-hidden">
-       <div className="overflow-x-auto">
+       <div className="overflow-auto max-h-[70vh]">
         <table className="text-sm border-collapse w-full">
-          <thead>
-            <tr className="bg-white/50 backdrop-blur-md border-b border-white/60">
-              <th className="sticky left-0 z-10 bg-white/80 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[140px]">
+          <thead className="sticky top-0 z-20">
+            <tr className="bg-white/90 backdrop-blur-md border-b border-white/60">
+              <th className="sticky left-0 top-0 z-30 bg-white/90 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[140px]">
                 고객사명
               </th>
               {/* 소속 필터 */}

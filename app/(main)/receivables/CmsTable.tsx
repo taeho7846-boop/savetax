@@ -601,9 +601,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       </div>
     )}
 
-    <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] max-h-[70vh] overflow-auto">
       <table className="w-full text-sm">
-        <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6]">
+        <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-20">
           <tr>
             <th className="px-3 py-3 w-10">
               <input
