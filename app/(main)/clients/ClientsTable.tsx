@@ -42,6 +42,7 @@ type Client = {
   accountingProgram: string;
   contactMethod: string;
   affiliation: string | null;
+  cmsAffiliation?: string | null;
   contractDate: string | null;
   myboxLink: string | null;
   driveFolderId: string | null;
@@ -682,6 +683,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                 </div>
               </th>
               )}
+              {!hide.has("affiliation") && (
+              <th className="text-center px-4 py-3 text-[#333D4B] font-medium whitespace-nowrap">CMS</th>
+              )}
               {!hide.has("contractDate") && (
               <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
                 <button
@@ -710,7 +714,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <tbody className="divide-y divide-white/40">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={readonly ? 10 : 11} className="text-center py-12 text-[#6B7684]">
+                <td colSpan={readonly ? 11 : 12} className="text-center py-12 text-[#6B7684]">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -808,6 +812,17 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                         <span className="text-[#3182F6] font-medium">세이브택스</span>
                       ) : client.affiliation ? (
                         <span className="text-[#191F28]">{client.affiliation}</span>
+                      ) : (
+                        <span className="text-[#8B95A1]">-</span>
+                      )}
+                    </td>
+                    )}
+                    {!hide.has("affiliation") && (
+                    <td className="px-4 py-3 text-center text-xs">
+                      {client.cmsAffiliation === "세이브택스" ? (
+                        <span className="text-[#3182F6] font-medium">세이브택스</span>
+                      ) : client.cmsAffiliation ? (
+                        <span className="text-[#191F28]">{client.cmsAffiliation}</span>
                       ) : (
                         <span className="text-[#8B95A1]">-</span>
                       )}
