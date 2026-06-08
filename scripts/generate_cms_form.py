@@ -2,7 +2,8 @@
 CMS 신청서 엑셀 → PDF 생성
 Usage: python generate_cms_form.py <template_path> <output_pdf_path>
        <first_month> <depositor> <resident6> <bank_name> <biz_number>
-       <bank_account> <phone> <stamp_name> <client_type>
+       <bank_account> <phone> <stamp_name> <client_type> [withdrawal_day]
+       (withdrawal_day 선택적 — 있으면 D9 셀에 출금일 입력)
 """
 
 import sys
@@ -188,6 +189,7 @@ def main():
     phone         = sys.argv[9]   # 연락처
     stamp_name    = sys.argv[10]  # 도장 이름
     client_type   = sys.argv[11]  # individual or corporate
+    withdrawal_day = sys.argv[12] if len(sys.argv) > 12 else ""  # 출금일 (예: 05), 선택적
 
     if not os.path.isfile(template_path):
         print(f"ERROR: 템플릿 파일 없음: {template_path}", file=sys.stderr)
@@ -226,6 +228,8 @@ def main():
         ws["D15"] = biz_number if client_type == "corporate" else ""
         ws["B16"] = bank_account
         ws["D17"] = phone
+        if withdrawal_day:
+            ws["D9"] = withdrawal_day   # 출금일 (예: 05)
         print("셀 입력 완료")
 
         # 도장 삽입 D28

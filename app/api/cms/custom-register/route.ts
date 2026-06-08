@@ -189,6 +189,7 @@ export async function POST(req: NextRequest) {
     phoneClean,
     stampName,
     isCorp ? "corporate" : "individual",
+    withdrawalDay2,   // 출금일 → PDF 신청서 D9
   ]);
   if (result.ok) {
     try { pdfBuf = await readFile(outputPdf); } catch {}
