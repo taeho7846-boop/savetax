@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { cycleCmsStatus, bulkCmsRegister } from "@/app/actions/clients";
+import { cycleCmsStatus, bulkCmsRegister, getCmsClientDetail } from "@/app/actions/clients";
 
 type CmsClient = {
   id: number;
@@ -62,6 +62,101 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [updatedIds, setUpdatedIds] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 커스터마이징 등록 모달 상태
+  const [customOpen, setCustomOpen] = useState(false);
+  const [office, setOffice] = useState<"savetax" | "personal">("savetax");
+  const [ctype, setCtype] = useState<"individual" | "corporate">("individual");
+  const [cForm, setCForm] = useState({
+    name: "", ceoName: "", phone: "", bankName: "", bankAccount: "", residentNumber: "", bizNumber: "",
+  });
+  const [cVars, setCVars] = useState({
+    amount: "",
+    firstMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+    withdrawalDay: "5",
+  });
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [loadingClient, setLoadingClient] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
+
+  function resetCustom() {
+    setOffice("savetax");
+    setCtype("individual");
+    setCForm({ name: "", ceoName: "", phone: "", bankName: "", bankAccount: "", residentNumber: "", bizNumber: "" });
+    setCVars({
+      amount: "",
+      firstMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+      withdrawalDay: "5",
+    });
+    setClientQuery("");
+    setClientDropdownOpen(false);
+    setCustomError(null);
+  }
+
+  async function handleLoadClient(clientId: number) {
+    setLoadingClient(true);
+    setCustomError(null);
+    try {
+      const c = await getCmsClientDetail(clientId);
+      setCtype(c.clientType === "corporate" ? "corporate" : "individual");
+      setCForm({
+        name: c.name ?? "",
+        ceoName: c.ceoName ?? "",
+        phone: c.phone ?? "",
+        bankName: c.bankName ?? "",
+        bankAccount: c.bankAccount ?? "",
+        residentNumber: c.residentNumber ?? "",
+        bizNumber: c.bizNumber ?? "",
+      });
+      setCVars((v) => ({
+        ...v,
+        amount: c.monthlyFee != null ? String(c.monthlyFee) : v.amount,
+        firstMonth: c.firstWithdrawalMonth || v.firstMonth,
+      }));
+      setClientQuery(c.name ?? "");
+      setClientDropdownOpen(false);
+    } catch (e) {
+      setCustomError(e instanceof Error ? e.message : "불러오기 실패");
+    } finally {
+      setLoadingClient(false);
+    }
+  }
+
+  async function handleGenerateCustom() {
+    setGenerating(true);
+    setCustomError(null);
+    try {
+      const res = await fetch("/api/cms/custom-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ office, clientType: ctype, ...cForm, ...cVars }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCustomError(data.error || "생성 실패");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${cForm.name || "CMS"}_CMS.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setCustomOpen(false);
+      resetCustom();
+    } catch {
+      setCustomError("생성 실패");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  const clientMatches = clientQuery.trim()
+    ? clients.filter((c) => c.name.includes(clientQuery.trim())).slice(0, 8)
+    : [];
 
   async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -287,6 +382,14 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         } disabled:opacity-50`}
       >
         {isPending ? "처리 중..." : `일괄등록${checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}`}
+      </button>
+
+      {/* 커스터마이징 등록 */}
+      <button
+        onClick={() => { resetCustom(); setCustomOpen(true); }}
+        className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-white border border-[#3182F6] text-[#3182F6] hover:bg-[#EDF3FF]"
+      >
+        커스터마이징등록
       </button>
 
       {/* CMS 엑셀 검증 업로드 */}
@@ -601,6 +704,179 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       </div>
     )}
 
+    {/* 커스터마이징 등록 모달 */}
+    {customOpen && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setCustomOpen(false)}>
+        <div
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* 헤더 */}
+          <div className="px-6 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-[#191F28]">커스터마이징 CMS 등록</h2>
+              <p className="text-sm text-[#6B7684] mt-0.5">양식을 고르고 거래처 1곳을 입력하면 엑셀 + 신청서 PDF가 만들어져요</p>
+            </div>
+            <button onClick={() => setCustomOpen(false)} className="text-[#8B95A1] hover:text-[#4E5968] text-2xl leading-none">&times;</button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+            {customError && (
+              <div className="px-4 py-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[#DC2626] text-sm">{customError}</div>
+            )}
+
+            {/* 1. 신청서 양식 */}
+            <div>
+              <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">1. 신청서 양식</div>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { v: "savetax" as const, label: "세이브택스 논현지점", tone: "#3182F6" },
+                  { v: "personal" as const, label: "개인 세무회계사무소", tone: "#7C3AED" },
+                ]).map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setOffice(o.v)}
+                    className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
+                      office === o.v ? "bg-[#F9FAFB]" : "border-[#F2F4F6] hover:border-[#D1D6DB]"
+                    }`}
+                    style={office === o.v ? { borderColor: o.tone } : undefined}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center`} style={{ borderColor: o.tone }}>
+                        {office === o.v && <span className="w-1.5 h-1.5 rounded-full" style={{ background: o.tone }} />}
+                      </span>
+                      <span className="text-sm font-semibold text-[#191F28]">{o.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 2. 거래처 정보 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">2. 거래처 정보</div>
+                <div className="inline-flex rounded-lg border border-[#F2F4F6] overflow-hidden text-xs">
+                  {([
+                    { v: "individual" as const, label: "개인" },
+                    { v: "corporate" as const, label: "법인" },
+                  ]).map((t) => (
+                    <button
+                      key={t.v}
+                      type="button"
+                      onClick={() => setCtype(t.v)}
+                      className={`px-3 py-1.5 font-medium ${ctype === t.v ? "bg-[#3182F6] text-white" : "bg-white text-[#6B7684] hover:bg-[#F9FAFB]"}`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 기존 거래처 불러오기 */}
+              <div className="relative mb-3">
+                <input
+                  value={clientQuery}
+                  onChange={(e) => { setClientQuery(e.target.value); setClientDropdownOpen(true); }}
+                  onFocus={() => setClientDropdownOpen(true)}
+                  placeholder="🔍 기존 거래처 불러오기 (이름 검색) — 또는 아래에 직접 입력"
+                  className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+                />
+                {loadingClient && <span className="absolute right-3 top-2.5 text-xs text-[#8B95A1]">불러오는 중...</span>}
+                {clientDropdownOpen && clientMatches.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E5E8EB] rounded-[10px] shadow-lg z-10 max-h-56 overflow-y-auto">
+                    {clientMatches.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleLoadClient(c.id)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-[#F5F9FF] flex items-center justify-between"
+                      >
+                        <span className="font-medium text-[#191F28]">{c.name}</span>
+                        <span className="text-xs text-[#8B95A1]">{c.ceoName || ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={ctype === "corporate" ? "법인명 (예금주)" : "거래처명"} value={cForm.name} onChange={(v) => setCForm((f) => ({ ...f, name: v }))} />
+                <Field label={ctype === "corporate" ? "대표자명" : "대표자명 (예금주)"} value={cForm.ceoName} onChange={(v) => setCForm((f) => ({ ...f, ceoName: v }))} />
+                <Field label="연락처" value={cForm.phone} onChange={(v) => setCForm((f) => ({ ...f, phone: v }))} />
+                {ctype === "corporate" ? (
+                  <Field label="사업자등록번호" value={cForm.bizNumber} onChange={(v) => setCForm((f) => ({ ...f, bizNumber: v }))} />
+                ) : (
+                  <Field label="주민번호 (앞 6자리만 사용)" value={cForm.residentNumber} onChange={(v) => setCForm((f) => ({ ...f, residentNumber: v }))} />
+                )}
+                <Field label="은행명" value={cForm.bankName} onChange={(v) => setCForm((f) => ({ ...f, bankName: v }))} />
+                <Field label="계좌번호" value={cForm.bankAccount} onChange={(v) => setCForm((f) => ({ ...f, bankAccount: v }))} />
+              </div>
+            </div>
+
+            {/* 3. 변수 */}
+            <div>
+              <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">3. 출금 변수</div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-[#6B7684] mb-1">금액 (원)</label>
+                  <input
+                    type="number"
+                    value={cVars.amount}
+                    onChange={(e) => setCVars((v) => ({ ...v, amount: e.target.value }))}
+                    placeholder="100000"
+                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#6B7684] mb-1">최초출금월</label>
+                  <input
+                    type="month"
+                    value={cVars.firstMonth}
+                    onChange={(e) => setCVars((v) => ({ ...v, firstMonth: e.target.value }))}
+                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#6B7684] mb-1">매월 출금일</label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-[#8B95A1]">매월</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={cVars.withdrawalDay}
+                      onChange={(e) => setCVars((v) => ({ ...v, withdrawalDay: e.target.value }))}
+                      className="w-16 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-center focus:outline-none focus:border-[#3182F6]"
+                    />
+                    <span className="text-sm text-[#8B95A1]">일</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 푸터 */}
+          <div className="px-6 py-4 border-t border-[#F2F4F6] flex justify-end gap-2">
+            <button
+              onClick={() => setCustomOpen(false)}
+              className="text-sm px-4 py-2 rounded-lg font-medium bg-white border border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB]"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleGenerateCustom}
+              disabled={generating}
+              className="text-sm px-5 py-2 rounded-lg font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50"
+            >
+              {generating ? "생성 중..." : "생성"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] max-h-[70vh] overflow-auto">
       <table className="w-full text-sm">
         <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-20">
@@ -800,5 +1076,18 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       </table>
     </div>
     </>
+  );
+}
+
+function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-xs text-[#6B7684] mb-1">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+      />
+    </div>
   );
 }

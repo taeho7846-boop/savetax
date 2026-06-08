@@ -268,6 +268,39 @@ export async function getClientById(id: number) {
   return { client, users, currentUserRole: session.role, affiliationOptions };
 }
 
+/** 커스터마이징 CMS 등록 모달용 — 선택한 거래처의 상세정보 (권한 스코프 적용) */
+export async function getCmsClientDetail(clientId: number) {
+  const session = await requireAuth();
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+  let assignedFilter: { assignedUserId: number | { in: number[] } } = { assignedUserId: session.id };
+  if (isManager) {
+    const employees = await prisma.user.findMany({
+      where: { managerId: session.id, isActive: true },
+      select: { id: true },
+    });
+    assignedFilter = { assignedUserId: { in: [session.id, ...employees.map((e) => e.id)] } };
+  }
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, isDeleted: false, ...assignedFilter },
+    select: {
+      id: true,
+      name: true,
+      ceoName: true,
+      phone: true,
+      bankName: true,
+      bankAccount: true,
+      residentNumber: true,
+      bizNumber: true,
+      clientType: true,
+      monthlyFee: true,
+      firstWithdrawalMonth: true,
+      affiliation: true,
+    },
+  });
+  if (!client) throw new Error("거래처를 찾을 수 없습니다");
+  return client;
+}
+
 export async function getClientHistory(clientId: number) {
   await requireAuth();
   const [tasks, memos] = await Promise.all([
