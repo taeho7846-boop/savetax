@@ -58,6 +58,7 @@ type VerifyMatchedItem = {
   excelSuccess: boolean;
   excelAmount: number;
   currentPaid: boolean;
+  matchedBy?: "name" | "ceoName";
 };
 
 type VerifyResult = {
@@ -81,6 +82,7 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyMonth, setVerifyMonth] = useState(currentYM);
   const [paidIds, setPaidIds] = useState<Set<number>>(new Set());
+  const [bulkPaying, setBulkPaying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 소속 필터
@@ -118,6 +120,29 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
     });
     setPaidIds(prev => new Set(prev).add(clientId));
     router.refresh();
+  }
+
+  // 출금 성공 + 아직 미수납인 거래처를 한 번에 수납처리
+  async function handleBulkMarkPaid(clientIds: number[]) {
+    if (!verifyResult || clientIds.length === 0) return;
+    setBulkPaying(true);
+    try {
+      await fetch("/api/receivables/bulk-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientIds, yearMonth: verifyResult.targetMonth }),
+      });
+      setPaidIds(prev => {
+        const next = new Set(prev);
+        clientIds.forEach(id => next.add(id));
+        return next;
+      });
+      router.refresh();
+    } catch {
+      alert("일괄 수납처리 실패");
+    } finally {
+      setBulkPaying(false);
+    }
   }
 
   // 소속 필터 외부 클릭 닫기
@@ -216,10 +241,27 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
               {/* 출금 성공 */}
               {verifyResult.success.length > 0 && (
                 <div className="mt-4">
-                  <h3 className="text-sm font-bold text-[#15803D] mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#1AB266]" />
-                    출금 성공
-                  </h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-[#15803D] flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#1AB266]" />
+                      출금 성공
+                    </h3>
+                    {(() => {
+                      const unpaidIds = verifyResult.success
+                        .filter(item => !item.currentPaid && !paidIds.has(item.clientId))
+                        .map(item => item.clientId);
+                      if (unpaidIds.length === 0) return null;
+                      return (
+                        <button
+                          onClick={() => handleBulkMarkPaid(unpaidIds)}
+                          disabled={bulkPaying}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-[#1AB266] text-white font-bold hover:bg-[#16A865] disabled:opacity-50"
+                        >
+                          {bulkPaying ? "처리 중..." : `미수납 ${unpaidIds.length}건 일괄 수납처리`}
+                        </button>
+                      );
+                    })()}
+                  </div>
                   <div className="border border-[#BBF7D0] rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-[#F1FBF4]">
@@ -236,7 +278,12 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                           const alreadyPaid = item.currentPaid || paidIds.has(item.clientId);
                           return (
                             <tr key={item.clientId} className={alreadyPaid ? "bg-[#F1FBF4]/50" : ""}>
-                              <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                              <td className="px-3 py-2 font-medium text-[#191F28]">
+                                {item.clientName}
+                                {item.matchedBy === "ceoName" && (
+                                  <span className="ml-1.5 text-[10px] font-medium text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded-full align-middle whitespace-nowrap">대표자명</span>
+                                )}
+                              </td>
                               <td className="px-3 py-2 text-right text-[#4E5968]">{item.monthlyFee?.toLocaleString()}원</td>
                               <td className="px-3 py-2 text-right text-[#4E5968]">{item.excelAmount?.toLocaleString()}원</td>
                               <td className="px-3 py-2 text-center">
@@ -282,7 +329,12 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                       <tbody className="divide-y divide-red-100">
                         {verifyResult.failed.map(item => (
                           <tr key={item.clientId}>
-                            <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
+                            <td className="px-3 py-2 font-medium text-[#191F28]">
+                                {item.clientName}
+                                {item.matchedBy === "ceoName" && (
+                                  <span className="ml-1.5 text-[10px] font-medium text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded-full align-middle whitespace-nowrap">대표자명</span>
+                                )}
+                              </td>
                             <td className="px-3 py-2 text-right text-[#4E5968]">{item.monthlyFee?.toLocaleString()}원</td>
                             <td className="px-3 py-2 text-center">
                               <span className="text-xs text-[#B91C1C] bg-[#FEF2F2] px-2 py-0.5 rounded-full">{item.excelResult}</span>

@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
     select: {
       id: true,
       name: true,
+      ceoName: true,
       monthlyFee: true,
       firstWithdrawalMonth: true,
     },
@@ -125,6 +126,7 @@ export async function POST(req: NextRequest) {
     excelSuccess: boolean;
     excelAmount: number;
     currentPaid: boolean;
+    matchedBy: "name" | "ceoName"; // 거래처명 매칭인지, 대표자명 매칭인지
   };
 
   const success: MatchedItem[] = [];
@@ -135,7 +137,11 @@ export async function POST(req: NextRequest) {
     // 최초출금월 이전이면 스킵
     if (client.firstWithdrawalMonth && targetMonth < client.firstWithdrawalMonth) continue;
 
-    const excel = excelMap.get(normalizeName(client.name));
+    // 1차: 거래처명으로 매칭 → 없으면 대표자명(회원명 칸에 대표자명이 적힌 경우)으로 매칭
+    const byName = excelMap.get(normalizeName(client.name));
+    const excel = byName
+      || (client.ceoName ? excelMap.get(normalizeName(client.ceoName)) : undefined);
+    const matchedBy: "name" | "ceoName" = byName ? "name" : "ceoName";
     const currentPaid = paidMap.get(client.id) === "paid";
 
     if (excel) {
@@ -147,6 +153,7 @@ export async function POST(req: NextRequest) {
         excelSuccess: excel.isSuccess,
         excelAmount: excel.amount,
         currentPaid,
+        matchedBy,
       };
       if (excel.isSuccess) {
         success.push(item);
