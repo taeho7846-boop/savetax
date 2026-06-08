@@ -93,6 +93,7 @@ interface Props {
     halfYearTax?: boolean;
     withholdingType?: string | null;
     affiliation?: string | null;
+    cmsAffiliation?: string | null;
     notes: string | null;
     myboxLink?: string | null;
     assignedUserId: number | null;
@@ -332,8 +333,8 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
       </div>
 
-      {/* 행5: 담당직원 / 소속 */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* 행5: 담당직원 / 소속 / CMS */}
+      <div className="grid grid-cols-3 gap-3">
         {currentUserRole !== "employee" ? (
           <div>
             <label className="block text-sm font-medium text-[#191F28] mb-1">담당 직원</label>
@@ -354,6 +355,19 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           <select
             name="affiliation"
             defaultValue={client.affiliation ?? ""}
+            className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none"
+          >
+            <option value="">미선택</option>
+            {(affiliationOptions ?? ["세이브택스"]).map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[#191F28] mb-1" title="CMS 자동이체 청구처 — 소속이 바뀌어도 본사 정산이 필요하면 세이브택스로 유지">CMS</label>
+          <select
+            name="cmsAffiliation"
+            defaultValue={client.cmsAffiliation ?? ""}
             className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none"
           >
             <option value="">미선택</option>
