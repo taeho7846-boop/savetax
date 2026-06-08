@@ -163,6 +163,7 @@ model Settings {
   agentIdCardPath    String?
   userId             Int     @unique
   cmsExcelPath       String?
+  cmsExcelPersonalPath String?
   cmsBulkExcelPath   String?
   healthExcelPath    String?
   pensionExcelPath   String?

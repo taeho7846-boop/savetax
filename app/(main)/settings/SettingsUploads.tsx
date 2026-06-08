@@ -7,6 +7,7 @@ interface Props {
   commissionFormPath: string | null;
   agentIdCardPath: string | null;
   cmsExcelPath: string | null;
+  cmsExcelPersonalPath: string | null;
   cmsBulkExcelPath: string | null;
   pensionExcelPath: string | null;
   healthExcelPath: string | null;
@@ -15,6 +16,11 @@ interface Props {
   taxReductionExcelPath: string | null;
 }
 
+const badgeTones: Record<string, string> = {
+  blue: "bg-[#EDF3FF] text-[#1B64DA]",
+  violet: "bg-[#F3F0FF] text-[#7C3AED]",
+};
+
 function UploadSection({
   label,
   currentPath,
@@ -22,6 +28,8 @@ function UploadSection({
   deleteUrl,
   accept,
   isImage,
+  badge,
+  badgeTone = "blue",
 }: {
   label: string;
   currentPath: string | null;
@@ -29,6 +37,8 @@ function UploadSection({
   deleteUrl: string;
   accept: string;
   isImage: boolean;
+  badge?: string;
+  badgeTone?: "blue" | "violet";
 }) {
   const [path, setPath] = useState<string | null>(currentPath);
   const [dragOver, setDragOver] = useState(false);
@@ -70,7 +80,14 @@ function UploadSection({
 
   return (
     <div>
-      <label className="block text-xs text-[#6B7684] mb-2">{label}</label>
+      <label className="flex items-center gap-1.5 text-xs text-[#6B7684] mb-2">
+        {badge && (
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold ${badgeTones[badgeTone]}`}>
+            {badge}
+          </span>
+        )}
+        <span>{label}</span>
+      </label>
 
       {path ? (
         <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] p-3 bg-[#F9FAFB]">
@@ -153,7 +170,7 @@ function UploadSection({
   );
 }
 
-export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath, taxReductionExcelPath }: Props) {
+export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsExcelPersonalPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath, taxReductionExcelPath }: Props) {
   return (
     <div className="glass rounded-2xl p-6 space-y-6">
       <h2 className="text-sm font-bold text-[#333D4B]">파일</h2>
@@ -179,23 +196,50 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
 
       <div className="border-t border-[#F2F4F6] pt-4">
         <h3 className="text-xs font-bold text-[#8B95A1] mb-4">CMS</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <UploadSection
-            label="CMS 엑셀 파일"
-            currentPath={cmsExcelPath}
-            uploadUrl="/api/settings/upload-cms-excel"
-            deleteUrl="/api/settings/upload-cms-excel"
-            accept=".xlsx,.xls"
-            isImage={false}
-          />
-          <UploadSection
-            label="CMS 일괄등록 엑셀"
-            currentPath={cmsBulkExcelPath}
-            uploadUrl="/api/settings/upload-cms-bulk-excel"
-            deleteUrl="/api/settings/upload-cms-bulk-excel"
-            accept=".xlsx,.xls"
-            isImage={false}
-          />
+
+        {/* CMS 신청서 양식 — 지점용 / 개인사무소용 두 종류 */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[11px] font-semibold text-[#4E5968]">CMS 신청서 양식</span>
+            <span className="text-[10.5px] text-[#B0B8C1]">거래처별 CMS 신청서 자동 생성에 사용</span>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <UploadSection
+              label="세이브택스 논현지점"
+              badge="지점"
+              badgeTone="blue"
+              currentPath={cmsExcelPath}
+              uploadUrl="/api/settings/upload-cms-excel"
+              deleteUrl="/api/settings/upload-cms-excel"
+              accept=".xlsx,.xls"
+              isImage={false}
+            />
+            <UploadSection
+              label="개인 세무회계사무소"
+              badge="개인"
+              badgeTone="violet"
+              currentPath={cmsExcelPersonalPath}
+              uploadUrl="/api/settings/upload-cms-personal-excel"
+              deleteUrl="/api/settings/upload-cms-personal-excel"
+              accept=".xlsx,.xls"
+              isImage={false}
+            />
+          </div>
+        </div>
+
+        {/* CMS 일괄등록 */}
+        <div>
+          <div className="text-[11px] font-semibold text-[#4E5968] mb-3">일괄등록</div>
+          <div className="grid grid-cols-2 gap-6">
+            <UploadSection
+              label="CMS 일괄등록 엑셀"
+              currentPath={cmsBulkExcelPath}
+              uploadUrl="/api/settings/upload-cms-bulk-excel"
+              deleteUrl="/api/settings/upload-cms-bulk-excel"
+              accept=".xlsx,.xls"
+              isImage={false}
+            />
+          </div>
         </div>
       </div>
 
