@@ -63,9 +63,8 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
 
 type HideCol = "labor" | "monthlyFee" | "affiliation" | "contractDate";
 
-export function ClientsTable({ clients, terminatedClients = [], readonly = false, showAssignedUser = false, hideCols = [] }: { clients: Client[]; terminatedClients?: Client[]; readonly?: boolean; showAssignedUser?: boolean; hideCols?: HideCol[] }) {
+export function ClientsTable({ clients, readonly = false, showAssignedUser = false, hideCols = [] }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean; hideCols?: HideCol[] }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [showTerminated, setShowTerminated] = useState(false);
   const [laborFilter, setLaborFilter] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
@@ -895,49 +894,6 @@ export function ClientsTable({ clients, terminatedClients = [], readonly = false
           </tbody>
         </table>
       </div>
-
-      {/* 해지 거래처 — 접힌 그룹 (집계·자동화 제외, 종소세·채권엔 노출) */}
-      {terminatedClients.length > 0 && (
-        <div className="glass rounded-3xl mt-3 overflow-hidden">
-          <button
-            onClick={() => setShowTerminated((v) => !v)}
-            className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-white/40 transition-colors text-left"
-          >
-            <span className="text-[#8B95A1] text-xs">{showTerminated ? "▼" : "▶"}</span>
-            <span className="text-[13px] font-bold text-[#6B7684]">🗂 해지 거래처</span>
-            <span className="text-[12px] font-bold text-[#8B95A1] bg-[#F2F4F6] rounded-full px-2 py-0.5">{terminatedClients.length}곳</span>
-            <span className="text-[11px] text-[#B0B8C1] ml-1 hidden sm:inline">집계·자동화에서 제외 · 종합소득세·채권관리에는 그대로 표시</span>
-          </button>
-          {showTerminated && (
-            <table className="w-full text-sm border-t border-white/60">
-              <tbody className="divide-y divide-white/40">
-                {terminatedClients.map((client) => (
-                  <tr
-                    key={client.id}
-                    className={`transition-colors ${readonly ? "" : "cursor-pointer hover:bg-white/60"}`}
-                    onClick={() => !readonly && setSelectedId(client.id)}
-                  >
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[#4E5968] font-medium">{client.name}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] whitespace-nowrap">계약종료</span>
-                      </div>
-                      <div className="text-xs text-[#8B95A1] mt-0.5">
-                        {client.clientType === "corporate" ? "법인" : "개인"}
-                        {client.ceoName ? ` · ${client.ceoName}` : ""}
-                        {client.taxTypes ? ` · ${client.taxTypes}` : ""}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-right text-[#6B7684] whitespace-nowrap">
-                      {client.monthlyFee != null ? client.monthlyFee.toLocaleString() + "원" : ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
 
       {showAssignModal && (
         <div

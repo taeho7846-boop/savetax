@@ -5,6 +5,7 @@ import { ClientsTable } from "./ClientsTable";
 import { ClientCreateButton } from "./ClientCreateModal";
 import { BulkUploadButton, BulkUpdateButton } from "./BulkUploadModal";
 import { TrashBinButton } from "./TrashBin";
+import { TerminatedBinButton } from "./TerminatedBin";
 import { MissingInfoCards } from "./MissingInfoCards";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
@@ -62,19 +63,12 @@ export default async function ClientsPage({
   };
   const includeAssigned = (isReadonly || isManager) ? { assignedUser: { select: { name: true } } } : undefined;
 
-  // 활성(계약중) = 메인 목록·집계 / 해지(계약종료) = 접힌 그룹, 집계 제외
-  const [clients, terminatedClients] = await Promise.all([
-    prisma.client.findMany({
-      where: { ...listWhere, contractStatus: "active" },
-      include: includeAssigned,
-      orderBy: { name: "asc" },
-    }),
-    prisma.client.findMany({
-      where: { ...listWhere, contractStatus: { not: "active" } },
-      include: includeAssigned,
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  // 메인 목록·집계는 활성(계약중)만. 해지(계약종료)는 우측 상단 '해지거래처' 버튼에서 조회.
+  const clients = await prisma.client.findMany({
+    where: { ...listWhere, contractStatus: "active" },
+    include: includeAssigned,
+    orderBy: { name: "asc" },
+  });
 
   // KPI/카운트는 활성 거래처만 집계 (해지 제외)
   const baseWhere = {
@@ -86,14 +80,25 @@ export default async function ClientsPage({
       { NOT: { taxTypes: { contains: "신고대리" } } },
     ],
   };
+  // 해지거래처 버튼 배지용 카운트 (검색/탭과 무관하게 전체)
+  const terminatedWhere = {
+    isDeleted: false,
+    contractStatus: { not: "active" },
+    ...assignedFilter,
+    OR: [
+      { taxTypes: null },
+      { NOT: { taxTypes: { contains: "신고대리" } } },
+    ],
+  };
 
-  const [totalCount, individualCount, corporateCount, trashCount] = await Promise.all([
+  const [totalCount, individualCount, corporateCount, trashCount, terminatedCount] = await Promise.all([
     prisma.client.count({ where: baseWhere }),
     prisma.client.count({ where: { ...baseWhere, clientType: "individual" } }),
     prisma.client.count({ where: { ...baseWhere, clientType: "corporate" } }),
     isReadonly ? Promise.resolve(0) : prisma.client.count({
       where: { isDeleted: true, assignedUserId: session.id },
     }),
+    isReadonly ? Promise.resolve(0) : prisma.client.count({ where: terminatedWhere }),
   ]);
 
   // KPI 계산
@@ -151,6 +156,7 @@ export default async function ClientsPage({
           </a>
           {!isReadonly && (
             <>
+              <TerminatedBinButton count={terminatedCount} />
               <TrashBinButton count={trashCount} />
               <BulkUpdateButton />
               <BulkUploadButton />
@@ -250,7 +256,7 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      <ClientsTable clients={clients} terminatedClients={terminatedClients} readonly={isReadonly} showAssignedUser={isReadonly || isManager} />
+      <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser={isReadonly || isManager} />
     </div>
   );
 }
