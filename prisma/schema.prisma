@@ -91,6 +91,7 @@ model Client {
   wehagoColors              String?
   assignedUser              User?                      @relation(fields: [assignedUserId], references: [id])
   commission                CommissionProcess?
+  termination               TerminationProcess?
   dataCollections           DataCollection[]
   feeRecords                FeeRecord[]
   incomeTaxRecords          IncomeTaxRecord[]
@@ -596,6 +597,27 @@ model UnpaidPostpone {
   note           String?
   createdAt      DateTime @default(now())
   client         Client   @relation(fields: [clientId], references: [id])
+}
+
+model TerminationProcess {
+  id                Int       @id @default(autoincrement())
+  clientId          Int       @unique
+  startedAt         DateTime  @default(now())
+  reason            String?
+  ediPensionDone    Boolean   @default(false)
+  ediHealthDone     Boolean   @default(false)
+  ediEmploymentDone Boolean   @default(false)
+  cmsTerminated     Boolean   @default(false)
+  hometaxTerminated Boolean   @default(false)
+  closureVat        String    @default("na")
+  feeSeparate       Boolean   @default(false)
+  feeAmount         Int?
+  feePaid           Boolean   @default(false)
+  notes             String?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  client            Client    @relation(fields: [clientId], references: [id])
 }
 
 model Feedback {

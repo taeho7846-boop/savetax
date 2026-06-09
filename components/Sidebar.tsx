@@ -25,6 +25,7 @@ import {
   LogOutIcon,
   LoaderIcon,
   CheckIcon,
+  UserMinusIcon,
 } from "./icons";
 
 type IconComp = ComponentType<SVGProps<SVGSVGElement>>;
@@ -33,6 +34,7 @@ const menus: { href: string; label: string; Icon: IconComp }[] = [
   { href: "/dashboard", label: "대시보드", Icon: LayoutDashboardIcon },
   { href: "/clients", label: "고객사관리", Icon: BuildingIcon },
   { href: "/commission", label: "신규수임", Icon: ClipboardListIcon },
+  { href: "/termination", label: "해지관리", Icon: UserMinusIcon },
   { href: "/tax-agency", label: "신고대리", Icon: FileTextIcon },
   { href: "/withholding", label: "원천세", Icon: ReceiptIcon },
   { href: "/income-tax", label: "종합소득세", Icon: FileSpreadsheetIcon },

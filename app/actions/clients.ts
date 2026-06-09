@@ -505,7 +505,15 @@ export async function getAssignableUsers() {
 export async function setClientContractStatus(id: number, status: "active" | "terminated") {
   await requireAuth();
   await prisma.client.update({ where: { id }, data: { contractStatus: status } });
+  // 해지처리 시 해지관리용 진행상태(체크리스트)를 자동 생성 (이미 있으면 그대로 둠)
+  if (status === "terminated") {
+    const existing = await prisma.terminationProcess.findUnique({ where: { clientId: id } });
+    if (!existing) {
+      await prisma.terminationProcess.create({ data: { clientId: id } });
+    }
+  }
   revalidatePath("/clients");
+  revalidatePath("/termination");
   revalidatePath("/receivables");
   revalidatePath("/withholding");
   revalidatePath("/data-collect");
