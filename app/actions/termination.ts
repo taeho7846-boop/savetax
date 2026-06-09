@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 
 // 체크리스트 토글 가능한 boolean 필드 목록 (안전한 화이트리스트)
 const BOOL_FIELDS = [
+  "ediSoloBiz",
   "ediPensionDone",
   "ediHealthDone",
   "ediEmploymentDone",

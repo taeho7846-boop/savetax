@@ -59,6 +59,7 @@ export default async function TerminationPage() {
       reason: t?.reason ?? null,
       notes: t?.notes ?? null,
       completedAt: t?.completedAt ? t.completedAt.toISOString() : null,
+      ediSoloBiz: t?.ediSoloBiz ?? false,
       ediPensionDone: t?.ediPensionDone ?? false,
       ediHealthDone: t?.ediHealthDone ?? false,
       ediEmploymentDone: t?.ediEmploymentDone ?? false,

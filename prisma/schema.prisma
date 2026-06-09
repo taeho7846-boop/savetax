@@ -604,6 +604,7 @@ model TerminationProcess {
   clientId          Int       @unique
   startedAt         DateTime  @default(now())
   reason            String?
+  ediSoloBiz        Boolean   @default(false)
   ediPensionDone    Boolean   @default(false)
   ediHealthDone     Boolean   @default(false)
   ediEmploymentDone Boolean   @default(false)

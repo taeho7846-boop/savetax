@@ -26,6 +26,7 @@ export type TerminationRow = {
   reason: string | null;
   notes: string | null;
   completedAt: string | null;
+  ediSoloBiz: boolean;
   ediPensionDone: boolean;
   ediHealthDone: boolean;
   ediEmploymentDone: boolean;
@@ -41,12 +42,12 @@ type Filter = "active" | "done" | "all";
 
 // 한 거래처의 해지 진행률(완료 항목 / 전체 항목)
 function progressOf(r: TerminationRow) {
-  const items: boolean[] = [
-    r.ediPensionDone,
-    r.ediHealthDone,
-    r.ediEmploymentDone,
-    r.cmsTerminated,
-  ];
+  const items: boolean[] = [];
+  // 1인사업자면 해지할 4대보험이 없으므로 EDI 3항목은 진행률에서 제외
+  if (!r.ediSoloBiz) {
+    items.push(r.ediPensionDone, r.ediHealthDone, r.ediEmploymentDone);
+  }
+  items.push(r.cmsTerminated);
   if (r.clientType === "corporate") items.push(r.hometaxTerminated);
   // 폐업부가세: '신고필요'만 미완료로 간주 (해당없음/신고완료는 완료)
   items.push(r.closureVat !== "needed");
@@ -170,7 +171,7 @@ function TerminationCard({ row, readonly }: { row: TerminationRow; readonly: boo
   }
 
   function toggle(
-    field: "ediPensionDone" | "ediHealthDone" | "ediEmploymentDone" | "cmsTerminated" | "hometaxTerminated",
+    field: "ediSoloBiz" | "ediPensionDone" | "ediHealthDone" | "ediEmploymentDone" | "cmsTerminated" | "hometaxTerminated",
     value: boolean,
   ) {
     if (readonly) return;
@@ -270,10 +271,20 @@ function TerminationCard({ row, readonly }: { row: TerminationRow; readonly: boo
           {/* EDI 4대보험 */}
           <Section title="EDI 해지 (4대보험)">
             <div className="flex flex-wrap gap-2">
-              <CheckChip label="연금" on={r.ediPensionDone} disabled={readonly || isPending} onClick={() => toggle("ediPensionDone", !r.ediPensionDone)} />
-              <CheckChip label="건강" on={r.ediHealthDone} disabled={readonly || isPending} onClick={() => toggle("ediHealthDone", !r.ediHealthDone)} />
-              <CheckChip label="고용·산재" on={r.ediEmploymentDone} disabled={readonly || isPending} onClick={() => toggle("ediEmploymentDone", !r.ediEmploymentDone)} />
+              <CheckChip
+                label="1인사업자 (해당없음)"
+                on={r.ediSoloBiz}
+                neutral
+                disabled={readonly || isPending}
+                onClick={() => toggle("ediSoloBiz", !r.ediSoloBiz)}
+              />
+              <CheckChip label="연금" on={r.ediPensionDone} disabled={readonly || isPending || r.ediSoloBiz} onClick={() => toggle("ediPensionDone", !r.ediPensionDone)} />
+              <CheckChip label="건강" on={r.ediHealthDone} disabled={readonly || isPending || r.ediSoloBiz} onClick={() => toggle("ediHealthDone", !r.ediHealthDone)} />
+              <CheckChip label="고용·산재" on={r.ediEmploymentDone} disabled={readonly || isPending || r.ediSoloBiz} onClick={() => toggle("ediEmploymentDone", !r.ediEmploymentDone)} />
             </div>
+            {r.ediSoloBiz && (
+              <div className="text-[11px] text-[#8B95A1] mt-2">1인사업자 — 해지할 4대보험이 없어 EDI 항목은 진행률에서 제외됩니다.</div>
+            )}
           </Section>
 
           {/* CMS / 홈택스 */}
@@ -385,18 +396,33 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function CheckChip({ label, on, disabled, onClick }: { label: string; on: boolean; disabled?: boolean; onClick: () => void }) {
+function CheckChip({
+  label,
+  on,
+  neutral,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  on: boolean;
+  neutral?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  // neutral: '해당없음' 류 — 켜져도 초록 완료가 아니라 회색으로 표시
+  const onStyle = neutral
+    ? "bg-[#F2F4F6] text-[#4E5968] border border-[#D1D6DB]"
+    : "bg-[#E7F7EE] text-[#15803D] border border-[#BBF7D0]";
+  const boxStyle = neutral ? "bg-[#8B95A1] text-white" : "bg-[#15803D] text-white";
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-xl text-[12.5px] font-bold transition-colors disabled:opacity-50 ${
-        on
-          ? "bg-[#E7F7EE] text-[#15803D] border border-[#BBF7D0]"
-          : "bg-white text-[#6B7684] border border-[#E5E8EB] hover:bg-[#F9FAFB]"
+        on ? onStyle : "bg-white text-[#6B7684] border border-[#E5E8EB] hover:bg-[#F9FAFB]"
       }`}
     >
-      <span className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] ${on ? "bg-[#15803D] text-white" : "bg-[#F2F4F6] text-transparent"}`}>✓</span>
+      <span className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] ${on ? boxStyle : "bg-[#F2F4F6] text-transparent"}`}>✓</span>
       {label}
     </button>
   );
