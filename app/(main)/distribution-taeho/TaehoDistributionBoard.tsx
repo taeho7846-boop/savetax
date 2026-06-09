@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addTaehoDistribution, deleteTaehoDistribution, toggleTaehoPass, permanentDeleteTaehoDistribution, restoreTaehoDistribution, assignFromSavetax } from "@/app/actions/distribution-taeho";
+import { addTaehoDistribution, deleteTaehoDistribution, toggleTaehoPass, permanentDeleteTaehoDistribution, restoreTaehoDistribution, assignFromSavetax, addTaehoPassBlock } from "@/app/actions/distribution-taeho";
 import { dismissMissingClient } from "@/app/actions/distribution";
 
 interface Accountant {
@@ -108,6 +108,13 @@ export function TaehoDistributionBoard({
   function handleTogglePass(userId: number) {
     startTransition(async () => {
       await toggleTaehoPass(userId, tab);
+      router.refresh();
+    });
+  }
+
+  function handleAddPass(userId: number) {
+    startTransition(async () => {
+      await addTaehoPassBlock(userId, tab);
       router.refresh();
     });
   }
@@ -373,12 +380,12 @@ export function TaehoDistributionBoard({
                       <div className={`v3-col-body ${isNext ? "is-next" : ""} ${isPass ? "is-passed" : ""} ${isDragOver ? "is-drop-over" : ""}`}>
                         {items.map((d) =>
                           d.isSkipped ? (
-                            <div key={d.id} className="v3-card is-pass">
-                              PASS
+                            <div key={d.id} className={`v3-card ${d.clientName === "키맞추기" ? "is-level" : "is-pass"}`}>
+                              {d.clientName === "키맞추기" ? "키맞추기" : "PASS"}
                               <button
-                                onClick={() => handleDelete(d.id, "PASS")}
+                                onClick={() => handleDelete(d.id, d.clientName)}
                                 className="v3-x"
-                                aria-label="PASS 삭제"
+                                aria-label={`${d.clientName === "키맞추기" ? "키맞추기" : "PASS"} 삭제`}
                               >
                                 ✕
                               </button>
@@ -415,6 +422,14 @@ export function TaehoDistributionBoard({
                         {Array.from({ length: padCount }).map((_, i) => (
                           <div key={`pad-${i}`} className="v3-card is-empty">—</div>
                         ))}
+                        <button
+                          onClick={() => handleAddPass(a.id)}
+                          disabled={isPending}
+                          className="v3-card is-add"
+                          title="배분 순서 맞추기용 녹색 PASS 블럭 추가"
+                        >
+                          ＋ 키맞추기
+                        </button>
                         {unassignedFromSavetax.length > 0 && (
                           <div className={`v3-drop ${isDragOver ? "is-active" : ""}`}>
                             {isDragOver ? "여기에 놓기" : "미배정 거래처를 여기로 드롭"}

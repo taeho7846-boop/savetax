@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addDistribution, deleteDistribution, togglePass, permanentDeleteDistribution, restoreDistribution, dismissMissingClient } from "@/app/actions/distribution";
+import { addDistribution, deleteDistribution, togglePass, permanentDeleteDistribution, restoreDistribution, dismissMissingClient, addPassBlock } from "@/app/actions/distribution";
 
 interface Accountant {
   id: number;
@@ -93,6 +93,13 @@ export function DistributionBoard({
   function handleTogglePass(userId: number) {
     startTransition(async () => {
       await togglePass(userId, tab);
+      router.refresh();
+    });
+  }
+
+  function handleAddPass(userId: number) {
+    startTransition(async () => {
+      await addPassBlock(userId, tab);
       router.refresh();
     });
   }
@@ -315,12 +322,12 @@ export function DistributionBoard({
                   <div className={`v3-col-body ${isNext ? "is-next" : ""} ${isPass ? "is-passed" : ""}`}>
                     {items.map((d) =>
                       d.isSkipped ? (
-                        <div key={d.id} className="v3-card is-pass">
-                          PASS
+                        <div key={d.id} className={`v3-card ${d.clientName === "키맞추기" ? "is-level" : "is-pass"}`}>
+                          {d.clientName === "키맞추기" ? "키맞추기" : "PASS"}
                           <button
-                            onClick={() => handleDelete(d.id, "PASS")}
+                            onClick={() => handleDelete(d.id, d.clientName)}
                             className="v3-x"
-                            aria-label="PASS 삭제"
+                            aria-label={`${d.clientName === "키맞추기" ? "키맞추기" : "PASS"} 삭제`}
                           >
                             ✕
                           </button>
@@ -357,6 +364,14 @@ export function DistributionBoard({
                     {Array.from({ length: padCount }).map((_, i) => (
                       <div key={`pad-${i}`} className="v3-card is-empty">—</div>
                     ))}
+                    <button
+                      onClick={() => handleAddPass(a.id)}
+                      disabled={isPending}
+                      className="v3-card is-add"
+                      title="배분 순서 맞추기용 녹색 PASS 블럭 추가"
+                    >
+                      ＋ 키맞추기
+                    </button>
                   </div>
                 </div>
               );

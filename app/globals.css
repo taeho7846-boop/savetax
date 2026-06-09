@@ -244,6 +244,10 @@ body {
 .v3-card:hover .v3-x { opacity: 1; }
 .v3-card .v3-x:hover { color: #E02E2E; }
 .v3-card.is-pass { background: transparent; border: 1px dashed rgba(224,46,46,.3); color: #E02E2E; font-weight: 700; font-size: 10.5px; letter-spacing: .18em; justify-content: center; }
+.v3-card.is-level { background: rgba(21,128,61,.06); border: 1px dashed rgba(21,128,61,.45); color: #15803D; font-weight: 700; font-size: 10.5px; letter-spacing: .12em; justify-content: center; }
+.v3-card.is-add { background: transparent; border: 1px dashed #BBF7D0; color: #15803D; justify-content: center; font-weight: 700; font-size: 11px; cursor: pointer; transition: background .12s, border-color .12s; }
+.v3-card.is-add:hover { background: rgba(21,128,61,.07); border-color: #15803D; }
+.v3-card.is-add:disabled { opacity: .5; cursor: default; }
 .v3-card.is-empty { background: transparent; border: 1px dashed #E5E8EB; color: #B0B8C1; justify-content: center; font-weight: 400; }
 
 /* 드래그 카드 (미배정 트레이) */

@@ -106,6 +106,22 @@ export async function toggleTaehoPass(userId: number, clientType: string) {
   revalidatePath("/distribution-taeho");
 }
 
+// 키맞추기(녹색 PASS) 블럭 직접 추가 — 배분 순서를 동일 선상으로 맞추기 위함
+export async function addTaehoPassBlock(userId: number, clientType: string) {
+  await requireAuth();
+  const ct = prefixed(clientType);
+  await prisma.distribution.create({
+    data: {
+      clientName: "키맞추기",
+      clientType: ct,
+      assignedUserId: userId,
+      isSkipped: true,
+      batchId: `level-${Date.now()}`,
+    },
+  });
+  revalidatePath("/distribution-taeho");
+}
+
 export async function addTaehoDistribution(
   clientNames: string[],
   clientType: string,

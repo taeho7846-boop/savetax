@@ -127,6 +127,22 @@ export async function togglePass(userId: number, clientType: string) {
   revalidatePath("/distribution");
 }
 
+// 키맞추기(녹색 PASS) 블럭 직접 추가 — 배분 순서를 동일 선상으로 맞추기 위함
+// isSkipped=true 이므로 실제 배분 건수(counts)엔 안 잡히지만, 라운드로빈 순서(totalRows)는 한 칸 뒤로 밀림
+export async function addPassBlock(userId: number, clientType: string) {
+  await requireAuth();
+  await prisma.distribution.create({
+    data: {
+      clientName: "키맞추기",
+      clientType,
+      assignedUserId: userId,
+      isSkipped: true,
+      batchId: `level-${Date.now()}`,
+    },
+  });
+  revalidatePath("/distribution");
+}
+
 // 거래처 추가 + 자동 배분
 export async function addDistribution(
   clientNames: string[],
