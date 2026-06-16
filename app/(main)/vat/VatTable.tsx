@@ -37,7 +37,7 @@ const STAGES: { key: VatStage; label: string; color: string; tint: string }[] = 
 ];
 const STAGE_INDEX: Record<VatStage, number> = { collect: 0, writing: 1, approval: 2, confirm: 3, done: 4 };
 
-// 단계별 체크리스트 (그룹 + 항목). 항목은 자유롭게 추가 가능.
+// 단계별 체크리스트 (그룹 + 항목). 보수는 confirm 단계에서 별도 입력.
 const CHECKLIST: Record<VatStage, { group?: string; items: { key: string; label: string }[] }[]> = {
   collect: [
     { items: [
@@ -146,7 +146,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const shown = stageFilter ? active.filter(c => getRec(c.id).stage === stageFilter) : active;
   const feeSum = active.reduce((s, c) => s + (getRec(c.id).fee ?? 0), 0);
 
-  const colCount = 1 + (showAssignedUser ? 1 : 0) + 5;
+  const colCount = 1 + (showAssignedUser ? 1 : 0) + 4; // 거래처+[담당자]+체크리스트+메모+제외+진행
 
   function row(client: ClientRow, dim: boolean) {
     const r = getRec(client.id);
@@ -167,53 +167,34 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <div className="text-[11px] text-[#8B95A1] mt-0.5">{client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}</div>
         </td>
 
+        {/* 담당자 */}
         {showAssignedUser && (
           <td className="px-3 py-3 text-center text-xs text-[#4E5968] whitespace-nowrap">{client.assignedUserName || <span className="text-[#B0B8C1]">-</span>}</td>
         )}
 
-        {/* 진행 단계 — 왼→오 가로 스텝퍼 + 다음단계 버튼 */}
-        <td className="px-3 py-3 whitespace-nowrap">
-          <div className="flex flex-col gap-2">
-            {/* 가로 스텝퍼 (왼쪽 자료수집 → 오른쪽 신고완료) */}
-            <div className="flex items-center">
-              {STAGES.map((s, i) => (
-                <span key={s.key} className="flex items-center">
-                  {i > 0 && <span className="w-5 h-[2px]" style={{ background: i <= cur ? s.color : "#E5E8EB" }} />}
-                  <span
-                    className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${i === cur ? "ring-2 ring-offset-1" : ""}`}
-                    title={s.label}
-                    style={{ background: i <= cur ? s.color : "#E5E8EB", color: i <= cur ? "#fff" : "#B0B8C1", ...(i === cur ? ({ ["--tw-ring-color" as any]: `${s.color}66` }) : {}) }}
-                  >
-                    {i < cur ? "✓" : i + 1}
-                  </span>
-                </span>
-              ))}
-            </div>
-            {/* 현재 단계 라벨 + 진행률 */}
-            <span className="text-[12px] font-bold w-fit" style={{ color: meta.color }}>
-              {cur + 1}. {meta.label}{keys.length > 0 ? <span className="text-[#8B95A1] font-medium"> {doneN}/{keys.length}</span> : null}
-            </span>
-            {/* 이동 버튼 — 다음은 오른쪽 */}
-            <div className="flex items-center gap-1">
-              <button onClick={() => moveStage(client.id, -1)} disabled={dim || cur === 0} className="px-2 py-1 rounded-lg text-[11px] font-bold glass-strong text-[#8B95A1] hover:text-[#4E5968] disabled:opacity-30">← 이전</button>
-              {cur < STAGES.length - 1 ? (
-                <button onClick={() => moveStage(client.id, 1)} disabled={dim} className="px-3 py-1 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 shadow-sm" style={{ background: STAGES[cur + 1].color }}>{STAGES[cur + 1].label} →</button>
-              ) : (
-                <span className="px-2 py-1 rounded-lg text-[11px] font-bold text-[#15803D] bg-[#E7F7EE]">완료 ✓</span>
-              )}
-            </div>
-          </div>
-        </td>
-
-        {/* 체크리스트 (현재 단계) */}
+        {/* 체크리스트 (현재 단계) — confirm 단계는 보수 입력 */}
         <td className="px-3 py-3">
-          {CHECKLIST[r.stage].length === 0 ? (
-            <span className="text-[12px] text-[#B0B8C1]">{r.stage === "confirm" ? "보수 확인 단계 →" : "체크 항목 없음"}</span>
+          {r.stage === "confirm" ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-bold text-[#7C3AED]">보수료</span>
+              <input
+                value={r.fee == null ? "" : r.fee.toLocaleString("ko-KR")}
+                onChange={(e) => changeFee(client.id, e.target.value)}
+                onBlur={() => commitFee(client.id)}
+                disabled={dim}
+                inputMode="numeric"
+                placeholder={activeTab === "bookkeeping" ? "0" : "입력"}
+                className="w-[110px] bg-white/80 rounded-lg px-2 py-1.5 text-[13px] text-right text-[#191F28] outline-none focus:ring-2 focus:ring-purple-200 disabled:opacity-40"
+              />
+              <span className="text-[12px] text-[#8B95A1]">원</span>
+            </div>
+          ) : CHECKLIST[r.stage].length === 0 ? (
+            <span className="text-[12px] text-[#B0B8C1]">체크 항목 없음</span>
           ) : (
             <div className="flex flex-col gap-1.5">
               {CHECKLIST[r.stage].map((grp, gi) => (
                 <div key={gi} className="flex items-center gap-1.5 flex-wrap">
-                  {grp.group && <span className="text-[11px] font-bold text-[#6B7684] mr-0.5">{grp.group}</span>}
+                  {grp.group && <span className="text-[11px] font-bold text-[#6B7684] mr-0.5 w-7">{grp.group}</span>}
                   {grp.items.map((it) => {
                     const on = !!r.checklist[it.key];
                     return (
@@ -236,22 +217,6 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           )}
         </td>
 
-        {/* 보수 */}
-        <td className="px-4 py-3 text-right whitespace-nowrap">
-          <div className="flex items-center justify-end gap-1">
-            <input
-              value={r.fee == null ? "" : r.fee.toLocaleString("ko-KR")}
-              onChange={(e) => changeFee(client.id, e.target.value)}
-              onBlur={() => commitFee(client.id)}
-              disabled={dim}
-              inputMode="numeric"
-              placeholder={activeTab === "bookkeeping" ? "0" : "입력"}
-              className="w-[88px] bg-white/80 rounded-lg px-2 py-1.5 text-[13px] text-right text-[#191F28] outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
-            />
-            <span className="text-[12px] text-[#8B95A1]">원</span>
-          </div>
-        </td>
-
         {/* 메모 */}
         <td className="px-3 py-3">
           <input
@@ -260,7 +225,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             onBlur={() => commitMemo(client.id)}
             disabled={dim}
             placeholder="-"
-            className="w-full min-w-[110px] bg-transparent rounded-lg px-2 py-1.5 text-[13px] text-[#191F28] outline-none focus:bg-white/80 focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
+            className="w-full min-w-[100px] bg-transparent rounded-lg px-2 py-1.5 text-[13px] text-[#191F28] outline-none focus:bg-white/80 focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
           />
         </td>
 
@@ -270,13 +235,45 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {dim ? "포함" : "제외"}
           </button>
         </td>
+
+        {/* 진행 단계 — 맨 오른쪽: 가로 스텝퍼 + 다음단계 버튼 */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className="flex flex-col gap-2 items-end">
+            {/* 가로 스텝퍼 (왼쪽 자료수집 → 오른쪽 신고완료) */}
+            <div className="flex items-center">
+              {STAGES.map((s, i) => (
+                <span key={s.key} className="flex items-center">
+                  {i > 0 && <span className="w-4 h-[2px]" style={{ background: i <= cur ? s.color : "#E5E8EB" }} />}
+                  <span
+                    className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${i === cur ? "ring-2 ring-offset-1" : ""}`}
+                    title={s.label}
+                    style={{ background: i <= cur ? s.color : "#E5E8EB", color: i <= cur ? "#fff" : "#B0B8C1", ...(i === cur ? ({ ["--tw-ring-color" as any]: `${s.color}66` }) : {}) }}
+                  >
+                    {i < cur ? "✓" : i + 1}
+                  </span>
+                </span>
+              ))}
+            </div>
+            <span className="text-[12px] font-bold" style={{ color: meta.color }}>
+              {cur + 1}. {meta.label}{keys.length > 0 ? <span className="text-[#8B95A1] font-medium"> {doneN}/{keys.length}</span> : null}
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => moveStage(client.id, -1)} disabled={dim || cur === 0} className="px-2 py-1 rounded-lg text-[11px] font-bold glass-strong text-[#8B95A1] hover:text-[#4E5968] disabled:opacity-30">← 이전</button>
+              {cur < STAGES.length - 1 ? (
+                <button onClick={() => moveStage(client.id, 1)} disabled={dim} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 shadow-sm" style={{ background: STAGES[cur + 1].color }}>{STAGES[cur + 1].label} →</button>
+              ) : (
+                <span className="px-2 py-1 rounded-lg text-[11px] font-bold text-[#15803D] bg-[#E7F7EE]">완료 ✓</span>
+              )}
+            </div>
+          </div>
+        </td>
       </tr>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 5단계 칸반 카드 */}
+      {/* 5단계 칸반 카드 (왼→오) */}
       <div className="grid grid-cols-5 gap-2.5">
         {STAGES.map((s) => {
           const activeCard = stageFilter === s.key;
@@ -316,11 +313,10 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               <tr className="bg-white/90 backdrop-blur-md border-b border-white/60">
                 <th className="sticky left-0 top-0 z-30 bg-white/90 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[170px]">거래처명</th>
                 {showAssignedUser && <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">담당자</th>}
-                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[150px]">진행 단계</th>
-                <th className="text-left px-3 py-3 text-[#333D4B] font-medium min-w-[260px]">체크리스트</th>
-                <th className="text-right px-4 py-3 text-[#333D4B] font-medium whitespace-nowrap">보수</th>
-                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[110px]">메모</th>
+                <th className="text-left px-3 py-3 text-[#333D4B] font-medium min-w-[280px]">체크리스트</th>
+                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[100px]">메모</th>
                 <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">제외</th>
+                <th className="text-right px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[180px]">진행 단계 →</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/40">
