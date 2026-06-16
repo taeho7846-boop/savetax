@@ -62,6 +62,7 @@ const CATEGORIES: Category[] = [
     label: "신고",
     icon: <FileTextIcon width={14} height={14} />,
     subs: [
+      { href: "/vat", label: "부가가치세" },
       { href: "/withholding", label: "원천세" },
       { href: "/income-tax", label: "종합소득세" },
       { href: "/freelancer-calc", label: "프리랜서 장부" },
