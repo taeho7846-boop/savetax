@@ -1,23 +1,19 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/app/generated/prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export type VatStage = "stageCollect" | "stageDraft" | "stageReview" | "stageFiled" | "stagePaid";
+export type VatStage = "collect" | "writing" | "approval" | "confirm" | "done";
+export const VAT_STAGES: VatStage[] = ["collect", "writing", "approval", "confirm", "done"];
 
-/** 5단계 체크 토글 (자료수집/신고서작성/검토/신고완료/수금) */
-export async function toggleVatStage(clientId: number, period: string, stage: VatStage) {
+/** 현재 단계 설정 (자료수집→작성중→결재→컨펌+보수→신고완료) */
+export async function setVatStage(clientId: number, period: string, stage: VatStage) {
   await requireAuth();
-  const existing = await prisma.vatRecord.findUnique({
-    where: { clientId_period: { clientId, period } },
-  });
-  const current = existing ? (existing[stage] as boolean) : false;
   await prisma.vatRecord.upsert({
     where: { clientId_period: { clientId, period } },
-    update: { [stage]: !current } as Prisma.VatRecordUpdateInput,
-    create: { clientId, period, [stage]: true } as Prisma.VatRecordUncheckedCreateInput,
+    update: { stage },
+    create: { clientId, period, stage },
   });
   revalidatePath("/vat");
 }

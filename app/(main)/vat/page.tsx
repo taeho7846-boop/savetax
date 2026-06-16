@@ -67,11 +67,7 @@ export default async function VatPage({
       vatRecords: {
         where: { period },
         select: {
-          stageCollect: true,
-          stageDraft: true,
-          stageReview: true,
-          stageFiled: true,
-          stagePaid: true,
+          stage: true,
           fee: true,
           excluded: true,
           memo: true,

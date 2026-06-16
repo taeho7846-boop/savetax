@@ -336,7 +336,8 @@ model VatRecord {
   id            Int      @id @default(autoincrement())
   clientId      Int
   period        String   // "2026-1-예정" / "2026-1-확정" / "2026-2-예정" / "2026-2-확정"
-  stageCollect  Boolean  @default(false)  // 1.자료수집
+  stage         String   @default("collect")  // collect→writing→approval→confirm→done
+  stageCollect  Boolean  @default(false)  // (구) 미사용 — stage로 대체
   stageDraft    Boolean  @default(false)  // 2.신고서작성
   stageReview   Boolean  @default(false)  // 3.검토
   stageFiled    Boolean  @default(false)  // 4.신고완료
