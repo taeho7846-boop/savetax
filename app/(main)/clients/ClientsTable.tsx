@@ -14,6 +14,28 @@ const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: stri
   "일용직":   { border: "border-green-500", text: "text-[#15803D]", bg: "bg-[#F1FBF4]" },
 };
 
+// 과세유형 뱃지 색상 — 과세(7월 부가세 대상)는 파랑으로 강조, 나머지는 약하게
+const TAXATION_STYLES: Record<string, string> = {
+  "과세": "border-[#3182F6] text-[#1B64DA] bg-[#F5F9FF] font-bold",
+  "간이": "border-[#FDE68A] text-[#92400E] bg-[#FFFBEB]",
+  "간이(세금계산서발행)": "border-[#FDE68A] text-[#92400E] bg-[#FFFBEB]",
+  "면세": "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]",
+  "프리랜서": "border-purple-300 text-[#7C3AED] bg-[#F8F5FF]",
+  "폐업": "border-[#FECACA] text-[#DC2626] bg-[#FEF2F2]",
+};
+
+function TaxationBadge({ type }: { type: string | null | undefined }) {
+  if (!type) return <span className="text-[#B0B8C1]">-</span>;
+  const t = type.trim();
+  const cls = TAXATION_STYLES[t] ?? "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]";
+  const label = t === "간이(세금계산서발행)" ? "간이(세계발행)" : t;
+  return (
+    <span className={`inline-flex items-center justify-center border ${cls} rounded-md px-2 py-0.5 text-xs whitespace-nowrap`}>
+      {label}
+    </span>
+  );
+}
+
 function LaborBadge({ type }: { type: string }) {
   const s = LABOR_TYPE_STYLES[type.trim()] ?? {
     border: "border-[#D1D6DB]",
@@ -39,6 +61,7 @@ type Client = {
   hometaxPw: string | null;
   clientType: string;
   taxTypes: string | null;
+  taxationType?: string | null;
   accountingProgram: string;
   contactMethod: string;
   affiliation: string | null;
@@ -64,10 +87,13 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
 
 type HideCol = "labor" | "monthlyFee" | "affiliation" | "contractDate";
 
-export function ClientsTable({ clients, readonly = false, showAssignedUser = false, hideCols = [] }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean; hideCols?: HideCol[] }) {
+export function ClientsTable({ clients, readonly = false, showAssignedUser = false, showTaxationType = false, hideCols = [] }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean; showTaxationType?: boolean; hideCols?: HideCol[] }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [laborFilter, setLaborFilter] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [taxationFilter, setTaxationFilter] = useState<string[]>([]);
+  const [taxationFilterOpen, setTaxationFilterOpen] = useState(false);
+  const taxationFilterRef = useRef<HTMLDivElement>(null);
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [affiliationFilter, setAffiliationFilter] = useState<string[]>([]);
@@ -312,6 +338,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       if (userFilterRef.current && !userFilterRef.current.contains(e.target as Node)) {
         setUserFilterOpen(false);
       }
+      if (taxationFilterRef.current && !taxationFilterRef.current.contains(e.target as Node)) {
+        setTaxationFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -336,12 +365,16 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   // 소속 옵션 목록 추출
   const affiliationOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
   const userOptions = [...new Set(clients.map(c => c.assignedUser?.name).filter(Boolean))] as string[];
+  const taxationOptions = [...new Set(clients.map(c => c.taxationType).filter(Boolean))] as string[];
 
   let rows = clients;
   if (laborFilter.length > 0) {
     rows = rows.filter((c) =>
       laborFilter.some((f) => c.laborTypes?.includes(f))
     );
+  }
+  if (taxationFilter.length > 0) {
+    rows = rows.filter((c) => taxationFilter.includes(c.taxationType || ""));
   }
   if (affiliationFilter.length > 0) {
     rows = rows.filter((c) =>
@@ -530,6 +563,66 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                   )}
                 </div>
               </th>
+              {showTaxationType && (
+                <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
+                  <div className="relative inline-block" ref={taxationFilterRef}>
+                    <button
+                      onClick={() => setTaxationFilterOpen((o) => !o)}
+                      className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${taxationFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
+                    >
+                      과세유형
+                      {taxationFilter.length > 0 && (
+                        <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                          {taxationFilter.length}
+                        </span>
+                      )}
+                      <span className="text-[#8B95A1] text-[10px]">▼</span>
+                    </button>
+                    {taxationFilterOpen && (
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[150px]">
+                        {taxationOptions.length === 0 ? (
+                          <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
+                        ) : (
+                          taxationOptions.map((opt) => (
+                            <label
+                              key={opt}
+                              className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taxationFilter.includes(opt)}
+                                onChange={() => setTaxationFilter((prev) =>
+                                  prev.includes(opt) ? prev.filter((t) => t !== opt) : [...prev, opt]
+                                )}
+                                className="accent-[#3182F6]"
+                              />
+                              {opt === "간이(세금계산서발행)" ? "간이(세계발행)" : opt}
+                            </label>
+                          ))
+                        )}
+                        <div className="mt-1 pt-1 border-t border-[#F2F4F6] flex flex-col">
+                          {taxationOptions.includes("과세") && (
+                            <button
+                              onClick={() => { setTaxationFilter(["과세"]); setTaxationFilterOpen(false); }}
+                              className="w-full text-center text-xs text-[#1B64DA] font-bold hover:bg-[#F5F9FF] rounded py-1"
+                            >
+                              과세사업자만 보기
+                            </button>
+                          )}
+                          {taxationFilter.length > 0 && (
+                            <button
+                              onClick={() => setTaxationFilter([])}
+                              className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] py-1"
+                            >
+                              초기화
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </th>
+              )}
               {showAssignedUser && (
                 <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
                   <div className="relative inline-block" ref={userFilterRef}>
@@ -714,7 +807,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <tbody className="divide-y divide-white/40">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={readonly ? 11 : 12} className="text-center py-12 text-[#6B7684]">
+                <td colSpan={(readonly ? 11 : 12) + (showTaxationType ? 1 : 0)} className="text-center py-12 text-[#6B7684]">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -754,6 +847,11 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                         )}
                       </div>
                     </td>
+                    {showTaxationType && (
+                      <td className="px-4 py-3 text-center">
+                        <TaxationBadge type={client.taxationType} />
+                      </td>
+                    )}
                     {showAssignedUser && (
                       <td className="px-4 py-3 text-center text-[#333D4B] text-xs">
                         {client.assignedUser?.name || <span className="text-[#8B95A1]">-</span>}

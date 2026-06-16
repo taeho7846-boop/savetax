@@ -36,6 +36,7 @@ export default async function TaxAgencyPage() {
       phone: true,
       clientType: true,
       taxTypes: true,
+      taxationType: true,
       laborTypes: true,
       hometaxId: true,
       hometaxPw: true,
@@ -64,6 +65,7 @@ export default async function TaxAgencyPage() {
       <ClientsTable
         clients={clients}
         showAssignedUser={isManager}
+        showTaxationType
         hideCols={["labor", "monthlyFee", "affiliation", "contractDate"]}
       />
     </div>
