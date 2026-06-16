@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useRef } from "react";
+import React, { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toggleFeeRecord } from "@/app/actions/feeRecords";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
@@ -91,6 +91,37 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
   const affFilterRef = useRef<HTMLDivElement>(null);
   const affOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
 
+  // 채권관리 작업용 체크박스 (확인한 업체는 체크 해제해가며 작업)
+  // 처음엔 전부 체크 → 새로고침에도 유지되도록 연도별 localStorage 저장
+  const allIds = useMemo(() => clients.map(c => c.id), [clients]);
+  const storageKey = `recv-check-${months[0]?.slice(0, 4) ?? "x"}`;
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(() => new Set(allIds));
+  const [checkLoaded, setCheckLoaded] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // 마운트 후 저장된 진행상황 불러오기 (있으면)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) setCheckedIds(new Set(JSON.parse(raw) as number[]));
+    } catch { /* 무시 */ }
+    setCheckLoaded(true);
+  }, [storageKey]);
+
+  // 변경 시 저장
+  useEffect(() => {
+    if (!checkLoaded) return;
+    try { localStorage.setItem(storageKey, JSON.stringify([...checkedIds])); } catch { /* 무시 */ }
+  }, [checkedIds, checkLoaded, storageKey]);
+
+  function toggleOneCheck(id: number) {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   async function handleVerifyUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -178,6 +209,24 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
     }
     return sortDir === "asc" ? diff : -diff;
   });
+
+  // 현재 보이는(필터 적용된) 거래처 기준 전체선택 상태
+  const checkedCount = filtered.filter(c => checkedIds.has(c.id)).length;
+  const allChecked = filtered.length > 0 && checkedCount === filtered.length;
+  const someChecked = checkedCount > 0 && !allChecked;
+
+  // 헤더 체크박스 indeterminate(일부만 선택) 표시
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someChecked;
+  }, [someChecked]);
+
+  function toggleAllVisible() {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      filtered.forEach(c => { if (allChecked) next.delete(c.id); else next.add(c.id); });
+      return next;
+    });
+  }
 
   return (
     <div>
@@ -425,6 +474,20 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
         );
       })()}
 
+      {/* 채권관리 작업 체크리스트 카운터 */}
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-[12px] text-[#6B7684]">
+          ✅ 확인 대기 <b className="text-[#191F28]">{checkedCount}곳</b>
+          <span className="text-[#B0B8C1]"> / 전체 {filtered.length}곳</span>
+        </span>
+        <button
+          onClick={toggleAllVisible}
+          className="text-[12px] font-bold text-[#3182F6] hover:underline"
+        >
+          {allChecked ? "전체 해제" : "전체 선택"}
+        </button>
+      </div>
+
       {/* 테이블 */}
       <div className="glass rounded-3xl overflow-hidden">
        <div className="overflow-auto max-h-[70vh]">
@@ -432,7 +495,17 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
           <thead className="sticky top-0 z-20">
             <tr className="bg-white/90 backdrop-blur-md border-b border-white/60">
               <th className="sticky left-0 top-0 z-30 bg-white/90 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[140px]">
-                고객사명
+                <div className="flex items-center gap-2.5">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={toggleAllVisible}
+                    className="w-4 h-4 accent-[#3182F6] cursor-pointer"
+                    title="전체 선택 / 해제"
+                  />
+                  고객사명
+                </div>
               </th>
               {/* 소속 필터 */}
               <th className="text-center px-3 py-3 text-[#333D4B] font-medium min-w-[70px] whitespace-nowrap">
@@ -506,16 +579,25 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
             )}
             {sorted.map((client) => {
               const hasUnpaid = client.cumulativeUnpaid > 0;
+              const isChecked = checkedIds.has(client.id);
               return (
-              <tr key={client.id} className={`transition-colors ${hasUnpaid ? "bg-rose-50/30 hover:bg-rose-50/50" : "hover:bg-white/60"}`}>
+              <tr key={client.id} className={`transition-colors ${!isChecked ? "opacity-40" : ""} ${hasUnpaid ? "bg-rose-50/30 hover:bg-rose-50/50" : "hover:bg-white/60"}`}>
                 {/* 고객사명 */}
                 <td className={`sticky left-0 z-10 px-4 py-3 font-medium whitespace-nowrap ${hasUnpaid ? "bg-rose-50/60" : "bg-white/80"} backdrop-blur-md`}>
-                  <button
-                    onClick={() => setEditingClientId(client.id)}
-                    className="text-[#191F28] hover:underline text-left"
-                  >
-                    {client.name}
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleOneCheck(client.id)}
+                      className="w-4 h-4 accent-[#3182F6] cursor-pointer shrink-0"
+                    />
+                    <button
+                      onClick={() => setEditingClientId(client.id)}
+                      className={`hover:underline text-left ${isChecked ? "text-[#191F28]" : "text-[#8B95A1] line-through"}`}
+                    >
+                      {client.name}
+                    </button>
+                  </div>
                 </td>
 
                 {/* 소속 */}
