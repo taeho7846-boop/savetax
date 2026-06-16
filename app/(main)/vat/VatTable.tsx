@@ -171,17 +171,33 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <td className="px-3 py-3 text-center text-xs text-[#4E5968] whitespace-nowrap">{client.assignedUserName || <span className="text-[#B0B8C1]">-</span>}</td>
         )}
 
-        {/* 진행 단계 + 이동 버튼 */}
+        {/* 진행 단계 — 왼→오 가로 스텝퍼 + 다음단계 버튼 */}
         <td className="px-3 py-3 whitespace-nowrap">
-          <div className="flex flex-col gap-1.5">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold w-fit" style={{ background: meta.color, color: "#fff" }}>
-              {cur + 1}. {meta.label}
-              {keys.length > 0 && <span className="text-white/75 font-medium">{doneN}/{keys.length}</span>}
+          <div className="flex flex-col gap-2">
+            {/* 가로 스텝퍼 (왼쪽 자료수집 → 오른쪽 신고완료) */}
+            <div className="flex items-center">
+              {STAGES.map((s, i) => (
+                <span key={s.key} className="flex items-center">
+                  {i > 0 && <span className="w-5 h-[2px]" style={{ background: i <= cur ? s.color : "#E5E8EB" }} />}
+                  <span
+                    className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${i === cur ? "ring-2 ring-offset-1" : ""}`}
+                    title={s.label}
+                    style={{ background: i <= cur ? s.color : "#E5E8EB", color: i <= cur ? "#fff" : "#B0B8C1", ...(i === cur ? ({ ["--tw-ring-color" as any]: `${s.color}66` }) : {}) }}
+                  >
+                    {i < cur ? "✓" : i + 1}
+                  </span>
+                </span>
+              ))}
+            </div>
+            {/* 현재 단계 라벨 + 진행률 */}
+            <span className="text-[12px] font-bold w-fit" style={{ color: meta.color }}>
+              {cur + 1}. {meta.label}{keys.length > 0 ? <span className="text-[#8B95A1] font-medium"> {doneN}/{keys.length}</span> : null}
             </span>
+            {/* 이동 버튼 — 다음은 오른쪽 */}
             <div className="flex items-center gap-1">
               <button onClick={() => moveStage(client.id, -1)} disabled={dim || cur === 0} className="px-2 py-1 rounded-lg text-[11px] font-bold glass-strong text-[#8B95A1] hover:text-[#4E5968] disabled:opacity-30">← 이전</button>
               {cur < STAGES.length - 1 ? (
-                <button onClick={() => moveStage(client.id, 1)} disabled={dim} className="px-3 py-1 rounded-lg text-[11px] font-bold text-white disabled:opacity-40" style={{ background: STAGES[cur + 1].color }}>다음 단계 →</button>
+                <button onClick={() => moveStage(client.id, 1)} disabled={dim} className="px-3 py-1 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 shadow-sm" style={{ background: STAGES[cur + 1].color }}>{STAGES[cur + 1].label} →</button>
               ) : (
                 <span className="px-2 py-1 rounded-lg text-[11px] font-bold text-[#15803D] bg-[#E7F7EE]">완료 ✓</span>
               )}
