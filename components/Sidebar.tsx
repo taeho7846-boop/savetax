@@ -26,6 +26,7 @@ import {
   LoaderIcon,
   CheckIcon,
   UserMinusIcon,
+  LandmarkIcon,
 } from "./icons";
 
 type IconComp = ComponentType<SVGProps<SVGSVGElement>>;
@@ -36,6 +37,7 @@ const menus: { href: string; label: string; Icon: IconComp }[] = [
   { href: "/commission", label: "신규수임", Icon: ClipboardListIcon },
   { href: "/termination", label: "해지관리", Icon: UserMinusIcon },
   { href: "/tax-agency", label: "신고대리", Icon: FileTextIcon },
+  { href: "/vat", label: "부가가치세", Icon: LandmarkIcon },
   { href: "/withholding", label: "원천세", Icon: ReceiptIcon },
   { href: "/income-tax", label: "종합소득세", Icon: FileSpreadsheetIcon },
   { href: "/receivables", label: "채권관리", Icon: WalletIcon },

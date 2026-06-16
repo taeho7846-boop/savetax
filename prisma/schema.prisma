@@ -105,6 +105,7 @@ model Client {
   incomeTaxRejections       IncomeTaxRejection[]
   noticeAnalyses            ClientNoticeAnalysis[]
   incomeTaxRevertHistories  IncomeTaxRevertHistory[]
+  vatRecords                VatRecord[]
 }
 
 model AlimtalkLog {
@@ -329,6 +330,25 @@ model IncomeTaxRecord {
   client            Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, taxYear])
+}
+
+model VatRecord {
+  id            Int      @id @default(autoincrement())
+  clientId      Int
+  period        String   // "2026-1-예정" / "2026-1-확정" / "2026-2-예정" / "2026-2-확정"
+  stageCollect  Boolean  @default(false)  // 1.자료수집
+  stageDraft    Boolean  @default(false)  // 2.신고서작성
+  stageReview   Boolean  @default(false)  // 3.검토
+  stageFiled    Boolean  @default(false)  // 4.신고완료
+  stagePaid     Boolean  @default(false)  // 5.수금
+  fee           Int?                       // 신고수수료 (기장=0 기본, 신고대리=입력)
+  excluded      Boolean  @default(false)  // 이번 기간 신고 제외
+  memo          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  client        Client   @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, period])
 }
 
 model IncomeTaxRevertHistory {
