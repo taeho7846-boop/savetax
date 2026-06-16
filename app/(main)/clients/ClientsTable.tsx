@@ -21,6 +21,7 @@ const TAXATION_STYLES: Record<string, string> = {
   "간이(세금계산서발행)": "border-[#FDE68A] text-[#92400E] bg-[#FFFBEB]",
   "면세": "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]",
   "프리랜서": "border-purple-300 text-[#7C3AED] bg-[#F8F5FF]",
+  "상가임대업": "border-[#99F6E4] text-[#0F766E] bg-[#F0FDFA]",
   "폐업": "border-[#FECACA] text-[#DC2626] bg-[#FEF2F2]",
 };
 
