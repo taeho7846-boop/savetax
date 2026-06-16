@@ -68,6 +68,7 @@ export default async function VatPage({
         where: { period },
         select: {
           stage: true,
+          checklist: true,
           fee: true,
           excluded: true,
           memo: true,

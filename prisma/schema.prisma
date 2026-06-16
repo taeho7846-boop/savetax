@@ -337,6 +337,7 @@ model VatRecord {
   clientId      Int
   period        String   // "2026-1-예정" / "2026-1-확정" / "2026-2-예정" / "2026-2-확정"
   stage         String   @default("collect")  // collect→writing→approval→confirm→done
+  checklist     String?                          // 단계별 체크리스트 상태 JSON {"key":true}
   stageCollect  Boolean  @default(false)  // (구) 미사용 — stage로 대체
   stageDraft    Boolean  @default(false)  // 2.신고서작성
   stageReview   Boolean  @default(false)  // 3.검토

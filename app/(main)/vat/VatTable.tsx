@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { setVatStage, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
+import { setVatStage, toggleVatCheck, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
 
 type Rec = {
   stage: VatStage;
+  checklist: Record<string, boolean>;
   fee: number | null;
   excluded: boolean;
   memo: string | null;
@@ -17,7 +18,7 @@ type ClientRow = {
   clientType: string;
   taxationType: string | null;
   assignedUserName: string | null;
-  record: { stage: string; fee: number | null; excluded: boolean; memo: string | null } | null;
+  record: { stage: string; checklist: string | null; fee: number | null; excluded: boolean; memo: string | null } | null;
 };
 
 interface Props {
@@ -36,6 +37,34 @@ const STAGES: { key: VatStage; label: string; color: string; tint: string }[] = 
 ];
 const STAGE_INDEX: Record<VatStage, number> = { collect: 0, writing: 1, approval: 2, confirm: 3, done: 4 };
 
+// 단계별 체크리스트 (그룹 + 항목). 항목은 자유롭게 추가 가능.
+const CHECKLIST: Record<VatStage, { group?: string; items: { key: string; label: string }[] }[]> = {
+  collect: [
+    { items: [
+      { key: "card_request", label: "카드수집요청" },
+      { key: "card_excel", label: "카드엑셀자료 수취" },
+      { key: "no_response", label: "무응답" },
+    ] },
+  ],
+  writing: [
+    { group: "매출", items: [
+      { key: "sales_tax_invoice", label: "세금계산서" },
+      { key: "sales_card", label: "신용카드" },
+      { key: "sales_cash", label: "현금영수증" },
+      { key: "sales_pg", label: "PG" },
+    ] },
+    { group: "매입", items: [
+      { key: "buy_rent", label: "임차료" },
+      { key: "buy_telecom", label: "통신비" },
+      { key: "buy_car_deduct", label: "차량유지비(공제)" },
+      { key: "buy_car_nondeduct", label: "차량유지비(불공제)" },
+    ] },
+  ],
+  approval: [],
+  confirm: [],
+  done: [],
+};
+
 const TAXATION_CHIP: Record<string, string> = {
   "과세": "border-[#3182F6] text-[#1B64DA] bg-[#F5F9FF] font-bold",
   "간이": "border-[#FDE68A] text-[#92400E] bg-[#FFFBEB]",
@@ -43,12 +72,14 @@ const TAXATION_CHIP: Record<string, string> = {
   "상가임대업": "border-[#99F6E4] text-[#0F766E] bg-[#F0FDFA]",
 };
 
-function fmtWon(n: number) {
-  return n.toLocaleString("ko-KR") + "원";
+function fmtWon(n: number) { return n.toLocaleString("ko-KR") + "원"; }
+function normStage(s: string | undefined): VatStage { return (STAGES.some(st => st.key === s) ? s : "collect") as VatStage; }
+function parseChecklist(s: string | null | undefined): Record<string, boolean> {
+  if (!s) return {};
+  try { return JSON.parse(s) as Record<string, boolean>; } catch { return {}; }
 }
-
-function normStage(s: string | undefined): VatStage {
-  return (STAGES.some(st => st.key === s) ? s : "collect") as VatStage;
+function stageItemKeys(stage: VatStage): string[] {
+  return CHECKLIST[stage].flatMap(g => g.items.map(i => i.key));
 }
 
 function buildMap(clients: ClientRow[], activeTab: string): Map<number, Rec> {
@@ -56,6 +87,7 @@ function buildMap(clients: ClientRow[], activeTab: string): Map<number, Rec> {
   for (const c of clients) {
     m.set(c.id, {
       stage: normStage(c.record?.stage),
+      checklist: parseChecklist(c.record?.checklist),
       fee: c.record?.fee ?? (activeTab === "bookkeeping" ? 0 : null),
       excluded: c.record?.excluded ?? false,
       memo: c.record?.memo ?? null,
@@ -73,50 +105,34 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   useEffect(() => { setRecMap(buildMap(clients, activeTab)); }, [clients, activeTab]);
 
   function getRec(id: number): Rec {
-    return recMap.get(id) ?? { stage: "collect", fee: activeTab === "bookkeeping" ? 0 : null, excluded: false, memo: null };
+    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, excluded: false, memo: null };
+  }
+  function update(id: number, patch: Partial<Rec>) {
+    setRecMap(prev => { const n = new Map(prev); n.set(id, { ...getRec(id), ...patch }); return n; });
   }
 
-  function moveStage(clientId: number, stage: VatStage) {
-    setRecMap(prev => {
-      const n = new Map(prev);
-      n.set(clientId, { ...getRec(clientId), stage });
-      return n;
-    });
-    startTransition(() => { setVatStage(clientId, period, stage); });
+  function moveStage(clientId: number, dir: 1 | -1) {
+    const cur = STAGE_INDEX[getRec(clientId).stage];
+    const next = STAGES[Math.max(0, Math.min(STAGES.length - 1, cur + dir))].key;
+    update(clientId, { stage: next });
+    startTransition(() => { setVatStage(clientId, period, next); });
   }
-
+  function toggleCheck(clientId: number, key: string) {
+    const r = getRec(clientId);
+    update(clientId, { checklist: { ...r.checklist, [key]: !r.checklist[key] } });
+    startTransition(() => { toggleVatCheck(clientId, period, key); });
+  }
   function toggleExcluded(clientId: number) {
-    setRecMap(prev => {
-      const n = new Map(prev);
-      const r = getRec(clientId);
-      n.set(clientId, { ...r, excluded: !r.excluded });
-      return n;
-    });
+    update(clientId, { excluded: !getRec(clientId).excluded });
     startTransition(() => { toggleVatExcluded(clientId, period); });
   }
-
   function changeFee(clientId: number, value: string) {
     const num = value.trim() === "" ? null : parseInt(value.replace(/[^0-9]/g, ""), 10);
-    setRecMap(prev => {
-      const n = new Map(prev);
-      n.set(clientId, { ...getRec(clientId), fee: Number.isNaN(num as number) ? null : num });
-      return n;
-    });
+    update(clientId, { fee: Number.isNaN(num as number) ? null : num });
   }
-  function commitFee(clientId: number) {
-    startTransition(() => { setVatFee(clientId, period, getRec(clientId).fee); });
-  }
-
-  function changeMemo(clientId: number, value: string) {
-    setRecMap(prev => {
-      const n = new Map(prev);
-      n.set(clientId, { ...getRec(clientId), memo: value });
-      return n;
-    });
-  }
-  function commitMemo(clientId: number) {
-    startTransition(() => { setVatMemo(clientId, period, getRec(clientId).memo ?? ""); });
-  }
+  function commitFee(clientId: number) { startTransition(() => { setVatFee(clientId, period, getRec(clientId).fee); }); }
+  function changeMemo(clientId: number, value: string) { update(clientId, { memo: value }); }
+  function commitMemo(clientId: number) { startTransition(() => { setVatMemo(clientId, period, getRec(clientId).memo ?? ""); }); }
 
   const searched = q.trim()
     ? clients.filter(c => c.name.includes(q.trim()) || (c.ceoName ?? "").includes(q.trim()))
@@ -130,60 +146,82 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const shown = stageFilter ? active.filter(c => getRec(c.id).stage === stageFilter) : active;
   const feeSum = active.reduce((s, c) => s + (getRec(c.id).fee ?? 0), 0);
 
-  const colCount = 1 + (showAssignedUser ? 1 : 0) + 4; // 거래처+[담당자]+단계+보수+메모+제외
+  const colCount = 1 + (showAssignedUser ? 1 : 0) + 5;
 
   function row(client: ClientRow, dim: boolean) {
     const r = getRec(client.id);
     const cur = STAGE_INDEX[r.stage];
-    const stageMeta = STAGES[cur];
+    const meta = STAGES[cur];
+    const keys = stageItemKeys(r.stage);
+    const doneN = keys.filter(k => r.checklist[k]).length;
     const chip = client.taxationType ? (TAXATION_CHIP[client.taxationType] ?? "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]") : null;
     const chipLabel = client.taxationType === "간이(세금계산서발행)" ? "간이(세계발행)" : client.taxationType;
     return (
-      <tr key={client.id} className={`transition-colors ${dim ? "opacity-40" : "hover:bg-white/60"}`} style={dim ? undefined : { background: `${stageMeta.tint}55` }}>
+      <tr key={client.id} className={`align-top transition-colors ${dim ? "opacity-40" : "hover:bg-white/60"}`} style={dim ? undefined : { background: `${meta.tint}44` }}>
         {/* 거래처 */}
         <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap bg-white/85 backdrop-blur-md">
           <div className="flex items-center gap-2">
             <span className={`font-medium ${dim ? "text-[#8B95A1] line-through" : "text-[#191F28]"}`}>{client.name}</span>
             {chip && <span className={`inline-flex items-center border ${chip} rounded-md px-1.5 py-0.5 text-[11px]`}>{chipLabel}</span>}
           </div>
-          <div className="text-[11px] text-[#8B95A1] mt-0.5">
-            {client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}
-          </div>
+          <div className="text-[11px] text-[#8B95A1] mt-0.5">{client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}</div>
         </td>
 
         {showAssignedUser && (
           <td className="px-3 py-3 text-center text-xs text-[#4E5968] whitespace-nowrap">{client.assignedUserName || <span className="text-[#B0B8C1]">-</span>}</td>
         )}
 
-        {/* 단계 스텝퍼 */}
-        <td className="px-3 py-3">
-          <div className="flex items-center gap-1">
-            {STAGES.map((s, i) => {
-              const isCur = i === cur;
-              const isDone = i < cur;
-              return (
-                <button
-                  key={s.key}
-                  onClick={() => moveStage(client.id, s.key)}
-                  disabled={dim}
-                  title={dim ? undefined : `${s.label}(으)로 이동`}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all disabled:cursor-not-allowed ${
-                    isCur ? "text-white shadow-sm ring-2 ring-offset-1" : isDone ? "" : "bg-[#F2F4F6] text-[#B0B8C1] hover:bg-[#E5E8EB]"
-                  }`}
-                  style={
-                    isCur ? { background: s.color, ...( { ["--tw-ring-color" as any]: `${s.color}66` }) }
-                    : isDone ? { background: s.tint, color: s.color } : undefined
-                  }
-                >
-                  {i + 1}.{s.label}
-                </button>
-              );
-            })}
+        {/* 진행 단계 + 이동 버튼 */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className="flex flex-col gap-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold w-fit" style={{ background: meta.color, color: "#fff" }}>
+              {cur + 1}. {meta.label}
+              {keys.length > 0 && <span className="text-white/75 font-medium">{doneN}/{keys.length}</span>}
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => moveStage(client.id, -1)} disabled={dim || cur === 0} className="px-2 py-1 rounded-lg text-[11px] font-bold glass-strong text-[#8B95A1] hover:text-[#4E5968] disabled:opacity-30">← 이전</button>
+              {cur < STAGES.length - 1 ? (
+                <button onClick={() => moveStage(client.id, 1)} disabled={dim} className="px-3 py-1 rounded-lg text-[11px] font-bold text-white disabled:opacity-40" style={{ background: STAGES[cur + 1].color }}>다음 단계 →</button>
+              ) : (
+                <span className="px-2 py-1 rounded-lg text-[11px] font-bold text-[#15803D] bg-[#E7F7EE]">완료 ✓</span>
+              )}
+            </div>
           </div>
         </td>
 
+        {/* 체크리스트 (현재 단계) */}
+        <td className="px-3 py-3">
+          {CHECKLIST[r.stage].length === 0 ? (
+            <span className="text-[12px] text-[#B0B8C1]">{r.stage === "confirm" ? "보수 확인 단계 →" : "체크 항목 없음"}</span>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {CHECKLIST[r.stage].map((grp, gi) => (
+                <div key={gi} className="flex items-center gap-1.5 flex-wrap">
+                  {grp.group && <span className="text-[11px] font-bold text-[#6B7684] mr-0.5">{grp.group}</span>}
+                  {grp.items.map((it) => {
+                    const on = !!r.checklist[it.key];
+                    return (
+                      <button
+                        key={it.key}
+                        onClick={() => toggleCheck(client.id, it.key)}
+                        disabled={dim}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 ${
+                          on ? "border-transparent text-white" : "border-[#E5E8EB] text-[#6B7684] bg-white/60 hover:border-[#B0B8C1]"
+                        }`}
+                        style={on ? { background: meta.color } : undefined}
+                      >
+                        {on ? "✓ " : ""}{it.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </td>
+
         {/* 보수 */}
-        <td className="px-4 py-3 text-right">
+        <td className="px-4 py-3 text-right whitespace-nowrap">
           <div className="flex items-center justify-end gap-1">
             <input
               value={r.fee == null ? "" : r.fee.toLocaleString("ko-KR")}
@@ -212,12 +250,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
         {/* 제외 */}
         <td className="px-3 py-3 text-center">
-          <button
-            onClick={() => toggleExcluded(client.id)}
-            className={`text-[11px] px-2.5 py-1 rounded-lg font-bold transition-colors ${
-              dim ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]" : "glass-strong text-[#8B95A1] hover:text-[#4E5968]"
-            }`}
-          >
+          <button onClick={() => toggleExcluded(client.id)} className={`text-[11px] px-2.5 py-1 rounded-lg font-bold transition-colors ${dim ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]" : "glass-strong text-[#8B95A1] hover:text-[#4E5968]"}`}>
             {dim ? "포함" : "제외"}
           </button>
         </td>
@@ -255,9 +288,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="거래처명 · 대표자 검색" className="flex-1 bg-transparent outline-none text-[13px] text-[#191F28] placeholder:text-[#8B95A1]" />
         </div>
         <span className="text-[12px] text-[#6B7684] px-1">대상 <b className="text-[#191F28]">{active.length}곳</b> · 신고완료 <b className="text-[#15803D]">{stageCounts.done}</b> · 보수합계 <b className="text-[#191F28]">{fmtWon(feeSum)}</b></span>
-        {stageFilter && (
-          <button onClick={() => setStageFilter(null)} className="text-[12px] font-bold text-[#3182F6] hover:underline">필터 해제</button>
-        )}
+        {stageFilter && <button onClick={() => setStageFilter(null)} className="text-[12px] font-bold text-[#3182F6] hover:underline">필터 해제</button>}
         {activeTab === "bookkeeping" && <span className="text-[11px] text-[#8B95A1]">기장은 보수 기본 0원</span>}
       </div>
 
@@ -267,11 +298,12 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <table className="text-sm border-collapse w-full">
             <thead className="sticky top-0 z-20">
               <tr className="bg-white/90 backdrop-blur-md border-b border-white/60">
-                <th className="sticky left-0 top-0 z-30 bg-white/90 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[180px]">거래처명</th>
+                <th className="sticky left-0 top-0 z-30 bg-white/90 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[170px]">거래처명</th>
                 {showAssignedUser && <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">담당자</th>}
-                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[360px]">진행 단계</th>
+                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[150px]">진행 단계</th>
+                <th className="text-left px-3 py-3 text-[#333D4B] font-medium min-w-[260px]">체크리스트</th>
                 <th className="text-right px-4 py-3 text-[#333D4B] font-medium whitespace-nowrap">보수</th>
-                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[120px]">메모</th>
+                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[110px]">메모</th>
                 <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">제외</th>
               </tr>
             </thead>

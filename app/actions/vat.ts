@@ -18,6 +18,24 @@ export async function setVatStage(clientId: number, period: string, stage: VatSt
   revalidatePath("/vat");
 }
 
+/** 단계별 체크리스트 항목 토글 (checklist JSON에 저장) */
+export async function toggleVatCheck(clientId: number, period: string, key: string) {
+  await requireAuth();
+  const existing = await prisma.vatRecord.findUnique({
+    where: { clientId_period: { clientId, period } },
+  });
+  let obj: Record<string, boolean> = {};
+  try { obj = existing?.checklist ? JSON.parse(existing.checklist) : {}; } catch { obj = {}; }
+  obj[key] = !obj[key];
+  const checklist = JSON.stringify(obj);
+  await prisma.vatRecord.upsert({
+    where: { clientId_period: { clientId, period } },
+    update: { checklist },
+    create: { clientId, period, checklist },
+  });
+  revalidatePath("/vat");
+}
+
 /** 신고수수료 설정 (기장=0 기본, 신고대리=입력) */
 export async function setVatFee(clientId: number, period: string, fee: number | null) {
   await requireAuth();
