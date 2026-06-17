@@ -166,6 +166,8 @@ export async function updateClient(id: number, formData: FormData) {
       withholdingType: (formData.get("withholdingType") as string) || null,
       affiliation: (formData.get("affiliation") as string) || null,
       cmsAffiliation: (formData.get("cmsAffiliation") as string) || null,
+      paymentMethod: (formData.get("paymentMethod") as string) || "cms",
+      terminationMonth: (formData.get("terminationMonth") as string) || null,
       notes: (formData.get("notes") as string) || null,
       ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string, id)),
       accountingProgram: getAccountingProgram(formData),
@@ -212,6 +214,8 @@ export async function updateClientInModal(id: number, formData: FormData) {
       withholdingType: (formData.get("withholdingType") as string) || null,
       affiliation: (formData.get("affiliation") as string) || null,
       cmsAffiliation: (formData.get("cmsAffiliation") as string) || null,
+      paymentMethod: (formData.get("paymentMethod") as string) || "cms",
+      terminationMonth: (formData.get("terminationMonth") as string) || null,
       notes: (formData.get("notes") as string) || null,
       ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string, id)),
       accountingProgram: getAccountingProgram(formData),
@@ -222,6 +226,19 @@ export async function updateClientInModal(id: number, formData: FormData) {
     },
   });
 
+  revalidatePath("/clients");
+  revalidatePath("/receivables");
+}
+
+/** CMS 자동이체 탭의 결제수단 셀에서 직접 변경 (cms | card | deposit) */
+export async function updateClientPaymentMethod(id: number, method: string) {
+  await requireAuth();
+  const allowed = ["cms", "card", "deposit"];
+  await prisma.client.update({
+    where: { id },
+    data: { paymentMethod: allowed.includes(method) ? method : "cms" },
+  });
+  revalidatePath("/receivables");
   revalidatePath("/clients");
 }
 

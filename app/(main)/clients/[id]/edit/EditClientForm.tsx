@@ -94,6 +94,9 @@ interface Props {
     withholdingType?: string | null;
     affiliation?: string | null;
     cmsAffiliation?: string | null;
+    paymentMethod?: string | null;
+    contractStatus?: string;
+    terminationMonth?: string | null;
     notes: string | null;
     myboxLink?: string | null;
     assignedUserId: number | null;
@@ -465,6 +468,31 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
               placeholder="계좌번호 입력"
               className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             /></CopyWrap>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">결제수단</label>
+            <select
+              name="paymentMethod"
+              defaultValue={client.paymentMethod ?? "cms"}
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
+            >
+              <option value="cms">CMS 자동이체</option>
+              <option value="card">카드</option>
+              <option value="deposit">직접 입금</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#191F28] mb-1" title="해지한 거래처는 이 달까지만 채권(미수금)이 잡힙니다. 비워두면 현재 월까지 계속 청구됩니다.">
+              해지월 <span className="text-[11px] font-normal text-[#8B95A1]">(마지막 청구월)</span>
+            </label>
+            <input
+              name="terminationMonth"
+              type="month"
+              defaultValue={client.terminationMonth ?? ""}
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
+            />
           </div>
         </div>
       </div>

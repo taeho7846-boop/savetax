@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { cycleCmsStatus, bulkCmsRegister, getCmsClientDetail } from "@/app/actions/clients";
+import { cycleCmsStatus, bulkCmsRegister, getCmsClientDetail, updateClientPaymentMethod } from "@/app/actions/clients";
 
 type CmsClient = {
   id: number;
@@ -14,7 +14,15 @@ type CmsClient = {
   bankName: string | null;
   bankAccount: string | null;
   affiliation: string | null;
+  paymentMethod: string;
 };
+
+const PAYMENT_METHODS = [
+  { value: "cms", label: "CMS 자동이체", short: "CMS" },
+  { value: "card", label: "카드", short: "카드" },
+  { value: "deposit", label: "직접 입금", short: "직접입금" },
+] as const;
+const PM_LABEL: Record<string, string> = { cms: "CMS 자동이체", card: "카드", deposit: "직접 입금" };
 
 type MatchedItem = {
   excelName: string;
@@ -52,6 +60,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [affFilter, setAffFilter] = useState<string[]>([]);
   const [affFilterOpen, setAffFilterOpen] = useState(false);
   const affFilterRef = useRef<HTMLDivElement>(null);
+  const [pmFilter, setPmFilter] = useState<string[]>([]);
+  const [pmFilterOpen, setPmFilterOpen] = useState(false);
+  const pmFilterRef = useRef<HTMLDivElement>(null);
   const [tiMonth, setTiMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -231,6 +242,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) {
         setAffFilterOpen(false);
       }
+      if (pmFilterRef.current && !pmFilterRef.current.contains(e.target as Node)) {
+        setPmFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -254,6 +268,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   }
   if (affFilter.length > 0) {
     rows = rows.filter((c) => affFilter.includes(c.affiliation || ""));
+  }
+  if (pmFilter.length > 0) {
+    rows = rows.filter((c) => pmFilter.includes(c.paymentMethod || "cms"));
   }
 
   if (sortCol) {
@@ -280,6 +297,17 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       await cycleCmsStatus(clientId);
       router.refresh();
     });
+  }
+
+  function handlePaymentMethodChange(clientId: number, method: string) {
+    startTransition(async () => {
+      await updateClientPaymentMethod(clientId, method);
+      router.refresh();
+    });
+  }
+
+  function togglePm(m: string) {
+    setPmFilter((prev) => (prev.includes(m) ? prev.filter((v) => v !== m) : [...prev, m]));
   }
 
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
@@ -999,13 +1027,46 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 <SortIcon col="cmsStatus" />
               </button>
             </th>
+
+            <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
+              <div className="relative inline-block" ref={pmFilterRef}>
+                <button
+                  onClick={() => setPmFilterOpen((o) => !o)}
+                  className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${pmFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
+                >
+                  결제수단
+                  {pmFilter.length > 0 && (
+                    <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{pmFilter.length}</span>
+                  )}
+                  <span className="text-[#8B95A1] text-[10px]">▼</span>
+                </button>
+                {pmFilterOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[130px]">
+                    {PAYMENT_METHODS.map((pm) => (
+                      <label key={pm.value} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={pmFilter.includes(pm.value)}
+                          onChange={() => togglePm(pm.value)}
+                          className="accent-[#3182F6]"
+                        />
+                        {pm.label}
+                      </label>
+                    ))}
+                    {pmFilter.length > 0 && (
+                      <button onClick={() => setPmFilter([])} className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]">초기화</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#F2F4F6]">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={8} className="text-center py-12 text-[#6B7684]">
-                {monthFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
+              <td colSpan={9} className="text-center py-12 text-[#6B7684]">
+                {monthFilter.length > 0 || affFilter.length > 0 || pmFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
               </td>
             </tr>
           ) : (
@@ -1067,6 +1128,30 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                   >
                     {client.cmsStatus === "done" ? "등록" : client.cmsStatus === "pending" ? "등록요청중" : "미등록"}
                   </button>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  {(() => {
+                    const pm = client.paymentMethod || "cms";
+                    const tone = pm === "card"
+                      ? "text-[#7C3AED] border-[#E9D5FF] bg-[#F5F3FF]"
+                      : pm === "deposit"
+                      ? "text-[#15803D] border-[#BBF7D0] bg-[#F1FBF4]"
+                      : "text-[#8B95A1] border-[#E5E8EB] bg-white";
+                    return (
+                      <select
+                        value={pm}
+                        disabled={isPending}
+                        onChange={(e) => handlePaymentMethodChange(client.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`text-xs font-medium rounded-full border px-2.5 py-1 cursor-pointer focus:outline-none disabled:opacity-50 ${tone}`}
+                        title="결제수단 변경"
+                      >
+                        {PAYMENT_METHODS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    );
+                  })()}
                 </td>
               </tr>
               );

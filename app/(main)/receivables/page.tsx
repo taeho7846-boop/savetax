@@ -78,10 +78,16 @@ export default async function ReceivablesPage({
   let totalPaid = 0;
 
   const clients = rawClients.map((c) => {
-    const allMonths = getAllMonths(c.firstWithdrawalMonth!, currentYM);
+    // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 현재월까지(기존 동작).
+    const isTerminated = c.contractStatus !== "active";
+    const endMonth = isTerminated && c.terminationMonth
+      ? (c.terminationMonth < currentYM ? c.terminationMonth : currentYM)
+      : currentYM;
+
+    const allMonths = getAllMonths(c.firstWithdrawalMonth!, endMonth);
     const expected = (c.monthlyFee ?? 0) * allMonths.length;
     const paidCount = c.feeRecords.filter(
-      (r) => r.status === "paid" && r.yearMonth >= c.firstWithdrawalMonth! && r.yearMonth <= currentYM
+      (r) => r.status === "paid" && r.yearMonth >= c.firstWithdrawalMonth! && r.yearMonth <= endMonth
     ).length;
     const paid = (c.monthlyFee ?? 0) * paidCount;
     const unpaid = expected - paid;
@@ -102,6 +108,8 @@ export default async function ReceivablesPage({
       affiliation: c.affiliation,
       yearRecords,
       cumulativeUnpaid: unpaid,
+      contractStatus: c.contractStatus,
+      terminationMonth: isTerminated ? c.terminationMonth : null,
     };
   });
 
@@ -247,6 +255,7 @@ async function CmsTab({ sessionId, role }: { sessionId: number; role: string }) 
       bankName: true,
       bankAccount: true,
       affiliation: true,
+      paymentMethod: true,
     },
     orderBy: { name: "asc" },
   });

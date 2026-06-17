@@ -57,6 +57,8 @@ model Client {
   bizItem                   String?
   clientType                String                     @default("individual")
   contractStatus            String                     @default("active")
+  terminationMonth          String?
+  paymentMethod             String                     @default("cms")
   taxationType              String?
   taxTypes                  String?
   laborTypes                String?

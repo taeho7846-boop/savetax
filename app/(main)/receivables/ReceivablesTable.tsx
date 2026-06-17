@@ -13,6 +13,8 @@ interface ClientRow {
   affiliation: string | null;
   yearRecords: Record<string, string>;
   cumulativeUnpaid: number;
+  contractStatus: string;
+  terminationMonth: string | null;
 }
 
 interface Props {
@@ -45,8 +47,9 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string | nu
 function monthSortValue(client: ClientRow, month: string, currentYM: string): number {
   const isBeforeStart = !!client.firstWithdrawalMonth && month < client.firstWithdrawalMonth;
   const isFuture = month > currentYM;
+  const isAfterTermination = !!client.terminationMonth && month > client.terminationMonth;
   const isPaid = client.yearRecords[month] === "paid";
-  if (isBeforeStart || (isFuture && !isPaid)) return -1;
+  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) return -1;
   return isPaid ? 1 : 0;
 }
 
@@ -597,6 +600,11 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                     >
                       {client.name}
                     </button>
+                    {client.contractStatus !== "active" && (
+                      <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap" title={client.terminationMonth ? `해지 · ${client.terminationMonth}월까지 청구` : "해지 (해지월 미설정 — 거래처 수정에서 지정하세요)"}>
+                        해지{client.terminationMonth ? ` ~${client.terminationMonth.slice(5)}월` : ""}
+                      </span>
+                    )}
                   </div>
                 </td>
 
@@ -613,11 +621,12 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
                 {months.map((m) => {
                   const isFuture = m > currentYM;
                   const isBeforeStart = !!client.firstWithdrawalMonth && m < client.firstWithdrawalMonth;
+                  const isAfterTermination = !!client.terminationMonth && m > client.terminationMonth;
                   const isPaid = client.yearRecords[m] === "paid";
 
-                  if (isBeforeStart || (isFuture && !isPaid)) {
+                  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) {
                     return (
-                      <td key={m} className="px-3 py-3 text-center text-[#C4CCD4]">
+                      <td key={m} className={`px-3 py-3 text-center text-[#C4CCD4] ${isAfterTermination ? "bg-[#F9FAFB]/40" : ""}`} title={isAfterTermination ? "해지월 이후 (청구 종료)" : undefined}>
                         ·
                       </td>
                     );
