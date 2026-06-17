@@ -24,6 +24,7 @@ const ALL_MENUS = [
   { key: "clients", label: "고객사 관리" },
   { key: "commission", label: "신규수임" },
   { key: "tax-agency", label: "신고대리" },
+  { key: "vat", label: "부가가치세" },
   { key: "withholding", label: "원천세" },
   { key: "income-tax", label: "종합소득세" },
   { key: "receivables", label: "채권 관리" },
