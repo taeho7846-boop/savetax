@@ -155,25 +155,38 @@ export async function POST(req: NextRequest) {
     const wb = XLSX.read(raw, { type: "buffer" });
     const ws = wb.Sheets[wb.SheetNames[0]];
 
-    // NOTE: 바로출금 엑셀(isInstant)의 셀 매핑은 추후 새 양식 등록 후 조정 예정.
-    //       현재는 자동이체 양식과 동일한 셀 위치를 사용하되, 최초출금월(P)·출금일(N)은 비워둔다.
     const row = 4;
-    ws[`A${row}`] = { t: "s", v: name };
-    ws[`E${row}`] = { t: "s", v: phoneClean };
-    ws[`I${row}`] = { t: "s", v: getBankCode(bankName) };
-    ws[`J${row}`] = { t: "s", v: bankAccountClean };
-    ws[`K${row}`] = { t: "s", v: depositor };
-    ws[`L${row}`] = { t: "s", v: idNumber };
-    ws[`M${row}`] = { t: "n", v: Number(amount) };
-    ws[`N${row}`] = { t: "s", v: withdrawalDay2 };
-    ws[`O${row}`] = { t: "s", v: "99" };
-    ws[`P${row}`] = { t: "s", v: firstMonthDigits };
-    ws[`R${row}`] = { t: "s", v: bizDigits };
-    ws[`AA${row}`] = { t: "s", v: "N" };
+    let maxCol = 0;
+    if (isInstant) {
+      // 바로출금 엑셀: 출금월·출금일 칼럼 없이 한 칸씩 당겨진 양식
+      ws[`A${row}`] = { t: "s", v: name };               // 회원명 = 거래처명
+      ws[`D${row}`] = { t: "s", v: phoneClean };          // 휴대폰번호 (숫자만)
+      ws[`H${row}`] = { t: "s", v: getBankCode(bankName) }; // 출금은행 (은행코드)
+      ws[`I${row}`] = { t: "s", v: bankAccountClean };    // 계좌번호
+      ws[`J${row}`] = { t: "s", v: depositor };           // 예금주명
+      ws[`K${row}`] = { t: "s", v: idNumber };            // (개인)주민6 / (법인)사업자번호
+      ws[`L${row}`] = { t: "n", v: Number(amount) };      // 납부금액 (숫자만)
+      maxCol = 11; // L
+    } else {
+      // 자동이체 일괄등록 엑셀
+      ws[`A${row}`] = { t: "s", v: name };
+      ws[`E${row}`] = { t: "s", v: phoneClean };
+      ws[`I${row}`] = { t: "s", v: getBankCode(bankName) };
+      ws[`J${row}`] = { t: "s", v: bankAccountClean };
+      ws[`K${row}`] = { t: "s", v: depositor };
+      ws[`L${row}`] = { t: "s", v: idNumber };
+      ws[`M${row}`] = { t: "n", v: Number(amount) };
+      ws[`N${row}`] = { t: "s", v: withdrawalDay2 };
+      ws[`O${row}`] = { t: "s", v: "99" };
+      ws[`P${row}`] = { t: "s", v: firstMonthDigits };
+      ws[`R${row}`] = { t: "s", v: bizDigits };
+      ws[`AA${row}`] = { t: "s", v: "N" };
+      maxCol = 26; // AA
+    }
 
     const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
     if (row > range.e.r + 1) range.e.r = row - 1;
-    if (26 > range.e.c) range.e.c = 26;
+    if (maxCol > range.e.c) range.e.c = maxCol;
     ws["!ref"] = XLSX.utils.encode_range(range);
 
     bulkBuf = XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;
