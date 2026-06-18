@@ -23,4 +23,5 @@ export async function toggleFeeRecord(clientId: number, yearMonth: string) {
   }
 
   revalidatePath("/receivables");
+  revalidatePath("/savetax-receivables");
 }

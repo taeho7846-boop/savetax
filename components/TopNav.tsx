@@ -85,6 +85,7 @@ const CATEGORIES: Category[] = [
     subs: [
       { href: "/schedule", label: "스케쥴" },
       { href: "/tasks", label: "업무/메모" },
+      { href: "/savetax-receivables", label: "세이브택스 채권관리" },
       { href: "/staff", label: "직원관리" },
       { href: "/settings", label: "설정" },
     ],
@@ -119,6 +120,7 @@ export default function TopNav({
   const visibleCategories = CATEGORIES.map((cat) => {
     const subs = cat.subs.filter((s) => {
       if (s.href === "/staff" && !(user.role === "owner" || user.role === "admin")) return false;
+      if (s.href === "/savetax-receivables" && user.role !== "owner") return false;
       if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/settings" && s.href !== "/freelancer-calc") return false;
       return true;
     });
