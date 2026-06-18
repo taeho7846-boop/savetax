@@ -76,6 +76,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
   // 커스터마이징 등록 모달 상태
   const [customOpen, setCustomOpen] = useState(false);
+  const [withdrawalType, setWithdrawalType] = useState<"auto" | "instant">("auto");
   const [office, setOffice] = useState<"savetax" | "personal">("savetax");
   const [ctype, setCtype] = useState<"individual" | "corporate">("individual");
   const [cForm, setCForm] = useState({
@@ -93,6 +94,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [customError, setCustomError] = useState<string | null>(null);
 
   function resetCustom() {
+    setWithdrawalType("auto");
     setOffice("savetax");
     setCtype("individual");
     setCForm({ name: "", ceoName: "", phone: "", bankName: "", bankAccount: "", residentNumber: "", bizNumber: "" });
@@ -142,7 +144,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       const res = await fetch("/api/cms/custom-register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ office, clientType: ctype, ...cForm, ...cVars }),
+        body: JSON.stringify({ withdrawalType, office, clientType: ctype, ...cForm, ...cVars }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -753,6 +755,35 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               <div className="px-4 py-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[#DC2626] text-sm">{customError}</div>
             )}
 
+            {/* 0. 출금시기 */}
+            <div>
+              <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">0. 출금시기</div>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { v: "auto" as const, label: "자동이체", desc: "매월 정기 출금", tone: "#3182F6" },
+                  { v: "instant" as const, label: "바로출금", desc: "최초출금월·출금일 불필요", tone: "#7C3AED" },
+                ]).map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setWithdrawalType(o.v)}
+                    className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
+                      withdrawalType === o.v ? "bg-[#F9FAFB]" : "border-[#F2F4F6] hover:border-[#D1D6DB]"
+                    }`}
+                    style={withdrawalType === o.v ? { borderColor: o.tone } : undefined}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: o.tone }}>
+                        {withdrawalType === o.v && <span className="w-1.5 h-1.5 rounded-full" style={{ background: o.tone }} />}
+                      </span>
+                      <span className="text-sm font-semibold text-[#191F28]">{o.label}</span>
+                    </div>
+                    <div className="text-[11px] text-[#8B95A1] mt-1 ml-5.5">{o.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* 1. 신청서 양식 */}
             <div>
               <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">1. 신청서 양식</div>
@@ -846,7 +877,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             {/* 3. 변수 */}
             <div>
               <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">3. 출금 변수</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className={`grid gap-3 ${withdrawalType === "instant" ? "grid-cols-1" : "grid-cols-3"}`}>
                 <div>
                   <label className="block text-xs text-[#6B7684] mb-1">금액 (원)</label>
                   <input
@@ -857,31 +888,38 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                     className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs text-[#6B7684] mb-1">최초출금월</label>
-                  <input
-                    type="month"
-                    value={cVars.firstMonth}
-                    onChange={(e) => setCVars((v) => ({ ...v, firstMonth: e.target.value }))}
-                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-[#6B7684] mb-1">매월 출금일</label>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-[#8B95A1]">매월</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={31}
-                      value={cVars.withdrawalDay}
-                      onChange={(e) => setCVars((v) => ({ ...v, withdrawalDay: e.target.value }))}
-                      className="w-16 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-center focus:outline-none focus:border-[#3182F6]"
-                    />
-                    <span className="text-sm text-[#8B95A1]">일</span>
-                  </div>
-                </div>
+                {withdrawalType === "auto" && (
+                  <>
+                    <div>
+                      <label className="block text-xs text-[#6B7684] mb-1">최초출금월</label>
+                      <input
+                        type="month"
+                        value={cVars.firstMonth}
+                        onChange={(e) => setCVars((v) => ({ ...v, firstMonth: e.target.value }))}
+                        className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#6B7684] mb-1">매월 출금일</label>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm text-[#8B95A1]">매월</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={cVars.withdrawalDay}
+                          onChange={(e) => setCVars((v) => ({ ...v, withdrawalDay: e.target.value }))}
+                          className="w-16 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-center focus:outline-none focus:border-[#3182F6]"
+                        />
+                        <span className="text-sm text-[#8B95A1]">일</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
+              {withdrawalType === "instant" && (
+                <p className="text-[11px] text-[#8B95A1] mt-2">바로출금은 최초출금월·매월출금일 없이 즉시 출금 엑셀로 생성됩니다.</p>
+              )}
             </div>
           </div>
 

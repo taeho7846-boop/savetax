@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const {
+    withdrawalType,    // "auto" | "instant" (기본 auto)
     office,            // "savetax" | "personal"
     clientType,        // "individual" | "corporate"
     name,
@@ -82,6 +83,8 @@ export async function POST(req: NextRequest) {
     firstMonth,        // 최초출금월 "YYYY-MM" or "YYYYMM"
     withdrawalDay,     // 출금일 (number | string)
   } = body ?? {};
+
+  const isInstant = withdrawalType === "instant";  // 바로출금
 
   // === 입력값 검증 ===
   if (!name?.trim()) {
@@ -98,26 +101,36 @@ export async function POST(req: NextRequest) {
   if (amount === undefined || amount === null || amount === "" || isNaN(Number(amount))) {
     return NextResponse.json({ error: "금액을 입력해주세요" }, { status: 400 });
   }
-  const firstMonthDigits = String(firstMonth ?? "").replace(/\D/g, "");
-  if (firstMonthDigits.length !== 6) {
-    return NextResponse.json({ error: "최초출금월을 선택해주세요" }, { status: 400 });
+  // 바로출금은 최초출금월·출금일 불필요
+  let firstMonthDigits = "";
+  let withdrawalDay2 = "";
+  if (!isInstant) {
+    firstMonthDigits = String(firstMonth ?? "").replace(/\D/g, "");
+    if (firstMonthDigits.length !== 6) {
+      return NextResponse.json({ error: "최초출금월을 선택해주세요" }, { status: 400 });
+    }
+    const dayNum = parseInt(String(withdrawalDay), 10);
+    if (isNaN(dayNum) || dayNum < 1 || dayNum > 31) {
+      return NextResponse.json({ error: "출금일을 1~31 사이로 입력해주세요" }, { status: 400 });
+    }
+    withdrawalDay2 = String(dayNum).padStart(2, "0");
   }
-  const dayNum = parseInt(String(withdrawalDay), 10);
-  if (isNaN(dayNum) || dayNum < 1 || dayNum > 31) {
-    return NextResponse.json({ error: "출금일을 1~31 사이로 입력해주세요" }, { status: 400 });
-  }
-  const withdrawalDay2 = String(dayNum).padStart(2, "0");
 
   // === 설정에서 양식 경로 ===
   const settings = await prisma.settings.findUnique({
     where: { userId: session.id },
-    select: { cmsBulkExcelPath: true, cmsExcelPath: true, cmsExcelPersonalPath: true },
+    select: { cmsBulkExcelPath: true, cmsInstantExcelPath: true, cmsExcelPath: true, cmsExcelPersonalPath: true },
   });
 
-  if (!settings?.cmsBulkExcelPath) {
-    return NextResponse.json({ error: "설정에서 CMS 일괄등록 엑셀을 먼저 업로드해주세요" }, { status: 400 });
+  // 자동이체 → 일괄등록 엑셀 / 바로출금 → 바로출금 엑셀
+  const bulkExcelPath = isInstant ? settings?.cmsInstantExcelPath : settings?.cmsBulkExcelPath;
+  if (!bulkExcelPath) {
+    return NextResponse.json(
+      { error: isInstant ? "설정에서 바로출금 일괄등록 엑셀을 먼저 업로드해주세요" : "설정에서 CMS 일괄등록 엑셀을 먼저 업로드해주세요" },
+      { status: 400 }
+    );
   }
-  const formPath = office === "personal" ? settings.cmsExcelPersonalPath : settings.cmsExcelPath;
+  const formPath = office === "personal" ? settings?.cmsExcelPersonalPath : settings?.cmsExcelPath;
   if (!formPath) {
     const label = office === "personal" ? "개인 세무회계사무소" : "세이브택스 논현지점";
     return NextResponse.json({ error: `설정 → 파일 업로드에서 ${label} CMS 신청서 양식을 먼저 업로드해주세요` }, { status: 400 });
@@ -133,7 +146,7 @@ export async function POST(req: NextRequest) {
   const safeName = name.replace(/[/\\:*?"<>|]/g, "_");
 
   // === 1. 일괄등록 엑셀 생성 (단일 행) ===
-  const bulkRelPath = settings.cmsBulkExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
+  const bulkRelPath = bulkExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
   const bulkTemplatePath = path.join(process.cwd(), "public", bulkRelPath);
 
   let bulkBuf: Buffer;
@@ -142,6 +155,8 @@ export async function POST(req: NextRequest) {
     const wb = XLSX.read(raw, { type: "buffer" });
     const ws = wb.Sheets[wb.SheetNames[0]];
 
+    // NOTE: 바로출금 엑셀(isInstant)의 셀 매핑은 추후 새 양식 등록 후 조정 예정.
+    //       현재는 자동이체 양식과 동일한 셀 위치를 사용하되, 최초출금월(P)·출금일(N)은 비워둔다.
     const row = 4;
     ws[`A${row}`] = { t: "s", v: name };
     ws[`E${row}`] = { t: "s", v: phoneClean };
@@ -209,7 +224,7 @@ export async function POST(req: NextRequest) {
     archive.on("error", reject);
   });
 
-  archive.append(bulkBuf, { name: "CMS_일괄등록.xls" });
+  archive.append(bulkBuf, { name: isInstant ? "바로출금_일괄등록.xls" : "CMS_일괄등록.xls" });
   archive.append(pdfBuf, { name: `${safeName}_CMS신청서.pdf` });
 
   await archive.finalize();

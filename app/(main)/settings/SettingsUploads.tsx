@@ -9,6 +9,7 @@ interface Props {
   cmsExcelPath: string | null;
   cmsExcelPersonalPath: string | null;
   cmsBulkExcelPath: string | null;
+  cmsInstantExcelPath: string | null;
   pensionExcelPath: string | null;
   healthExcelPath: string | null;
   tiNormalExcelPath: string | null;
@@ -170,7 +171,7 @@ function UploadSection({
   );
 }
 
-export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsExcelPersonalPath, cmsBulkExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath, taxReductionExcelPath }: Props) {
+export default function SettingsUploads({ commissionFormPath, agentIdCardPath, cmsExcelPath, cmsExcelPersonalPath, cmsBulkExcelPath, cmsInstantExcelPath, pensionExcelPath, healthExcelPath, tiNormalExcelPath, tiBulkExcelPath, taxReductionExcelPath }: Props) {
   return (
     <div className="glass rounded-2xl p-6 space-y-6">
       <h2 className="text-sm font-bold text-[#333D4B]">파일</h2>
@@ -233,9 +234,21 @@ export default function SettingsUploads({ commissionFormPath, agentIdCardPath, c
           <div className="grid grid-cols-2 gap-6">
             <UploadSection
               label="CMS 일괄등록 엑셀"
+              badge="자동이체"
+              badgeTone="blue"
               currentPath={cmsBulkExcelPath}
               uploadUrl="/api/settings/upload-cms-bulk-excel"
               deleteUrl="/api/settings/upload-cms-bulk-excel"
+              accept=".xlsx,.xls"
+              isImage={false}
+            />
+            <UploadSection
+              label="바로출금 일괄등록 엑셀"
+              badge="바로출금"
+              badgeTone="violet"
+              currentPath={cmsInstantExcelPath}
+              uploadUrl="/api/settings/upload-cms-instant-excel"
+              deleteUrl="/api/settings/upload-cms-instant-excel"
               accept=".xlsx,.xls"
               isImage={false}
             />

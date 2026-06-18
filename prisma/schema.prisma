@@ -186,6 +186,7 @@ model Settings {
   cmsExcelPath       String?
   cmsExcelPersonalPath String?
   cmsBulkExcelPath   String?
+  cmsInstantExcelPath String?
   healthExcelPath    String?
   pensionExcelPath   String?
   tiBulkExcelPath    String?

@@ -357,6 +357,7 @@ export default async function SettingsPage() {
             cmsExcelPath={settings?.cmsExcelPath ?? null}
             cmsExcelPersonalPath={settings?.cmsExcelPersonalPath ?? null}
             cmsBulkExcelPath={settings?.cmsBulkExcelPath ?? null}
+            cmsInstantExcelPath={settings?.cmsInstantExcelPath ?? null}
             pensionExcelPath={settings?.pensionExcelPath ?? null}
             healthExcelPath={settings?.healthExcelPath ?? null}
             tiNormalExcelPath={settings?.tiNormalExcelPath ?? null}
