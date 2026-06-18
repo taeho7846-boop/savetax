@@ -595,6 +595,22 @@ model SettlementBookkeeping {
   createdByUserId  Int?
   monthlyFee       Int      @default(0)
   startMonth       String?
+  checks           SettlementBookkeepingCheck[]
+}
+
+// 기장 정산 월별 체크 (출금/송금/T/I) — 거래처(기장) × 월 별로 분리 저장
+model SettlementBookkeepingCheck {
+  id              Int      @id @default(autoincrement())
+  bookkeepingId   Int
+  yearMonth       String
+  withdrawn       Boolean  @default(false)
+  remitted        Boolean  @default(false)
+  tiIssued        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  bookkeeping     SettlementBookkeeping @relation(fields: [bookkeepingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookkeepingId, yearMonth])
 }
 
 model SettlementOneoff {

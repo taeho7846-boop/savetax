@@ -41,10 +41,11 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
   const visible = rows.filter(r => !r.startMonth || r.startMonth <= yearMonth);
   const filtered = search ? visible.filter(r => r.clientName.includes(search)) : visible;
 
-  // 합계
-  const totalFee = filtered.reduce((s, r) => s + r.monthlyFee, 0);
-  const totalHQ = filtered.reduce((s, r) => s + r.headquarterFee, 0);
-  const totalRemit = filtered.reduce((s, r) => s + (r.monthlyFee - r.headquarterFee), 0);
+  // 합계 — 출금 체크(직접 확인)한 행만 청구액에 합산
+  const checkedRows = filtered.filter(r => r.withdrawn);
+  const totalFee = checkedRows.reduce((s, r) => s + r.monthlyFee, 0);
+  const totalHQ = checkedRows.reduce((s, r) => s + r.headquarterFee, 0);
+  const totalRemit = checkedRows.reduce((s, r) => s + (r.monthlyFee - r.headquarterFee), 0);
 
   function handleToggle(id: number, field: "withdrawn" | "remitted" | "tiIssued") {
     startTransition(() => toggleBookkeepingField(id, yearMonth, field));
@@ -110,7 +111,8 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
             className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-1.5 text-sm w-48 focus:outline-none focus:border-[#3182F6]"
           />
         </div>
-        <div className="flex gap-4 text-sm text-[#6B7684]">
+        <div className="flex items-center gap-4 text-sm text-[#6B7684]">
+          <span className="text-[11px] text-[#8B95A1] bg-[#F2F4F6] px-2 py-0.5 rounded-full">출금 체크 {checkedRows.length}/{filtered.length}건 기준</span>
           <span>총기장료: <strong className="text-[#191F28]">{totalFee.toLocaleString()}원</strong></span>
           <span>본점지급: <strong className="text-[#191F28]">{totalHQ.toLocaleString()}원</strong></span>
           <span>송금요청: <strong className="text-[#191F28]">{totalRemit.toLocaleString()}원</strong></span>
@@ -139,15 +141,16 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
               <tr><td colSpan={11} className="text-center py-12 text-[#8B95A1]">등록된 기장 정산이 없습니다</td></tr>
             ) : groups.map(group => {
               const colors = AFF_COLORS[group.aff] || { bg: "bg-[#F9FAFB]", text: "text-[#4E5968]", border: "border-[#E5E8EB]" };
-              const gFee = group.rows.reduce((s, r) => s + r.monthlyFee, 0);
-              const gHQ = group.rows.reduce((s, r) => s + r.headquarterFee, 0);
+              const gChecked = group.rows.filter(r => r.withdrawn);
+              const gFee = gChecked.reduce((s, r) => s + r.monthlyFee, 0);
+              const gHQ = gChecked.reduce((s, r) => s + r.headquarterFee, 0);
               return (
                 <React.Fragment key={group.aff}>
                   <tr className={colors.bg}>
                     <td colSpan={11} className={`px-4 py-2 border-t border-b ${colors.border}`}>
                       <div className="flex items-center gap-3">
                         <span className={`text-xs font-bold ${colors.text}`}>{group.aff}</span>
-                        <span className="text-[10px] text-[#8B95A1]">{group.rows.length}개</span>
+                        <span className="text-[10px] text-[#8B95A1]">출금 {gChecked.length}/{group.rows.length}건</span>
                         <span className="text-[10px] text-[#8B95A1] ml-auto">
                           기장료 {gFee.toLocaleString()} / 본점 {gHQ.toLocaleString()} / 송금 {(gFee - gHQ).toLocaleString()}
                         </span>
@@ -165,7 +168,7 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
                         <td className="px-3 py-2.5 text-center text-[#191F28]">
                           {row.headquarterFee > 0 ? row.headquarterFee.toLocaleString() : <span className="text-[#B0B8C1]">-</span>}
                         </td>
-                        <td className="px-3 py-2.5 text-center font-medium text-[#191F28]">{remit.toLocaleString()}</td>
+                        <td className={`px-3 py-2.5 text-center font-medium ${row.withdrawn ? "text-[#191F28]" : "text-[#C4CAD2] line-through"}`} title={row.withdrawn ? "출금 체크됨 — 청구 합계 포함" : "출금 미체크 — 청구 합계 제외"}>{remit.toLocaleString()}</td>
                         <td className="px-3 py-2.5 text-center">
                           <input type="checkbox" checked={row.withdrawn} onChange={() => handleToggle(row.id, "withdrawn")} disabled={isPending} className="accent-[#3182F6] w-4 h-4 cursor-pointer" />
                         </td>

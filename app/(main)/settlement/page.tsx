@@ -55,15 +55,28 @@ export default async function SettlementPage({
     );
   }
 
-  // 기장 탭: 독립형 레코드 조회
+  // 기장 탭: 독립형 레코드 + 해당 월 체크 병합
   const bookkeepings = await prisma.settlementBookkeeping.findMany({
     orderBy: { clientName: "asc" },
+  });
+  const monthChecks = await prisma.settlementBookkeepingCheck.findMany({
+    where: { yearMonth },
+  });
+  const checkMap = new Map(monthChecks.map((c) => [c.bookkeepingId, c]));
+  const bookkeepingRows = bookkeepings.map((b) => {
+    const chk = checkMap.get(b.id);
+    return {
+      ...b,
+      withdrawn: chk?.withdrawn ?? false,
+      remitted: chk?.remitted ?? false,
+      tiIssued: chk?.tiIssued ?? false,
+    };
   });
 
   return (
     <div>
       <Header year={year} mon={mon} yearMonth={yearMonth} tab={tab} prevYM={changeMonth(-1)} nextYM={changeMonth(1)} />
-      <BookkeepingTable rows={bookkeepings} yearMonth={yearMonth} />
+      <BookkeepingTable rows={bookkeepingRows} yearMonth={yearMonth} />
     </div>
   );
 }

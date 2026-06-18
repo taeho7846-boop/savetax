@@ -53,13 +53,17 @@ export async function toggleBookkeepingField(
   field: "withdrawn" | "remitted" | "tiIssued"
 ) {
   await requireAuth();
-  // 월별 체크 상태는 별도 JSON이 아닌 레코드 자체에 저장
-  // 같은 거래처의 해당 월 레코드를 찾거나 생성
-  const existing = await prisma.settlementBookkeeping.findUnique({ where: { id } });
-  if (!existing) return;
-  await prisma.settlementBookkeeping.update({
-    where: { id },
-    data: { [field]: !existing[field] },
+  if (!yearMonth) return;
+  // 출금/송금/T/I 체크는 (기장 거래처 × 월)별로 분리 저장한다.
+  // 해당 월에 직접 체크한 것만 그 달에 남고, 다른 달에는 영향이 없다.
+  const existing = await prisma.settlementBookkeepingCheck.findUnique({
+    where: { bookkeepingId_yearMonth: { bookkeepingId: id, yearMonth } },
+  });
+  const current = existing?.[field] ?? false;
+  await prisma.settlementBookkeepingCheck.upsert({
+    where: { bookkeepingId_yearMonth: { bookkeepingId: id, yearMonth } },
+    update: { [field]: !current },
+    create: { bookkeepingId: id, yearMonth, [field]: true },
   });
   revalidatePath("/settlement");
 }
