@@ -75,6 +75,7 @@ const SECTIONS = [
 export function CollectionBoard({ clients }: { clients: CollectionClient[] }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [accFilter, setAccFilter] = useState<string[]>([]);
 
   // 컨택 추가 모달
   const [modalClient, setModalClient] = useState<CollectionClient | null>(null);
@@ -134,9 +135,15 @@ export function CollectionBoard({ clients }: { clients: CollectionClient[] }) {
     }
   }
 
+  // 담당 세무사 필터
+  const accOptions = [...new Set(clients.map((c) => c.accountantName))];
+  const visibleClients = accFilter.length > 0
+    ? clients.filter((c) => accFilter.includes(c.accountantName))
+    : clients;
+
   // 그룹별 분류 + 그룹 내 미수금 큰 순
   const byGroup = new Map<string, CollectionClient[]>();
-  for (const c of clients) {
+  for (const c of visibleClients) {
     const g = groupOf(c);
     if (!byGroup.has(g)) byGroup.set(g, []);
     byGroup.get(g)!.push(c);
@@ -155,6 +162,38 @@ export function CollectionBoard({ clients }: { clients: CollectionClient[] }) {
 
   return (
     <div className="space-y-5">
+      {/* 담당 세무사 필터 */}
+      {accOptions.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-bold text-[#6B7684] mr-1">담당</span>
+          <button
+            onClick={() => setAccFilter([])}
+            className={`px-3 py-1.5 rounded-xl text-[12px] font-bold transition ${accFilter.length === 0 ? "bg-[#3182F6] text-white" : "glass-strong text-[#6B7684] hover:text-[#191F28]"}`}
+          >
+            전체 {clients.length}
+          </button>
+          {accOptions.map((acc) => {
+            const n = clients.filter((c) => c.accountantName === acc).length;
+            const sel = accFilter.includes(acc);
+            return (
+              <button
+                key={acc}
+                onClick={() => setAccFilter(sel ? accFilter.filter((a) => a !== acc) : [...accFilter, acc])}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-bold transition ${sel ? "bg-[#3182F6] text-white" : "glass-strong text-[#6B7684] hover:text-[#191F28]"}`}
+              >
+                {acc} {n}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {visibleClients.length === 0 && (
+        <div className="glass rounded-3xl p-10 text-center text-[13px] text-[#8B95A1]">
+          선택한 담당자의 미수 거래처가 없습니다.
+        </div>
+      )}
+
       {SECTIONS.map((sec) => {
         const list = byGroup.get(sec.key) ?? [];
         if (list.length === 0) return null;
