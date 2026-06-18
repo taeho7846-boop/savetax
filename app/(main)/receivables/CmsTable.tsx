@@ -76,7 +76,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
   // 커스터마이징 등록 모달 상태
   const [customOpen, setCustomOpen] = useState(false);
-  const [withdrawalType, setWithdrawalType] = useState<"auto" | "instant">("auto");
+  const [autoEnabled, setAutoEnabled] = useState(true);      // 자동이체 ON/OFF
+  const [instantEnabled, setInstantEnabled] = useState(false); // 즉시출금 ON/OFF
   const [office, setOffice] = useState<"savetax" | "personal">("savetax");
   const [ctype, setCtype] = useState<"individual" | "corporate">("individual");
   const [cForm, setCForm] = useState({
@@ -86,6 +87,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
     amount: "",
     firstMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
     withdrawalDay: "5",
+    instantAmount: "",
   });
   const [clientQuery, setClientQuery] = useState("");
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
@@ -94,7 +96,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [customError, setCustomError] = useState<string | null>(null);
 
   function resetCustom() {
-    setWithdrawalType("auto");
+    setAutoEnabled(true);
+    setInstantEnabled(false);
     setOffice("savetax");
     setCtype("individual");
     setCForm({ name: "", ceoName: "", phone: "", bankName: "", bankAccount: "", residentNumber: "", bizNumber: "" });
@@ -102,6 +105,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       amount: "",
       firstMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
       withdrawalDay: "5",
+      instantAmount: "",
     });
     setClientQuery("");
     setClientDropdownOpen(false);
@@ -138,13 +142,17 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   }
 
   async function handleGenerateCustom() {
+    if (!autoEnabled && !instantEnabled) {
+      setCustomError("자동이체 또는 즉시출금 중 하나 이상을 켜주세요");
+      return;
+    }
     setGenerating(true);
     setCustomError(null);
     try {
       const res = await fetch("/api/cms/custom-register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ withdrawalType, office, clientType: ctype, ...cForm, ...cVars }),
+        body: JSON.stringify({ autoEnabled, instantEnabled, office, clientType: ctype, ...cForm, ...cVars }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -755,35 +763,6 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               <div className="px-4 py-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[#DC2626] text-sm">{customError}</div>
             )}
 
-            {/* 0. 출금시기 */}
-            <div>
-              <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">0. 출금시기</div>
-              <div className="grid grid-cols-2 gap-3">
-                {([
-                  { v: "auto" as const, label: "자동이체", desc: "매월 정기 출금", tone: "#3182F6" },
-                  { v: "instant" as const, label: "바로출금", desc: "최초출금월·출금일 불필요", tone: "#7C3AED" },
-                ]).map((o) => (
-                  <button
-                    key={o.v}
-                    type="button"
-                    onClick={() => setWithdrawalType(o.v)}
-                    className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
-                      withdrawalType === o.v ? "bg-[#F9FAFB]" : "border-[#F2F4F6] hover:border-[#D1D6DB]"
-                    }`}
-                    style={withdrawalType === o.v ? { borderColor: o.tone } : undefined}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: o.tone }}>
-                        {withdrawalType === o.v && <span className="w-1.5 h-1.5 rounded-full" style={{ background: o.tone }} />}
-                      </span>
-                      <span className="text-sm font-semibold text-[#191F28]">{o.label}</span>
-                    </div>
-                    <div className="text-[11px] text-[#8B95A1] mt-1 ml-5.5">{o.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* 1. 신청서 양식 */}
             <div>
               <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">1. 신청서 양식</div>
@@ -874,53 +853,81 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               </div>
             </div>
 
-            {/* 3. 변수 */}
-            <div>
-              <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2">3. 출금 변수</div>
-              <div className={`grid gap-3 ${withdrawalType === "instant" ? "grid-cols-1" : "grid-cols-3"}`}>
+            {/* 3. 자동이체 (ON/OFF) */}
+            <div className={`rounded-xl border-2 transition-colors ${autoEnabled ? "border-[#3182F6]/40 bg-[#F5F9FF]/40" : "border-[#F2F4F6] bg-white"}`}>
+              <div className="flex items-center justify-between px-4 py-3">
                 <div>
-                  <label className="block text-xs text-[#6B7684] mb-1">금액 (원)</label>
-                  <input
-                    type="number"
-                    value={cVars.amount}
-                    onChange={(e) => setCVars((v) => ({ ...v, amount: e.target.value }))}
-                    placeholder="100000"
-                    className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
-                  />
+                  <div className="text-sm font-bold text-[#191F28]">3. 자동이체</div>
+                  <div className="text-[11px] text-[#8B95A1] mt-0.5">매월 정기 출금 · 자동이체 엑셀 생성</div>
                 </div>
-                {withdrawalType === "auto" && (
-                  <>
-                    <div>
-                      <label className="block text-xs text-[#6B7684] mb-1">최초출금월</label>
-                      <input
-                        type="month"
-                        value={cVars.firstMonth}
-                        onChange={(e) => setCVars((v) => ({ ...v, firstMonth: e.target.value }))}
-                        className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[#6B7684] mb-1">매월 출금일</label>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm text-[#8B95A1]">매월</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={31}
-                          value={cVars.withdrawalDay}
-                          onChange={(e) => setCVars((v) => ({ ...v, withdrawalDay: e.target.value }))}
-                          className="w-16 border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-center focus:outline-none focus:border-[#3182F6]"
-                        />
-                        <span className="text-sm text-[#8B95A1]">일</span>
-                      </div>
-                    </div>
-                  </>
-                )}
+                <Toggle on={autoEnabled} onChange={setAutoEnabled} tone="#3182F6" />
               </div>
-              {withdrawalType === "instant" && (
-                <p className="text-[11px] text-[#8B95A1] mt-2">바로출금은 최초출금월·매월출금일 없이 즉시 출금 엑셀로 생성됩니다.</p>
+              {autoEnabled && (
+                <div className="px-4 pb-4 grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-[#6B7684] mb-1">금액 (원)</label>
+                    <input
+                      type="number"
+                      value={cVars.amount}
+                      onChange={(e) => setCVars((v) => ({ ...v, amount: e.target.value }))}
+                      placeholder="100000"
+                      className="w-full border border-[#F2F4F6] bg-white rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#6B7684] mb-1">최초출금월</label>
+                    <input
+                      type="month"
+                      value={cVars.firstMonth}
+                      onChange={(e) => setCVars((v) => ({ ...v, firstMonth: e.target.value }))}
+                      className="w-full border border-[#F2F4F6] bg-white rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#6B7684] mb-1">매월 출금일</label>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm text-[#8B95A1]">매월</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={cVars.withdrawalDay}
+                        onChange={(e) => setCVars((v) => ({ ...v, withdrawalDay: e.target.value }))}
+                        className="w-16 border border-[#F2F4F6] bg-white rounded-[10px] px-3 py-2 text-sm text-center focus:outline-none focus:border-[#3182F6]"
+                      />
+                      <span className="text-sm text-[#8B95A1]">일</span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* 4. 즉시출금 (ON/OFF) */}
+            <div className={`rounded-xl border-2 transition-colors ${instantEnabled ? "border-[#7C3AED]/40 bg-[#F5F3FF]/40" : "border-[#F2F4F6] bg-white"}`}>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <div className="text-sm font-bold text-[#191F28]">4. 즉시출금</div>
+                  <div className="text-[11px] text-[#8B95A1] mt-0.5">밀린 미수금 등 특정 금액을 바로 출금 · 즉시출금 엑셀 생성</div>
+                </div>
+                <Toggle on={instantEnabled} onChange={setInstantEnabled} tone="#7C3AED" />
+              </div>
+              {instantEnabled && (
+                <div className="px-4 pb-4">
+                  <label className="block text-xs text-[#6B7684] mb-1">즉시출금 금액 (원)</label>
+                  <input
+                    type="number"
+                    value={cVars.instantAmount}
+                    onChange={(e) => setCVars((v) => ({ ...v, instantAmount: e.target.value }))}
+                    placeholder="예: 3개월 밀린 금액 합계"
+                    className="w-full border border-[#F2F4F6] bg-white rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#7C3AED]"
+                  />
+                </div>
+              )}
+            </div>
+
+            {!autoEnabled && !instantEnabled && (
+              <p className="text-[11px] text-[#DC2626] -mt-2">자동이체·즉시출금 중 하나 이상을 켜야 생성할 수 있어요.</p>
+            )}
           </div>
 
           {/* 푸터 */}
@@ -933,8 +940,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             </button>
             <button
               onClick={handleGenerateCustom}
-              disabled={generating}
-              className="text-sm px-5 py-2 rounded-lg font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50"
+              disabled={generating || (!autoEnabled && !instantEnabled)}
+              className="text-sm px-5 py-2 rounded-lg font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generating ? "생성 중..." : "생성"}
             </button>
@@ -1199,6 +1206,23 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       </table>
     </div>
     </>
+  );
+}
+
+function Toggle({ on, onChange, tone }: { on: boolean; onChange: (v: boolean) => void; tone: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none"
+      style={{ backgroundColor: on ? tone : "#D1D6DB" }}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${on ? "translate-x-[22px]" : "translate-x-[2px]"}`}
+      />
+    </button>
   );
 }
 

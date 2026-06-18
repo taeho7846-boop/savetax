@@ -69,7 +69,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const {
-    withdrawalType,    // "auto" | "instant" (기본 auto)
+    autoEnabled,       // 자동이체 ON/OFF
+    instantEnabled,    // 즉시출금 ON/OFF
     office,            // "savetax" | "personal"
     clientType,        // "individual" | "corporate"
     name,
@@ -79,14 +80,19 @@ export async function POST(req: NextRequest) {
     bankAccount,
     residentNumber,
     bizNumber,
-    amount,            // 금액 (number | string)
+    amount,            // 자동이체 금액 (number | string)
     firstMonth,        // 최초출금월 "YYYY-MM" or "YYYYMM"
     withdrawalDay,     // 출금일 (number | string)
+    instantAmount,     // 즉시출금 금액 (number | string)
   } = body ?? {};
 
-  const isInstant = withdrawalType === "instant";  // 바로출금
+  const doAuto = !!autoEnabled;       // 자동이체
+  const doInstant = !!instantEnabled; // 즉시출금
 
   // === 입력값 검증 ===
+  if (!doAuto && !doInstant) {
+    return NextResponse.json({ error: "자동이체 또는 즉시출금 중 하나 이상을 켜주세요" }, { status: 400 });
+  }
   if (!name?.trim()) {
     return NextResponse.json({ error: "거래처명을 입력해주세요" }, { status: 400 });
   }
@@ -98,13 +104,14 @@ export async function POST(req: NextRequest) {
   if (!depositor.trim()) {
     return NextResponse.json({ error: "예금주(개인은 대표자명)를 입력해주세요" }, { status: 400 });
   }
-  if (amount === undefined || amount === null || amount === "" || isNaN(Number(amount))) {
-    return NextResponse.json({ error: "금액을 입력해주세요" }, { status: 400 });
-  }
-  // 바로출금은 최초출금월·출금일 불필요
+
+  // 자동이체: 금액·최초출금월·출금일 필수
   let firstMonthDigits = "";
   let withdrawalDay2 = "";
-  if (!isInstant) {
+  if (doAuto) {
+    if (amount === undefined || amount === null || amount === "" || isNaN(Number(amount))) {
+      return NextResponse.json({ error: "자동이체 금액을 입력해주세요" }, { status: 400 });
+    }
     firstMonthDigits = String(firstMonth ?? "").replace(/\D/g, "");
     if (firstMonthDigits.length !== 6) {
       return NextResponse.json({ error: "최초출금월을 선택해주세요" }, { status: 400 });
@@ -116,19 +123,24 @@ export async function POST(req: NextRequest) {
     withdrawalDay2 = String(dayNum).padStart(2, "0");
   }
 
+  // 즉시출금: 금액 필수
+  if (doInstant) {
+    if (instantAmount === undefined || instantAmount === null || instantAmount === "" || isNaN(Number(instantAmount))) {
+      return NextResponse.json({ error: "즉시출금 금액을 입력해주세요" }, { status: 400 });
+    }
+  }
+
   // === 설정에서 양식 경로 ===
   const settings = await prisma.settings.findUnique({
     where: { userId: session.id },
     select: { cmsBulkExcelPath: true, cmsInstantExcelPath: true, cmsExcelPath: true, cmsExcelPersonalPath: true },
   });
 
-  // 자동이체 → 일괄등록 엑셀 / 바로출금 → 바로출금 엑셀
-  const bulkExcelPath = isInstant ? settings?.cmsInstantExcelPath : settings?.cmsBulkExcelPath;
-  if (!bulkExcelPath) {
-    return NextResponse.json(
-      { error: isInstant ? "설정에서 바로출금 일괄등록 엑셀을 먼저 업로드해주세요" : "설정에서 CMS 일괄등록 엑셀을 먼저 업로드해주세요" },
-      { status: 400 }
-    );
+  if (doAuto && !settings?.cmsBulkExcelPath) {
+    return NextResponse.json({ error: "설정에서 CMS 일괄등록 엑셀을 먼저 업로드해주세요" }, { status: 400 });
+  }
+  if (doInstant && !settings?.cmsInstantExcelPath) {
+    return NextResponse.json({ error: "설정에서 바로출금 일괄등록 엑셀을 먼저 업로드해주세요" }, { status: 400 });
   }
   const formPath = office === "personal" ? settings?.cmsExcelPersonalPath : settings?.cmsExcelPath;
   if (!formPath) {
@@ -145,53 +157,67 @@ export async function POST(req: NextRequest) {
     : (residentNumber || "").replace(/[-\s]/g, "").slice(0, 6);
   const safeName = name.replace(/[/\\:*?"<>|]/g, "_");
 
-  // === 1. 일괄등록 엑셀 생성 (단일 행) ===
-  const bulkRelPath = bulkExcelPath.replace(/^\/api\/uploads\//, "/uploads/");
-  const bulkTemplatePath = path.join(process.cwd(), "public", bulkRelPath);
+  // === 1. 엑셀 생성 (자동이체 / 즉시출금, 단일 행) ===
+  const row = 4;
 
-  let bulkBuf: Buffer;
-  try {
-    const raw = await readFile(bulkTemplatePath);
+  // 자동이체 일괄등록 엑셀
+  async function buildAutoExcel(templateApiPath: string): Promise<Buffer> {
+    const rel = templateApiPath.replace(/^\/api\/uploads\//, "/uploads/");
+    const raw = await readFile(path.join(process.cwd(), "public", rel));
     const wb = XLSX.read(raw, { type: "buffer" });
     const ws = wb.Sheets[wb.SheetNames[0]];
 
-    const row = 4;
-    let maxCol = 0;
-    if (isInstant) {
-      // 바로출금 엑셀: 출금월·출금일 칼럼 없이 한 칸씩 당겨진 양식
-      ws[`A${row}`] = { t: "s", v: name };               // 회원명 = 거래처명
-      ws[`D${row}`] = { t: "s", v: phoneClean };          // 휴대폰번호 (숫자만)
-      ws[`H${row}`] = { t: "s", v: getBankCode(bankName) }; // 출금은행 (은행코드)
-      ws[`I${row}`] = { t: "s", v: bankAccountClean };    // 계좌번호
-      ws[`J${row}`] = { t: "s", v: depositor };           // 예금주명
-      ws[`K${row}`] = { t: "s", v: idNumber };            // (개인)주민6 / (법인)사업자번호
-      ws[`L${row}`] = { t: "n", v: Number(amount) };      // 납부금액 (숫자만)
-      maxCol = 11; // L
-    } else {
-      // 자동이체 일괄등록 엑셀
-      ws[`A${row}`] = { t: "s", v: name };
-      ws[`E${row}`] = { t: "s", v: phoneClean };
-      ws[`I${row}`] = { t: "s", v: getBankCode(bankName) };
-      ws[`J${row}`] = { t: "s", v: bankAccountClean };
-      ws[`K${row}`] = { t: "s", v: depositor };
-      ws[`L${row}`] = { t: "s", v: idNumber };
-      ws[`M${row}`] = { t: "n", v: Number(amount) };
-      ws[`N${row}`] = { t: "s", v: withdrawalDay2 };
-      ws[`O${row}`] = { t: "s", v: "99" };
-      ws[`P${row}`] = { t: "s", v: firstMonthDigits };
-      ws[`R${row}`] = { t: "s", v: bizDigits };
-      ws[`AA${row}`] = { t: "s", v: "N" };
-      maxCol = 26; // AA
-    }
+    ws[`A${row}`] = { t: "s", v: name };
+    ws[`E${row}`] = { t: "s", v: phoneClean };
+    ws[`I${row}`] = { t: "s", v: getBankCode(bankName) };
+    ws[`J${row}`] = { t: "s", v: bankAccountClean };
+    ws[`K${row}`] = { t: "s", v: depositor };
+    ws[`L${row}`] = { t: "s", v: idNumber };
+    ws[`M${row}`] = { t: "n", v: Number(amount) };
+    ws[`N${row}`] = { t: "s", v: withdrawalDay2 };
+    ws[`O${row}`] = { t: "s", v: "99" };
+    ws[`P${row}`] = { t: "s", v: firstMonthDigits };
+    ws[`R${row}`] = { t: "s", v: bizDigits };
+    ws[`AA${row}`] = { t: "s", v: "N" };
 
     const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
     if (row > range.e.r + 1) range.e.r = row - 1;
-    if (maxCol > range.e.c) range.e.c = maxCol;
+    if (26 > range.e.c) range.e.c = 26;
     ws["!ref"] = XLSX.utils.encode_range(range);
 
-    bulkBuf = XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;
+    return XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;
+  }
+
+  // 즉시출금 엑셀: 출금월·출금일 칼럼 없이 한 칸씩 당겨진 양식
+  async function buildInstantExcel(templateApiPath: string): Promise<Buffer> {
+    const rel = templateApiPath.replace(/^\/api\/uploads\//, "/uploads/");
+    const raw = await readFile(path.join(process.cwd(), "public", rel));
+    const wb = XLSX.read(raw, { type: "buffer" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+
+    ws[`A${row}`] = { t: "s", v: name };                 // 회원명 = 거래처명
+    ws[`D${row}`] = { t: "s", v: phoneClean };            // 휴대폰번호 (숫자만)
+    ws[`H${row}`] = { t: "s", v: getBankCode(bankName) }; // 출금은행 (은행코드)
+    ws[`I${row}`] = { t: "s", v: bankAccountClean };      // 계좌번호
+    ws[`J${row}`] = { t: "s", v: depositor };             // 예금주명
+    ws[`K${row}`] = { t: "s", v: idNumber };              // (개인)주민6 / (법인)사업자번호
+    ws[`L${row}`] = { t: "n", v: Number(instantAmount) }; // 납부금액 (숫자만)
+
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    if (row > range.e.r + 1) range.e.r = row - 1;
+    if (11 > range.e.c) range.e.c = 11;
+    ws["!ref"] = XLSX.utils.encode_range(range);
+
+    return XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;
+  }
+
+  let autoBuf: Buffer | null = null;
+  let instantBuf: Buffer | null = null;
+  try {
+    if (doAuto) autoBuf = await buildAutoExcel(settings!.cmsBulkExcelPath!);
+    if (doInstant) instantBuf = await buildInstantExcel(settings!.cmsInstantExcelPath!);
   } catch {
-    return NextResponse.json({ error: "일괄등록 엑셀 생성 실패" }, { status: 500 });
+    return NextResponse.json({ error: "엑셀 생성 실패" }, { status: 500 });
   }
 
   // === 2. CMS 신청서 PDF 생성 (선택한 양식 + 도장) ===
@@ -237,7 +263,8 @@ export async function POST(req: NextRequest) {
     archive.on("error", reject);
   });
 
-  archive.append(bulkBuf, { name: isInstant ? "바로출금_일괄등록.xls" : "CMS_일괄등록.xls" });
+  if (autoBuf) archive.append(autoBuf, { name: `${safeName}_자동이체_일괄등록.xls` });
+  if (instantBuf) archive.append(instantBuf, { name: `${safeName}_즉시출금_일괄등록.xls` });
   archive.append(pdfBuf, { name: `${safeName}_CMS신청서.pdf` });
 
   await archive.finalize();
