@@ -120,8 +120,8 @@ export default function TopNav({
   const visibleCategories = CATEGORIES.map((cat) => {
     const subs = cat.subs.filter((s) => {
       if (s.href === "/staff" && !(user.role === "owner" || user.role === "admin")) return false;
-      if (s.href === "/savetax-receivables" && user.role !== "owner") return false;
-      if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/settings" && s.href !== "/freelancer-calc") return false;
+      if (s.href === "/savetax-receivables" && !(user.role === "owner" || user.role === "accountant")) return false;
+      if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/settings" && s.href !== "/freelancer-calc" && s.href !== "/savetax-receivables") return false;
       return true;
     });
     return { ...cat, subs };

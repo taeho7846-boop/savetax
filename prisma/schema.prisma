@@ -42,6 +42,7 @@ model User {
   rejectedReports    IncomeTaxRejection[]    @relation("rejectedReports")
   analyzedAnalyses   ClientNoticeAnalysis[]  @relation("analyzedAnalyses")
   revertedReports    IncomeTaxRevertHistory[] @relation("revertedReports")
+  collectionContacts CollectionContact[]     @relation("collectionContacts")
 }
 
 model Client {
@@ -108,6 +109,22 @@ model Client {
   noticeAnalyses            ClientNoticeAnalysis[]
   incomeTaxRevertHistories  IncomeTaxRevertHistory[]
   vatRecords                VatRecord[]
+  collectionContacts        CollectionContact[]
+}
+
+model CollectionContact {
+  id              Int      @id @default(autoincrement())
+  clientId        Int
+  contactedAt     DateTime @default(now())
+  result          String   // "promise" | "absent" | "bluff" | "other"
+  promiseDate     String?  // 상환약속일 "YYYY-MM-DD" (result=promise)
+  memo            String?
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+  client          Client   @relation(fields: [clientId], references: [id])
+  createdByUser   User?    @relation("collectionContacts", fields: [createdByUserId], references: [id])
+
+  @@index([clientId, contactedAt])
 }
 
 model AlimtalkLog {
