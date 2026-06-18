@@ -73,10 +73,7 @@ export default async function ReceivablesPage({
     orderBy: { name: "asc" },
   });
 
-  // 누적 요약 계산 (전체 기간)
-  let totalExpected = 0;
-  let totalPaid = 0;
-
+  // 누적 요약 계산 (전체 기간) — 소속별 카드는 ReceivablesTable에서 거래처별 값으로 합산
   const clients = rawClients.map((c) => {
     // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 현재월까지(기존 동작).
     const isTerminated = c.contractStatus !== "active";
@@ -92,9 +89,6 @@ export default async function ReceivablesPage({
     const paid = (c.monthlyFee ?? 0) * paidCount;
     const unpaid = expected - paid;
 
-    totalExpected += expected;
-    totalPaid += paid;
-
     const allRecords = Object.fromEntries(c.feeRecords.map((r) => [r.yearMonth, r.status]));
     // 해당 연도 기록만 필터
     const yearRecords: Record<string, string> = {};
@@ -107,13 +101,13 @@ export default async function ReceivablesPage({
       firstWithdrawalMonth: c.firstWithdrawalMonth,
       affiliation: c.affiliation,
       yearRecords,
+      cumulativeExpected: expected,
+      cumulativePaid: paid,
       cumulativeUnpaid: unpaid,
       contractStatus: c.contractStatus,
       terminationMonth: isTerminated ? c.terminationMonth : null,
     };
   });
-
-  const totalUnpaid = totalExpected - totalPaid;
 
   const tab = params.tab ?? "receivables";
 
@@ -210,7 +204,6 @@ export default async function ReceivablesPage({
         clients={clients}
         months={months12}
         currentYM={currentYM}
-        summary={{ totalExpected, totalPaid, totalUnpaid }}
       />
 
       {clients.length === 0 && (

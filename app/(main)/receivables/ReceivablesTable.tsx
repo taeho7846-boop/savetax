@@ -12,6 +12,8 @@ interface ClientRow {
   firstWithdrawalMonth: string | null;
   affiliation: string | null;
   yearRecords: Record<string, string>;
+  cumulativeExpected: number;
+  cumulativePaid: number;
   cumulativeUnpaid: number;
   contractStatus: string;
   terminationMonth: string | null;
@@ -21,11 +23,6 @@ interface Props {
   clients: ClientRow[];
   months: string[];       // 항상 12개 (YYYY-01 ~ YYYY-12)
   currentYM: string;      // "2026-03"
-  summary: {
-    totalExpected: number;
-    totalPaid: number;
-    totalUnpaid: number;
-  };
 }
 
 type SortDir = "asc" | "desc";
@@ -73,7 +70,7 @@ type VerifyResult = {
   notInExcel: { clientId: number; clientName: string; monthlyFee: number | null; currentPaid: boolean }[];
 };
 
-export function ReceivablesTable({ clients, months, currentYM, summary }: Props) {
+export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -437,42 +434,52 @@ export function ReceivablesTable({ clients, months, currentYM, summary }: Props)
         </div>
       )}
 
-      {/* 요약 카드 (누적 전체 기간) */}
+      {/* 요약 카드 (소속별 · 누적 전체 기간) */}
       {(() => {
-        const paidRate = summary.totalExpected > 0
-          ? (summary.totalPaid / summary.totalExpected) * 100
-          : 0;
-        const unpaidClientCount = clients.filter(c => c.cumulativeUnpaid > 0).length;
-        const avgUnpaid = unpaidClientCount > 0
-          ? Math.round(summary.totalUnpaid / unpaidClientCount)
-          : 0;
+        const groups = [
+          { key: "save", label: "세이브택스", dot: "#3182F6", match: (c: ClientRow) => c.affiliation === "세이브택스" },
+          { key: "personal", label: "개인세무거래처", dot: "#8B5CF6", match: (c: ClientRow) => c.affiliation !== "세이브택스" },
+        ];
         return (
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
-              <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#3182F6] rounded-r" />
-              <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">누적 청구</div>
-              <div className="text-[24px] font-extrabold text-[#191F28] mt-1.5 leading-tight pl-2">{fmtWon(summary.totalExpected)}</div>
-              <div className="text-[11px] text-[#8B95A1] mt-1 pl-2">최초 출금월부터 현재까지</div>
-            </div>
-            <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
-              <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#15803D] rounded-r" />
-              <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">누적 수납</div>
-              <div className="text-[24px] font-extrabold text-[#15803D] mt-1.5 leading-tight pl-2">{fmtWon(summary.totalPaid)}</div>
-              <div className="progress mt-2.5 ml-2">
-                <div className="progress-fill bg-[#15803D]" style={{ width: `${Math.min(paidRate, 100)}%` }} />
-              </div>
-              <div className="text-[11px] text-[#8B95A1] mt-1 pl-2">수납률 {paidRate.toFixed(1)}%</div>
-            </div>
-            <div className="stat-card glass rounded-2xl p-5 relative overflow-hidden">
-              <div className="absolute left-0 top-5 bottom-5 w-1 bg-[#DC2626] rounded-r" />
-              <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">미수금</div>
-              <div className="text-[24px] font-extrabold text-[#DC2626] mt-1.5 leading-tight pl-2">{fmtWon(summary.totalUnpaid)}</div>
-              <div className="text-[11px] text-[#8B95A1] mt-1 pl-2">
-                {unpaidClientCount > 0
-                  ? <>{unpaidClientCount}곳 · 평균 {fmtWon(avgUnpaid)}</>
-                  : "전부 수납 완료"}
-              </div>
-            </div>
+          <div className="flex gap-4 mb-6">
+            {groups.map((g) => {
+              const gc = clients.filter(g.match);
+              const expected = gc.reduce((s, c) => s + c.cumulativeExpected, 0);
+              const paid = gc.reduce((s, c) => s + c.cumulativePaid, 0);
+              const unpaid = expected - paid;
+              const paidRate = expected > 0 ? (paid / expected) * 100 : 0;
+              const metrics = [
+                { label: "누적 청구", value: expected, color: "#191F28", bar: "#3182F6" },
+                { label: "누적 수납", value: paid, color: "#15803D", bar: "#15803D" },
+                { label: "미수금", value: unpaid, color: "#DC2626", bar: "#DC2626" },
+              ];
+              return (
+                <div key={g.key} className="flex-1 min-w-0">
+                  {/* 소속 라벨 (그룹당 한 번) */}
+                  <div className="flex items-center gap-1.5 mb-1.5 pl-1">
+                    <span className="w-2 h-2 rounded-full" style={{ background: g.dot }} />
+                    <span className="text-[12px] font-bold text-[#4E5968]">{g.label}</span>
+                    <span className="text-[11px] text-[#B0B8C1]">{gc.length}곳</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {metrics.map((m) => (
+                      <div key={m.label} className="stat-card glass rounded-2xl p-4 relative overflow-hidden h-[96px] flex flex-col justify-between">
+                        <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r" style={{ background: m.bar }} />
+                        <div className="text-[10px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">{m.label}</div>
+                        <div className="text-[18px] font-extrabold leading-tight pl-2 truncate" style={{ color: m.color }} title={fmtWon(m.value)}>{fmtWon(m.value)}</div>
+                        {m.label === "누적 수납" ? (
+                          <div className="progress ml-2">
+                            <div className="progress-fill bg-[#15803D]" style={{ width: `${Math.min(paidRate, 100)}%` }} />
+                          </div>
+                        ) : (
+                          <div className="h-[6px]" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         );
       })()}
