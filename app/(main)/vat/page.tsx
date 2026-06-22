@@ -27,7 +27,8 @@ export default async function VatPage({
   const activeTab = params.tab === "single" ? "single" : "bookkeeping";
 
   const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
-  let assignedFilter: any = { assignedUserId: session.id };
+  // 직원: 본인이 사수(담당)이거나 부사수(서브)인 거래처
+  let assignedFilter: any = { OR: [{ assignedUserId: session.id }, { subAssignedUserId: session.id }] };
   if (isManager) {
     const employees = await prisma.user.findMany({
       where: { managerId: session.id, isActive: true },
@@ -52,10 +53,9 @@ export default async function VatPage({
     where: {
       isDeleted: false,
       contractStatus: "active",
-      ...assignedFilter,
-      ...taxTypeFilter,
       // 부가세 비대상 제외 (면세·프리랜서·폐업). 미지정(null)은 포함
       NOT: { taxationType: { in: ["면세", "프리랜서", "폐업"] } },
+      AND: [assignedFilter, taxTypeFilter],
     },
     select: {
       id: true,

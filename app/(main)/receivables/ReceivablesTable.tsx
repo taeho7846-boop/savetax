@@ -11,6 +11,7 @@ interface ClientRow {
   monthlyFee: number | null;
   firstWithdrawalMonth: string | null;
   affiliation: string | null;
+  assignedUserName: string | null;
   yearRecords: Record<string, string>;
   cumulativeExpected: number;
   cumulativePaid: number;
@@ -90,6 +91,12 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const [affFilterOpen, setAffFilterOpen] = useState(false);
   const affFilterRef = useRef<HTMLDivElement>(null);
   const affOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
+
+  // 담당자 필터
+  const [assignFilter, setAssignFilter] = useState<string[]>([]);
+  const [assignFilterOpen, setAssignFilterOpen] = useState(false);
+  const assignFilterRef = useRef<HTMLDivElement>(null);
+  const assignOptions = [...new Set(clients.map(c => c.assignedUserName).filter(Boolean))] as string[];
 
   // 채권관리 작업용 체크박스 (확인한 업체는 체크 해제해가며 작업)
   // 처음엔 전부 체크 → 새로고침에도 유지되도록 연도별 localStorage 저장
@@ -180,6 +187,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   React.useEffect(() => {
     function onMouseDown(e: MouseEvent) {
       if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) setAffFilterOpen(false);
+      if (assignFilterRef.current && !assignFilterRef.current.contains(e.target as Node)) setAssignFilterOpen(false);
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -198,7 +206,10 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
     }
   }
 
-  const filtered = affFilter.length > 0 ? clients.filter(c => affFilter.includes(c.affiliation || "")) : clients;
+  const filtered = clients.filter(c =>
+    (affFilter.length === 0 || affFilter.includes(c.affiliation || "")) &&
+    (assignFilter.length === 0 || assignFilter.includes(c.assignedUserName || ""))
+  );
   const sorted = [...filtered].sort((a, b) => {
     if (!sortCol) return 0;
     let diff = 0;
@@ -554,6 +565,43 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                   )}
                 </div>
               </th>
+              {/* 담당자 필터 */}
+              <th className="text-center px-3 py-3 text-[#333D4B] font-medium min-w-[80px] whitespace-nowrap">
+                <div className="relative inline-block" ref={assignFilterRef}>
+                  <button
+                    onClick={() => setAssignFilterOpen(o => !o)}
+                    className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${assignFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
+                  >
+                    담당자
+                    {assignFilter.length > 0 && (
+                      <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{assignFilter.length}</span>
+                    )}
+                    <span className="text-[#8B95A1] text-[10px]">▼</span>
+                  </button>
+                  {assignFilterOpen && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[120px]">
+                      {assignOptions.length === 0 ? (
+                        <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
+                      ) : (
+                        assignOptions.map(name => (
+                          <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={assignFilter.includes(name)}
+                              onChange={() => setAssignFilter(prev => prev.includes(name) ? prev.filter(v => v !== name) : [...prev, name])}
+                              className="accent-[#3182F6]"
+                            />
+                            {name}
+                          </label>
+                        ))
+                      )}
+                      {assignFilter.length > 0 && (
+                        <button onClick={() => setAssignFilter([])} className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]">초기화</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </th>
               <th className="text-right px-4 py-3 text-[#333D4B] font-medium min-w-[100px] whitespace-nowrap">
                 월 기장료
               </th>
@@ -582,7 +630,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
           <tbody className="divide-y divide-white/40">
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={months.length + 4} className="text-center py-12 text-[#8B95A1]">
+                <td colSpan={months.length + 5} className="text-center py-12 text-[#8B95A1]">
                   최초 출금월과 기장료가 등록된 고객사가 없습니다
                 </td>
               </tr>
@@ -618,6 +666,10 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                 {/* 소속 */}
                 <td className="px-3 py-3 text-center text-xs whitespace-nowrap">
                   {client.affiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.affiliation ? <span className="text-[#4E5968]">{client.affiliation}</span> : <span className="text-[#B0B8C1]">-</span>}
+                </td>
+                {/* 담당자 */}
+                <td className="px-3 py-3 text-center text-xs whitespace-nowrap">
+                  {client.assignedUserName ? <span className="text-[#4E5968]">{client.assignedUserName}</span> : <span className="text-[#B0B8C1]">-</span>}
                 </td>
                 {/* 월 기장료 */}
                 <td className="px-4 py-3 text-right text-[#333D4B] whitespace-nowrap">

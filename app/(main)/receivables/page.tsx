@@ -69,6 +69,7 @@ export default async function ReceivablesPage({
     },
     include: {
       feeRecords: true, // 전체 기간
+      assignedUser: { select: { name: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -100,6 +101,7 @@ export default async function ReceivablesPage({
       monthlyFee: c.monthlyFee,
       firstWithdrawalMonth: c.firstWithdrawalMonth,
       affiliation: c.affiliation,
+      assignedUserName: c.assignedUser?.name ?? null,
       yearRecords,
       cumulativeExpected: expected,
       cumulativePaid: paid,
