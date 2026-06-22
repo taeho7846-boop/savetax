@@ -5,7 +5,6 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export type VatStage = "collect" | "writing" | "approval" | "confirm" | "done";
-export const VAT_STAGES: VatStage[] = ["collect", "writing", "approval", "confirm", "done"];
 
 /** 현재 단계 설정 (자료수집→작성중→결재→컨펌+보수→신고완료) */
 export async function setVatStage(clientId: number, period: string, stage: VatStage) {
