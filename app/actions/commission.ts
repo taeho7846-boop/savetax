@@ -173,6 +173,40 @@ export async function toggleField(
   revalidatePath("/commission");
 }
 
+/**
+ * 보드 드래그앤드롭용 — 카드를 특정 단계 칸으로 옮기면 그 단계에 맞게 체크를 일괄 설정.
+ * 단계 이전 항목은 완료(✓), 이후 항목은 미완료로 되돌린다 (양방향).
+ * 해피콜은 connectedAt 으로만 단계를 제어하므로 실제 통화기록은 보존된다.
+ */
+export async function moveCommissionStage(commissionId: number, stageKey: string) {
+  await requireAuth();
+  const order = ["해피콜 대기", "서류수집 중", "수임 대기", "위하고 대기", "EDI 대기", "완료처리 필요"];
+  const idx = order.indexOf(stageKey);
+  if (idx < 0) return;
+  const now = new Date();
+
+  await prisma.commissionProcess.update({
+    where: { id: commissionId },
+    data: {
+      connectedAt: idx >= 1 ? now : null,
+      hasIdCard: idx >= 2,
+      hasHometaxCredentials: idx >= 2,
+      hometaxCommissionDone: idx >= 3,
+      hometaxCommissionAt: idx >= 3 ? now : null,
+      semoReportDone: idx >= 3,
+      semoReportAt: idx >= 3 ? now : null,
+      wihagoDone: idx >= 4,
+      wihagoAt: idx >= 4 ? now : null,
+      nationalPensionDone: idx >= 5,
+      nationalPensionAt: idx >= 5 ? now : null,
+      healthInsuranceDone: idx >= 5,
+      healthInsuranceAt: idx >= 5 ? now : null,
+      completedAt: null,
+    },
+  });
+  revalidatePath("/commission");
+}
+
 export async function setWihagoType(
   commissionId: number,
   wihagoType: string | null

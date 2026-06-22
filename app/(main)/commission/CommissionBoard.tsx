@@ -13,6 +13,7 @@ import {
   saveNotes,
   bulkImportAllClients,
   deleteIdCard,
+  moveCommissionStage,
 } from "@/app/actions/commission";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 
@@ -52,6 +53,7 @@ type CommissionData = {
   healthInsuranceAt: Date | string | null;
   notes: string | null;
   completedAt: Date | string | null;
+  connectedAt: Date | string | null;
   createdAt: Date | string;
   happyCalls: HappyCallData[];
 };
@@ -65,8 +67,9 @@ type AvailableClient = {
 function getStage(c: CommissionData) {
   if (c.completedAt)
     return { label: "완료", cls: "bg-[#E7F7EE] text-[#15803D]" };
-  // 해피콜 대기: 통화 연결(connected) 기록이 없으면 0회/부재중 N차 모두 포함
-  const hasConnected = c.happyCalls.some(h => h.result === "connected");
+  // 해피콜 대기: 통화 연결(connectedAt) 시각이 없으면 대기. 드래그로 단계를 되돌려도
+  // 실제 통화기록(happyCalls)은 보존하고 connectedAt 으로만 단계를 제어한다.
+  const hasConnected = !!c.connectedAt;
   if (!hasConnected)
     return { label: "해피콜 대기", cls: "bg-[#F2F4F6] text-[#6B7684]" };
   if (!c.hasIdCard || !c.hasHometaxCredentials)
@@ -151,6 +154,9 @@ export default function CommissionBoard({
   const [viewMode, setViewMode] = useState<"table" | "board">("board");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [wehagoProgress, setWehagoProgress] = useState<{ id: number; step: string } | null>(null);
+  // 보드 드래그앤드롭
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Happy call form
@@ -170,6 +176,17 @@ export default function CommissionBoard({
   ) {
     setLoadingId(id);
     await toggleField(id, field, value);
+    router.refresh();
+    setLoadingId(null);
+  }
+
+  async function handleDropOnStage(stageKey: string) {
+    const id = draggingId;
+    setDraggingId(null);
+    setDragOverKey(null);
+    if (id == null) return;
+    setLoadingId(id);
+    await moveCommissionStage(id, stageKey);
     router.refresh();
     setLoadingId(null);
   }
@@ -919,8 +936,15 @@ export default function CommissionBoard({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {STAGES.map(stage => {
               const items = grouped[stage.key] ?? [];
+              const isDropTarget = dragOverKey === stage.key && draggingId != null;
               return (
-                <div key={stage.key} className="glass rounded-2xl p-3 flex flex-col min-h-[400px]">
+                <div
+                  key={stage.key}
+                  onDragOver={(e) => { if (draggingId != null) { e.preventDefault(); setDragOverKey(stage.key); } }}
+                  onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverKey(k => k === stage.key ? null : k); }}
+                  onDrop={(e) => { e.preventDefault(); handleDropOnStage(stage.key); }}
+                  className={`glass rounded-2xl p-3 flex flex-col min-h-[400px] transition-colors ${isDropTarget ? "ring-2 ring-[#3182F6] bg-[#F5F9FF]/60" : ""}`}
+                >
                   <div className="flex items-center justify-between px-2 mb-3">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${stage.dot}`} />
@@ -936,7 +960,13 @@ export default function CommissionBoard({
                       const lastCall = c.happyCalls[c.happyCalls.length - 1] ?? null;
                       const hasWage = (c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득");
                       return (
-                        <div key={c.id} className="glass-strong rounded-xl p-2.5">
+                        <div
+                          key={c.id}
+                          draggable
+                          onDragStart={(e) => { setDraggingId(c.id); e.dataTransfer.effectAllowed = "move"; }}
+                          onDragEnd={() => { setDraggingId(null); setDragOverKey(null); }}
+                          className={`glass-strong rounded-xl p-2.5 cursor-grab active:cursor-grabbing ${draggingId === c.id ? "opacity-40" : ""}`}
+                        >
                           <button
                             onClick={() => { setAutoResult(null); setModal({ type: "idcard", id: c.id, clientId: c.client.id, clientName: c.client.name }); setEditingClientId(c.client.id); }}
                             className="font-bold text-[12.5px] text-[#191F28] hover:underline text-left w-full truncate flex items-center gap-1"
