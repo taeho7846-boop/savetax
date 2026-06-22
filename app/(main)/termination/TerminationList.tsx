@@ -31,6 +31,7 @@ export type TerminationRow = {
   ediHealthDone: boolean;
   ediEmploymentDone: boolean;
   cmsTerminated: boolean;
+  semoReportTerminated: boolean;
   hometaxTerminated: boolean;
   closureVat: string; // na | needed | done
   feeSeparate: boolean;
@@ -48,6 +49,7 @@ function progressOf(r: TerminationRow) {
     items.push(r.ediPensionDone, r.ediHealthDone, r.ediEmploymentDone);
   }
   items.push(r.cmsTerminated);
+  items.push(r.semoReportTerminated);
   if (r.clientType === "corporate") items.push(r.hometaxTerminated);
   // 폐업부가세: '신고필요'만 미완료로 간주 (해당없음/신고완료는 완료)
   items.push(r.closureVat !== "needed");
@@ -171,7 +173,7 @@ function TerminationCard({ row, readonly }: { row: TerminationRow; readonly: boo
   }
 
   function toggle(
-    field: "ediSoloBiz" | "ediPensionDone" | "ediHealthDone" | "ediEmploymentDone" | "cmsTerminated" | "hometaxTerminated",
+    field: "ediSoloBiz" | "ediPensionDone" | "ediHealthDone" | "ediEmploymentDone" | "cmsTerminated" | "semoReportTerminated" | "hometaxTerminated",
     value: boolean,
   ) {
     if (readonly) return;
@@ -291,6 +293,7 @@ function TerminationCard({ row, readonly }: { row: TerminationRow; readonly: boo
           <Section title="해지 처리">
             <div className="flex flex-wrap gap-2">
               <CheckChip label="CMS(더빌) 해지" on={r.cmsTerminated} disabled={readonly || isPending} onClick={() => toggle("cmsTerminated", !r.cmsTerminated)} />
+              <CheckChip label="세모리포트 해지" on={r.semoReportTerminated} disabled={readonly || isPending} onClick={() => toggle("semoReportTerminated", !r.semoReportTerminated)} />
               {r.clientType === "corporate" && (
                 <CheckChip label="홈택스 수임 해지" on={r.hometaxTerminated} disabled={readonly || isPending} onClick={() => toggle("hometaxTerminated", !r.hometaxTerminated)} />
               )}

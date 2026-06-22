@@ -670,6 +670,7 @@ model TerminationProcess {
   ediHealthDone     Boolean   @default(false)
   ediEmploymentDone Boolean   @default(false)
   cmsTerminated     Boolean   @default(false)
+  semoReportTerminated Boolean @default(false)
   hometaxTerminated Boolean   @default(false)
   closureVat        String    @default("na")
   feeSeparate       Boolean   @default(false)

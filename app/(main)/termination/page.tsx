@@ -64,6 +64,7 @@ export default async function TerminationPage() {
       ediHealthDone: t?.ediHealthDone ?? false,
       ediEmploymentDone: t?.ediEmploymentDone ?? false,
       cmsTerminated: t?.cmsTerminated ?? false,
+      semoReportTerminated: t?.semoReportTerminated ?? false,
       hometaxTerminated: t?.hometaxTerminated ?? false,
       closureVat: t?.closureVat ?? "na",
       feeSeparate: t?.feeSeparate ?? false,

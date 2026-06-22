@@ -11,6 +11,7 @@ const BOOL_FIELDS = [
   "ediHealthDone",
   "ediEmploymentDone",
   "cmsTerminated",
+  "semoReportTerminated",
   "hometaxTerminated",
   "feeSeparate",
   "feePaid",
