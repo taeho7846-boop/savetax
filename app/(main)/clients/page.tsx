@@ -29,8 +29,9 @@ export default async function ClientsPage({
   const isReadonly = session.role === "readonly";
   const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
 
+  // 직원: 본인이 사수(담당)이거나 부사수(서브)인 거래처
   // 세무사/관리자: 본인 + 소속 직원의 거래처
-  let assignedFilter: any = { assignedUserId: session.id };
+  let assignedFilter: any = { OR: [{ assignedUserId: session.id }, { subAssignedUserId: session.id }] };
   if (isReadonly) {
     assignedFilter = { affiliation: "세이브택스" };
   } else if (isManager) {
@@ -42,24 +43,24 @@ export default async function ClientsPage({
     assignedFilter = { assignedUserId: { in: userIds } };
   }
 
+  // 기장대리 목록 공통 조건: 신고대리 전용 거래처 제외
+  const notReportOnly = { OR: [{ taxTypes: null }, { NOT: { taxTypes: { contains: "신고대리" } } }] };
+
   // 목록 공통 필터 (검색/탭 포함). 계약상태(active/해지)는 아래에서 분리 적용
   const listWhere: any = {
     isDeleted: false,
-    ...assignedFilter,
     ...(clientType !== "all" && { clientType }),
-    OR: [
-      { taxTypes: null },
-      { NOT: { taxTypes: { contains: "신고대리" } } },
-    ],
-    ...(q && {
-      AND: {
+    AND: [
+      assignedFilter,
+      notReportOnly,
+      ...(q ? [{
         OR: [
           { name: { contains: q } },
           { ceoName: { contains: q } },
           { bizNumber: { contains: q } },
         ],
-      },
-    }),
+      }] : []),
+    ],
   };
   const includeAssigned = (isReadonly || isManager) ? { assignedUser: { select: { name: true } } } : undefined;
 
@@ -74,21 +75,13 @@ export default async function ClientsPage({
   const baseWhere = {
     isDeleted: false,
     contractStatus: "active",
-    ...assignedFilter,
-    OR: [
-      { taxTypes: null },
-      { NOT: { taxTypes: { contains: "신고대리" } } },
-    ],
+    AND: [assignedFilter, notReportOnly],
   };
   // 해지거래처 버튼 배지용 카운트 (검색/탭과 무관하게 전체)
   const terminatedWhere = {
     isDeleted: false,
     contractStatus: { not: "active" },
-    ...assignedFilter,
-    OR: [
-      { taxTypes: null },
-      { NOT: { taxTypes: { contains: "신고대리" } } },
-    ],
+    AND: [assignedFilter, notReportOnly],
   };
 
   const [totalCount, individualCount, corporateCount, trashCount, terminatedCount] = await Promise.all([
