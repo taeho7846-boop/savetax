@@ -23,7 +23,8 @@ export default async function WithholdingPage({
   const yearMonth = params.ym;
 
   const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
-  let assignedFilter: any = { assignedUserId: session.id };
+  // 직원: 본인이 사수(담당)이거나 부사수(서브)인 거래처
+  let assignedFilter: any = { OR: [{ assignedUserId: session.id }, { subAssignedUserId: session.id }] };
   if (isManager) {
     const employees = await prisma.user.findMany({
       where: { managerId: session.id, isActive: true },
@@ -37,10 +38,9 @@ export default async function WithholdingPage({
     where: {
       isDeleted: false,
       contractStatus: "active",
-      ...assignedFilter,
-      OR: [
-        { taxTypes: null },
-        { NOT: { taxTypes: { contains: "신고대리" } } },
+      AND: [
+        assignedFilter,
+        { OR: [{ taxTypes: null }, { NOT: { taxTypes: { contains: "신고대리" } } }] },
       ],
     },
     select: {
