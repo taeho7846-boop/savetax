@@ -346,6 +346,13 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                   {checkChip("sales_dual", "겸영", "#475569")}
                   {checkChip("sales_zero", "영세", "#475569")}
                 </div>
+                {/* 세액공제 */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-[#0F766E] w-7 shrink-0">공제</span>
+                  {checkChip("credit_etax", "전자(세)발행", "#0F766E", "전자세금계산서발행세액공제")}
+                  {checkChip("credit_card", "신용카드발행", "#0F766E", "신용카드매출전표등발행세액공제")}
+                  {checkChip("credit_deemed", "의제매입", "#0F766E", "의제매입세액공제")}
+                </div>
                 {/* 매입 + 고정자산매입 O/X */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] font-bold text-[#6B7684] w-7 shrink-0">매입</span>
@@ -358,13 +365,6 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                     <button type="button" disabled={dim} onClick={() => setCheckVal(client.id, "fixed_asset", false)}
                       className={`px-2.5 py-1 text-[11px] font-bold transition-colors disabled:opacity-40 border-l border-[#E5E8EB] ${r.checklist["fixed_asset"] === false ? "bg-[#94A3B8] text-white" : "bg-white/60 text-[#8B95A1] hover:bg-[#F9FAFB]"}`}>X</button>
                   </div>
-                </div>
-                {/* 세액공제 */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-bold text-[#0F766E] w-7 shrink-0">공제</span>
-                  {checkChip("credit_etax", "전자(세)발행", "#0F766E", "전자세금계산서발행세액공제")}
-                  {checkChip("credit_card", "신용카드발행", "#0F766E", "신용카드매출전표등발행세액공제")}
-                  {checkChip("credit_deemed", "의제매입", "#0F766E", "의제매입세액공제")}
                 </div>
                 {/* 예정고지세액 */}
                 <div className="flex items-center gap-1.5">
