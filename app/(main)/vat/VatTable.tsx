@@ -326,7 +326,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               <div className="text-[10px] font-bold mb-1.5 flex items-center gap-1" style={{ color: STAGES[1].color }}>
                 작성중{r.stage === "writing" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: STAGES[1].color }} />}
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
                 {/* 매출 + 겸영·영세 */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] font-bold text-[#6B7684] w-7 shrink-0">매출</span>
