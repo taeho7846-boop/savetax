@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { VatTable } from "./VatTable";
 
+export const dynamic = "force-dynamic";
+
 const PERIOD_TYPES = [
   { key: "1-예정", label: "1기 예정", sub: "4월" },
   { key: "1-확정", label: "1기 확정", sub: "7월" },

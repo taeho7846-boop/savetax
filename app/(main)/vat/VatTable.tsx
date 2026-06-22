@@ -128,39 +128,50 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   function update(id: number, patch: Partial<Rec>) {
     setRecMap(prev => { const n = new Map(prev); n.set(id, { ...getRec(id), ...patch }); return n; });
   }
+  // 서버 저장을 확실히 await + 실패 시 알림 (fire-and-forget 으로 조용히 누락되는 것 방지)
+  function save(action: () => Promise<unknown>) {
+    startTransition(async () => {
+      try {
+        await action();
+      } catch (e) {
+        console.error("[VAT 저장 실패]", e);
+        alert("저장에 실패했습니다. 새로고침 후 다시 시도해주세요.\n\n" + (e instanceof Error ? e.message : String(e)));
+      }
+    });
+  }
 
   function moveStage(clientId: number, dir: 1 | -1) {
     const cur = STAGE_INDEX[getRec(clientId).stage];
     const next = STAGES[Math.max(0, Math.min(STAGES.length - 1, cur + dir))].key;
     update(clientId, { stage: next });
-    startTransition(() => { setVatStage(clientId, period, next); });
+    save(() => setVatStage(clientId, period, next));
   }
   function toggleCheck(clientId: number, key: string) {
     const r = getRec(clientId);
     update(clientId, { checklist: { ...r.checklist, [key]: !r.checklist[key] } });
-    startTransition(() => { toggleVatCheck(clientId, period, key); });
+    save(() => toggleVatCheck(clientId, period, key));
   }
   function setCheckVal(clientId: number, key: string, value: boolean) {
     const r = getRec(clientId);
     update(clientId, { checklist: { ...r.checklist, [key]: value } });
-    startTransition(() => { setVatCheckValue(clientId, period, key, value); });
+    save(() => setVatCheckValue(clientId, period, key, value));
   }
   function changeNoticeTax(clientId: number, value: string) {
     const num = value.trim() === "" ? null : parseInt(value.replace(/[^0-9]/g, ""), 10);
     update(clientId, { noticeTax: Number.isNaN(num as number) ? null : num });
   }
-  function commitNoticeTax(clientId: number) { startTransition(() => { setVatNoticeTax(clientId, period, getRec(clientId).noticeTax); }); }
+  function commitNoticeTax(clientId: number) { save(() => setVatNoticeTax(clientId, period, getRec(clientId).noticeTax)); }
   function toggleExcluded(clientId: number) {
     update(clientId, { excluded: !getRec(clientId).excluded });
-    startTransition(() => { toggleVatExcluded(clientId, period); });
+    save(() => toggleVatExcluded(clientId, period));
   }
   function changeFee(clientId: number, value: string) {
     const num = value.trim() === "" ? null : parseInt(value.replace(/[^0-9]/g, ""), 10);
     update(clientId, { fee: Number.isNaN(num as number) ? null : num });
   }
-  function commitFee(clientId: number) { startTransition(() => { setVatFee(clientId, period, getRec(clientId).fee); }); }
+  function commitFee(clientId: number) { save(() => setVatFee(clientId, period, getRec(clientId).fee)); }
   function changeMemo(clientId: number, value: string) { update(clientId, { memo: value }); }
-  function commitMemo(clientId: number) { startTransition(() => { setVatMemo(clientId, period, getRec(clientId).memo ?? ""); }); }
+  function commitMemo(clientId: number) { save(() => setVatMemo(clientId, period, getRec(clientId).memo ?? "")); }
 
   const qt = q.trim();
   const searched = clients.filter(c => {
