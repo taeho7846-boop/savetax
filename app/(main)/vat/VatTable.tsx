@@ -170,7 +170,8 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const r = getRec(client.id);
     const cur = STAGE_INDEX[r.stage];
     const meta = STAGES[cur];
-    const keys = stageItemKeys(r.stage);
+    const isCorpCollect = r.stage === "collect" && client.clientType === "corporate";
+    const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
     const doneN = keys.filter(k => r.checklist[k]).length;
     const chip = client.taxationType ? (TAXATION_CHIP[client.taxationType] ?? "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]") : null;
     const chipLabel = client.taxationType === "간이(세금계산서발행)" ? "간이(세계발행)" : client.taxationType;
@@ -192,7 +193,19 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
         {/* 체크리스트 (현재 단계) — confirm 단계는 보수 입력 */}
         <td className="px-3 py-3">
-          {r.stage === "confirm" ? (
+          {isCorpCollect ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => moveStage(client.id, 1)}
+                disabled={dim}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-bold text-white disabled:opacity-40 shadow-sm"
+                style={{ background: STAGES[1].color }}
+              >
+                ✓ 자료수집 완료 → 작성중
+              </button>
+              <span className="text-[11px] text-[#8B95A1]">법인 — 카드내역 수취 불필요</span>
+            </div>
+          ) : r.stage === "confirm" ? (
             <div className="flex items-center gap-2">
               <span className="text-[12px] font-bold text-[#7C3AED]">보수료</span>
               <input
