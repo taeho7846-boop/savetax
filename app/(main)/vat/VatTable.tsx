@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
 import { setVatStage, toggleVatCheck, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
 
 type Rec = {
@@ -102,7 +102,22 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState<VatStage | null>(null);
 
+  // 담당자 필터 (관리자 화면에서만 노출)
+  const [assignFilter, setAssignFilter] = useState<string[]>([]);
+  const [assignFilterOpen, setAssignFilterOpen] = useState(false);
+  const assignFilterRef = useRef<HTMLDivElement>(null);
+  const assignOptions = [...new Set(clients.map(c => c.assignedUserName).filter(Boolean))] as string[];
+
   useEffect(() => { setRecMap(buildMap(clients, activeTab)); }, [clients, activeTab]);
+
+  // 담당자 필터 드롭다운 외부 클릭 닫기
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (assignFilterRef.current && !assignFilterRef.current.contains(e.target as Node)) setAssignFilterOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
 
   function getRec(id: number): Rec {
     return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, excluded: false, memo: null };
@@ -134,9 +149,12 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   function changeMemo(clientId: number, value: string) { update(clientId, { memo: value }); }
   function commitMemo(clientId: number) { startTransition(() => { setVatMemo(clientId, period, getRec(clientId).memo ?? ""); }); }
 
-  const searched = q.trim()
-    ? clients.filter(c => c.name.includes(q.trim()) || (c.ceoName ?? "").includes(q.trim()))
-    : clients;
+  const qt = q.trim();
+  const searched = clients.filter(c => {
+    if (qt && !(c.name.includes(qt) || (c.ceoName ?? "").includes(qt))) return false;
+    if (assignFilter.length > 0 && !assignFilter.includes(c.assignedUserName || "")) return false;
+    return true;
+  });
   const active = searched.filter(c => !getRec(c.id).excluded);
   const excluded = searched.filter(c => getRec(c.id).excluded);
 
@@ -312,7 +330,44 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             <thead className="sticky top-0 z-20">
               <tr className="bg-white/90 backdrop-blur-md border-b border-white/60">
                 <th className="sticky left-0 top-0 z-30 bg-white/90 backdrop-blur-md text-left px-4 py-3 text-[#333D4B] font-medium min-w-[170px]">거래처명</th>
-                {showAssignedUser && <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">담당자</th>}
+                {showAssignedUser && (
+                  <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">
+                    <div className="relative inline-block" ref={assignFilterRef}>
+                      <button
+                        onClick={() => setAssignFilterOpen(o => !o)}
+                        className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${assignFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
+                      >
+                        담당자
+                        {assignFilter.length > 0 && (
+                          <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{assignFilter.length}</span>
+                        )}
+                        <span className="text-[#8B95A1] text-[10px]">▼</span>
+                      </button>
+                      {assignFilterOpen && (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] rounded-[10px] shadow-lg z-30 p-2 min-w-[120px]">
+                          {assignOptions.length === 0 ? (
+                            <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
+                          ) : (
+                            assignOptions.map(name => (
+                              <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap font-normal">
+                                <input
+                                  type="checkbox"
+                                  checked={assignFilter.includes(name)}
+                                  onChange={() => setAssignFilter(prev => prev.includes(name) ? prev.filter(v => v !== name) : [...prev, name])}
+                                  className="accent-[#3182F6]"
+                                />
+                                {name}
+                              </label>
+                            ))
+                          )}
+                          {assignFilter.length > 0 && (
+                            <button onClick={() => setAssignFilter([])} className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]">초기화</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                )}
                 <th className="text-left px-3 py-3 text-[#333D4B] font-medium min-w-[280px]">체크리스트</th>
                 <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[100px]">메모</th>
                 <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">제외</th>
