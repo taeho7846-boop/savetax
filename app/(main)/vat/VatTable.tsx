@@ -349,7 +349,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col items-start gap-2">
+                <div className="flex flex-row items-start gap-3">
                   {CHECKLIST.collect.map((grp, gi) => (
                     <div key={gi} className="flex flex-col items-start gap-1">
                       {grp.group && <span className="text-[9px] font-bold text-[#B45309] tracking-wide">{grp.group}</span>}
