@@ -15,6 +15,7 @@ type Rec = {
 type ClientRow = {
   id: number;
   name: string;
+  bizNumber: string | null;
   ceoName: string | null;
   clientType: string;
   taxationType: string | null;
@@ -100,6 +101,42 @@ function buildMap(clients: ClientRow[], activeTab: string): Map<number, Rec> {
     });
   }
   return m;
+}
+
+/** 사업자등록번호 복사 버튼 (HTTPS 아닌 환경 fallback 포함) */
+function CopyBizBtn({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    const fallback = () => {
+      const ta = document.createElement("textarea");
+      ta.value = value; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch { /* 무시 */ }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(value).catch(fallback);
+    else fallback();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title="사업자등록번호 복사"
+      className={`inline-flex items-center gap-1 text-[10px] font-medium rounded px-1.5 py-0.5 transition-colors ${
+        copied ? "bg-[#E7F7EE] text-[#15803D]" : "bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E8F3FF] hover:text-[#3182F6]"
+      }`}
+    >
+      {copied ? "✓ 복사됨" : value}
+      {!copied && (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+      )}
+    </button>
+  );
 }
 
 export function VatTable({ clients, period, activeTab, showAssignedUser }: Props) {
@@ -231,9 +268,10 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
       <tr key={client.id} className={`align-top transition-colors ${dim ? "opacity-40" : "hover:bg-white/60"}`} style={dim ? undefined : { background: `${meta.tint}44` }}>
         {/* 거래처 */}
         <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap bg-white/85 backdrop-blur-md">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`font-medium ${dim ? "text-[#8B95A1] line-through" : "text-[#191F28]"}`}>{client.name}</span>
             {chip && <span className={`inline-flex items-center border ${chip} rounded-md px-1.5 py-0.5 text-[11px]`}>{chipLabel}</span>}
+            {client.bizNumber && <CopyBizBtn value={client.bizNumber} />}
           </div>
           <div className="text-[11px] text-[#8B95A1] mt-0.5">{client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}</div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">

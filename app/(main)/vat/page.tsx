@@ -62,6 +62,7 @@ export default async function VatPage({
     select: {
       id: true,
       name: true,
+      bizNumber: true,
       ceoName: true,
       clientType: true,
       taxationType: true,
