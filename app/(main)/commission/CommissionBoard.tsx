@@ -39,6 +39,8 @@ type CommissionData = {
   hasHometaxCredentials: boolean;
   hometaxCommissionDone: boolean;
   hometaxCommissionAt: Date | string | null;
+  semoReportDone: boolean;
+  semoReportAt: Date | string | null;
   wihagoType: string | null;
   wihagoDone: boolean;
   wihagoAt: Date | string | null;
@@ -69,7 +71,7 @@ function getStage(c: CommissionData) {
     return { label: "해피콜 대기", cls: "bg-[#F2F4F6] text-[#6B7684]" };
   if (!c.hasIdCard || !c.hasHometaxCredentials)
     return { label: "서류수집 중", cls: "bg-[#FFF4D0] text-[#B08809]" };
-  if (!c.hometaxCommissionDone)
+  if (!c.hometaxCommissionDone || !c.semoReportDone)
     return { label: "수임 대기", cls: "bg-[#E8F3FF] text-[#1B64DA]" };
   if (!c.wihagoDone)
     return { label: "위하고 대기", cls: "bg-violet-100 text-violet-700" };
@@ -509,8 +511,8 @@ export default function CommissionBoard({
               <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
                 서류
               </th>
-              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[95px]">
-                홈택스 수임
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[120px]">
+                홈택스·세모리포트
               </th>
               <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
                 위하고
@@ -671,12 +673,12 @@ export default function CommissionBoard({
                       </div>
                     </td>
 
-                    {/* 홈택스 수임 */}
+                    {/* 홈택스·세모리포트 */}
                     <td className="px-4 py-3 text-center">
-                      <div className="flex flex-col gap-1 items-center">
+                      <div className="flex flex-col gap-1.5 items-center">
                         <Pill
                           checked={c.hometaxCommissionDone}
-                          label="수임완료"
+                          label="홈택스 수임"
                           onClick={() =>
                             doToggle(
                               c.id,
@@ -686,11 +688,14 @@ export default function CommissionBoard({
                           }
                           disabled={loading}
                         />
-                        {c.hometaxCommissionAt && (
-                          <div className="text-xs text-[#8B95A1]">
-                            {fmtDate(c.hometaxCommissionAt)}
-                          </div>
-                        )}
+                        <Pill
+                          checked={c.semoReportDone}
+                          label="세모리포트"
+                          onClick={() =>
+                            doToggle(c.id, "semoReportDone", !c.semoReportDone)
+                          }
+                          disabled={loading}
+                        />
                       </div>
                     </td>
 
@@ -898,7 +903,7 @@ export default function CommissionBoard({
         const STAGES: { key: string; label: string; dot: string }[] = [
           { key: "해피콜 대기",   label: "해피콜 대기",   dot: "bg-[#8B95A1]" },
           { key: "서류수집 중",   label: "서류수집 중",   dot: "bg-[#92400E]" },
-          { key: "수임 대기",     label: "홈택스 수임",   dot: "bg-[#3182F6]" },
+          { key: "수임 대기",     label: "홈택스·세모리포트", dot: "bg-[#3182F6]" },
           { key: "위하고 대기",   label: "위하고 등록",   dot: "bg-[#6D28D9]" },
           { key: "EDI 대기",      label: "EDI 대기",      dot: "bg-[#92400E]" },
           { key: "완료처리 필요", label: "완료처리 필요", dot: "bg-[#15803D]" },
@@ -971,13 +976,10 @@ export default function CommissionBoard({
                             </div>
                           )}
                           {stage.key === "수임 대기" && (
-                            <button
-                              onClick={() => doToggle(c.id, "hometaxCommissionDone", true)}
-                              disabled={loadingId === c.id}
-                              className="mt-2 w-full text-[10.5px] py-1 rounded-lg bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA]"
-                            >
-                              ✓ 수임완료
-                            </button>
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              <Pill checked={c.hometaxCommissionDone} label="홈택스" onClick={() => doToggle(c.id, "hometaxCommissionDone", !c.hometaxCommissionDone)} disabled={loadingId === c.id} />
+                              <Pill checked={c.semoReportDone} label="세모리포트" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
+                            </div>
                           )}
                           {stage.key === "위하고 대기" && (
                             <div className="mt-2 flex flex-col gap-1">

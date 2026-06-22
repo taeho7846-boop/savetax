@@ -147,6 +147,7 @@ export async function toggleField(
     | "hasIdCard"
     | "hasHometaxCredentials"
     | "hometaxCommissionDone"
+    | "semoReportDone"
     | "wihagoDone"
     | "nationalPensionDone"
     | "healthInsuranceDone"
@@ -157,6 +158,8 @@ export async function toggleField(
   const extra: Record<string, unknown> = {};
   if (field === "hometaxCommissionDone")
     extra.hometaxCommissionAt = value ? new Date() : null;
+  if (field === "semoReportDone")
+    extra.semoReportAt = value ? new Date() : null;
   if (field === "wihagoDone") extra.wihagoAt = value ? new Date() : null;
   if (field === "nationalPensionDone")
     extra.nationalPensionAt = value ? new Date() : null;

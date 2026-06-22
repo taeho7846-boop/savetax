@@ -222,6 +222,8 @@ model CommissionProcess {
   hasHometaxCredentials Boolean     @default(false)
   hometaxCommissionDone Boolean     @default(false)
   hometaxCommissionAt   DateTime?
+  semoReportDone        Boolean     @default(false)
+  semoReportAt          DateTime?
   wihagoType            String?
   wihagoDone            Boolean     @default(false)
   wihagoAt              DateTime?
