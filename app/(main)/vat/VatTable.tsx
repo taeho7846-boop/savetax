@@ -201,18 +201,20 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                 자료수집{r.stage === "collect" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: STAGES[0].color }} />}
               </div>
               {isCorp ? (
-                <div className="flex flex-col items-start gap-1">
+                <div className="flex flex-col items-start gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6D28D9] bg-[#F5E8FF] rounded-md px-1.5 py-0.5">🏢 법인 · 카드 불필요</span>
                   <button
                     onClick={() => toggleCheck(client.id, "corp_collect")}
                     disabled={dim}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 ${
-                      r.checklist["corp_collect"] ? "border-transparent text-white" : "border-[#E5E8EB] text-[#6B7684] bg-white/60 hover:border-[#B0B8C1]"
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors disabled:opacity-40 whitespace-nowrap ${
+                      r.checklist["corp_collect"]
+                        ? "border-transparent text-white shadow-sm"
+                        : "border-[#FDE68A] text-[#92400E] bg-[#FEF3C7] hover:bg-[#FDE68A]"
                     }`}
                     style={r.checklist["corp_collect"] ? { background: STAGES[0].color } : undefined}
                   >
-                    {r.checklist["corp_collect"] ? "✓ " : ""}자료수집 완료
+                    {r.checklist["corp_collect"] ? "✓ 자료수집 완료" : "📥 자료수집 체크"}
                   </button>
-                  <span className="text-[10px] text-[#B0B8C1]">카드내역 불필요(법인)</span>
                 </div>
               ) : (
                 <div className="flex flex-col items-start gap-1">
