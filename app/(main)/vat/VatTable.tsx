@@ -41,8 +41,11 @@ const STAGE_INDEX: Record<VatStage, number> = { collect: 0, writing: 1, approval
 // 단계별 체크리스트 (그룹 + 항목). 보수는 confirm 단계에서 별도 입력.
 const CHECKLIST: Record<VatStage, { group?: string; items: { key: string; label: string }[] }[]> = {
   collect: [
-    { items: [
+    { group: "1단계", items: [
       { key: "card_request", label: "카드수집요청" },
+    ] },
+    { group: "2단계", items: [
+      { key: "card_register", label: "카드등록" },
       { key: "card_excel", label: "카드엑셀자료 수취" },
       { key: "no_response", label: "무응답" },
     ] },
@@ -308,23 +311,13 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col items-start gap-1">
-                  {CHECKLIST.collect.flatMap(g => g.items).map((it) => {
-                    const on = !!r.checklist[it.key];
-                    return (
-                      <button
-                        key={it.key}
-                        onClick={() => toggleCheck(client.id, it.key)}
-                        disabled={dim}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 whitespace-nowrap ${
-                          on ? "border-transparent text-white" : "border-[#E5E8EB] text-[#6B7684] bg-white/60 hover:border-[#B0B8C1]"
-                        }`}
-                        style={on ? { background: STAGES[0].color } : undefined}
-                      >
-                        {on ? "✓ " : ""}{it.label}
-                      </button>
-                    );
-                  })}
+                <div className="flex flex-col items-start gap-2">
+                  {CHECKLIST.collect.map((grp, gi) => (
+                    <div key={gi} className="flex flex-col items-start gap-1">
+                      {grp.group && <span className="text-[9px] font-bold text-[#B45309] tracking-wide">{grp.group}</span>}
+                      {grp.items.map((it) => checkChip(it.key, it.label, STAGES[0].color))}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
