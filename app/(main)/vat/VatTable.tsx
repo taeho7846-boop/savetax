@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useTransition } from "react";
-import { setVatStage, toggleVatCheck, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
+import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
 
 type Rec = {
   stage: VatStage;
   checklist: Record<string, boolean>;
   fee: number | null;
+  noticeTax: number | null;
   excluded: boolean;
   memo: string | null;
 };
@@ -18,7 +19,7 @@ type ClientRow = {
   clientType: string;
   taxationType: string | null;
   assignedUserName: string | null;
-  record: { stage: string; checklist: string | null; fee: number | null; excluded: boolean; memo: string | null } | null;
+  record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null } | null;
 };
 
 interface Props {
@@ -49,6 +50,7 @@ const CHECKLIST: Record<VatStage, { group?: string; items: { key: string; label:
   writing: [
     { group: "매출", items: [
       { key: "sales_tax_invoice", label: "세금계산서" },
+      { key: "sales_invoice", label: "계산서" },
       { key: "sales_card", label: "신용카드" },
       { key: "sales_cash", label: "현금영수증" },
       { key: "sales_pg", label: "PG" },
@@ -89,6 +91,7 @@ function buildMap(clients: ClientRow[], activeTab: string): Map<number, Rec> {
       stage: normStage(c.record?.stage),
       checklist: parseChecklist(c.record?.checklist),
       fee: c.record?.fee ?? (activeTab === "bookkeeping" ? 0 : null),
+      noticeTax: c.record?.noticeTax ?? null,
       excluded: c.record?.excluded ?? false,
       memo: c.record?.memo ?? null,
     });
@@ -120,7 +123,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   }, []);
 
   function getRec(id: number): Rec {
-    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, excluded: false, memo: null };
+    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, noticeTax: null, excluded: false, memo: null };
   }
   function update(id: number, patch: Partial<Rec>) {
     setRecMap(prev => { const n = new Map(prev); n.set(id, { ...getRec(id), ...patch }); return n; });
@@ -137,6 +140,16 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     update(clientId, { checklist: { ...r.checklist, [key]: !r.checklist[key] } });
     startTransition(() => { toggleVatCheck(clientId, period, key); });
   }
+  function setCheckVal(clientId: number, key: string, value: boolean) {
+    const r = getRec(clientId);
+    update(clientId, { checklist: { ...r.checklist, [key]: value } });
+    startTransition(() => { setVatCheckValue(clientId, period, key, value); });
+  }
+  function changeNoticeTax(clientId: number, value: string) {
+    const num = value.trim() === "" ? null : parseInt(value.replace(/[^0-9]/g, ""), 10);
+    update(clientId, { noticeTax: Number.isNaN(num as number) ? null : num });
+  }
+  function commitNoticeTax(clientId: number) { startTransition(() => { setVatNoticeTax(clientId, period, getRec(clientId).noticeTax); }); }
   function toggleExcluded(clientId: number) {
     update(clientId, { excluded: !getRec(clientId).excluded });
     startTransition(() => { toggleVatExcluded(clientId, period); });
@@ -176,6 +189,25 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const doneN = keys.filter(k => r.checklist[k]).length;
     const chip = client.taxationType ? (TAXATION_CHIP[client.taxationType] ?? "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]") : null;
     const chipLabel = client.taxationType === "간이(세금계산서발행)" ? "간이(세계발행)" : client.taxationType;
+    // 작성중 체크 칩 (checklist 토글)
+    const checkChip = (key: string, label: string, color: string, title?: string) => {
+      const on = !!r.checklist[key];
+      return (
+        <button
+          key={key}
+          type="button"
+          onClick={() => toggleCheck(client.id, key)}
+          disabled={dim}
+          title={title}
+          className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 whitespace-nowrap ${
+            on ? "border-transparent text-white" : "border-[#E5E8EB] text-[#6B7684] bg-white/60 hover:border-[#B0B8C1]"
+          }`}
+          style={on ? { background: color } : undefined}
+        >
+          {on ? "✓ " : ""}{label}
+        </button>
+      );
+    };
     return (
       <tr key={client.id} className={`align-top transition-colors ${dim ? "opacity-40" : "hover:bg-white/60"}`} style={dim ? undefined : { background: `${meta.tint}44` }}>
         {/* 거래처 */}
@@ -241,33 +273,56 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {/* 구분선 */}
             <div className="w-px bg-[#E5E8EB] self-stretch shrink-0" />
 
-            {/* 작성중 열 (매출·매입) */}
+            {/* 작성중 열 (매출·매입·세액공제·고정자산·예정고지) */}
             <div className={`rounded-lg transition-colors flex-1 min-w-0 p-1.5 ${r.stage === "writing" ? "ring-1 ring-[#BFDBFE] bg-white/40" : ""}`}>
-              <div className="text-[10px] font-bold mb-1 flex items-center gap-1" style={{ color: STAGES[1].color }}>
+              <div className="text-[10px] font-bold mb-1.5 flex items-center gap-1" style={{ color: STAGES[1].color }}>
                 작성중{r.stage === "writing" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: STAGES[1].color }} />}
               </div>
-              <div className="flex flex-col gap-1.5">
-                {CHECKLIST.writing.map((grp, gi) => (
-                  <div key={gi} className="flex items-center gap-1.5 flex-wrap">
-                    {grp.group && <span className="text-[11px] font-bold text-[#6B7684] mr-0.5 w-7">{grp.group}</span>}
-                    {grp.items.map((it) => {
-                      const on = !!r.checklist[it.key];
-                      return (
-                        <button
-                          key={it.key}
-                          onClick={() => toggleCheck(client.id, it.key)}
-                          disabled={dim}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 ${
-                            on ? "border-transparent text-white" : "border-[#E5E8EB] text-[#6B7684] bg-white/60 hover:border-[#B0B8C1]"
-                          }`}
-                          style={on ? { background: STAGES[1].color } : undefined}
-                        >
-                          {on ? "✓ " : ""}{it.label}
-                        </button>
-                      );
-                    })}
+              <div className="flex flex-col gap-2">
+                {/* 매출 + 겸영·영세 */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-[#6B7684] w-7 shrink-0">매출</span>
+                  {CHECKLIST.writing[0].items.map((it) => checkChip(it.key, it.label, STAGES[1].color))}
+                  <span className="text-[#D1D6DB] px-0.5 select-none">|</span>
+                  {checkChip("sales_dual", "겸영", "#475569")}
+                  {checkChip("sales_zero", "영세", "#475569")}
+                </div>
+                {/* 매입 + 고정자산매입 O/X */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-[#6B7684] w-7 shrink-0">매입</span>
+                  {CHECKLIST.writing[1].items.map((it) => checkChip(it.key, it.label, STAGES[1].color))}
+                  <span className="text-[#D1D6DB] px-0.5 select-none">|</span>
+                  <span className="text-[11px] text-[#6B7684]">고정자산매입</span>
+                  <div className="inline-flex rounded-lg overflow-hidden border border-[#E5E8EB]">
+                    <button type="button" disabled={dim} onClick={() => setCheckVal(client.id, "fixed_asset", true)}
+                      className={`px-2.5 py-1 text-[11px] font-bold transition-colors disabled:opacity-40 ${r.checklist["fixed_asset"] === true ? "bg-[#15803D] text-white" : "bg-white/60 text-[#8B95A1] hover:bg-[#F9FAFB]"}`}>O</button>
+                    <button type="button" disabled={dim} onClick={() => setCheckVal(client.id, "fixed_asset", false)}
+                      className={`px-2.5 py-1 text-[11px] font-bold transition-colors disabled:opacity-40 border-l border-[#E5E8EB] ${r.checklist["fixed_asset"] === false ? "bg-[#94A3B8] text-white" : "bg-white/60 text-[#8B95A1] hover:bg-[#F9FAFB]"}`}>X</button>
                   </div>
-                ))}
+                </div>
+                {/* 세액공제 */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-[#0F766E] w-7 shrink-0">공제</span>
+                  {checkChip("credit_etax", "전자(세)발행", "#0F766E", "전자세금계산서발행세액공제")}
+                  {checkChip("credit_card", "신용카드발행", "#0F766E", "신용카드매출전표등발행세액공제")}
+                  {checkChip("credit_deemed", "의제매입", "#0F766E", "의제매입세액공제")}
+                </div>
+                {/* 예정고지세액 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-[#6B7684] shrink-0">예정고지</span>
+                  <div className="flex items-center bg-white/80 rounded-lg border border-[#E5E8EB] px-2 h-7">
+                    <input
+                      value={r.noticeTax == null ? "" : r.noticeTax.toLocaleString("ko-KR")}
+                      onChange={(e) => changeNoticeTax(client.id, e.target.value)}
+                      onBlur={() => commitNoticeTax(client.id)}
+                      disabled={dim}
+                      inputMode="numeric"
+                      placeholder="0"
+                      className="w-[90px] bg-transparent text-[12px] text-right text-[#191F28] outline-none disabled:opacity-40"
+                    />
+                    <span className="text-[11px] text-[#8B95A1] ml-1">원</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

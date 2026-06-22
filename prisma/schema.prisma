@@ -367,6 +367,7 @@ model VatRecord {
   stageFiled    Boolean  @default(false)  // 4.신고완료
   stagePaid     Boolean  @default(false)  // 5.수금
   fee           Int?                       // 신고수수료 (기장=0 기본, 신고대리=입력)
+  noticeTax     Int?                       // 예정고지세액
   excluded      Boolean  @default(false)  // 이번 기간 신고 제외
   memo          String?
   createdAt     DateTime @default(now())

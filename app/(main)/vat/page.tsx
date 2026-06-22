@@ -70,6 +70,7 @@ export default async function VatPage({
           stage: true,
           checklist: true,
           fee: true,
+          noticeTax: true,
           excluded: true,
           memo: true,
         },
