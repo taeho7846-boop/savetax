@@ -185,7 +185,10 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const cur = STAGE_INDEX[r.stage];
     const meta = STAGES[cur];
     const isCorp = client.clientType === "corporate";
-    const isPrelimNotice = isPrelim && !isCorp; // 예정 기간 + 개인 = 예정고지(신고 불필요)
+    // 예정 처리: report_notice 토글값 우선, 미설정 시에만 추정(개인=예정고지, 법인=예정신고)
+    const rn = r.checklist["report_notice"];
+    const isNotice = rn === undefined ? !isCorp : rn; // true=예정고지(확정 6개월) / false=예정신고(확정 3개월)
+    const isPrelimNotice = isPrelim && isNotice; // 예정 기간 + 예정고지형 = 신고 불필요
     const isCorpCollect = r.stage === "collect" && isCorp;
     const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
     const doneN = keys.filter(k => r.checklist[k]).length;
@@ -219,19 +222,30 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {chip && <span className={`inline-flex items-center border ${chip} rounded-md px-1.5 py-0.5 text-[11px]`}>{chipLabel}</span>}
           </div>
           <div className="text-[11px] text-[#8B95A1] mt-0.5">{client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}</div>
-          <button
-            type="button"
-            onClick={() => toggleCheck(client.id, "early_refund")}
-            disabled={dim}
-            title="조기환급 대상 (영세율·시설투자 등)"
-            className={`mt-1 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-40 ${
-              r.checklist["early_refund"]
-                ? "bg-[#0EA5E9] text-white"
-                : "bg-[#F2F4F6] text-[#B0B8C1] hover:text-[#6B7684]"
-            }`}
-          >
-            💧 조기환급{r.checklist["early_refund"] ? "" : "?"}
-          </button>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {/* 예정고지(6개월) / 예정신고(3개월) */}
+            <div className="inline-flex rounded-md overflow-hidden border border-[#E5E8EB]">
+              <button type="button" disabled={dim} onClick={() => setCheckVal(client.id, "report_notice", true)}
+                title="예정고지 · 확정 6개월"
+                className={`px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-40 ${isNotice ? "bg-[#6D28D9] text-white" : "bg-white text-[#8B95A1] hover:bg-[#F9FAFB]"}`}>6개월</button>
+              <button type="button" disabled={dim} onClick={() => setCheckVal(client.id, "report_notice", false)}
+                title="예정신고 · 확정 3개월"
+                className={`px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-40 border-l border-[#E5E8EB] ${!isNotice ? "bg-[#1B64DA] text-white" : "bg-white text-[#8B95A1] hover:bg-[#F9FAFB]"}`}>3개월</button>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleCheck(client.id, "early_refund")}
+              disabled={dim}
+              title="조기환급 대상 (영세율·시설투자 등)"
+              className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-40 ${
+                r.checklist["early_refund"]
+                  ? "bg-[#0EA5E9] text-white"
+                  : "bg-[#F2F4F6] text-[#B0B8C1] hover:text-[#6B7684]"
+              }`}
+            >
+              💧 조기환급{r.checklist["early_refund"] ? "" : "?"}
+            </button>
+          </div>
         </td>
 
         {/* 담당자 */}
