@@ -100,6 +100,7 @@ interface Props {
     notes: string | null;
     myboxLink?: string | null;
     assignedUserId: number | null;
+    subAssignedUserId?: number | null;
   };
   users: { id: number; name: string }[];
   currentTaxTypes: string[];
@@ -338,11 +339,11 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
         </div>
       </div>
 
-      {/* 행5: 담당직원 / 소속 / CMS */}
-      <div className="grid grid-cols-3 gap-3">
-        {currentUserRole !== "employee" ? (
+      {/* 담당: 사수 / 부사수 (대표·관리자만 편집) */}
+      {currentUserRole !== "employee" && (
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-[#191F28] mb-1">담당 직원</label>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">사수</label>
             <select
               name="assignedUserId"
               defaultValue={client.assignedUserId ?? ""}
@@ -354,7 +355,26 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
               ))}
             </select>
           </div>
-        ) : <div />}
+          <div>
+            <label className="block text-sm font-medium text-[#191F28] mb-1">
+              부사수 <span className="text-[11px] font-normal text-[#8B95A1]">(서브 담당)</span>
+            </label>
+            <select
+              name="subAssignedUserId"
+              defaultValue={client.subAssignedUserId ?? ""}
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none"
+            >
+              <option value="">미지정</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* 소속 / CMS */}
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-[#191F28] mb-1">소속</label>
           <select
