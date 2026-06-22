@@ -170,8 +170,9 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const r = getRec(client.id);
     const cur = STAGE_INDEX[r.stage];
     const meta = STAGES[cur];
-    const isCorpCollect = r.stage === "collect" && client.clientType === "corporate";
-    const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
+    const isCorp = client.clientType === "corporate";
+    const isCorpCollect = r.stage === "collect" && isCorp;
+    const keys = isCorpCollect ? ["corp_collect"] : stageItemKeys(r.stage);
     const doneN = keys.filter(k => r.checklist[k]).length;
     const chip = client.taxationType ? (TAXATION_CHIP[client.taxationType] ?? "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]") : null;
     const chipLabel = client.taxationType === "간이(세금계산서발행)" ? "간이(세계발행)" : client.taxationType;
@@ -191,18 +192,30 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <td className="px-3 py-3 text-center text-xs text-[#4E5968] whitespace-nowrap">{client.assignedUserName || <span className="text-[#B0B8C1]">-</span>}</td>
         )}
 
-        {/* 체크리스트 — 자료수집·작성중 항상 함께 표시, 현재 단계는 색 테두리로 강조 */}
+        {/* 체크리스트 — 자료수집·작성중을 좌우 두 열로, 현재 단계는 색 테두리로 강조 */}
         <td className="px-3 py-3">
-          <div className="flex flex-col gap-2">
-            {/* 자료수집 */}
-            <div className={`rounded-lg transition-colors ${r.stage === "collect" ? "ring-1 ring-[#FDE68A] bg-white/40 p-1.5" : ""}`}>
+          <div className="flex flex-row items-start gap-2">
+            {/* 자료수집 열 */}
+            <div className={`rounded-lg transition-colors shrink-0 p-1.5 ${r.stage === "collect" ? "ring-1 ring-[#FDE68A] bg-white/40" : ""}`}>
               <div className="text-[10px] font-bold mb-1 flex items-center gap-1" style={{ color: STAGES[0].color }}>
                 자료수집{r.stage === "collect" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: STAGES[0].color }} />}
               </div>
-              {client.clientType === "corporate" ? (
-                <span className="text-[11px] text-[#B0B8C1]">카드내역 불필요 (법인)</span>
+              {isCorp ? (
+                <div className="flex flex-col items-start gap-1">
+                  <button
+                    onClick={() => toggleCheck(client.id, "corp_collect")}
+                    disabled={dim}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 ${
+                      r.checklist["corp_collect"] ? "border-transparent text-white" : "border-[#E5E8EB] text-[#6B7684] bg-white/60 hover:border-[#B0B8C1]"
+                    }`}
+                    style={r.checklist["corp_collect"] ? { background: STAGES[0].color } : undefined}
+                  >
+                    {r.checklist["corp_collect"] ? "✓ " : ""}자료수집 완료
+                  </button>
+                  <span className="text-[10px] text-[#B0B8C1]">카드내역 불필요(법인)</span>
+                </div>
               ) : (
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex flex-col items-start gap-1">
                   {CHECKLIST.collect.flatMap(g => g.items).map((it) => {
                     const on = !!r.checklist[it.key];
                     return (
@@ -210,7 +223,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                         key={it.key}
                         onClick={() => toggleCheck(client.id, it.key)}
                         disabled={dim}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 ${
+                        className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-40 whitespace-nowrap ${
                           on ? "border-transparent text-white" : "border-[#E5E8EB] text-[#6B7684] bg-white/60 hover:border-[#B0B8C1]"
                         }`}
                         style={on ? { background: STAGES[0].color } : undefined}
@@ -223,8 +236,11 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               )}
             </div>
 
-            {/* 작성중 (매출·매입) */}
-            <div className={`rounded-lg transition-colors ${r.stage === "writing" ? "ring-1 ring-[#BFDBFE] bg-white/40 p-1.5" : ""}`}>
+            {/* 구분선 */}
+            <div className="w-px bg-[#E5E8EB] self-stretch shrink-0" />
+
+            {/* 작성중 열 (매출·매입) */}
+            <div className={`rounded-lg transition-colors flex-1 min-w-0 p-1.5 ${r.stage === "writing" ? "ring-1 ring-[#BFDBFE] bg-white/40" : ""}`}>
               <div className="text-[10px] font-bold mb-1 flex items-center gap-1" style={{ color: STAGES[1].color }}>
                 작성중{r.stage === "writing" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: STAGES[1].color }} />}
               </div>
@@ -252,24 +268,24 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                 ))}
               </div>
             </div>
-
-            {/* 컨펌+보수 단계: 보수료 입력 */}
-            {r.stage === "confirm" && (
-              <div className="flex items-center gap-2 pt-0.5">
-                <span className="text-[12px] font-bold text-[#7C3AED]">보수료</span>
-                <input
-                  value={r.fee == null ? "" : r.fee.toLocaleString("ko-KR")}
-                  onChange={(e) => changeFee(client.id, e.target.value)}
-                  onBlur={() => commitFee(client.id)}
-                  disabled={dim}
-                  inputMode="numeric"
-                  placeholder={activeTab === "bookkeeping" ? "0" : "입력"}
-                  className="w-[110px] bg-white/80 rounded-lg px-2 py-1.5 text-[13px] text-right text-[#191F28] outline-none focus:ring-2 focus:ring-purple-200 disabled:opacity-40"
-                />
-                <span className="text-[12px] text-[#8B95A1]">원</span>
-              </div>
-            )}
           </div>
+
+          {/* 컨펌+보수 단계: 보수료 입력 */}
+          {r.stage === "confirm" && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[12px] font-bold text-[#7C3AED]">보수료</span>
+              <input
+                value={r.fee == null ? "" : r.fee.toLocaleString("ko-KR")}
+                onChange={(e) => changeFee(client.id, e.target.value)}
+                onBlur={() => commitFee(client.id)}
+                disabled={dim}
+                inputMode="numeric"
+                placeholder={activeTab === "bookkeeping" ? "0" : "입력"}
+                className="w-[110px] bg-white/80 rounded-lg px-2 py-1.5 text-[13px] text-right text-[#191F28] outline-none focus:ring-2 focus:ring-purple-200 disabled:opacity-40"
+              />
+              <span className="text-[12px] text-[#8B95A1]">원</span>
+            </div>
+          )}
         </td>
 
         {/* 메모 */}
