@@ -177,6 +177,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const shown = stageFilter ? active.filter(c => getRec(c.id).stage === stageFilter) : active;
   const feeSum = active.reduce((s, c) => s + (getRec(c.id).fee ?? 0), 0);
 
+  const isPrelim = period.endsWith("예정"); // 1·2기 예정 기간
   const colCount = 1 + (showAssignedUser ? 1 : 0) + 4; // 거래처+[담당자]+체크리스트+메모+제외+진행
 
   function row(client: ClientRow, dim: boolean) {
@@ -184,6 +185,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const cur = STAGE_INDEX[r.stage];
     const meta = STAGES[cur];
     const isCorp = client.clientType === "corporate";
+    const isPrelimNotice = isPrelim && !isCorp; // 예정 기간 + 개인 = 예정고지(신고 불필요)
     const isCorpCollect = r.stage === "collect" && isCorp;
     const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
     const doneN = keys.filter(k => r.checklist[k]).length;
@@ -217,6 +219,19 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {chip && <span className={`inline-flex items-center border ${chip} rounded-md px-1.5 py-0.5 text-[11px]`}>{chipLabel}</span>}
           </div>
           <div className="text-[11px] text-[#8B95A1] mt-0.5">{client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}</div>
+          <button
+            type="button"
+            onClick={() => toggleCheck(client.id, "early_refund")}
+            disabled={dim}
+            title="조기환급 대상 (영세율·시설투자 등)"
+            className={`mt-1 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-40 ${
+              r.checklist["early_refund"]
+                ? "bg-[#0EA5E9] text-white"
+                : "bg-[#F2F4F6] text-[#B0B8C1] hover:text-[#6B7684]"
+            }`}
+          >
+            💧 조기환급{r.checklist["early_refund"] ? "" : "?"}
+          </button>
         </td>
 
         {/* 담당자 */}
@@ -224,8 +239,27 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <td className="px-3 py-3 text-center text-xs text-[#4E5968] whitespace-nowrap">{client.assignedUserName || <span className="text-[#B0B8C1]">-</span>}</td>
         )}
 
-        {/* 체크리스트 — 자료수집·작성중을 좌우 두 열로, 현재 단계는 색 테두리로 강조 */}
+        {/* 체크리스트 — 예정고지(개인 예정) / 신고 체크리스트 */}
         <td className="px-3 py-3">
+          {isPrelimNotice ? (
+            <div className="flex items-center gap-2 flex-wrap py-1">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF] rounded-md px-2 py-1">📋 예정고지 · 신고 불필요</span>
+              <span className="text-[11px] text-[#6B7684]">고지세액</span>
+              <div className="flex items-center bg-white/80 rounded-lg border border-[#E5E8EB] px-2 h-7">
+                <input
+                  value={r.noticeTax == null ? "" : r.noticeTax.toLocaleString("ko-KR")}
+                  onChange={(e) => changeNoticeTax(client.id, e.target.value)}
+                  onBlur={() => commitNoticeTax(client.id)}
+                  disabled={dim}
+                  inputMode="numeric"
+                  placeholder="0"
+                  className="w-[100px] bg-transparent text-[12px] text-right text-[#191F28] outline-none disabled:opacity-40"
+                />
+                <span className="text-[11px] text-[#8B95A1] ml-1">원</span>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="flex flex-row items-start gap-2">
             {/* 자료수집 열 */}
             <div className={`rounded-lg transition-colors shrink-0 p-1.5 ${r.stage === "collect" ? "ring-1 ring-[#FDE68A] bg-white/40" : ""}`}>
@@ -343,6 +377,8 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               <span className="text-[12px] text-[#8B95A1]">원</span>
             </div>
           )}
+          </>
+          )}
         </td>
 
         {/* 메모 */}
@@ -364,8 +400,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           </button>
         </td>
 
-        {/* 진행 단계 — 맨 오른쪽: 가로 스텝퍼 + 다음단계 버튼 */}
+        {/* 진행 단계 — 예정고지(개인 예정)는 단계 없음 / 그 외 스텝퍼 */}
         <td className="px-3 py-3 whitespace-nowrap">
+          {isPrelimNotice ? (
+            <div className="flex flex-col gap-1 items-end">
+              <span className="text-[12px] font-bold text-[#6D28D9]">📋 예정고지</span>
+              <span className="text-[10px] text-[#8B95A1]">신고 불필요 · 고지서 확인</span>
+            </div>
+          ) : (
           <div className="flex flex-col gap-2 items-end">
             {/* 가로 스텝퍼 (왼쪽 자료수집 → 오른쪽 신고완료) */}
             <div className="flex items-center">
@@ -394,6 +436,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               )}
             </div>
           </div>
+          )}
         </td>
       </tr>
     );
