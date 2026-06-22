@@ -172,7 +172,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const meta = STAGES[cur];
     const isCorp = client.clientType === "corporate";
     const isCorpCollect = r.stage === "collect" && isCorp;
-    const keys = isCorpCollect ? ["corp_collect"] : stageItemKeys(r.stage);
+    const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
     const doneN = keys.filter(k => r.checklist[k]).length;
     const chip = client.taxationType ? (TAXATION_CHIP[client.taxationType] ?? "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]") : null;
     const chipLabel = client.taxationType === "간이(세금계산서발행)" ? "간이(세계발행)" : client.taxationType;
@@ -202,19 +202,19 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               </div>
               {isCorp ? (
                 <div className="flex flex-col items-start gap-1.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6D28D9] bg-[#F5E8FF] rounded-md px-1.5 py-0.5">🏢 법인 · 카드 불필요</span>
-                  <button
-                    onClick={() => toggleCheck(client.id, "corp_collect")}
-                    disabled={dim}
-                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors disabled:opacity-40 whitespace-nowrap ${
-                      r.checklist["corp_collect"]
-                        ? "border-transparent text-white shadow-sm"
-                        : "border-[#FDE68A] text-[#92400E] bg-[#FEF3C7] hover:bg-[#FDE68A]"
-                    }`}
-                    style={r.checklist["corp_collect"] ? { background: STAGES[0].color } : undefined}
-                  >
-                    {r.checklist["corp_collect"] ? "✓ 자료수집 완료" : "📥 자료수집 체크"}
-                  </button>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6D28D9] bg-[#F5E8FF] rounded-md px-1.5 py-0.5">🏢 법인 · 자료수집 불필요</span>
+                  {r.stage === "collect" ? (
+                    <button
+                      onClick={() => moveStage(client.id, 1)}
+                      disabled={dim}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 shadow-sm whitespace-nowrap"
+                      style={{ background: STAGES[1].color }}
+                    >
+                      작성중으로 →
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-[#B0B8C1]">해당없음</span>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-start gap-1">
