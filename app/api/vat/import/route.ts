@@ -194,6 +194,18 @@ export async function POST(req: NextRequest) {
   const unmatched: { name: string; biz: string; manager: string }[] = [];
   const collectErrors: { name: string; biz: string }[] = [];
 
+  // 기존 체크리스트 일괄 조회 (매출 자동 체크 시 병합용)
+  const matchedClientIds = [...parsedByBiz.keys()]
+    .map((b) => clientByBiz.get(b)?.id)
+    .filter((id): id is number => typeof id === "number");
+  const existingRecs = await prisma.vatRecord.findMany({
+    where: { clientId: { in: matchedClientIds }, period },
+    select: { clientId: true, checklist: true },
+  });
+  const checklistByClient = new Map(existingRecs.map((r) => [r.clientId, r.checklist]));
+
+  let autoCheckedCount = 0; // 매출 항목이 새로 자동 체크된 거래처 수
+
   for (const [biz, parsed] of parsedByBiz) {
     const client = clientByBiz.get(biz);
     const collect = collectByBiz.get(biz) ?? null;
@@ -203,10 +215,30 @@ export async function POST(req: NextRequest) {
       continue;
     }
     const htxData = JSON.stringify({ ...parsed, collect, sheetTitle, name: undefined, manager: undefined });
+
+    // 매출 자동 체크: 홈택스 매출 금액(공급가액)이 있는 항목만 true로 (기존 체크는 유지)
+    const salesAmt: Record<string, number> = {
+      sales_tax_invoice: parsed.sales.ti,
+      sales_invoice: parsed.sales.inv,
+      sales_card: parsed.sales.card,
+      sales_cash: parsed.sales.cash,
+      sales_pg: parsed.sales.online + parsed.sales.zeropay,
+    };
+    let checklist: Record<string, boolean> = {};
+    try {
+      const raw = checklistByClient.get(client.id);
+      checklist = raw ? JSON.parse(raw) : {};
+    } catch { checklist = {}; }
+    let newlyChecked = false;
+    for (const [key, amt] of Object.entries(salesAmt)) {
+      if (amt > 0 && checklist[key] !== true) { checklist[key] = true; newlyChecked = true; }
+    }
+    if (newlyChecked) autoCheckedCount++;
+
     await prisma.vatRecord.upsert({
       where: { clientId_period: { clientId: client.id, period } },
-      update: { htxData, htxImportedAt: importedAt },
-      create: { clientId: client.id, period, htxData, htxImportedAt: importedAt },
+      update: { htxData, htxImportedAt: importedAt, checklist: JSON.stringify(checklist) },
+      create: { clientId: client.id, period, htxData, htxImportedAt: importedAt, checklist: JSON.stringify(checklist) },
     });
     matched.push({ clientId: client.id, name: client.name, biz });
   }
@@ -220,6 +252,7 @@ export async function POST(req: NextRequest) {
     periodWarning,
     totalRows: parsedByBiz.size,
     matchedCount: matched.length,
+    autoCheckedCount,
     unmatchedCount: unmatched.length,
     unmatched: unmatched.slice(0, 100),
     collectErrors: collectErrors.slice(0, 100),

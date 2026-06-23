@@ -22,6 +22,7 @@ type ImportResult = {
   periodWarning: string | null;
   totalRows: number;
   matchedCount: number;
+  autoCheckedCount: number;
   unmatchedCount: number;
   unmatched: { name: string; biz: string; manager: string }[];
   collectErrors: { name: string; biz: string }[];
@@ -332,6 +333,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   function commitFee(clientId: number) { save(() => setVatFee(clientId, period, getRec(clientId).fee)); }
   function changeMemo(clientId: number, value: string) { update(clientId, { memo: value }); }
   function commitMemo(clientId: number) { save(() => setVatMemo(clientId, period, getRec(clientId).memo ?? "")); }
+  // 매출 불일치 알림 끄기 (체크는 유지, 알림만 확인 처리)
+  function dismissSalesMismatch(clientId: number, keys: string[]) {
+    const r = getRec(clientId);
+    const next = { ...r.checklist };
+    for (const k of keys) next[`mismatch_ack_${k}`] = true;
+    update(clientId, { checklist: next });
+    save(async () => { for (const k of keys) await setVatCheckValue(clientId, period, `mismatch_ack_${k}`, true); });
+  }
 
   const qt = q.trim();
   const searched = clients.filter(c => {
@@ -363,6 +372,17 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const isCorpCollect = r.stage === "collect" && isCorp;
     const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
     const doneN = keys.filter(k => r.checklist[k]).length;
+    // 매출 불일치: 체크돼 있으나 홈택스 매출 금액이 0이고, 아직 확인(끄기) 안 한 항목
+    const salesAmt: Record<string, number> | null = r.htx ? {
+      sales_tax_invoice: r.htx.sales.ti,
+      sales_invoice: r.htx.sales.inv,
+      sales_card: r.htx.sales.card,
+      sales_cash: r.htx.sales.cash,
+      sales_pg: r.htx.sales.online + r.htx.sales.zeropay,
+    } : null;
+    const salesMismatches = salesAmt
+      ? CHECKLIST.writing[0].items.filter(it => r.checklist[it.key] && (salesAmt[it.key] ?? 0) === 0 && !r.checklist[`mismatch_ack_${it.key}`])
+      : [];
     const chip = client.taxationType ? (TAXATION_CHIP[client.taxationType] ?? "border-[#D1D6DB] text-[#6B7684] bg-[#F9FAFB]") : null;
     const chipLabel = client.taxationType === "간이(세금계산서발행)" ? "간이(세계발행)" : client.taxationType;
     // 작성중 체크 칩 (checklist 토글)
@@ -538,6 +558,22 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                     <span className="text-[11px] text-[#8B95A1] ml-1">원</span>
                   </div>
                 </div>
+                {/* 매출 불일치 알림: 체크됐지만 홈택스 매출 없음 */}
+                {salesMismatches.length > 0 && (
+                  <div className="col-span-2 flex items-center gap-2 flex-wrap rounded-lg bg-[#FEF2F2] border border-[#FECACA] px-2 py-1.5">
+                    <span className="text-[11px] font-bold text-[#DC2626]">⚠ 체크됨인데 홈택스 매출 없음</span>
+                    <span className="text-[11px] text-[#991B1B]">{salesMismatches.map(m => m.label).join(", ")}</span>
+                    <button
+                      type="button"
+                      onClick={() => dismissSalesMismatch(client.id, salesMismatches.map(m => m.key))}
+                      disabled={dim}
+                      title="알림만 끕니다 (체크는 그대로 유지됩니다)"
+                      className="ml-auto text-[10px] font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-md px-2 py-0.5 disabled:opacity-40"
+                    >
+                      확인 ✓
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -760,6 +796,12 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {importResult.periodWarning && (
               <div className="mt-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] px-3 py-2 text-[12px] text-[#92400E]">
                 ⚠ {importResult.periodWarning}
+              </div>
+            )}
+
+            {importResult.autoCheckedCount > 0 && (
+              <div className="mt-3 rounded-xl bg-[#F5F9FF] border border-[#BFDBFE] px-3 py-2 text-[12px] text-[#1B64DA]">
+                ✓ 매출 항목 자동 체크: <b>{importResult.autoCheckedCount}곳</b> (홈택스 매출 금액이 있는 항목을 작성중 체크리스트에 표시했습니다)
               </div>
             )}
 
