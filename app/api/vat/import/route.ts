@@ -30,8 +30,16 @@ const C = {
   buyInv: 26,        // 계산서매입 공급가액
   buyCardSupply: 27, // 카드매입(공제대상) 공급가액
   buyCardVat: 28,    // 카드매입(공제대상) 세액
+  buyCardAllSupply: 30, // 카드매입(전체) 공급가액
+  buyCardAllVat: 31,    // 카드매입(전체) 세액
   buyCashSupply: 33, // 현금영수증매입(공제대상) 공급가액
+  buyCashVat: 34,    // 현금영수증매입(공제대상) 세액
+  buyCashAllSupply: 36, // 현금영수증매입(전체) 공급가액
+  buyCashAllVat: 37,    // 현금영수증매입(전체) 세액
   buyFreight: 39,    // 화물복지카드(공제대상) 공급가액
+  buyFreightVat: 40, // 화물복지카드(공제대상) 세액
+  buyFreightAllSupply: 42, // 화물복지카드(전체) 공급가액
+  buyFreightAllVat: 43,    // 화물복지카드(전체) 세액
   // 예정고지
   noticeTarget: 45,  // 고지대상 (여/부)
   noticeExclude: 46, // 제외사유
@@ -89,8 +97,12 @@ function parseSummaryRow(row: any[]) {
       ti: buyTi, tiVat: num(row, C.buyTiVat),
       inv: buyInv,
       card: buyCard, cardVat: num(row, C.buyCardVat),
-      cash: buyCash,
-      freight: buyFreight,
+      cash: buyCash, cashVat: num(row, C.buyCashVat),
+      freight: buyFreight, freightVat: num(row, C.buyFreightVat),
+      // 전체(공제대상 외 포함) — 베스트예상세액용. 세액은 공급가액×10%가 아니므로 실제 세액 컬럼 사용
+      cardAll: num(row, C.buyCardAllSupply), cardAllVat: num(row, C.buyCardAllVat),
+      cashAll: num(row, C.buyCashAllSupply), cashAllVat: num(row, C.buyCashAllVat),
+      freightAll: num(row, C.buyFreightAllSupply), freightAllVat: num(row, C.buyFreightAllVat),
       supplyTotal: buySupplyTotal,
     },
     notice: {

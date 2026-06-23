@@ -10,7 +10,7 @@ type HtxData = {
   bizType: string;
   taxationType: string;
   sales: { ti: number; tiVat: number; inv: number; card: number; cardGross: number; cardNontax: number; cash: number; cashVat: number; zeropay: number; zeropayGross: number; online: number; onlineGross: number; export: number; supplyTotal: number };
-  buy: { ti: number; tiVat: number; inv: number; card: number; cardVat: number; cash: number; freight: number; supplyTotal: number };
+  buy: { ti: number; tiVat: number; inv: number; card: number; cardVat: number; cash: number; cashVat?: number; freight: number; freightVat?: number; cardAll?: number; cardAllVat?: number; cashAll?: number; cashAllVat?: number; freightAll?: number; freightAllVat?: number; supplyTotal: number };
   notice: { target: string; amount: number; excludeReason: string; filingDuty: string; prevSupply: number };
   collect: string | null;
   sheetTitle?: string;
@@ -174,14 +174,18 @@ function CopyBizBtn({ value }: { value: string }) {
 /**
  * 예상세액 추정 (일반과세자만). 어디까지나 참고용.
  * 매출세액 − 매입세액 − 신용카드발행세액공제(개인만) − 예정고지세액(확정 시 기납부)
+ * best=true: 카드·현금·화물 매입을 "전체"(공제대상 외 포함)로 반영 → 베스트예상세액
  */
-function estimateVat(htx: HtxData, isCorp: boolean, isConfirm: boolean) {
+function estimateVat(htx: HtxData, isCorp: boolean, isConfirm: boolean, best = false) {
   if (htx.taxationType !== "과세") return null; // 간이·면세·폐업 등은 계산구조가 달라 제외
   const s = htx.sales, b = htx.buy;
   // 매출세액: 실제 세액(세계·현금) + 카드/PG/제로페이(공급가액×10%)
   const salesVat = (s.tiVat || 0) + (s.cashVat || 0) + Math.round(((s.card || 0) + (s.zeropay || 0) + (s.online || 0)) * 0.1);
-  // 매입세액(공제분): 실제 세액(세계·카드) + 현금·화물(공급가액×10%). 계산서매입(면세) 제외
-  const buyVat = (b.tiVat || 0) + (b.cardVat || 0) + Math.round(((b.cash || 0) + (b.freight || 0)) * 0.1);
+  // 매입세액. 전체 세액은 공급가액×10%가 아니라 실제 세액 컬럼 사용. 구버전 업로드(전체 없음)는 공제 기준으로 폴백.
+  const cardVat = best ? (b.cardAllVat ?? b.cardVat ?? 0) : (b.cardVat ?? Math.round((b.card || 0) * 0.1));
+  const cashVat = best ? (b.cashAllVat ?? b.cashVat ?? Math.round((b.cash || 0) * 0.1)) : (b.cashVat ?? Math.round((b.cash || 0) * 0.1));
+  const freightVat = best ? (b.freightAllVat ?? b.freightVat ?? Math.round((b.freight || 0) * 0.1)) : (b.freightVat ?? Math.round((b.freight || 0) * 0.1));
+  const buyVat = (b.tiVat || 0) + cardVat + cashVat + freightVat; // 계산서매입(면세) 제외
   // 신용카드발행세액공제: 개인사업자만. (신용카드 + 현금영수증 + PG, 전부 공급대가) × 1.3%
   const isIndiv = htx.bizType ? htx.bizType !== "법인" : !isCorp;
   const cardBase = (s.cardGross || 0) + (s.cash || 0) + (s.cashVat || 0) + (s.onlineGross || 0) + (s.zeropayGross || 0);
@@ -197,6 +201,8 @@ function HtxSummary({ htx, isCorp, isConfirm }: { htx: HtxData | null; isCorp: b
   const s = htx.sales, b = htx.buy, n = htx.notice;
   const won = (v: number) => v.toLocaleString("ko-KR");
   const est = estimateVat(htx, isCorp, isConfirm);
+  const estBest = estimateVat(htx, isCorp, isConfirm, true);
+  const hasBestData = (b.cardAllVat ?? 0) > 0 || (b.cashAllVat ?? 0) > 0 || (b.freightAllVat ?? 0) > 0;
   const saleEtc = (s.zeropay ?? 0) + (s.online ?? 0) + (s.export ?? 0);
   const part = (label: string, v: number, color: string) =>
     v > 0 ? <span className="whitespace-nowrap" style={{ color }}>{label} {won(v)}</span> : null;
@@ -263,6 +269,25 @@ function HtxSummary({ htx, isCorp, isConfirm }: { htx: HtxData | null; isCorp: b
         </div>
       ) : (
         <div className="text-[10px] text-[#B0B8C1]">예상세액: 일반과세만 추정 ({htx.taxationType || "유형미상"})</div>
+      )}
+      {/* 베스트예상세액 (카드·현금·화물 매입 전체 반영) */}
+      {estBest && (
+        <div className={`rounded-lg px-2 py-1.5 border ${estBest.est >= 0 ? "bg-[#FFFBEB] border-[#FDE68A]" : "bg-[#ECFDF5] border-[#A7F3D0]"}`}>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[10px] font-bold text-[#B45309]" title="카드·현금영수증·화물복지카드 매입을 '공제대상'이 아닌 '전체'로 반영한 추정. 실무에서 카드내역을 최대한 반영하는 경우. 불공제분이 섞여 있을 수 있어 실제와 차이날 수 있습니다.">
+              ⭐ 베스트예상세액 <span className="text-[#B0B8C1] font-medium">전체매입 ⓘ</span>
+            </span>
+            <span className={`text-[13px] font-extrabold ${estBest.est >= 0 ? "text-[#B45309]" : "text-[#047857]"}`}>
+              {estBest.est >= 0 ? `${won(estBest.est)}원` : `환급 ${won(-estBest.est)}원`}
+            </span>
+          </div>
+          <div className="text-[10px] text-[#8B95A1] mt-0.5 leading-tight">
+            매출 {won(estBest.salesVat)} − 매입 {won(estBest.buyVat)}
+            {estBest.cardCredit > 0 ? ` − 카드공제 ${won(estBest.cardCredit)}` : ""}
+            {estBest.prepaid > 0 ? ` − 예정고지 ${won(estBest.prepaid)}` : ""}
+          </div>
+          {!hasBestData && <div className="text-[10px] text-[#C2410C] mt-0.5">※ 전체매입 데이터 없음 — 엑셀 재업로드 시 반영됩니다</div>}
+        </div>
       )}
     </div>
   );
@@ -406,6 +431,12 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const h = getRec(c.id).htx;
     if (!h) return sum;
     const e = estimateVat(h, c.clientType === "corporate", isConfirm);
+    return sum + (e ? e.est : 0);
+  }, 0);
+  const estBestTotal = active.reduce((sum, c) => {
+    const h = getRec(c.id).htx;
+    if (!h) return sum;
+    const e = estimateVat(h, c.clientType === "corporate", isConfirm, true);
     return sum + (e ? e.est : 0);
   }, 0);
   const colCount = 1 + (showAssignedUser ? 1 : 0) + 5; // 거래처+[담당자]+홈택스자료+체크리스트+메모+제외+진행
@@ -742,6 +773,11 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
         {estTotal !== 0 && (
           <span className="text-[12px] text-[#6B7684] px-1" title="일반과세 + 홈택스 자료 있는 거래처의 예상세액 합계 (참고용 추정치)">
             예상세액 합계 <b className={estTotal >= 0 ? "text-[#C2410C]" : "text-[#047857]"}>{estTotal >= 0 ? fmtWon(estTotal) : `환급 ${fmtWon(-estTotal)}`}</b> <span className="text-[#B0B8C1]">참고</span>
+          </span>
+        )}
+        {estBestTotal !== 0 && (
+          <span className="text-[12px] text-[#6B7684] px-1" title="카드·현금·화물 매입 전체 반영 시 예상세액 합계 (참고용)">
+            ⭐ 베스트 합계 <b className={estBestTotal >= 0 ? "text-[#B45309]" : "text-[#047857]"}>{estBestTotal >= 0 ? fmtWon(estBestTotal) : `환급 ${fmtWon(-estBestTotal)}`}</b>
           </span>
         )}
         {stageFilter && <button onClick={() => setStageFilter(null)} className="text-[12px] font-bold text-[#3182F6] hover:underline">필터 해제</button>}
