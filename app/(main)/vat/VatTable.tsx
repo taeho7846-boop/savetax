@@ -171,11 +171,32 @@ function CopyBizBtn({ value }: { value: string }) {
   );
 }
 
-/** 홈택스 업로드 자료 표시 (매출·매입 공급가액 / 예정고지) */
-function HtxSummary({ htx }: { htx: HtxData | null }) {
+/**
+ * 예상세액 추정 (일반과세자만). 어디까지나 참고용.
+ * 매출세액 − 매입세액 − 신용카드발행세액공제(개인만) − 예정고지세액(확정 시 기납부)
+ */
+function estimateVat(htx: HtxData, isCorp: boolean, isConfirm: boolean) {
+  if (htx.taxationType !== "과세") return null; // 간이·면세·폐업 등은 계산구조가 달라 제외
+  const s = htx.sales, b = htx.buy;
+  // 매출세액: 실제 세액(세계·현금) + 카드/PG/제로페이(공급가액×10%)
+  const salesVat = (s.tiVat || 0) + (s.cashVat || 0) + Math.round(((s.card || 0) + (s.zeropay || 0) + (s.online || 0)) * 0.1);
+  // 매입세액(공제분): 실제 세액(세계·카드) + 현금·화물(공급가액×10%). 계산서매입(면세) 제외
+  const buyVat = (b.tiVat || 0) + (b.cardVat || 0) + Math.round(((b.cash || 0) + (b.freight || 0)) * 0.1);
+  // 신용카드발행세액공제: 개인사업자만. (신용카드 + 현금영수증 + PG, 전부 공급대가) × 1.3%
+  const isIndiv = htx.bizType ? htx.bizType !== "법인" : !isCorp;
+  const cardBase = (s.cardGross || 0) + (s.cash || 0) + (s.cashVat || 0) + (s.onlineGross || 0) + (s.zeropayGross || 0);
+  const cardCredit = isIndiv ? Math.round(cardBase * 0.013) : 0;
+  const prepaid = isConfirm ? (htx.notice?.amount || 0) : 0; // 확정신고 시 예정고지 기납부 차감
+  const est = salesVat - buyVat - cardCredit - prepaid;
+  return { est, salesVat, buyVat, cardCredit, prepaid };
+}
+
+/** 홈택스 업로드 자료 표시 (매출·매입 공급가액 / 예정고지 / 예상세액) */
+function HtxSummary({ htx, isCorp, isConfirm }: { htx: HtxData | null; isCorp: boolean; isConfirm: boolean }) {
   if (!htx) return <span className="text-[11px] text-[#B0B8C1]">자료 없음</span>;
   const s = htx.sales, b = htx.buy, n = htx.notice;
   const won = (v: number) => v.toLocaleString("ko-KR");
+  const est = estimateVat(htx, isCorp, isConfirm);
   const saleEtc = (s.zeropay ?? 0) + (s.online ?? 0) + (s.export ?? 0);
   const part = (label: string, v: number, color: string) =>
     v > 0 ? <span className="whitespace-nowrap" style={{ color }}>{label} {won(v)}</span> : null;
@@ -223,6 +244,26 @@ function HtxSummary({ htx }: { htx: HtxData | null }) {
           <span className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] rounded-md px-1.5 py-0.5">⚠ 수집오류</span>
         )}
       </div>
+      {/* 예상세액 (참고용 추정) */}
+      {est ? (
+        <div className={`rounded-lg px-2 py-1.5 ${est.est >= 0 ? "bg-[#FFF7ED]" : "bg-[#ECFDF5]"}`}>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[10px] font-bold text-[#92400E]" title="매출세액 − 매입세액 − 신용카드발행세액공제(개인 1.3%) − 예정고지(확정 시). 간이·면세 제외, 의제매입·각종공제·한도 미반영. 참고용 추정치입니다.">
+              예상세액 <span className="text-[#B0B8C1] font-medium">참고 ⓘ</span>
+            </span>
+            <span className={`text-[13px] font-extrabold ${est.est >= 0 ? "text-[#C2410C]" : "text-[#047857]"}`}>
+              {est.est >= 0 ? `${won(est.est)}원` : `환급 ${won(-est.est)}원`}
+            </span>
+          </div>
+          <div className="text-[10px] text-[#8B95A1] mt-0.5 leading-tight">
+            매출 {won(est.salesVat)} − 매입 {won(est.buyVat)}
+            {est.cardCredit > 0 ? ` − 카드공제 ${won(est.cardCredit)}` : ""}
+            {est.prepaid > 0 ? ` − 예정고지 ${won(est.prepaid)}` : ""}
+          </div>
+        </div>
+      ) : (
+        <div className="text-[10px] text-[#B0B8C1]">예상세액: 일반과세만 추정 ({htx.taxationType || "유형미상"})</div>
+      )}
     </div>
   );
 }
@@ -358,6 +399,15 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const feeSum = active.reduce((s, c) => s + (getRec(c.id).fee ?? 0), 0);
 
   const isPrelim = period.endsWith("예정"); // 1·2기 예정 기간
+  const isConfirm = period.endsWith("확정"); // 확정신고 (예정고지 기납부 차감)
+
+  // 예상세액 합계 (참고용) — 일반과세 + 홈택스 자료 있는 대상만
+  const estTotal = active.reduce((sum, c) => {
+    const h = getRec(c.id).htx;
+    if (!h) return sum;
+    const e = estimateVat(h, c.clientType === "corporate", isConfirm);
+    return sum + (e ? e.est : 0);
+  }, 0);
   const colCount = 1 + (showAssignedUser ? 1 : 0) + 5; // 거래처+[담당자]+홈택스자료+체크리스트+메모+제외+진행
 
   function row(client: ClientRow, dim: boolean) {
@@ -447,7 +497,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
         {/* 매출·매입 (홈택스 업로드 자료) */}
         <td className="px-3 py-3 align-top">
-          <HtxSummary htx={r.htx} />
+          <HtxSummary htx={r.htx} isCorp={isCorp} isConfirm={isConfirm} />
         </td>
 
         {/* 체크리스트 — 예정고지(개인 예정) / 신고 체크리스트 */}
@@ -689,6 +739,11 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="거래처명 · 대표자 검색" className="flex-1 bg-transparent outline-none text-[13px] text-[#191F28] placeholder:text-[#8B95A1]" />
         </div>
         <span className="text-[12px] text-[#6B7684] px-1">대상 <b className="text-[#191F28]">{active.length}곳</b> · 신고완료 <b className="text-[#15803D]">{stageCounts.done}</b> · 보수합계 <b className="text-[#191F28]">{fmtWon(feeSum)}</b></span>
+        {estTotal !== 0 && (
+          <span className="text-[12px] text-[#6B7684] px-1" title="일반과세 + 홈택스 자료 있는 거래처의 예상세액 합계 (참고용 추정치)">
+            예상세액 합계 <b className={estTotal >= 0 ? "text-[#C2410C]" : "text-[#047857]"}>{estTotal >= 0 ? fmtWon(estTotal) : `환급 ${fmtWon(-estTotal)}`}</b> <span className="text-[#B0B8C1]">참고</span>
+          </span>
+        )}
         {stageFilter && <button onClick={() => setStageFilter(null)} className="text-[12px] font-bold text-[#3182F6] hover:underline">필터 해제</button>}
         {activeTab === "bookkeeping" && <span className="text-[11px] text-[#8B95A1]">기장은 보수 기본 0원</span>}
 
