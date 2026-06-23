@@ -76,6 +76,8 @@ export default async function VatPage({
           noticeTax: true,
           excluded: true,
           memo: true,
+          htxData: true,
+          htxImportedAt: true,
         },
       },
     },

@@ -1,7 +1,32 @@
 "use client";
 
 import { useState, useEffect, useRef, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
+
+// 홈택스 부가세 신고자료 업로드 데이터 (모든 금액은 공급가액 기준)
+type HtxData = {
+  v: number;
+  bizType: string;
+  taxationType: string;
+  sales: { ti: number; tiVat: number; inv: number; card: number; cardGross: number; cardNontax: number; cash: number; cashVat: number; zeropay: number; zeropayGross: number; online: number; onlineGross: number; export: number; supplyTotal: number };
+  buy: { ti: number; tiVat: number; inv: number; card: number; cardVat: number; cash: number; freight: number; supplyTotal: number };
+  notice: { target: string; amount: number; excludeReason: string; filingDuty: string; prevSupply: number };
+  collect: string | null;
+  sheetTitle?: string;
+};
+
+type ImportResult = {
+  ok: boolean;
+  sheetTitle: string;
+  periodWarning: string | null;
+  totalRows: number;
+  matchedCount: number;
+  unmatchedCount: number;
+  unmatched: { name: string; biz: string; manager: string }[];
+  collectErrors: { name: string; biz: string }[];
+  collectErrorCount: number;
+};
 
 type Rec = {
   stage: VatStage;
@@ -10,6 +35,7 @@ type Rec = {
   noticeTax: number | null;
   excluded: boolean;
   memo: string | null;
+  htx: HtxData | null;
 };
 
 type ClientRow = {
@@ -20,7 +46,7 @@ type ClientRow = {
   clientType: string;
   taxationType: string | null;
   assignedUserName: string | null;
-  record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null } | null;
+  record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null; htxData: string | null; htxImportedAt: Date | string | null } | null;
 };
 
 interface Props {
@@ -84,6 +110,10 @@ function parseChecklist(s: string | null | undefined): Record<string, boolean> {
   if (!s) return {};
   try { return JSON.parse(s) as Record<string, boolean>; } catch { return {}; }
 }
+function parseHtx(s: string | null | undefined): HtxData | null {
+  if (!s) return null;
+  try { return JSON.parse(s) as HtxData; } catch { return null; }
+}
 function stageItemKeys(stage: VatStage): string[] {
   return CHECKLIST[stage].flatMap(g => g.items.map(i => i.key));
 }
@@ -98,6 +128,7 @@ function buildMap(clients: ClientRow[], activeTab: string): Map<number, Rec> {
       noticeTax: c.record?.noticeTax ?? null,
       excluded: c.record?.excluded ?? false,
       memo: c.record?.memo ?? null,
+      htx: parseHtx(c.record?.htxData),
     });
   }
   return m;
@@ -139,7 +170,64 @@ function CopyBizBtn({ value }: { value: string }) {
   );
 }
 
+/** 홈택스 업로드 자료 표시 (매출·매입 공급가액 / 예정고지) */
+function HtxSummary({ htx }: { htx: HtxData | null }) {
+  if (!htx) return <span className="text-[11px] text-[#B0B8C1]">자료 없음</span>;
+  const s = htx.sales, b = htx.buy, n = htx.notice;
+  const won = (v: number) => v.toLocaleString("ko-KR");
+  const saleEtc = (s.zeropay ?? 0) + (s.online ?? 0) + (s.export ?? 0);
+  const part = (label: string, v: number, color: string) =>
+    v > 0 ? <span className="whitespace-nowrap" style={{ color }}>{label} {won(v)}</span> : null;
+  const isNoticeTarget = n.target === "여";
+  return (
+    <div className="flex flex-col gap-1.5 min-w-[230px]">
+      {/* 매출 */}
+      <div className="rounded-lg bg-[#F5F9FF]/70 px-2 py-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[10px] font-bold text-[#1B64DA]">매출 공급가액</span>
+          <span className="text-[13px] font-extrabold text-[#191F28]">{won(s.supplyTotal)}</span>
+        </div>
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[#6B7684] mt-0.5 leading-tight">
+          {part("세계", s.ti, "#1B64DA")}
+          {part("카드", s.card, "#6B7684")}
+          {part("현금", s.cash, "#6B7684")}
+          {part("계산서", s.inv, "#0F766E")}
+          {part("기타", saleEtc, "#6B7684")}
+        </div>
+      </div>
+      {/* 매입 */}
+      <div className="rounded-lg bg-[#F9FAFB] px-2 py-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[10px] font-bold text-[#92400E]">매입 공급가액</span>
+          <span className="text-[13px] font-extrabold text-[#191F28]">{won(b.supplyTotal)}</span>
+        </div>
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[#6B7684] mt-0.5 leading-tight">
+          {part("세계", b.ti, "#92400E")}
+          {part("계산서", b.inv, "#0F766E")}
+          {part("카드", b.card, "#6B7684")}
+          {part("현금", b.cash, "#6B7684")}
+          {part("화물", b.freight, "#6B7684")}
+        </div>
+      </div>
+      {/* 예정고지 + 수집상태 */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className={`text-[10px] font-bold rounded-md px-1.5 py-0.5 ${isNoticeTarget ? "bg-[#F5E8FF] text-[#6D28D9]" : "bg-[#F2F4F6] text-[#8B95A1]"}`}>
+          예정고지 {isNoticeTarget ? "대상" : "비대상"}
+        </span>
+        {isNoticeTarget && n.amount > 0 && <span className="text-[11px] font-bold text-[#6D28D9]">{won(n.amount)}원</span>}
+        {!isNoticeTarget && n.excludeReason && n.excludeReason !== "없음" && (
+          <span className="text-[10px] text-[#B0B8C1]">{n.excludeReason}</span>
+        )}
+        {htx.collect === "오류" && (
+          <span className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] rounded-md px-1.5 py-0.5">⚠ 수집오류</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function VatTable({ clients, period, activeTab, showAssignedUser }: Props) {
+  const router = useRouter();
   const [recMap, setRecMap] = useState<Map<number, Rec>>(() => buildMap(clients, activeTab));
   const [, startTransition] = useTransition();
   const [q, setQ] = useState("");
@@ -150,6 +238,38 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const [assignFilterOpen, setAssignFilterOpen] = useState(false);
   const assignFilterRef = useRef<HTMLDivElement>(null);
   const assignOptions = [...new Set(clients.map(c => c.assignedUserName).filter(Boolean))] as string[];
+
+  // 홈택스 자료 업로드
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
+  // 마지막 업로드 시각
+  const lastImport = clients.reduce<Date | null>((acc, c) => {
+    const t = c.record?.htxImportedAt ? new Date(c.record.htxImportedAt) : null;
+    return t && (!acc || t > acc) ? t : acc;
+  }, null);
+
+  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = ""; // 같은 파일 재선택 허용
+    if (!f) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      fd.append("period", period);
+      const res = await fetch("/api/vat/import", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "업로드에 실패했습니다."); return; }
+      setImportResult(data as ImportResult);
+      router.refresh();
+    } catch (err) {
+      alert("업로드 중 오류가 발생했습니다.\n\n" + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   useEffect(() => { setRecMap(buildMap(clients, activeTab)); }, [clients, activeTab]);
 
@@ -163,7 +283,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   }, []);
 
   function getRec(id: number): Rec {
-    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, noticeTax: null, excluded: false, memo: null };
+    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, noticeTax: null, excluded: false, memo: null, htx: null };
   }
   function update(id: number, patch: Partial<Rec>) {
     setRecMap(prev => { const n = new Map(prev); n.set(id, { ...getRec(id), ...patch }); return n; });
@@ -229,7 +349,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const feeSum = active.reduce((s, c) => s + (getRec(c.id).fee ?? 0), 0);
 
   const isPrelim = period.endsWith("예정"); // 1·2기 예정 기간
-  const colCount = 1 + (showAssignedUser ? 1 : 0) + 4; // 거래처+[담당자]+체크리스트+메모+제외+진행
+  const colCount = 1 + (showAssignedUser ? 1 : 0) + 5; // 거래처+[담당자]+홈택스자료+체크리스트+메모+제외+진행
 
   function row(client: ClientRow, dim: boolean) {
     const r = getRec(client.id);
@@ -304,6 +424,11 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
         {showAssignedUser && (
           <td className="px-3 py-3 text-center text-xs text-[#4E5968] whitespace-nowrap">{client.assignedUserName || <span className="text-[#B0B8C1]">-</span>}</td>
         )}
+
+        {/* 매출·매입 (홈택스 업로드 자료) */}
+        <td className="px-3 py-3 align-top">
+          <HtxSummary htx={r.htx} />
+        </td>
 
         {/* 체크리스트 — 예정고지(개인 예정) / 신고 체크리스트 */}
         <td className="px-3 py-3">
@@ -530,6 +655,28 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
         <span className="text-[12px] text-[#6B7684] px-1">대상 <b className="text-[#191F28]">{active.length}곳</b> · 신고완료 <b className="text-[#15803D]">{stageCounts.done}</b> · 보수합계 <b className="text-[#191F28]">{fmtWon(feeSum)}</b></span>
         {stageFilter && <button onClick={() => setStageFilter(null)} className="text-[12px] font-bold text-[#3182F6] hover:underline">필터 해제</button>}
         {activeTab === "bookkeeping" && <span className="text-[11px] text-[#8B95A1]">기장은 보수 기본 0원</span>}
+
+        {/* 홈택스 자료 업로드 */}
+        <div className="ml-auto flex items-center gap-2">
+          {lastImport && (
+            <span className="text-[11px] text-[#8B95A1]">
+              마지막 업로드 {lastImport.toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })} {lastImport.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={onFileSelected} className="hidden" />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-1.5 rounded-xl px-3.5 h-9 text-[13px] font-bold text-white bg-[#3182F6] hover:bg-[#1B64DA] transition disabled:opacity-50"
+            title="홈택스 부가세 신고자료 조회 엑셀을 업로드하면 거래처별 매출·매입이 자동 매칭됩니다"
+          >
+            {uploading ? (
+              <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> 업로드 중…</>
+            ) : (
+              <>📊 홈택스 자료 업로드</>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* 테이블 */}
@@ -577,6 +724,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                     </div>
                   </th>
                 )}
+                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[240px]">매출·매입 (홈택스)</th>
                 <th className="text-left px-3 py-3 text-[#333D4B] font-medium min-w-[280px]">체크리스트</th>
                 <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[100px]">메모</th>
                 <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">제외</th>
@@ -596,6 +744,72 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           </table>
         </div>
       </div>
+
+      {/* 업로드 결과 모달 */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setImportResult(null)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191F28]">📊 홈택스 자료 업로드 완료</h3>
+                <p className="text-[12px] text-[#8B95A1] mt-1">{importResult.sheetTitle}</p>
+              </div>
+              <button onClick={() => setImportResult(null)} className="text-[#B0B8C1] hover:text-[#4E5968] text-xl leading-none">✕</button>
+            </div>
+
+            {importResult.periodWarning && (
+              <div className="mt-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] px-3 py-2 text-[12px] text-[#92400E]">
+                ⚠ {importResult.periodWarning}
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              <div className="rounded-2xl bg-[#F5F9FF] p-3 text-center">
+                <div className="text-[22px] font-extrabold text-[#1B64DA]">{importResult.matchedCount}</div>
+                <div className="text-[11px] text-[#6B7684] font-bold">매칭 완료</div>
+              </div>
+              <div className="rounded-2xl bg-[#F9FAFB] p-3 text-center">
+                <div className="text-[22px] font-extrabold text-[#8B95A1]">{importResult.unmatchedCount}</div>
+                <div className="text-[11px] text-[#6B7684] font-bold">미매칭</div>
+              </div>
+              <div className="rounded-2xl bg-[#FEF2F2] p-3 text-center">
+                <div className="text-[22px] font-extrabold text-[#DC2626]">{importResult.collectErrorCount}</div>
+                <div className="text-[11px] text-[#6B7684] font-bold">수집오류</div>
+              </div>
+            </div>
+
+            {importResult.unmatched.length > 0 && (
+              <div className="mt-4">
+                <div className="text-[12px] font-bold text-[#4E5968] mb-1.5">미매칭 거래처 <span className="text-[#8B95A1] font-medium">(시스템에 없거나 사업자번호 불일치)</span></div>
+                <div className="rounded-xl border border-[#F2F4F6] divide-y divide-[#F2F4F6] max-h-[200px] overflow-auto">
+                  {importResult.unmatched.map((u, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-1.5 text-[12px]">
+                      <span className="text-[#191F28]">{u.name || <span className="text-[#B0B8C1]">(이름없음)</span>}</span>
+                      <span className="text-[#8B95A1]">{u.biz}{u.manager ? ` · ${u.manager}` : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {importResult.collectErrors.length > 0 && (
+              <div className="mt-4">
+                <div className="text-[12px] font-bold text-[#DC2626] mb-1.5">⚠ 홈택스 수집오류 거래처 <span className="text-[#8B95A1] font-medium">(자료 재수집 필요)</span></div>
+                <div className="rounded-xl border border-[#FEE2E2] divide-y divide-[#FEE2E2] max-h-[160px] overflow-auto">
+                  {importResult.collectErrors.map((u, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-1.5 text-[12px]">
+                      <span className="text-[#191F28]">{u.name}</span>
+                      <span className="text-[#8B95A1]">{u.biz}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => setImportResult(null)} className="mt-5 w-full rounded-2xl py-3 text-[14px] font-bold text-white bg-[#191F28] hover:bg-black transition">확인</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

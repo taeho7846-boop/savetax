@@ -370,6 +370,8 @@ model VatRecord {
   noticeTax     Int?                       // 예정고지세액
   excluded      Boolean  @default(false)  // 이번 기간 신고 제외
   memo          String?
+  htxData       String?                    // 홈택스 부가세 신고자료 엑셀 업로드 데이터 (JSON)
+  htxImportedAt DateTime?                  // 홈택스 자료 마지막 업로드 시각
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   client        Client   @relation(fields: [clientId], references: [id])
