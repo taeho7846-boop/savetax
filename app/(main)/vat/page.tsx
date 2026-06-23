@@ -78,6 +78,8 @@ export default async function VatPage({
           memo: true,
           htxData: true,
           htxImportedAt: true,
+          rejectionCount: true,
+          lastRejectedAt: true,
         },
       },
     },

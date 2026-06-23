@@ -43,6 +43,7 @@ model User {
   analyzedAnalyses   ClientNoticeAnalysis[]  @relation("analyzedAnalyses")
   revertedReports    IncomeTaxRevertHistory[] @relation("revertedReports")
   collectionContacts CollectionContact[]     @relation("collectionContacts")
+  vatRejections      VatRejection[]          @relation("vatRejectedReports")
 }
 
 model Client {
@@ -110,6 +111,7 @@ model Client {
   noticeAnalyses            ClientNoticeAnalysis[]
   incomeTaxRevertHistories  IncomeTaxRevertHistory[]
   vatRecords                VatRecord[]
+  vatRejections             VatRejection[]
   collectionContacts        CollectionContact[]
 }
 
@@ -372,11 +374,28 @@ model VatRecord {
   memo          String?
   htxData       String?                    // 홈택스 부가세 신고자료 엑셀 업로드 데이터 (JSON)
   htxImportedAt DateTime?                  // 홈택스 자료 마지막 업로드 시각
+  rejectionCount Int     @default(0)       // 결재 반려 누적 횟수
+  lastRejectedAt DateTime?                 // 마지막 반려 시각
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   client        Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, period])
+}
+
+model VatRejection {
+  id           Int       @id @default(autoincrement())
+  clientId     Int
+  period       String
+  sequence     Int
+  reason       String
+  rejectedById Int
+  rejectedAt   DateTime  @default(now())
+  resolvedAt   DateTime?
+  client       Client    @relation(fields: [clientId], references: [id])
+  rejectedBy   User      @relation("vatRejectedReports", fields: [rejectedById], references: [id])
+
+  @@index([clientId, period])
 }
 
 model IncomeTaxRevertHistory {

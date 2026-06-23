@@ -14,7 +14,53 @@ export async function setVatStage(clientId: number, period: string, stage: VatSt
     update: { stage },
     create: { clientId, period, stage },
   });
+  // 결재 단계로 (재)진입 시 미해소 반려를 해소 처리
+  if (stage === "approval") {
+    await prisma.vatRejection.updateMany({
+      where: { clientId, period, resolvedAt: null },
+      data: { resolvedAt: new Date() },
+    });
+  }
   revalidatePath("/vat");
+}
+
+/** 결재 → 반려 (작성중 단계로 복귀, 반려 이력 기록) */
+export async function rejectVatReport(clientId: number, period: string, reason: string) {
+  const session = await requireAuth();
+  const trimmed = (reason || "").trim();
+  if (!trimmed) throw new Error("REASON_REQUIRED");
+
+  const existingCount = await prisma.vatRejection.count({ where: { clientId, period } });
+  const sequence = existingCount + 1;
+  const now = new Date();
+
+  await prisma.vatRejection.create({
+    data: { clientId, period, sequence, reason: trimmed, rejectedById: session.id, rejectedAt: now },
+  });
+  await prisma.vatRecord.upsert({
+    where: { clientId_period: { clientId, period } },
+    update: { stage: "writing", rejectionCount: sequence, lastRejectedAt: now },
+    create: { clientId, period, stage: "writing", rejectionCount: sequence, lastRejectedAt: now },
+  });
+  revalidatePath("/vat");
+}
+
+/** 반려 이력 조회 (모달/뱃지용) */
+export async function getVatRejections(clientId: number, period: string) {
+  await requireAuth();
+  const rows = await prisma.vatRejection.findMany({
+    where: { clientId, period },
+    orderBy: { sequence: "asc" },
+    include: { rejectedBy: { select: { id: true, name: true } } },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    sequence: r.sequence,
+    reason: r.reason,
+    rejectedAt: r.rejectedAt.toISOString(),
+    resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+    rejectedByName: r.rejectedBy?.name ?? null,
+  }));
 }
 
 /** 단계별 체크리스트 항목 토글 (checklist JSON에 저장) */

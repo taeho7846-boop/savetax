@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
+import { VatRejectModal } from "./VatRejectModal";
 
 // 홈택스 부가세 신고자료 업로드 데이터 (모든 금액은 공급가액 기준)
 type HtxData = {
@@ -37,6 +38,8 @@ type Rec = {
   excluded: boolean;
   memo: string | null;
   htx: HtxData | null;
+  rejectionCount: number;
+  lastRejectedAt: Date | string | null;
 };
 
 type ClientRow = {
@@ -47,7 +50,7 @@ type ClientRow = {
   clientType: string;
   taxationType: string | null;
   assignedUserName: string | null;
-  record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null; htxData: string | null; htxImportedAt: Date | string | null } | null;
+  record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null; htxData: string | null; htxImportedAt: Date | string | null; rejectionCount: number; lastRejectedAt: Date | string | null } | null;
 };
 
 interface Props {
@@ -130,6 +133,8 @@ function buildMap(clients: ClientRow[], activeTab: string): Map<number, Rec> {
       excluded: c.record?.excluded ?? false,
       memo: c.record?.memo ?? null,
       htx: parseHtx(c.record?.htxData),
+      rejectionCount: c.record?.rejectionCount ?? 0,
+      lastRejectedAt: c.record?.lastRejectedAt ?? null,
     });
   }
   return m;
@@ -311,6 +316,9 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
+  // 결재 반려 모달 대상
+  const [rejectTarget, setRejectTarget] = useState<{ clientId: number; clientName: string } | null>(null);
+
   // 마지막 업로드 시각
   const lastImport = clients.reduce<Date | null>((acc, c) => {
     const t = c.record?.htxImportedAt ? new Date(c.record.htxImportedAt) : null;
@@ -350,7 +358,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   }, []);
 
   function getRec(id: number): Rec {
-    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, noticeTax: null, excluded: false, memo: null, htx: null };
+    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, noticeTax: null, excluded: false, memo: null, htx: null, rejectionCount: 0, lastRejectedAt: null };
   }
   function update(id: number, patch: Partial<Rec>) {
     setRecMap(prev => { const n = new Map(prev); n.set(id, { ...getRec(id), ...patch }); return n; });
@@ -722,11 +730,29 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                 </span>
               ))}
             </div>
-            <span className="text-[12px] font-bold" style={{ color: meta.color }}>
+            <span className="text-[12px] font-bold flex items-center gap-1.5" style={{ color: meta.color }}>
               {cur + 1}. {meta.label}{keys.length > 0 ? <span className="text-[#8B95A1] font-medium"> {doneN}/{keys.length}</span> : null}
+              {r.rejectionCount > 0 && (
+                <span
+                  className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] rounded-md px-1.5 py-0.5"
+                  title={r.lastRejectedAt ? `최근 반려: ${new Date(r.lastRejectedAt).toLocaleString("ko-KR")}` : ""}
+                >
+                  🔴 {r.rejectionCount}차반려
+                </span>
+              )}
             </span>
             <div className="flex items-center gap-1">
               <button onClick={() => moveStage(client.id, -1)} disabled={dim || cur === 0} className="px-2 py-1 rounded-lg text-[11px] font-bold glass-strong text-[#8B95A1] hover:text-[#4E5968] disabled:opacity-30">← 이전</button>
+              {r.stage === "approval" && (
+                <button
+                  onClick={() => setRejectTarget({ clientId: client.id, clientName: client.name })}
+                  disabled={dim}
+                  title="반려 (작성중 단계로 되돌림)"
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-white border border-[#DC2626]/40 text-[#DC2626] hover:bg-[#FEF2F2] disabled:opacity-40"
+                >
+                  반려
+                </button>
+              )}
               {cur < STAGES.length - 1 ? (
                 <button onClick={() => moveStage(client.id, 1)} disabled={dim} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 shadow-sm" style={{ background: STAGES[cur + 1].color }}>{STAGES[cur + 1].label} →</button>
               ) : (
@@ -871,6 +897,17 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           </table>
         </div>
       </div>
+
+      {/* 결재 반려 모달 */}
+      {rejectTarget && (
+        <VatRejectModal
+          clientId={rejectTarget.clientId}
+          clientName={rejectTarget.clientName}
+          period={period}
+          onClose={() => setRejectTarget(null)}
+          onRejected={() => router.refresh()}
+        />
+      )}
 
       {/* 업로드 결과 모달 */}
       {importResult && (
