@@ -245,12 +245,24 @@ export async function POST(req: NextRequest) {
     for (const [key, amt] of Object.entries(salesAmt)) {
       if (amt > 0 && checklist[key] !== true) { checklist[key] = true; newlyChecked = true; }
     }
+    // 신용카드발행세액공제 대상이면 공제 체크리스트 '신용카드발행' 자동 체크
+    // (개인 + 일반과세 + 신용카드·현금영수증·PG 매출 존재)
+    const isIndiv = parsed.bizType ? parsed.bizType !== "법인" : true;
+    const cardCreditBase = parsed.sales.cardGross + parsed.sales.cash + parsed.sales.cashVat + parsed.sales.onlineGross + parsed.sales.zeropayGross;
+    if (isIndiv && parsed.taxationType === "과세" && cardCreditBase > 0 && checklist["credit_card"] !== true) {
+      checklist["credit_card"] = true; newlyChecked = true;
+    }
     if (newlyChecked) autoCheckedCount++;
+
+    // 예정고지세액 자동 입력 (금액 있을 때만 — 0이면 기존 수동 입력 보존)
+    const noticeAmt = parsed.notice.amount;
+    const baseData = { htxData, htxImportedAt: importedAt, checklist: JSON.stringify(checklist) };
+    const data = noticeAmt > 0 ? { ...baseData, noticeTax: noticeAmt } : baseData;
 
     await prisma.vatRecord.upsert({
       where: { clientId_period: { clientId: client.id, period } },
-      update: { htxData, htxImportedAt: importedAt, checklist: JSON.stringify(checklist) },
-      create: { clientId: client.id, period, htxData, htxImportedAt: importedAt, checklist: JSON.stringify(checklist) },
+      update: data,
+      create: { clientId: client.id, period, ...data },
     });
     matched.push({ clientId: client.id, name: client.name, biz });
   }

@@ -892,7 +892,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
             {importResult.autoCheckedCount > 0 && (
               <div className="mt-3 rounded-xl bg-[#F5F9FF] border border-[#BFDBFE] px-3 py-2 text-[12px] text-[#1B64DA]">
-                ✓ 매출 항목 자동 체크: <b>{importResult.autoCheckedCount}곳</b> (홈택스 매출 금액이 있는 항목을 작성중 체크리스트에 표시했습니다)
+                ✓ 매출·공제 항목 자동 체크: <b>{importResult.autoCheckedCount}곳</b> (매출 항목 + 신용카드발행세액공제 자동 체크, 예정고지세액 자동 입력)
               </div>
             )}
 
