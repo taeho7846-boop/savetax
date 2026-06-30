@@ -138,6 +138,7 @@ export default async function DashboardPage({
   const unpaidRaw = await prisma.client.findMany({
     where: {
       isDeleted: false,
+      contractStatus: "active", // 해지 거래처는 운영 페이지(홈 미수납 카드)에서 제외 — 채권관리에서만 노출
       ...myClient,
       monthlyFee: { not: null },
       firstWithdrawalMonth: { not: null, lte: currentYM },
