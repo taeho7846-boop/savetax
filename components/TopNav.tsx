@@ -75,6 +75,7 @@ const CATEGORIES: Category[] = [
     icon: <BanknoteIcon width={14} height={14} />,
     subs: [
       { href: "/settlement", label: "Savetax 정산" },
+      { href: "/supply-settlement", label: "비품정산" },
       { href: "/revenue", label: "수익추이" },
     ],
   },
