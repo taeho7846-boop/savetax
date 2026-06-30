@@ -175,6 +175,9 @@ export async function updateClient(id: number, formData: FormData) {
       ...(formData.has("assignedUserId")
         ? { assignedUserId: formData.get("assignedUserId") ? parseInt(formData.get("assignedUserId") as string) : null }
         : {}),
+      ...(formData.has("subAssignedUserId")
+        ? { subAssignedUserId: formData.get("subAssignedUserId") ? parseInt(formData.get("subAssignedUserId") as string) : null }
+        : {}),
     },
   });
 
