@@ -5,6 +5,8 @@ import Link from "next/link";
 import { BookkeepingTable } from "./BookkeepingTable";
 import { OneoffTable } from "./OneoffTable";
 import { RefundTable } from "./RefundTable";
+import { SupplyTable } from "./SupplyTable";
+import { SUPPLY_PEOPLE, parseParticipants } from "@/lib/settlement-supply";
 
 export default async function SettlementPage({
   searchParams,
@@ -37,6 +39,34 @@ export default async function SettlementPage({
       <div>
         <Header year={year} mon={mon} yearMonth={yearMonth} tab={tab} prevYM={changeMonth(-1)} nextYM={changeMonth(1)} />
         <RefundTable items={refunds} yearMonth={yearMonth} />
+      </div>
+    );
+  }
+
+  if (tab === "supply") {
+    const [supplies, settledRows] = await Promise.all([
+      prisma.settlementSupply.findMany({
+        where: { yearMonth },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.settlementSupplySettled.findMany({ where: { yearMonth } }),
+    ]);
+    const items = supplies.map((s) => ({
+      id: s.id,
+      item: s.item,
+      amount: s.amount,
+      payer: s.payer,
+      channel: s.channel,
+      participants: parseParticipants(s.participants),
+    }));
+    const settledMap: Record<string, boolean> = {};
+    for (const p of SUPPLY_PEOPLE) settledMap[p] = false;
+    for (const r of settledRows) settledMap[r.person] = r.settled;
+
+    return (
+      <div>
+        <Header year={year} mon={mon} yearMonth={yearMonth} tab={tab} prevYM={changeMonth(-1)} nextYM={changeMonth(1)} />
+        <SupplyTable items={items} yearMonth={yearMonth} settledMap={settledMap} />
       </div>
     );
   }
@@ -127,6 +157,16 @@ function Header({ year, mon, yearMonth, tab, prevYM, nextYM }: {
           }`}
         >
           환불
+        </Link>
+        <Link
+          href={`/settlement?ym=${yearMonth}&tab=supply`}
+          className={`px-4 py-2 rounded-xl text-[12.5px] font-bold transition ${
+            tab === "supply"
+              ? "text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30"
+              : "glass-strong text-[#6B7684] hover:text-[#191F28]"
+          }`}
+        >
+          비품
         </Link>
       </div>
     </>

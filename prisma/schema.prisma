@@ -673,6 +673,33 @@ model SettlementRefund {
   updatedAt        DateTime @updatedAt
 }
 
+// 비품정산 — 공동 비품을 한 명이 결제 후 참여자끼리 N분의 1로 분배
+model SettlementSupply {
+  id              Int      @id @default(autoincrement())
+  yearMonth       String
+  item            String                       // 항목 (텍스트)
+  amount          Int      @default(0)         // 금액
+  payer           String                       // 결제자 (인원 중 1명)
+  channel         String?                      // 결제채널 (텍스트)
+  participants    String   @default("")        // 분배 대상 이름 CSV (체크된 사람)
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([yearMonth])
+}
+
+// 비품정산 월별 정산완료 체크 (사람 × 월)
+model SettlementSupplySettled {
+  id        Int      @id @default(autoincrement())
+  yearMonth String
+  person    String
+  settled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([yearMonth, person])
+}
+
 model UnpaidPostpone {
   id             Int      @id @default(autoincrement())
   clientId       Int      @unique
