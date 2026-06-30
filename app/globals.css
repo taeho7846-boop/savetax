@@ -193,12 +193,16 @@ body {
 
 /* 칸반 컬럼 */
 .v3-col-head {
-  background: rgba(255,255,255,.6);
+  background: rgba(255,255,255,.85);
   backdrop-filter: blur(12px);
   border: 1px solid #F2F4F6;
   border-bottom: none;
   border-radius: 12px 12px 0 0;
   padding: 14px 16px;
+  /* 스크롤해도 세무사 이름 헤더를 상단에 고정 (틀고정) */
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .v3-col-head.is-next {
   background: #fff;
