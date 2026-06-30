@@ -207,11 +207,14 @@ export function GlobalSearch() {
     }, 0);
   }
 
-  // 거래처 직접 선택 (Enter) → 수정 페이지로 이동
+  // 거래처 직접 선택 (Enter) → 기장대리 목록과 동일한 수정 모달 열기
+  function openClientEditModal(clientId: number) {
+    window.dispatchEvent(new CustomEvent("savetax-open-client-edit", { detail: { clientId } }));
+  }
   function handleSelectClient(clientId: number) {
     setOpen(false);
     setSelectedClient(null);
-    router.push(`/clients/${clientId}/edit`);
+    openClientEditModal(clientId);
   }
 
   // 홈택스 로그인
@@ -280,6 +283,8 @@ export function GlobalSearch() {
       doHometaxLogin(selectedClient.id);
     } else if (action.custom && action.key === "드라이브") {
       openClientDrive(selectedClient.id, selectedClient.name);
+    } else if (action.key === "수정") {
+      openClientEditModal(selectedClient.id);
     } else if (action.path) {
       router.push(action.path(selectedClient.id));
     }
