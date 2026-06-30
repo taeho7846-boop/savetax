@@ -552,6 +552,7 @@ export async function cycleCmsStatus(id: number) {
   const next = client.cmsStatus === "none" ? "pending" : client.cmsStatus === "pending" ? "done" : "none";
   await prisma.client.update({ where: { id }, data: { cmsStatus: next } });
   revalidatePath("/receivables");
+  revalidatePath("/dashboard");
 }
 
 export async function bulkCmsRegister(ids: number[]) {
@@ -562,4 +563,5 @@ export async function bulkCmsRegister(ids: number[]) {
     data: { cmsStatus: "done" },
   });
   revalidatePath("/receivables");
+  revalidatePath("/dashboard");
 }
