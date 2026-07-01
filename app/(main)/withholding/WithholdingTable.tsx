@@ -75,12 +75,13 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
   const has일용 = laborTypes.includes("일용직");
 
   if (halfYearTax) {
-    if (month === 1 || month === 7) {
-      // 6개월납은 1,7월만 신고
+    if (month === 6 || month === 12) {
+      // 6개월납은 6,12월만 신고
     }
   }
 
-  if (has근로 && (month === 1 || month === 7)) tasks.push({ key: "간이지급명세서_근로", label: "간이지급명세서(근로)" });
+  // 간이지급명세서(근로)는 반기 제출 — 6월(상반기)·12월(하반기)에 원천세와 함께 제출
+  if (has근로 && (month === 6 || month === 12)) tasks.push({ key: "간이지급명세서_근로", label: "간이지급명세서(근로)" });
   if (has사업) tasks.push({ key: "간이지급명세서_사업", label: "간이지급명세서(사업)" });
   if (has일용) tasks.push({ key: "근로내용확인신고서", label: "근로내용확인신고서" });
   if (has근로 && month === 2) tasks.push({ key: "지급명세서_근로", label: "지급명세서(근로)" });
