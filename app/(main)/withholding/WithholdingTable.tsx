@@ -25,7 +25,8 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; bo
 const ALL_PROCESS_STEPS = ["자료요청", "자료수취", "급여명세서전달", "원천세신고", "납부서전달"];
 
 function getStepsByType(type: string, month: number, halfYearTax: boolean = false): string[] {
-  const isTaxMonth = month === 1 || month === 7;
+  // 6개월납(반기) 원천세 신고·납부월: 6월(상반기), 12월(하반기)
+  const isTaxMonth = month === 6 || month === 12;
   switch (type) {
     case "A":
       return halfYearTax && !isTaxMonth
