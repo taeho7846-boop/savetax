@@ -82,6 +82,7 @@ const tools: Anthropic.Tool[] = [
         clientType: { type: "string", enum: ["individual", "corporate"], description: "개인/법인" },
         monthlyFee: { type: "number", description: "월기장료 (VAT 제외 원본 금액을 그대로 전달. 코드에서 자동으로 VAT 포함 계산함)" },
         firstWithdrawalMonth: { type: "string", description: "최초 출금월 (YYYY-MM)" },
+        freeMonths: { type: "number", description: "무료 기장(무료프로모션) 개월 수. '2개월' → 2. 없으면 생략" },
         openDate: { type: "string", description: "개업일 (YYYY-MM-DD)" },
         contractDate: { type: "string", description: "계약일자 (YYYY-MM-DD)" },
         residentNumber: { type: "string", description: "주민등록번호" },
@@ -426,6 +427,11 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     const monthlyFee = rawFee ? Math.round(rawFee * 1.1) : null;
     console.log(`[거래처 등록] 기장료: VAT제외 ${rawFee} → VAT포함 ${monthlyFee}`);
 
+    // 무료 기장(무료프로모션) 개월 수 ("2개월" 형태로 와도 숫자만 추출)
+    const freeMonths = input.freeMonths != null
+      ? (parseInt(String(input.freeMonths).replace(/[^0-9]/g, "")) || null)
+      : null;
+
     const client = await prisma.client.create({
       data: {
         name: clientName,
@@ -435,6 +441,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
         clientType: (input.clientType as string) || "individual",
         monthlyFee,
         firstWithdrawalMonth: firstMonth,
+        freeMonths,
         openDate,
         contractDate: (input.contractDate as string) || null,
         residentNumber: (input.residentNumber as string) || null,
@@ -479,6 +486,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
     const parts = [`✅ 거래처 "${clientName}" 등록 완료 + 신규수임 자동 생성 (${isTransfer ? "이관" : "신규"})`];
     if (monthlyFee) parts.push(`월기장료: ${monthlyFee.toLocaleString()}원 (VAT포함)`);
     if (firstMonth) parts.push(`최초출금월: ${firstMonth}`);
+    if (freeMonths) parts.push(`무료 기장: ${freeMonths}개월`);
     if (input.notes) parts.push(`특이사항: ${(input.notes as string).slice(0, 50)}...`);
     if (driveUrl) parts.push(`📁 구글 드라이브: ${driveUrl}`);
     return parts.join("\n");
@@ -1091,6 +1099,7 @@ export async function POST(req: NextRequest) {
 - **소속**: 자동 "세이브택스"
 - **수임 유형(commissionType)**: "세무기장이용"/"기존" → "transfer" / "신규"/"신고대리" → "new"
 - 출금연월 "26-06" → "2026-06"으로 변환
+- **무료 기장(freeMonths)**: "무료프로모션 2개월" → 2 로 전달 (숫자만)
 - **주민번호**: "NNNNNN-NNNNNNN" 형태가 어디 있든 residentNumber에 분리 추출
 - 특별요청사항/특이사항/경정청구는 특이사항 필드로 합치되 주민번호는 분리
 
