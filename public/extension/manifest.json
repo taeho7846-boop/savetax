@@ -1,23 +1,47 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "2.2",
+  "version": "4.1",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
-  "permissions": ["debugger", "downloads", "notifications", "storage", "scripting", "tabs"],
-  "host_permissions": ["http://64.176.227.99/*", "https://hometax.go.kr/*"],
+  "permissions": [
+    "contentSettings",
+    "debugger",
+    "downloads",
+    "notifications",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://64.176.227.99/*",
+    "http://app.savetaxnh.com/*",
+    "https://app.savetaxnh.com/*",
+    "http://localhost:3000/*",
+    "http://localhost:9000/*",
+    "https://hometax.go.kr/*",
+    "https://sesw.hometax.go.kr/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://hometax.go.kr/*"],
-      "js": ["suppress-alert.js"],
+      "matches": [
+        "https://hometax.go.kr/*"
+      ],
+      "js": [
+        "suppress-alert.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://hometax.go.kr/*"],
-      "js": ["content-hometax.js"],
+      "matches": [
+        "https://hometax.go.kr/*"
+      ],
+      "js": [
+        "content-hometax.js"
+      ],
       "run_at": "document_idle"
     }
   ]

@@ -1,5 +1,22 @@
 // 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
+// 홈택스 팝업 자동 허용 (신고도움 미리보기 등 리포트 창이 팝업 차단에 걸리면 수집 실패)
+function allowHometaxPopups() {
+  if (!chrome.contentSettings?.popups) return;
+  for (const pattern of ["https://hometax.go.kr/*", "https://sesw.hometax.go.kr/*"]) {
+    chrome.contentSettings.popups.set({ primaryPattern: pattern, setting: "allow" }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn("SaveTax BG: 팝업 허용 설정 실패:", pattern, chrome.runtime.lastError.message);
+      } else {
+        console.log("SaveTax BG: 팝업 허용 설정 완료:", pattern);
+      }
+    });
+  }
+}
+allowHometaxPopups();
+chrome.runtime.onInstalled.addListener(allowHometaxPopups);
+chrome.runtime.onStartup.addListener(allowHometaxPopups);
+
 // 법인 관리번호 로그인 완료 감지 → 모든 hometax 탭 close + 새 탭 open
 // 사용자 통찰: 관리번호까지 끝나면 무조건 reopen, 후속 작업(register 등)은 새 탭에서만 진행
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -188,11 +205,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "print-pdf") {
     (async () => {
       try {
-        // 리포트 탭 찾기 (sesw.hometax.go.kr 또는 마지막 탭)
-        const allTabs = await chrome.tabs.query({});
-        let reportTab = allTabs.find(t => t.url && t.url.includes("clipreport.do"));
-        if (!reportTab) reportTab = allTabs[allTabs.length - 1];
-        if (!reportTab?.id) { sendResponse({ ok: false, error: "리포트 탭 없음" }); return; }
+        // 리포트 탭 찾기: 홈택스 리포트 URL만 인정, 로드 완료까지 최대 15초 대기
+        // ★ "마지막 탭" 폴백 금지 — 사용자가 보던 무관한 탭을 PDF로 찍어버리는 사고 방지
+        let reportTab = null;
+        for (let i = 0; i < 30; i++) {
+          const allTabs = await chrome.tabs.query({});
+          reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
+          if (reportTab && reportTab.status === "complete") break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (!reportTab?.id || reportTab.status !== "complete") {
+          sendResponse({ ok: false, error: "리포트(미리보기) 탭을 찾지 못했습니다" });
+          return;
+        }
 
         await chrome.debugger.attach({ tabId: reportTab.id }, "1.3");
         const result = await chrome.debugger.sendCommand({ tabId: reportTab.id }, "Page.printToPDF", {
@@ -203,22 +228,51 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         });
         await chrome.debugger.detach({ tabId: reportTab.id });
 
-        // 거래처명 폴더 안에 저장
         const clientName = (msg.clientName || "거래처").replace(/[/\\:*?"<>|]/g, "_");
         const docName = (msg.docName || "문서").replace(/[/\\:*?"<>|]/g, "_");
-        const filename = `${clientName}/${docName}.pdf`;
-        const dataUrl = "data:application/pdf;base64," + result.data;
 
-        await chrome.downloads.download({
-          url: dataUrl,
-          filename: filename,
-          conflictAction: "uniquify",
-        });
+        // 앱 서버에 PDF 업로드 (자료수집 상태·파일 열람용)
+        let uploaded = false;
+        let uploadError = null;
+        if (msg.upload && msg.upload.appOrigin) {
+          try {
+            const up = msg.upload;
+            const res = await fetch(`${up.appOrigin}/api/data-collect/upload`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: up.token || "",
+                clientId: up.clientId,
+                docType: up.docType,
+                taxYear: up.taxYear,
+                fileName: up.fileName || `${docName}.pdf`,
+                dataBase64: result.data,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            uploaded = res.ok && data.ok;
+            if (!uploaded) uploadError = data.error || `HTTP ${res.status}`;
+            console.log("SaveTax BG: 앱 업로드", uploaded ? "성공" : "실패 - " + uploadError);
+          } catch (e) {
+            uploadError = e.message;
+            console.error("SaveTax BG: 앱 업로드 실패:", e);
+          }
+        }
+
+        // 앱에 업로드됐으면 로컬 다운로드 생략 (다운로드 폴더에 사본·중복 쌓임 방지)
+        // 업로드 실패했거나 업로드 대상이 아닌 경우에만 로컬 저장
+        if (!uploaded) {
+          await chrome.downloads.download({
+            url: "data:application/pdf;base64," + result.data,
+            filename: `${clientName}/${docName}.pdf`,
+            conflictAction: "uniquify",
+          });
+        }
 
         // 리포트 탭 ID 저장 (close-report-tab에서 사용)
         globalThis._savetaxReportTabId = reportTab.id;
 
-        sendResponse({ ok: true });
+        sendResponse({ ok: true, uploaded, uploadError });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });
       }
@@ -240,6 +294,48 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true });
       } catch (e) {
         sendResponse({ ok: false });
+      }
+    })();
+    return true;
+  }
+
+  // 자료수집 완료 → 앱 DB에 수집 상태 반영 (앱 로그인 세션 쿠키 포함)
+  if (msg.type === "mark-collected") {
+    (async () => {
+      try {
+        if (!msg.appOrigin || !msg.clientId || !msg.docType || !msg.taxYear) {
+          sendResponse({ ok: false, error: "appOrigin/clientId/docType/taxYear 필요" });
+          return;
+        }
+        const res = await fetch(`${msg.appOrigin}/api/data-collect/mark`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: msg.token || "",
+            clientId: msg.clientId,
+            docType: msg.docType,
+            taxYear: msg.taxYear,
+            params: msg.params || null,
+            status: msg.status || "collected",
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        // 수집 완료 → 앱(data-collect) 탭을 앞으로 가져와 결과를 바로 보이게 (진행/완료 인지 + 자동 갱신)
+        try {
+          const all = await chrome.tabs.query({});
+          const appTab = all.find(t => t.url && t.url.indexOf(msg.appOrigin) === 0 && t.url.indexOf("/data-collect") !== -1);
+          if (appTab && appTab.id != null) {
+            await chrome.tabs.update(appTab.id, { active: true });
+            if (appTab.windowId != null) await chrome.windows.update(appTab.windowId, { focused: true });
+            console.log("SaveTax BG: 앱 data-collect 탭 활성화");
+          }
+        } catch (e) { console.warn("SaveTax BG: 앱 탭 활성화 실패", e.message); }
+
+        sendResponse({ ok: res.ok, status: res.status, ...data });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
       }
     })();
     return true;

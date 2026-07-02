@@ -116,34 +116,17 @@ def main():
 
         print("로그인 완료")
 
-        # 3. 메뉴 이동
-        print("메뉴 이동 중...")
-        time.sleep(1)
-        js('document.getElementById("mf_wfHeader_wq_uuid_399")?.click()')
-        time.sleep(0.5)
-
-        # 종합소득세 신고 메뉴
-        js('''
-            var spans = document.querySelectorAll("span[label='종합소득세 신고']");
-            if(spans.length > 0) spans[0].click();
-        ''')
-        time.sleep(0.5)
-
-        # 신고도움 서비스
-        js('''
-            var spans = document.querySelectorAll("span");
-            for(var i=0; i<spans.length; i++) {
-                if(spans[i].textContent.trim().indexOf("신고도움 서비스") >= 0) {
-                    spans[i].click(); break;
-                }
-            }
-        ''')
-        time.sleep(4)
+        # 3. 메뉴 이동 (직접 URL로 이동)
+        print("신고도움 서비스 페이지로 이동 중...")
+        driver.get("https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index4")
+        time.sleep(5)
         dismiss_alerts()
 
         # 페이지 로드 확인
         if not wait_for("mf_txppWframe_selectTxyr"):
-            print("ERROR: 신고도움 서비스 페이지 로드 실패", file=sys.stderr)
+            screenshot_path = os.path.join(output_dir, "error_screenshot.png")
+            driver.save_screenshot(screenshot_path)
+            print(f"ERROR: 신고도움 서비스 페이지 로드 실패 (스크린샷 저장됨: {screenshot_path})", file=sys.stderr)
             sys.exit(1)
 
         print("신고도움 서비스 페이지 도착")

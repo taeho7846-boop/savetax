@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { mintCollectToken } from "@/lib/collect-token";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -46,5 +47,7 @@ export async function POST(req: NextRequest) {
     certName: settings?.certName ?? "",
     certPw: settings?.certPassword ?? "",
     agentNumber: settings?.agentNumber ?? "",
+    // 크롬 확장이 수집 결과(파일 업로드/상태 갱신)를 보고할 때 쓰는 단기 토큰
+    collectToken: mintCollectToken(Number(clientId)),
   });
 }

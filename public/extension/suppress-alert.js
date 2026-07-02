@@ -22,6 +22,11 @@
       console.log("SaveTax: confirm 자동 취소 →", msg);
       return false;
     }
+    // 신고서 일괄출력 등 진행 확인 → 자동 승인 (자동화 중단 방지)
+    if (s.indexOf("계속 진행") !== -1 || s.indexOf("소요됩니다") !== -1) {
+      console.log("SaveTax: confirm 자동 확인 →", msg);
+      return true;
+    }
     return origConfirm.call(window, msg);
   };
 
