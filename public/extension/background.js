@@ -17,6 +17,69 @@ allowHometaxPopups();
 chrome.runtime.onInstalled.addListener(allowHometaxPopups);
 chrome.runtime.onStartup.addListener(allowHometaxPopups);
 
+// 홈택스 리포트 뷰어(ClipReport)의 네이티브 PDF 저장(pdfDownLoad)을 호출하고
+// 그 PDF 응답을 디버거 Fetch 도메인으로 가로채 base64로 반환한다.
+//  - 화면 캡처(Page.printToPDF)와 달리 툴바 없이 전체 페이지가 담긴 벡터 PDF가 나온다.
+//  - 캡처 성공 시 로컬 다운로드는 Abort 시켜 사용자 다운로드 폴더를 더럽히지 않는다.
+//  - 실패(메서드 없음/네트워크 아님/타임아웃) 시 null 반환 → 호출측이 printToPDF로 폴백.
+// ★ 전제: 디버거가 이미 tabId에 attach 되어 있어야 함(호출측에서 attach/detach 관리).
+async function captureClipReportPdf(tabId, timeoutMs = 30000) {
+  return await new Promise(async (resolve) => {
+    let done = false;
+    const finish = (val) => {
+      if (done) return;
+      done = true;
+      chrome.debugger.onEvent.removeListener(onEvent);
+      chrome.debugger.sendCommand({ tabId }, "Fetch.disable").catch(() => {});
+      resolve(val);
+    };
+
+    const onEvent = async (source, method, params) => {
+      if (source.tabId !== tabId || method !== "Fetch.requestPaused") return;
+      const requestId = params.requestId;
+      const headers = params.responseHeaders || [];
+      const ct = (headers.find(h => h.name.toLowerCase() === "content-type")?.value || "");
+      const cd = (headers.find(h => h.name.toLowerCase() === "content-disposition")?.value || "");
+      const isPdf = /pdf/i.test(ct) || /\.pdf/i.test(cd) || /application\/octet-stream/i.test(ct);
+      if (!isPdf) {
+        // PDF가 아닌 요청은 그대로 흘려보낸다(안 그러면 페이지가 멈춤)
+        chrome.debugger.sendCommand({ tabId }, "Fetch.continueRequest", { requestId }).catch(() => {});
+        return;
+      }
+      try {
+        const body = await chrome.debugger.sendCommand({ tabId }, "Fetch.getResponseBody", { requestId });
+        const b64 = body.base64Encoded ? body.body : btoa(unescape(encodeURIComponent(body.body)));
+        // 로컬 파일로 떨어지지 않게 Abort (바이트는 이미 확보함)
+        chrome.debugger.sendCommand({ tabId }, "Fetch.failRequest", { requestId, errorReason: "Aborted" }).catch(() => {});
+        finish(b64 && b64.length > 1000 ? b64 : null);
+      } catch (e) {
+        chrome.debugger.sendCommand({ tabId }, "Fetch.continueRequest", { requestId }).catch(() => {});
+      }
+    };
+
+    try {
+      chrome.debugger.onEvent.addListener(onEvent);
+      await chrome.debugger.sendCommand({ tabId }, "Fetch.enable", {
+        patterns: [{ urlPattern: "*", requestStage: "Response" }],
+      });
+      const evalRes = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
+        expression: "(function(){try{var ks=Object.keys(m_reportHashMap||{});if(!ks.length)return 'nokey';m_reportHashMap[ks[0]].pdfDownLoad();return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()",
+        returnByValue: true,
+      });
+      const verdict = evalRes?.result?.value;
+      console.log("SaveTax BG: ClipReport pdfDownLoad 호출 ->", verdict);
+      if (typeof verdict !== "string" || verdict !== "ok") {
+        finish(null);
+        return;
+      }
+      setTimeout(() => finish(null), timeoutMs);
+    } catch (e) {
+      console.warn("SaveTax BG: ClipReport 캡처 준비 실패:", e.message);
+      finish(null);
+    }
+  });
+}
+
 // 법인 관리번호 로그인 완료 감지 → 모든 hometax 탭 close + 새 탭 open
 // 사용자 통찰: 관리번호까지 끝나면 무조건 reopen, 후속 작업(register 등)은 새 탭에서만 진행
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -219,14 +282,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return;
         }
 
+        let pdfBase64 = null;
+        let captureMethod = null;
         await chrome.debugger.attach({ tabId: reportTab.id }, "1.3");
-        const result = await chrome.debugger.sendCommand({ tabId: reportTab.id }, "Page.printToPDF", {
-          printBackground: true,
-          preferCSSPageSize: true,
-          paperWidth: 8.27,
-          paperHeight: 11.69,
-        });
-        await chrome.debugger.detach({ tabId: reportTab.id });
+        try {
+          // 1순위: ClipReport 네이티브 PDF 저장(pdfDownLoad) — 툴바 없는 전체 벡터 PDF
+          pdfBase64 = await captureClipReportPdf(reportTab.id);
+          if (pdfBase64) captureMethod = "clipreport-pdf";
+
+          // 폴백: 화면 인쇄(printToPDF) — 네이티브 저장이 안 될 때만
+          if (!pdfBase64) {
+            const result = await chrome.debugger.sendCommand({ tabId: reportTab.id }, "Page.printToPDF", {
+              printBackground: true,
+              preferCSSPageSize: true,
+              paperWidth: 8.27,
+              paperHeight: 11.69,
+            });
+            pdfBase64 = result.data;
+            captureMethod = "print-to-pdf";
+          }
+        } finally {
+          try { await chrome.debugger.detach({ tabId: reportTab.id }); } catch (e) {}
+        }
+        console.log("SaveTax BG: PDF 캡처 방식 =", captureMethod);
+        const result = { data: pdfBase64 };
 
         const clientName = (msg.clientName || "거래처").replace(/[/\\:*?"<>|]/g, "_");
         const docName = (msg.docName || "문서").replace(/[/\\:*?"<>|]/g, "_");
