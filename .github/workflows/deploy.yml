@@ -1,0 +1,36 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 배포가 겹치지 않도록 한 번에 하나씩만 실행 (진행 중이면 대기)
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
+          script_stop: true
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            cd /root/savetax
+            git pull origin main
+            npm install
+            # 스키마 변경이 없으면 아래 두 줄은 no-op이라 항상 실행해도 안전.
+            # 컬럼 삭제 등 데이터 손실이 있는 변경은 여기서 실패함(의도된 안전장치) → 그 경우만 수동 처리.
+            npx prisma db push
+            npx prisma generate
+            npm run build
+            pm2 restart savetax
