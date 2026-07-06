@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteDataCollection } from "@/app/actions/data-collect";
 import { DOC_TYPES, getDefaultParams, type SettingType } from "@/lib/doc-types";
@@ -101,6 +101,30 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   const [selectedClientId, setSelectedClientId] = useState<number | null>(clients[0]?.id ?? null);
   const [search, setSearch] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<Set<string>>(new Set());
+
+  // 수집 왕복(홈택스 새 탭 다녀오기) 후 화면이 새로 마운트되면 useState 초기값 때문에
+  // 좌측 선택이 첫 거래처로 리셋된다 → 직전 선택/검색을 sessionStorage로 복원.
+  useEffect(() => {
+    try {
+      const savedId = sessionStorage.getItem("dc_selectedClientId");
+      const savedSearch = sessionStorage.getItem("dc_search");
+      if (savedId && clients.some(c => c.id === Number(savedId))) {
+        setSelectedClientId(Number(savedId));
+      }
+      if (savedSearch) setSearch(savedSearch);
+    } catch {}
+    // 마운트 시 1회만 복원 (이후 변경은 아래 저장 effect가 담당)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 선택/검색이 바뀔 때마다 저장 (다음 마운트에서 복원용)
+  useEffect(() => {
+    try {
+      if (selectedClientId != null) sessionStorage.setItem("dc_selectedClientId", String(selectedClientId));
+      else sessionStorage.removeItem("dc_selectedClientId");
+      sessionStorage.setItem("dc_search", search);
+    } catch {}
+  }, [selectedClientId, search]);
 
   const hometaxDocs = DOC_TYPES.filter(d => d.source === "홈택스");
   const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) ?? null : null;
