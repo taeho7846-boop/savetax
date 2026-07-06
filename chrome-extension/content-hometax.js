@@ -1642,6 +1642,24 @@
       const endDate = creds.endDate || "";
       console.log("SaveTax: 신고서 수집 시작 -", rt.label, startDate, "~", endDate);
 
+      // startDate~endDate 를 홈택스 조회 한도(≤1년)에 맞춰 "달력연도" 단위로 분할.
+      //  예) 2021-01-01~2025-12-31 → [21전체, 22전체, 23전체, 24전체, 25전체]
+      //  첫/마지막 구간은 실제 시작·종료일로 클램프. 파싱 실패 시 원본 그대로 단일 구간(폴백).
+      function buildYearWindows(sd, ed) {
+        const sY = parseInt(String(sd || "").slice(0, 4), 10);
+        const eY = parseInt(String(ed || "").slice(0, 4), 10);
+        if (!sY || !eY || eY < sY) return [{ s: sd || "", e: ed || "", y: String(sY || "") }];
+        const out = [];
+        for (let y = sY; y <= eY; y++) {
+          out.push({
+            s: (y === sY) ? sd : (y + "-01-01"),
+            e: (y === eY) ? ed : (y + "-12-31"),
+            y: String(y),
+          });
+        }
+        return out;
+      }
+
       // 2. 전자신고 결과 조회 메뉴 진입
       //    (a) 알려진 menuAtag id 직접 클릭 → (b) 상단 '세금신고' 텍스트 메뉴 → 하위 텍스트 폴백
       async function goEfileResult() {
@@ -1706,8 +1724,6 @@
         if (dateLike[0] && sd) setInput(dateLike[0], sd);
         if (dateLike[1] && ed) setInput(dateLike[1], ed);
       }
-      fillDateRange(startDate, endDate);
-      await sleep(800);
 
       // 4-b. 사업자(주민)등록번호 입력 (전자신고 결과 조회의 필수 항목)
       //      개인 세목(종소/양도/증여)은 주민번호, 부가세/법인은 사업자번호 우선
@@ -1736,27 +1752,6 @@
         console.log("SaveTax: 등록번호 입력 필드 못 찾음");
         return false;
       }
-      const idNo = (creds.returnType === "vat" || creds.returnType === "corp")
-        ? (creds.bizNumber || creds.rn)
-        : (creds.rn || creds.bizNumber);
-      fillIdNumber(idNo);
-      await sleep(500);
-
-      // 5. 조회 버튼 클릭 — input[value='조회'] 중 "화면에 보이는" 것만 (숨은 요소 오클릭 방지)
-      let searchClicked = false;
-      for (let attempt = 0; attempt < 3 && !searchClicked; attempt++) {
-        const btns = Array.from(document.querySelectorAll("input[value='조회'], button, a, span"))
-          .filter(el => el.offsetParent !== null && ((el.value || "").trim() === "조회" || (el.textContent || "").trim() === "조회"));
-        if (btns.length) {
-          btns[0].click();
-          searchClicked = true;
-          console.log("SaveTax: 조회 클릭 (" + (btns[0].id || btns[0].value || "?") + ")");
-        } else {
-          await sleep(1000);
-        }
-      }
-      if (!searchClicked) console.log("SaveTax: 조회 버튼 못 찾음");
-      await sleep(6000);
 
       // 6. 결과 리스트 → 접수증/신고서 출력(새창) → print-pdf 업로드 (다건 반복)
       //    결과가 iframe 안에 렌더링될 수 있어 document + 접근 가능한 iframe 모두 탐색
@@ -1767,6 +1762,7 @@
         }
         return docs;
       }
+
       // 접수증 수집: 각 결과 행(tr)에서 '접수증' 컬럼의 [보기] 버튼(= 행의 첫 '보기')만 클릭.
       // ★ 컬럼 순서상 '보기'는 접수증→납부서 순이라, 행마다 첫 '보기'만 잡으면 납부서 팝업(지방소득세) 부작용 없음.
       //   신고서 원본(접수번호 링크)은 리포트 뷰어 경로가 복잡해 별도 과제 — 여기선 접수증으로 수집.
@@ -1781,84 +1777,130 @@
         }
         return targets;
       }
-      let targets = collectPrintTargets();
-      console.log("SaveTax: 출력 대상 " + targets.length + "건 발견");
-      if (targets.length === 0) {
-        // 진단: 결과 그리드/버튼 구조를 덤프해 실제 내역 유무 vs 파싱 실패를 구분
-        try {
-          const docs = accessibleDocs();
-          console.log("SaveTax[진단]: 접근 가능 문서 수(메인+iframe) = " + docs.length);
-          for (let di = 0; di < docs.length; di++) {
-            const doc = docs[di];
-            const rows = doc.querySelectorAll("tr, .w2grid_dataArea tr, [class*='grid'] tr");
-            console.log(`SaveTax[진단]: 문서#${di} tr 개수 = ${rows.length}`);
-            const clickables = Array.from(doc.querySelectorAll("a, button, input[type='button'], input[type='image']"))
-              .filter(el => el.offsetParent !== null)
-              .map(el => (el.textContent || el.value || el.title || el.alt || "").trim())
-              .filter(t => t && t.length < 20);
-            console.log(`SaveTax[진단]: 문서#${di} 보이는 버튼/링크(<20자) 샘플 =`, JSON.stringify(clickables.slice(0, 40)));
-            // '자료가 없습니다' / '조회된 내역이 없습니다' 류 안내문 탐지
-            const emptyMsg = doc.evaluate("//*[contains(text(),'없습니다') or contains(text(),'조회 결과') or contains(text(),'자료가 없')]", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-            if (emptyMsg) console.log(`SaveTax[진단]: 문서#${di} 안내문 = "${(emptyMsg.textContent||'').trim().slice(0,60)}"`);
+
+      async function collectCurrentResults(yearLabel) {
+        let targets = collectPrintTargets();
+        console.log("SaveTax: [" + yearLabel + "] 출력 대상 " + targets.length + "건 발견");
+        if (targets.length === 0) {
+          // 진단: 결과 그리드/버튼 구조를 덤프해 실제 내역 유무 vs 파싱 실패를 구분
+          try {
+            const docs = accessibleDocs();
+            console.log("SaveTax[진단]: 접근 가능 문서 수(메인+iframe) = " + docs.length);
+            for (let di = 0; di < docs.length; di++) {
+              const doc = docs[di];
+              const rows = doc.querySelectorAll("tr, .w2grid_dataArea tr, [class*='grid'] tr");
+              console.log(`SaveTax[진단]: 문서#${di} tr 개수 = ${rows.length}`);
+              const clickables = Array.from(doc.querySelectorAll("a, button, input[type='button'], input[type='image']"))
+                .filter(el => el.offsetParent !== null)
+                .map(el => (el.textContent || el.value || el.title || el.alt || "").trim())
+                .filter(t => t && t.length < 20);
+              console.log(`SaveTax[진단]: 문서#${di} 보이는 버튼/링크(<20자) 샘플 =`, JSON.stringify(clickables.slice(0, 40)));
+              // '자료가 없습니다' / '조회된 내역이 없습니다' 류 안내문 탐지
+              const emptyMsg = doc.evaluate("//*[contains(text(),'없습니다') or contains(text(),'조회 결과') or contains(text(),'자료가 없')]", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+              if (emptyMsg) console.log(`SaveTax[진단]: 문서#${di} 안내문 = "${(emptyMsg.textContent||'').trim().slice(0,60)}"`);
+            }
+            console.log("SaveTax[진단]: 위 샘플에서 신고서 출력/보기에 해당하는 버튼 텍스트를 알려주면 셀렉터를 맞춥니다. (내역 자체가 없으면 '없습니다' 안내문이 보일 것)");
+          } catch (e) { console.log("SaveTax[진단]: 덤프 실패", e.message); }
+          return 0;
+        }
+        let count = 0;
+        const total = targets.length;
+        for (let idx = 0; idx < total; idx++) {
+          try {
+            // DOM이 갱신될 수 있어 매 반복마다 재수집
+            targets = collectPrintTargets();
+            const el = targets[idx];
+            if (!el) break;
+
+            // 파일명용 행 식별자(행 내 날짜) 추출, 없으면 순번
+            let rowKey = String(idx + 1);
+            try {
+              const row = el.closest("tr");
+              const m = row && row.textContent.match(/\d{4}[-.]\d{2}[-.]\d{2}/);
+              if (m) rowKey = m[0].replace(/[-.]/g, "");
+            } catch (e) {}
+
+            el.click();
+            console.log("SaveTax: [" + yearLabel + "] 출력 클릭 #" + (idx + 1) + "/" + total + " (" + rowKey + ")");
+            await sleep(5000);
+
+            // 확인/예 팝업이 있으면 눌러 새창 유도
+            try {
+              const yesBtn = await waitForXPath("//input[@value='예' or @value='확인'] | //button[normalize-space(text())='예' or normalize-space(text())='확인']", 2500);
+              if (yesBtn) { yesBtn.click(); await sleep(4000); }
+            } catch (e) {}
+
+            const fileName = rt.label + "_신고서_" + yearLabel + "_" + rowKey + ".pdf";
+            const result = await chrome.runtime.sendMessage({
+              type: "print-pdf",
+              clientName: creds.clientName || "거래처",
+              docName: rt.label + "_신고서_" + yearLabel + "_" + rowKey,
+              upload: (creds.clientId && creds.appOrigin) ? {
+                appOrigin: creds.appOrigin,
+                token: creds.token || "",
+                clientId: creds.clientId,
+                docType: docType,
+                taxYear: String(creds.taxYear || ""),
+                fileName: fileName,
+              } : null,
+            });
+            if (result && result.ok) {
+              count++;
+              console.log("SaveTax: " + fileName + " 저장 성공");
+            } else {
+              console.error("SaveTax: " + fileName + " 저장 실패 - " + (result?.error || ""));
+            }
+
+            // 리포트 탭 닫기
+            await sleep(1000);
+            try { await chrome.runtime.sendMessage({ type: "close-report-tab" }); } catch (e) {}
+            await sleep(1500);
+          } catch (e) {
+            console.error("SaveTax: [" + yearLabel + "] 출력 #" + (idx + 1) + " 실패 -", e.message);
           }
-          console.log("SaveTax[진단]: 위 샘플에서 신고서 출력/보기에 해당하는 버튼 텍스트를 알려주면 셀렉터를 맞춥니다. (내역 자체가 없으면 '없습니다' 안내문이 보일 것)");
-        } catch (e) { console.log("SaveTax[진단]: 덤프 실패", e.message); }
+        }
+        return count;
       }
 
+      const idNo = (creds.returnType === "vat" || creds.returnType === "corp")
+        ? (creds.bizNumber || creds.rn)
+        : (creds.rn || creds.bizNumber);
+
+      const windows = buildYearWindows(startDate, endDate);
+      console.log("SaveTax: 조회 구간 " + windows.length + "개 → " +
+        windows.map(w => w.s + "~" + w.e).join(", "));
+
       let collectedCount = 0;
-      const total = targets.length;
-      for (let idx = 0; idx < total; idx++) {
+      for (const win of windows) {
         try {
-          // DOM이 갱신될 수 있어 매 반복마다 재수집
-          targets = collectPrintTargets();
-          const el = targets[idx];
-          if (!el) break;
+          console.log("SaveTax: [" + win.y + "] 조회 시작 " + win.s + " ~ " + win.e);
 
-          // 파일명용 행 식별자(행 내 날짜) 추출, 없으면 순번
-          let rowKey = String(idx + 1);
-          try {
-            const row = el.closest("tr");
-            const m = row && row.textContent.match(/\d{4}[-.]\d{2}[-.]\d{2}/);
-            if (m) rowKey = m[0].replace(/[-.]/g, "");
-          } catch (e) {}
+          // (a) 날짜 입력
+          fillDateRange(win.s, win.e);
+          await sleep(800);
 
-          el.click();
-          console.log("SaveTax: 출력 클릭 #" + (idx + 1) + "/" + total + " (" + rowKey + ")");
-          await sleep(5000);
+          // (b) 주민/사업자 등록번호 입력 (조회마다 재입력 — 조회 후 초기화 대비)
+          fillIdNumber(idNo);
+          await sleep(500);
 
-          // 확인/예 팝업이 있으면 눌러 새창 유도
-          try {
-            const yesBtn = await waitForXPath("//input[@value='예' or @value='확인'] | //button[normalize-space(text())='예' or normalize-space(text())='확인']", 2500);
-            if (yesBtn) { yesBtn.click(); await sleep(4000); }
-          } catch (e) {}
-
-          const fileName = rt.label + "_신고서_" + rowKey + ".pdf";
-          const result = await chrome.runtime.sendMessage({
-            type: "print-pdf",
-            clientName: creds.clientName || "거래처",
-            docName: rt.label + "_신고서_" + rowKey,
-            upload: (creds.clientId && creds.appOrigin) ? {
-              appOrigin: creds.appOrigin,
-              token: creds.token || "",
-              clientId: creds.clientId,
-              docType: docType,
-              taxYear: String(creds.taxYear || ""),
-              fileName: fileName,
-            } : null,
-          });
-          if (result && result.ok) {
-            collectedCount++;
-            console.log("SaveTax: " + fileName + " 저장 성공");
-          } else {
-            console.error("SaveTax: " + fileName + " 저장 실패 - " + (result?.error || ""));
+          // (c) 조회 클릭  ← 기존 조회버튼 클릭 로직(input[value='조회'] 보이는 것 우선, 최대 3회 재시도)을 그대로 사용
+          let searchClicked = false;
+          for (let attempt = 0; attempt < 3 && !searchClicked; attempt++) {
+            const btns = Array.from(document.querySelectorAll("input[value='조회'], button, a, span"))
+              .filter(el => el.offsetParent !== null && ((el.value || "").trim() === "조회" || (el.textContent || "").trim() === "조회"));
+            if (btns.length) { btns[0].click(); searchClicked = true; console.log("SaveTax: [" + win.y + "] 조회 클릭"); }
+            else await sleep(1000);
           }
+          if (!searchClicked) { console.log("SaveTax: [" + win.y + "] 조회 버튼 못 찾음 — 이 구간 건너뜀"); continue; }
+          await sleep(6000);
 
-          // 리포트 탭 닫기
-          await sleep(1000);
-          try { await chrome.runtime.sendMessage({ type: "close-report-tab" }); } catch (e) {}
-          await sleep(1500);
+          // (d) 이 구간 결과 수집 (없으면 0 반환하고 다음 연도로 — "없으면 패스")
+          const gotThisWindow = await collectCurrentResults(win.y);
+          collectedCount += gotThisWindow;
+          if (gotThisWindow === 0) console.log("SaveTax: [" + win.y + "] 신고 내역 없음 — 패스");
+          else console.log("SaveTax: [" + win.y + "] " + gotThisWindow + "건 수집");
         } catch (e) {
-          console.error("SaveTax: 출력 #" + (idx + 1) + " 실패 -", e.message);
+          console.error("SaveTax: [" + win.y + "] 조회/수집 실패 -", e.message);
         }
       }
 
@@ -1874,7 +1916,7 @@
             taxYear: String(creds.taxYear || ""),
             // 1건 이상이면 collected(파일 업로드됨), 0건이면 empty(조회했으나 신고 내역 없음)
             status: collectedCount > 0 ? "collected" : "empty",
-            params: { startDate: startDate, endDate: endDate, count: String(collectedCount) },
+            params: { startDate: startDate, endDate: endDate, count: String(collectedCount), windows: String(windows.length) },
           });
           console.log("SaveTax: 앱 수집 상태 갱신 ->", JSON.stringify(markResult));
         } catch (e) {
