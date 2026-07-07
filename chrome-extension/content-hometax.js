@@ -1659,7 +1659,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.9 — 리포트 페이지수 프로브 후 추출");
+      console.log("SaveTax: content-hometax v4.10 — 프로브 읽기전용·전체프레임 비교 + 캡처디버그");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1921,6 +1921,7 @@
                 fileName: fileName,
               } : null,
             });
+            if (result && result.debug) console.log("SaveTax: [캡처디버그] " + JSON.stringify(result.debug).slice(0, 800));
             if (result && result.ok) {
               count++;
               console.log("SaveTax: " + fileName + " 저장 성공");

@@ -28,10 +28,10 @@ function viewerStateOf(tabId) {
 }
 chrome.tabs.onRemoved.addListener((tabId) => { delete popupViewerState[tabId]; });
 
-// 뷰어 프레임의 ClipReport 리포트 상태 프로브 (MAIN world)
-// 반환: { keys: 리포트 키 수, total: 총 페이지 추정(모르면 0), pageProps: 페이지 관련 속성 덤프 }
-// total 추정: 마지막 리포트 객체에서 (1) 이름에 total+page 가 함께 들어간 숫자 속성/메서드
-// (2) 없으면 이름에 page 가 들어간 숫자 속성 중 최댓값. 속성 덤프는 진단용(BG 콘솔 로그).
+// 뷰어 프레임의 ClipReport 리포트 상태 프로브 (MAIN world, 읽기 전용 — 함수 호출 금지)
+// total 판정(엄격): (1) id에 total+page 가 든 DOM 요소의 숫자 텍스트/값
+//                  (2) 리포트 객체의 이름에 total+page 가 든 "데이터" 숫자 속성
+// 둘 다 없으면 0 (그 외 page 계열 숫자는 후보 덤프로만 남김 — 버튼크기 등 오인 방지)
 async function probeViewerReport(tabId, frameId) {
   try {
     const results = await chrome.scripting.executeScript({
@@ -39,28 +39,36 @@ async function probeViewerReport(tabId, frameId) {
       world: "MAIN",
       func: () => {
         try {
-          var ks = Object.keys(window.m_reportHashMap || {});
-          if (!ks.length) return { keys: 0, total: 0, pageProps: {} };
-          var r = window.m_reportHashMap[ks[ks.length - 1]];
-          var pageProps = {};
-          var total = 0, pageMax = 0;
-          for (var p in r) {
-            if (!/page/i.test(p)) continue;
-            var v;
-            try { v = (typeof r[p] === "function" && r[p].length === 0) ? r[p]() : r[p]; } catch (e) { continue; }
-            if (typeof v !== "number" || !isFinite(v)) continue;
-            pageProps[p] = v;
-            if (/total/i.test(p) && v > total) total = v;
-            if (v > pageMax) pageMax = v;
+          var out = { keys: 0, total: 0, cands: [] };
+          // (1) DOM: id에 page 가 든 요소의 숫자값 후보 수집, total+page 는 판정에 사용
+          var els = document.querySelectorAll("[id*='page' i], [id*='Page']");
+          for (var i = 0; i < els.length && out.cands.length < 15; i++) {
+            var el = els[i];
+            var t = String(el.value != null && el.value !== "" ? el.value : (el.textContent || "")).trim();
+            if (!/^\d{1,4}$/.test(t)) continue;
+            out.cands.push((el.id || "?") + "=" + t);
+            if (/total/i.test(el.id) && /page/i.test(el.id)) out.total = Math.max(out.total, parseInt(t, 10));
           }
-          if (!total) total = pageMax;
-          return { keys: ks.length, total: total, pageProps: pageProps };
-        } catch (e) { return { keys: -1, total: 0, pageProps: { err: String(e && e.message) } }; }
+          // (2) 리포트 객체: 데이터 속성만 (함수 호출 금지)
+          var ks = Object.keys(window.m_reportHashMap || {});
+          out.keys = ks.length;
+          if (ks.length) {
+            var r = window.m_reportHashMap[ks[ks.length - 1]];
+            for (var p in r) {
+              if (!/page/i.test(p)) continue;
+              var v = r[p];
+              if (typeof v !== "number" || !isFinite(v)) continue;
+              if (out.cands.length < 25) out.cands.push("r." + p + "=" + v);
+              if (/total/i.test(p)) out.total = Math.max(out.total, v);
+            }
+          }
+          return out;
+        } catch (e) { return { keys: -1, total: 0, cands: ["err:" + String(e && e.message)] }; }
       },
     });
-    return (results && results[0] && results[0].result) || { keys: 0, total: 0, pageProps: {} };
+    return (results && results[0] && results[0].result) || { keys: 0, total: 0, cands: [] };
   } catch (e) {
-    return { keys: 0, total: 0, pageProps: { execErr: e.message } };
+    return { keys: 0, total: 0, cands: ["execErr:" + e.message] };
   }
 }
 
@@ -357,6 +365,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "print-pdf") {
     (async () => {
+      let captureDebug = null;
+      let frameCapture = null;
       try {
         // 리포트 탭 찾기: 홈택스 리포트 URL만 인정. 기본 15초 대기,
         // 신고서 일괄출력처럼 렌더가 긴 경우 msg.waitSec으로 연장(최대 300초)
@@ -365,7 +375,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // 캡처 대상 결정: (a) 리포트 새창(clipreport.do 탭) — 접수증 등 기존 흐름
         //               (b) 신고서보기 팝업(UTERNAAZ34) 안의 뷰어 iframe — 일괄출력 후 직접 추출
         let reportTab = null;
-        let frameCapture = null; // { tabId, frameId }
         for (let i = 0; i < waitSec * 2; i++) {
           const allTabs = await chrome.tabs.query({});
           reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
@@ -375,18 +384,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const st = popupTab && popupViewerState[popupTab.id];
           if (st && st.batchTime && st.readies.length) {
             const last = st.readies[st.readies.length - 1];
-            const quiet = Date.now() - last.time > 8000;       // 로드 보고 후 8초 안정화
+            const quiet = Date.now() - last.time > 8000;       // 마지막 로드 보고 후 8초 안정화
             const sinceBatch = Date.now() - st.batchTime;
-            // 캡처 판정을 시간이 아니라 리포트 상태로: 총 페이지 > 1 이면 전체 렌더 완료로 본다.
-            // (v4.8은 제자리 재렌더 시 120초 뒤 무조건 캡처해서 렌더 중인 1페이지 리포트가 업로드됨)
-            if (quiet && sinceBatch > 10000 && i % 4 === 0) {  // 2초 간격 폴링마다가 아니라 ~2초에 한 번
-              const probe = await probeViewerReport(popupTab.id, last.frameId);
-              if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브 keys=" + probe.keys + " total=" + probe.total
-                + " props=" + JSON.stringify(probe.pageProps).slice(0, 300));
-              const overdue = sinceBatch > 200000; // 200초 내 페이지 증가 없으면 현 상태로 강행(최후 폴백)
-              if ((probe.total > 1 && probe.keys > 0) || (overdue && probe.keys > 0)) {
-                if (overdue && probe.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(" + probe.total + "p)로 강행");
-                frameCapture = { tabId: popupTab.id, frameId: last.frameId, total: probe.total };
+            if (quiet && sinceBatch > 10000 && i % 4 === 0) {  // ~2초에 한 번 프로브
+              // 초기 뷰어/전체 리포트 프레임이 공존할 수 있어 모든 ready 프레임을 프로브해 비교
+              const frameIds = [...new Set(st.readies.map(r => r.frameId))];
+              const probes = [];
+              for (const fid of frameIds) {
+                const pr = await probeViewerReport(popupTab.id, fid);
+                probes.push({ frameId: fid, keys: pr.keys, total: pr.total, cands: pr.cands });
+              }
+              probes.sort((a, b) => b.total - a.total);
+              const best = probes[0];
+              captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, c: p.cands })) };
+              if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
+              const overdue = sinceBatch > 200000; // 최후 폴백
+              if (best && best.keys > 0 && (best.total > 1 || overdue)) {
+                if (overdue && best.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(" + best.total + "p)로 강행");
+                frameCapture = { tabId: popupTab.id, frameId: best.frameId, total: best.total };
                 break;
               }
             }
@@ -394,7 +409,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           await new Promise(r => setTimeout(r, 500));
         }
         if (!reportTab?.id && !frameCapture) {
-          sendResponse({ ok: false, error: "리포트(미리보기) 탭/뷰어 프레임을 찾지 못했습니다" });
+          sendResponse({ ok: false, error: "리포트(미리보기) 탭/뷰어 프레임을 찾지 못했습니다", debug: captureDebug });
           return;
         }
         if (frameCapture) console.log("SaveTax BG: 팝업 뷰어 프레임 직접 캡처 (tab=" + frameCapture.tabId + " frame=" + frameCapture.frameId + " total=" + frameCapture.total + ")");
@@ -471,9 +486,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         globalThis._savetaxReportTabId = reportTab ? reportTab.id : null;
 
         if (frameCapture) delete popupViewerState[frameCapture.tabId];
-        sendResponse({ ok: true, uploaded, uploadError });
+        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, probes: captureDebug && captureDebug.probes } : null });
       } catch (e) {
-        sendResponse({ ok: false, error: e.message });
+        sendResponse({ ok: false, error: e.message, debug: captureDebug });
       }
     })();
     return true;
