@@ -59,7 +59,8 @@ async function probeViewerReport(tabId, frameId) {
               var v = r[p];
               if (typeof v !== "number" || !isFinite(v)) continue;
               if (out.cands.length < 25) out.cands.push("r." + p + "=" + v);
-              if (/total/i.test(p)) out.total = Math.max(out.total, v);
+              // 실측: ClipReport 총 페이지 속성은 m_pageCount (2026-07 캡처디버그로 확정)
+              if (p === "m_pageCount" || /total/i.test(p)) out.total = Math.max(out.total, v);
             }
           }
           return out;
@@ -398,9 +399,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               const best = probes[0];
               captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, c: p.cands })) };
               if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
+              // 일괄출력 클릭 "이후" 로드된 프레임의 리포트는 곧 일괄출력 결과물 → m_pageCount가
+              // 1이어도 그게 전체(진짜 1페이지 신고서)이므로 즉시 캡처. 제자리 재렌더(프레임
+              // 미교체)만 total>1 또는 200초 폴백으로 판정.
+              const bestReadyTime = best ? Math.max(0, ...st.readies.filter(r => r.frameId === best.frameId).map(r => r.time)) : 0;
+              const bestPostBatch = bestReadyTime > st.batchTime;
               const overdue = sinceBatch > 200000; // 최후 폴백
-              if (best && best.keys > 0 && (best.total > 1 || overdue)) {
-                if (overdue && best.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(" + best.total + "p)로 강행");
+              if (best && best.keys > 0 && best.total >= 1 && (bestPostBatch || best.total > 1 || overdue)) {
+                if (!bestPostBatch && overdue && best.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(" + best.total + "p)로 강행");
                 frameCapture = { tabId: popupTab.id, frameId: best.frameId, total: best.total };
                 break;
               }
