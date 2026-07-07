@@ -17,13 +17,24 @@ allowHometaxPopups();
 chrome.runtime.onInstalled.addListener(allowHometaxPopups);
 chrome.runtime.onStartup.addListener(allowHometaxPopups);
 
+// 신고서보기 팝업(UTERNAAZ34)의 ClipReport 뷰어 프레임 추적
+// content의 viewer-frame-ready(뷰어 프레임 로드) / batch-clicked(일괄출력 클릭) 보고를 모아,
+// print-pdf가 "일괄출력 이후 로드된 뷰어 프레임"을 전체 리포트로 보고
+// 그 프레임에서 pdfDownLoad()를 직접 호출한다.
+const popupViewerState = {}; // tabId -> { readies: [{frameId, time}], batchTime: number|null }
+function viewerStateOf(tabId) {
+  if (!popupViewerState[tabId]) popupViewerState[tabId] = { readies: [], batchTime: null };
+  return popupViewerState[tabId];
+}
+chrome.tabs.onRemoved.addListener((tabId) => { delete popupViewerState[tabId]; });
+
 // 홈택스 리포트 뷰어(ClipReport)의 네이티브 PDF 저장(pdfDownLoad)을 호출하고
 // 그 PDF 응답을 디버거 Fetch 도메인으로 가로채 base64로 반환한다.
 //  - 화면 캡처(Page.printToPDF)와 달리 툴바 없이 전체 페이지가 담긴 벡터 PDF가 나온다.
 //  - 캡처 성공 시 로컬 다운로드는 Abort 시켜 사용자 다운로드 폴더를 더럽히지 않는다.
 //  - 실패(메서드 없음/네트워크 아님/타임아웃) 시 null 반환 → 호출측이 printToPDF로 폴백.
 // ★ 전제: 디버거가 이미 tabId에 attach 되어 있어야 함(호출측에서 attach/detach 관리).
-async function captureClipReportPdf(tabId, timeoutMs = 30000) {
+async function captureClipReportPdf(tabId, timeoutMs = 30000, frameId = null) {
   return await new Promise(async (resolve) => {
     let done = false;
     const finish = (val) => {
@@ -62,12 +73,31 @@ async function captureClipReportPdf(tabId, timeoutMs = 30000) {
       await chrome.debugger.sendCommand({ tabId }, "Fetch.enable", {
         patterns: [{ urlPattern: "*", requestStage: "Response" }],
       });
-      const evalRes = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
-        expression: "(function(){try{var ks=Object.keys(m_reportHashMap||{});if(!ks.length)return 'nokey';m_reportHashMap[ks[0]].pdfDownLoad();return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()",
-        returnByValue: true,
-      });
-      const verdict = evalRes?.result?.value;
-      console.log("SaveTax BG: ClipReport pdfDownLoad 호출 ->", verdict);
+      let verdict;
+      if (frameId != null) {
+        // 뷰어가 팝업 안 교차출처 iframe인 경우: scripting API로 해당 프레임 MAIN world에서 호출
+        const results = await chrome.scripting.executeScript({
+          target: { tabId, frameIds: [frameId] },
+          world: "MAIN",
+          func: () => {
+            try {
+              var ks = Object.keys(window.m_reportHashMap || {});
+              if (!ks.length) return "nokey";
+              // 일괄출력 재조회로 리포트가 추가됐을 수 있어 가장 최신(마지막) 리포트 사용
+              window.m_reportHashMap[ks[ks.length - 1]].pdfDownLoad();
+              return "ok";
+            } catch (e) { return "err:" + (e && e.message); }
+          },
+        });
+        verdict = results && results[0] ? results[0].result : "noresult";
+      } else {
+        const evalRes = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
+          expression: "(function(){try{var ks=Object.keys(m_reportHashMap||{});if(!ks.length)return 'nokey';m_reportHashMap[ks[0]].pdfDownLoad();return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()",
+          returnByValue: true,
+        });
+        verdict = evalRes?.result?.value;
+      }
+      console.log("SaveTax BG: ClipReport pdfDownLoad 호출" + (frameId != null ? "(frame " + frameId + ")" : "") + " ->", verdict);
       if (typeof verdict !== "string" || verdict !== "ok") {
         finish(null);
         return;
@@ -265,6 +295,30 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // 신고서보기 팝업 뷰어 추적용 시그널 (content → background)
+  if (msg.type === "viewer-frame-ready") {
+    if (sender.tab?.id != null && sender.frameId != null) {
+      const st = viewerStateOf(sender.tab.id);
+      st.readies.push({ frameId: sender.frameId, time: Date.now() });
+      console.log("SaveTax BG: 뷰어 프레임 로드 tab=" + sender.tab.id + " frame=" + sender.frameId + " (총 " + st.readies.length + "개)");
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+  if (msg.type === "batch-clicked") {
+    if (sender.tab?.id != null) {
+      viewerStateOf(sender.tab.id).batchTime = Date.now();
+      console.log("SaveTax BG: 일괄출력 클릭 보고 tab=" + sender.tab.id);
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+  if (msg.type === "viewer-ready-count") {
+    const st = sender.tab?.id != null ? popupViewerState[sender.tab.id] : null;
+    sendResponse({ ok: true, count: st ? st.readies.length : 0 });
+    return false;
+  }
+
   if (msg.type === "print-pdf") {
     (async () => {
       try {
@@ -272,29 +326,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // 신고서 일괄출력처럼 렌더가 긴 경우 msg.waitSec으로 연장(최대 300초)
         // ★ "마지막 탭" 폴백 금지 — 사용자가 보던 무관한 탭을 PDF로 찍어버리는 사고 방지
         const waitSec = Math.min(Math.max(Number(msg.waitSec) || 15, 15), 300);
+        // 캡처 대상 결정: (a) 리포트 새창(clipreport.do 탭) — 접수증 등 기존 흐름
+        //               (b) 신고서보기 팝업(UTERNAAZ34) 안의 뷰어 iframe — 일괄출력 후 직접 추출
         let reportTab = null;
+        let frameCapture = null; // { tabId, frameId }
         for (let i = 0; i < waitSec * 2; i++) {
           const allTabs = await chrome.tabs.query({});
           reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
           if (reportTab && reportTab.status === "complete") break;
+          reportTab = null;
+          const popupTab = allTabs.find(t => t.url && t.url.includes("popup.html") && t.url.includes("UTERNAAZ34"));
+          const st = popupTab && popupViewerState[popupTab.id];
+          if (st && st.batchTime && st.readies.length) {
+            const last = st.readies[st.readies.length - 1];
+            const quiet = Date.now() - last.time > 8000;      // 로드 보고 후 8초 안정화
+            const postBatch = last.time > st.batchTime;        // 일괄출력 이후 로드된 프레임 = 전체 리포트
+            const overdue = Date.now() - st.batchTime > 120000; // 프레임이 새로 안 뜨면(제자리 재렌더) 120초 후 기존 프레임으로 강행
+            if (quiet && (postBatch || overdue)) {
+              frameCapture = { tabId: popupTab.id, frameId: last.frameId, postBatch };
+              break;
+            }
+          }
           await new Promise(r => setTimeout(r, 500));
         }
-        if (!reportTab?.id || reportTab.status !== "complete") {
-          sendResponse({ ok: false, error: "리포트(미리보기) 탭을 찾지 못했습니다" });
+        if (!reportTab?.id && !frameCapture) {
+          sendResponse({ ok: false, error: "리포트(미리보기) 탭/뷰어 프레임을 찾지 못했습니다" });
           return;
         }
+        if (frameCapture) console.log("SaveTax BG: 팝업 뷰어 프레임 직접 캡처 (tab=" + frameCapture.tabId + " frame=" + frameCapture.frameId + " postBatch=" + frameCapture.postBatch + ")");
 
         let pdfBase64 = null;
         let captureMethod = null;
-        await chrome.debugger.attach({ tabId: reportTab.id }, "1.3");
+        const targetTabId = reportTab ? reportTab.id : frameCapture.tabId;
+        await chrome.debugger.attach({ tabId: targetTabId }, "1.3");
         try {
           // 1순위: ClipReport 네이티브 PDF 저장(pdfDownLoad) — 툴바 없는 전체 벡터 PDF
-          pdfBase64 = await captureClipReportPdf(reportTab.id);
+          pdfBase64 = await captureClipReportPdf(targetTabId, 30000, frameCapture ? frameCapture.frameId : null);
           if (pdfBase64) captureMethod = "clipreport-pdf";
 
-          // 폴백: 화면 인쇄(printToPDF) — 네이티브 저장이 안 될 때만
-          if (!pdfBase64) {
-            const result = await chrome.debugger.sendCommand({ tabId: reportTab.id }, "Page.printToPDF", {
+          // 폴백: 화면 인쇄(printToPDF) — 네이티브 저장이 안 될 때만 (reportTab 경로일 때만 실행)
+          if (!pdfBase64 && reportTab) {
+            const result = await chrome.debugger.sendCommand({ tabId: targetTabId }, "Page.printToPDF", {
               printBackground: true,
               preferCSSPageSize: true,
               paperWidth: 8.27,
@@ -303,8 +375,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             pdfBase64 = result.data;
             captureMethod = "print-to-pdf";
           }
+          if (!pdfBase64) throw new Error("뷰어 프레임 PDF 추출 실패(pdfDownLoad)");
         } finally {
-          try { await chrome.debugger.detach({ tabId: reportTab.id }); } catch (e) {}
+          try { await chrome.debugger.detach({ tabId: targetTabId }); } catch (e) {}
         }
         console.log("SaveTax BG: PDF 캡처 방식 =", captureMethod);
         const result = { data: pdfBase64 };
@@ -351,8 +424,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
 
         // 리포트 탭 ID 저장 (close-report-tab에서 사용)
-        globalThis._savetaxReportTabId = reportTab.id;
+        globalThis._savetaxReportTabId = reportTab ? reportTab.id : null;
 
+        if (frameCapture) delete popupViewerState[frameCapture.tabId];
         sendResponse({ ok: true, uploaded, uploadError });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });

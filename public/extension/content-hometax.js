@@ -18,192 +18,80 @@
 })();
 
 // 신고서보기 '종합소득세 신고서 보기' 팝업(UTERNAAZ34) 자동 처리
-// → [일괄출력](#mf_triMatePrint) 클릭 → 뷰어가 전체 페이지(예: 1/33)로 재렌더될 때까지 대기
-// → 프린터 아이콘 클릭 → clipreport.do PDF. (일괄출력 없이 바로 찍으면 첫 서식 1장만 담김)
+// v4.8: 프린터 클릭(새 인쇄창) 경로 폐기. 여기서는 [일괄출력]만 클릭하고,
+// PDF 추출은 background가 뷰어 프레임(sesw clipreport.do)에서 pdfDownLoad()를 직접 호출해 수행.
+// 순서 보장: 초기 뷰어 프레임이 로드된 "뒤에" 일괄출력을 클릭해야, 클릭 이후 새로 로드되는
+// 뷰어 프레임 = 전체 리포트(1/33)로 background가 시간 순서만으로 식별할 수 있다.
 (function autoPrintReturnViewer() {
   if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   if (!location.href.includes("UTERNAAZ34")) return;
   console.log("SaveTax: [팝업] 신고서 보기 팝업 감지 — 일괄출력 대기 @ " + location.href);
-  // 리포트 뷰어가 iframe 안일 수 있어 document + 접근 가능한 iframe 모두 탐색
-  function docs() {
-    const list = [document];
-    for (const f of document.querySelectorAll("iframe")) { try { if (f.contentDocument) list.push(f.contentDocument); } catch (e) {} }
-    return list;
-  }
-  function findPrintIcon() {
-    const sel = "img[src*='print' i], img[src*='btn_print' i], [id*='print' i], [title*='인쇄'], [title*='출력'], [alt*='인쇄'], [alt*='출력'], a[class*='print'], button[class*='print']";
-    for (const d of docs()) {
-      const el = d.querySelector(sel);
-      if (el && el.offsetParent !== null) return el;
-    }
-    return null;
-  }
-  // WebSquare 버튼은 synthetic .click()만으로 핸들러가 안 걸리는 경우가 있어 마우스 이벤트 시퀀스로 클릭
   function realClick(el) {
     for (const type of ["mousedown", "mouseup", "click"]) {
       el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
     }
   }
-  // 일괄출력 버튼: 알려진 ID → ID 부분일치(팝업에선 wframe 프리픽스가 붙음) → 텍스트/value 정확일치 순.
-  // 안내문("※ 일괄출력하려면 …")은 텍스트가 길어 정확일치에서 자동 제외됨. iframe 내부까지 탐색.
   function findBatchBtn() {
-    for (const d of docs()) {
-      const byId = d.getElementById("mf_triMatePrint") || d.querySelector("[id*='triMatePrint']");
-      if (byId && byId.offsetParent !== null) return byId;
-      const byText = Array.from(d.querySelectorAll("input[type='button'], input[type='submit'], button, a"))
-        .find(el => el.offsetParent !== null && ((el.value || el.textContent || "").trim() === "일괄출력"));
-      if (byText) return byText;
-    }
-    return null;
+    const byId = document.getElementById("mf_triMatePrint") || document.querySelector("[id*='triMatePrint']");
+    if (byId && byId.offsetParent !== null) return byId;
+    return Array.from(document.querySelectorAll("input[type='button'], input[type='submit'], button, a"))
+      .find(el => el.offsetParent !== null && ((el.value || el.textContent || "").trim() === "일괄출력")) || null;
   }
-  // 뷰어 페이지네이션의 "/ 33" 총페이지 텍스트 파싱 (없으면 0)
-  function totalPages() {
-    let max = 0;
-    for (const d of docs()) {
-      for (const el of d.querySelectorAll("span, div, label, td")) {
-        if (el.children.length > 0 || el.offsetParent === null) continue;
-        const m = (el.textContent || "").trim().match(/^\d*\s*\/\s*(\d+)$/);
-        if (m) max = Math.max(max, parseInt(m[1], 10));
-      }
-    }
-    return max;
-  }
-  const RENDER_TIMEOUT = 180; // 일괄출력 재렌더 최대 대기(초) — 초과 시 현 상태로 인쇄 강행
-  const SETTLE_TICKS = 3;     // 총페이지 증가 감지 후 안정화 대기(초)
-  let batchClicked = false, printClicked = false, ticks = 0;
-  let baseTotal = 0, batchTick = 0, grownTick = 0;
-
-  // 뷰어가 교차출처 iframe이면 직접 접근 불가 → 프레임 도우미(clipViewerFrameHelper)가
-  // postMessage로 총페이지를 보고하고, 인쇄 명령(click-print)을 수신해 대신 클릭한다.
-  let frameTotal = 0, framePrintClicked = false;
-  window.addEventListener("message", (ev) => {
-    const d = ev.data;
-    if (!d || !d.savetax) return;
-    if (d.savetax === "viewer-status") frameTotal = Math.max(frameTotal, Number(d.total) || 0);
-    if (d.savetax === "print-clicked") framePrintClicked = true;
-  });
-
-  const iv = setInterval(() => {
-    ticks++;
-    // 1. 일괄출력 클릭 (confirm '2~3분 소요'는 suppress-alert가 자동 확인)
-    if (!batchClicked) {
+  let batchClicked = false, ticks = 0, busy = false;
+  const iv = setInterval(async () => {
+    if (batchClicked || busy) return;
+    busy = true;
+    try {
+      ticks++;
       const batchBtn = findBatchBtn();
-      if (batchBtn) {
-        baseTotal = Math.max(totalPages(), frameTotal);
-        realClick(batchBtn);
-        batchClicked = true;
-        batchTick = ticks;
-        console.log("SaveTax: [팝업] 일괄출력 클릭 (" + (batchBtn.id || batchBtn.value || batchBtn.textContent || "?").trim()
-          + ", 현재 총페이지 " + baseTotal + ") — 전체 렌더 대기(최대 " + RENDER_TIMEOUT + "초)");
-      } else if (ticks % 15 === 0) {
-        // 진단: 버튼을 못 찾는 경우 화면의 클릭 가능 요소 텍스트를 덤프해 셀렉터를 맞출 수 있게 함
-        const seen = [];
-        for (const d of docs()) {
-          for (const el of d.querySelectorAll("a, button, input[type='button'], input[type='submit']")) {
-            if (el.offsetParent === null) continue;
-            const t = (el.value || el.textContent || el.title || "").trim();
-            if (t && t.length < 20) seen.push(t);
-          }
-        }
-        console.log("SaveTax: [팝업] 일괄출력 버튼 못 찾음 (" + ticks + "s) — 보이는 버튼:", JSON.stringify(seen.slice(0, 30)));
+      if (!batchBtn) {
+        if (ticks % 15 === 0) console.log("SaveTax: [팝업] 일괄출력 버튼 대기중... (" + ticks + "s)");
+        return;
       }
-      return;
-    }
-    if (printClicked) return;
-    // 2. 전체 페이지 재렌더 대기: 총페이지가 늘어난 뒤 SETTLE_TICKS 지나면 인쇄.
-    //    페이지 수가 안 늘면(단일 서식 등) RENDER_TIMEOUT 후 강행.
-    const cur = Math.max(totalPages(), frameTotal);
-    // cur > 1 조건: 일괄출력 클릭 시점에 뷰어 프레임이 아직 안 떠서 baseTotal=0이면,
-    // 초기 뷰어(1/1) 로드만으로 0→1 증가가 잡혀 첫 서식 1장만 인쇄되는 오판 방지
-    if (cur > Math.max(baseTotal, 1) && grownTick === 0) {
-      grownTick = ticks;
-      console.log("SaveTax: [팝업] 전체 렌더 감지 — 총페이지 " + baseTotal + " → " + cur);
-    }
-    const ready = (grownTick > 0 && ticks - grownTick >= SETTLE_TICKS) || (ticks - batchTick >= RENDER_TIMEOUT);
-    if (!ready) {
-      if (ticks % 15 === 0) console.log("SaveTax: [팝업] 전체 렌더 대기중... (" + ticks + "s, 총페이지 " + cur + ")");
-      return;
-    }
-    if (grownTick === 0) console.log("SaveTax: [팝업] " + RENDER_TIMEOUT + "초 내 페이지 증가 없음 — 현 상태(" + cur + "p)로 인쇄 강행");
-    // 3. 프린터 클릭 — 최상위 문서에서 찾으면 직접, 못 찾으면(교차출처 iframe) 프레임에 인쇄 명령
-    if (framePrintClicked) {
-      printClicked = true;
-      console.log("SaveTax: [팝업] 뷰어프레임에서 프린터 클릭 완료");
-      clearInterval(iv);
-      return;
-    }
-    const printIcon = findPrintIcon();
-    if (printIcon) {
-      realClick(printIcon);
-      printClicked = true;
-      console.log("SaveTax: [팝업] 프린터 아이콘 클릭 (" + (printIcon.id || printIcon.title || printIcon.alt || printIcon.className) + ")");
-      clearInterval(iv);
-      return;
-    }
-    if (ticks % 3 === 0) {
-      let sent = 0;
-      for (const f of document.querySelectorAll("iframe")) {
-        try { f.contentWindow.postMessage({ savetax: "click-print" }, "*"); sent++; } catch (e) {}
+      // 초기 뷰어 프레임 로드 확인 (최대 30초 대기, 이후 강행)
+      let readyCount = 0;
+      try {
+        const r = await chrome.runtime.sendMessage({ type: "viewer-ready-count" });
+        readyCount = (r && r.count) || 0;
+      } catch (e) {}
+      if (readyCount === 0 && ticks < 30) {
+        if (ticks % 5 === 0) console.log("SaveTax: [팝업] 초기 뷰어 로드 대기중... (" + ticks + "s)");
+        return;
       }
-      console.log("SaveTax: [팝업] 프레임에 인쇄 명령 전송 (" + sent + "개 iframe, " + ticks + "s)");
-    }
+      realClick(batchBtn);
+      batchClicked = true;
+      try { await chrome.runtime.sendMessage({ type: "batch-clicked" }); } catch (e) {}
+      console.log("SaveTax: [팝업] 일괄출력 클릭 (" + (batchBtn.id || "?") + ", 초기뷰어 " + readyCount
+        + "개 확인) — 이후 PDF 추출은 background가 뷰어 프레임에서 직접 수행");
+      clearInterval(iv);
+    } finally { busy = false; }
   }, 1000);
   setTimeout(() => clearInterval(iv), 300000);
 })();
 
-// ClipReport 뷰어 iframe 도우미 (manifest all_frames 주입으로 실행됨)
-// 신고서보기 팝업의 뷰어는 교차출처 iframe이라 팝업 최상위에서 총페이지/프린터 버튼에
-// 접근할 수 없다. 프레임 안에서 직접 읽고 클릭하며 postMessage로 최상위와 통신한다.
+// ClipReport 뷰어 iframe 도우미 (all_frames 주입으로 실행)
+// 뷰어 프레임 로드를 background에 보고한다(sender.tab.id/frameId 자동 포함).
+// background는 "일괄출력 클릭 이후 로드된 뷰어 프레임"을 전체 리포트로 보고
+// 그 프레임에서 pdfDownLoad()를 직접 호출한다.
 (function clipViewerFrameHelper() {
   if (window === window.top) return; // iframe 전용
-  function totalPages() {
-    let max = 0;
-    for (const el of document.querySelectorAll("span, div, label, td")) {
-      if (el.children.length > 0 || el.offsetParent === null) continue;
-      const m = (el.textContent || "").trim().match(/^\d*\s*\/\s*(\d+)$/);
-      if (m) max = Math.max(max, parseInt(m[1], 10));
-    }
-    return max;
-  }
   function findPrintIcon() {
-    // 실측 DOM: <button title="인쇄" id="re_print..." class="report_menu_print_button ...">
-    const sel = "button[title='인쇄'], [id^='re_print'], button[class*='report_menu_print'], img[src*='print' i], [id*='print' i], [title*='인쇄'], [title*='출력'], a[class*='print'], button[class*='print']";
+    const sel = "button[title='인쇄'], [id^='re_print'], button[class*='report_menu_print'], img[src*='print' i], a[class*='print'], button[class*='print']";
     for (const el of document.querySelectorAll(sel)) {
       if (el.offsetParent !== null && !el.disabled) return el;
     }
     return null;
   }
-  function realClick(el) {
-    for (const type of ["mousedown", "mouseup", "click"]) {
-      el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
-    }
-  }
-  // ClipReport 뷰어로 보이는 프레임에서만 통신 시작 (총페이지 표기나 프린터 버튼이 있을 때)
-  let announced = false, printClicked = false;
-  window.addEventListener("message", (ev) => {
-    const d = ev.data;
-    if (!d || d.savetax !== "click-print" || printClicked) return;
-    if (ev.source !== window.parent && ev.source !== window.top) return;
-    const icon = findPrintIcon();
-    if (icon) {
-      printClicked = true;
-      realClick(icon);
-      console.log("SaveTax: [뷰어프레임] 프린터 클릭 (" + (icon.id || icon.title || icon.className) + ")");
-      try { window.top.postMessage({ savetax: "print-clicked" }, "*"); } catch (e) {}
-    } else {
-      console.log("SaveTax: [뷰어프레임] 인쇄 명령 수신했으나 프린터 버튼 못 찾음");
-    }
-  });
-  const rep = setInterval(() => {
-    const total = totalPages();
-    if (!announced && (total > 0 || findPrintIcon())) {
-      announced = true;
-      console.log("SaveTax: [뷰어프레임] ClipReport 뷰어 감지 @ " + location.href.slice(0, 100));
-    }
-    if (!announced) return;
-    try { window.top.postMessage({ savetax: "viewer-status", total: total }, "*"); } catch (e) {}
-  }, 1000);
-  setTimeout(() => clearInterval(rep), 600000);
+  let notified = false;
+  const iv = setInterval(() => {
+    if (notified) return;
+    if (!findPrintIcon()) return; // 뷰어 UI(인쇄 버튼)가 뜬 프레임만 뷰어로 인정
+    notified = true;
+    clearInterval(iv);
+    console.log("SaveTax: [뷰어프레임] ClipReport 뷰어 감지 @ " + location.href.slice(0, 100));
+    try { chrome.runtime.sendMessage({ type: "viewer-frame-ready" }); } catch (e) {}
+  }, 500);
+  setTimeout(() => clearInterval(iv), 600000);
 })();
 
 // suppress-alert.js(MAIN)가 설정한 savetax_login_done 쿠키 감시 → chrome.storage로 전달
@@ -1771,7 +1659,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.7 — 뷰어 iframe 프린터 클릭(all_frames) + 팝업 수집모드 차단");
+      console.log("SaveTax: content-hometax v4.8 — 뷰어 프레임 pdfDownLoad 직접 추출");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
