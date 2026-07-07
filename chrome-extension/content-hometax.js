@@ -2,6 +2,7 @@
 // → 클릭하면 실제 신고서 리포트(clipreport.do 새창)가 뜨고 background print-pdf가 저장한다.
 // 기본값 '개인정보 비공개'를 그대로 두고 적용(신고 내용은 그대로 보임, 주민번호만 마스킹).
 (function autoApplyDisclosurePopup() {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   if (!location.href.includes("UTERNAAZ39")) return;
   console.log("SaveTax: [팝업] 공개여부 선택 팝업 감지 — 적용 대기");
   const iv = setInterval(() => {
@@ -20,6 +21,7 @@
 // → [일괄출력](#mf_triMatePrint) 클릭 → 뷰어가 전체 페이지(예: 1/33)로 재렌더될 때까지 대기
 // → 프린터 아이콘 클릭 → clipreport.do PDF. (일괄출력 없이 바로 찍으면 첫 서식 1장만 담김)
 (function autoPrintReturnViewer() {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   if (!location.href.includes("UTERNAAZ34")) return;
   console.log("SaveTax: [팝업] 신고서 보기 팝업 감지 — 일괄출력 대기 @ " + location.href);
   // 리포트 뷰어가 iframe 안일 수 있어 document + 접근 가능한 iframe 모두 탐색
@@ -60,7 +62,7 @@
     for (const d of docs()) {
       for (const el of d.querySelectorAll("span, div, label, td")) {
         if (el.children.length > 0 || el.offsetParent === null) continue;
-        const m = (el.textContent || "").trim().match(/^\/\s*(\d+)$/);
+        const m = (el.textContent || "").trim().match(/^\d*\s*\/\s*(\d+)$/);
         if (m) max = Math.max(max, parseInt(m[1], 10));
       }
     }
@@ -70,13 +72,24 @@
   const SETTLE_TICKS = 3;     // 총페이지 증가 감지 후 안정화 대기(초)
   let batchClicked = false, printClicked = false, ticks = 0;
   let baseTotal = 0, batchTick = 0, grownTick = 0;
+
+  // 뷰어가 교차출처 iframe이면 직접 접근 불가 → 프레임 도우미(clipViewerFrameHelper)가
+  // postMessage로 총페이지를 보고하고, 인쇄 명령(click-print)을 수신해 대신 클릭한다.
+  let frameTotal = 0, framePrintClicked = false;
+  window.addEventListener("message", (ev) => {
+    const d = ev.data;
+    if (!d || !d.savetax) return;
+    if (d.savetax === "viewer-status") frameTotal = Math.max(frameTotal, Number(d.total) || 0);
+    if (d.savetax === "print-clicked") framePrintClicked = true;
+  });
+
   const iv = setInterval(() => {
     ticks++;
     // 1. 일괄출력 클릭 (confirm '2~3분 소요'는 suppress-alert가 자동 확인)
     if (!batchClicked) {
       const batchBtn = findBatchBtn();
       if (batchBtn) {
-        baseTotal = totalPages();
+        baseTotal = Math.max(totalPages(), frameTotal);
         realClick(batchBtn);
         batchClicked = true;
         batchTick = ticks;
@@ -99,8 +112,10 @@
     if (printClicked) return;
     // 2. 전체 페이지 재렌더 대기: 총페이지가 늘어난 뒤 SETTLE_TICKS 지나면 인쇄.
     //    페이지 수가 안 늘면(단일 서식 등) RENDER_TIMEOUT 후 강행.
-    const cur = totalPages();
-    if (cur > baseTotal && grownTick === 0) {
+    const cur = Math.max(totalPages(), frameTotal);
+    // cur > 1 조건: 일괄출력 클릭 시점에 뷰어 프레임이 아직 안 떠서 baseTotal=0이면,
+    // 초기 뷰어(1/1) 로드만으로 0→1 증가가 잡혀 첫 서식 1장만 인쇄되는 오판 방지
+    if (cur > Math.max(baseTotal, 1) && grownTick === 0) {
       grownTick = ticks;
       console.log("SaveTax: [팝업] 전체 렌더 감지 — 총페이지 " + baseTotal + " → " + cur);
     }
@@ -110,22 +125,90 @@
       return;
     }
     if (grownTick === 0) console.log("SaveTax: [팝업] " + RENDER_TIMEOUT + "초 내 페이지 증가 없음 — 현 상태(" + cur + "p)로 인쇄 강행");
-    // 3. 프린터 아이콘 클릭
+    // 3. 프린터 클릭 — 최상위 문서에서 찾으면 직접, 못 찾으면(교차출처 iframe) 프레임에 인쇄 명령
+    if (framePrintClicked) {
+      printClicked = true;
+      console.log("SaveTax: [팝업] 뷰어프레임에서 프린터 클릭 완료");
+      clearInterval(iv);
+      return;
+    }
     const printIcon = findPrintIcon();
     if (printIcon) {
       realClick(printIcon);
       printClicked = true;
       console.log("SaveTax: [팝업] 프린터 아이콘 클릭 (" + (printIcon.id || printIcon.title || printIcon.alt || printIcon.className) + ")");
       clearInterval(iv);
-    } else if (ticks % 15 === 0) {
-      console.log("SaveTax: [팝업] 프린터 아이콘 대기중... (" + ticks + "s) — 안 나타나면 요소 확인 필요");
+      return;
+    }
+    if (ticks % 3 === 0) {
+      let sent = 0;
+      for (const f of document.querySelectorAll("iframe")) {
+        try { f.contentWindow.postMessage({ savetax: "click-print" }, "*"); sent++; } catch (e) {}
+      }
+      console.log("SaveTax: [팝업] 프레임에 인쇄 명령 전송 (" + sent + "개 iframe, " + ticks + "s)");
     }
   }, 1000);
   setTimeout(() => clearInterval(iv), 300000);
 })();
 
+// ClipReport 뷰어 iframe 도우미 (manifest all_frames 주입으로 실행됨)
+// 신고서보기 팝업의 뷰어는 교차출처 iframe이라 팝업 최상위에서 총페이지/프린터 버튼에
+// 접근할 수 없다. 프레임 안에서 직접 읽고 클릭하며 postMessage로 최상위와 통신한다.
+(function clipViewerFrameHelper() {
+  if (window === window.top) return; // iframe 전용
+  function totalPages() {
+    let max = 0;
+    for (const el of document.querySelectorAll("span, div, label, td")) {
+      if (el.children.length > 0 || el.offsetParent === null) continue;
+      const m = (el.textContent || "").trim().match(/^\d*\s*\/\s*(\d+)$/);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return max;
+  }
+  function findPrintIcon() {
+    // 실측 DOM: <button title="인쇄" id="re_print..." class="report_menu_print_button ...">
+    const sel = "button[title='인쇄'], [id^='re_print'], button[class*='report_menu_print'], img[src*='print' i], [id*='print' i], [title*='인쇄'], [title*='출력'], a[class*='print'], button[class*='print']";
+    for (const el of document.querySelectorAll(sel)) {
+      if (el.offsetParent !== null && !el.disabled) return el;
+    }
+    return null;
+  }
+  function realClick(el) {
+    for (const type of ["mousedown", "mouseup", "click"]) {
+      el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+    }
+  }
+  // ClipReport 뷰어로 보이는 프레임에서만 통신 시작 (총페이지 표기나 프린터 버튼이 있을 때)
+  let announced = false, printClicked = false;
+  window.addEventListener("message", (ev) => {
+    const d = ev.data;
+    if (!d || d.savetax !== "click-print" || printClicked) return;
+    if (ev.source !== window.parent && ev.source !== window.top) return;
+    const icon = findPrintIcon();
+    if (icon) {
+      printClicked = true;
+      realClick(icon);
+      console.log("SaveTax: [뷰어프레임] 프린터 클릭 (" + (icon.id || icon.title || icon.className) + ")");
+      try { window.top.postMessage({ savetax: "print-clicked" }, "*"); } catch (e) {}
+    } else {
+      console.log("SaveTax: [뷰어프레임] 인쇄 명령 수신했으나 프린터 버튼 못 찾음");
+    }
+  });
+  const rep = setInterval(() => {
+    const total = totalPages();
+    if (!announced && (total > 0 || findPrintIcon())) {
+      announced = true;
+      console.log("SaveTax: [뷰어프레임] ClipReport 뷰어 감지 @ " + location.href.slice(0, 100));
+    }
+    if (!announced) return;
+    try { window.top.postMessage({ savetax: "viewer-status", total: total }, "*"); } catch (e) {}
+  }, 1000);
+  setTimeout(() => clearInterval(rep), 600000);
+})();
+
 // suppress-alert.js(MAIN)가 설정한 savetax_login_done 쿠키 감시 → chrome.storage로 전달
 (function watchLoginDoneCookie() {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   // 페이지 로드 시점에 잔존 cookie 무조건 정리 (이전 세션이 남긴 cookie가 watcher를 잘못 발동시키는 것 차단)
   // hash 유무와 관계없이 페이지마다 정리 — 진짜 시그널은 이 정리 후 IIFE A가 클릭 직전에 새로 set
   document.cookie = "savetax_login_done=; path=/; max-age=0";
@@ -148,6 +231,7 @@
 
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
 (async function () {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   // 팝업 페이지에서만 실행 (popup.html)
   if (!window.location.href.includes("popup.html") && !window.location.href.includes("UTECMABA")) return;
 
@@ -282,6 +366,7 @@
 
 // 법인 로그인: 관리번호 입력 (인증 후 원래 페이지에서)
 (async function () {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   // 관리번호 필드가 나타날 때까지 폴링 (60초)
   let agentCreds = null;
   for (let i = 0; i < 60; i++) {
@@ -332,6 +417,7 @@
 // 트리거: corp_next + corp_reopen_done(background reopen 마커) + 세무대리 메뉴 등장
 // → reopen된 새 탭에서만 진행. 같은 탭 race 차단.
 (async function () {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   // 1) corp_next + corp_reopen_done 폴링 (180초 — 인증서/관리번호/reopen까지 시간 여유)
   let nextData = null;
   for (let i = 0; i < 180; i++) {
@@ -492,6 +578,7 @@
 
 // 페이지 이동 후에도 자동화 이어서 진행
 (async function () {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   const pendingData = sessionStorage.getItem("savetax_register_data");
   if (!pendingData) return;
 
@@ -587,6 +674,11 @@
 
 // URL hash 또는 sessionStorage에서 자격증명 읽기
 (async function () {
+  // all_frames 주입 대응: top 창 전용.
+  // 또한 window.open 팝업(신고서보기 등)은 부모의 sessionStorage(savetax_creds)를 복사 상속하므로
+  // 가드가 없으면 팝업 안에서 수집 자동화가 또 실행되어 팝업 DOM을 헤집는다(v4.6에서 실제 발생).
+  if (window !== window.top) return;
+  if (location.pathname.includes("popup.html")) return;
   const hash = window.location.hash;
   let creds;
 
@@ -1679,7 +1771,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.6 — 신고서 팝업 일괄출력 클릭 보강");
+      console.log("SaveTax: content-hometax v4.7 — 뷰어 iframe 프린터 클릭(all_frames) + 팝업 수집모드 차단");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
