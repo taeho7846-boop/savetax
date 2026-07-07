@@ -1659,7 +1659,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.8 — 뷰어 프레임 pdfDownLoad 직접 추출");
+      console.log("SaveTax: content-hometax v4.9 — 리포트 페이지수 프로브 후 추출");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1909,7 +1909,7 @@
             const fileName = rt.label + "_신고서_" + yearLabel + "_" + rowKey + ".pdf";
             const result = await chrome.runtime.sendMessage({
               type: "print-pdf",
-              waitSec: 240, // 일괄출력 전체 렌더(2~3분) + 프린터 클릭까지 리포트 탭 대기
+              waitSec: 280, // 일괄출력 전체 렌더(2~3분) + 페이지수 프로브 확인까지 리포트 탭/프레임 대기
               clientName: creds.clientName || "거래처",
               docName: rt.label + "_신고서_" + yearLabel + "_" + rowKey,
               upload: (creds.clientId && creds.appOrigin) ? {
