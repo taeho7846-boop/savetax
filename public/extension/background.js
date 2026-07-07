@@ -268,10 +268,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "print-pdf") {
     (async () => {
       try {
-        // 리포트 탭 찾기: 홈택스 리포트 URL만 인정, 로드 완료까지 최대 15초 대기
+        // 리포트 탭 찾기: 홈택스 리포트 URL만 인정. 기본 15초 대기,
+        // 신고서 일괄출력처럼 렌더가 긴 경우 msg.waitSec으로 연장(최대 300초)
         // ★ "마지막 탭" 폴백 금지 — 사용자가 보던 무관한 탭을 PDF로 찍어버리는 사고 방지
+        const waitSec = Math.min(Math.max(Number(msg.waitSec) || 15, 15), 300);
         let reportTab = null;
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < waitSec * 2; i++) {
           const allTabs = await chrome.tabs.query({});
           reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
           if (reportTab && reportTab.status === "complete") break;
@@ -369,6 +371,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           await chrome.tabs.remove(reportTab.id);
         } else if (globalThis._savetaxReportTabId) {
           try { await chrome.tabs.remove(globalThis._savetaxReportTabId); } catch {}
+        }
+        // 신고서보기/공개여부 팝업 창이 남아 있으면 함께 닫기 (다음 행 수집 시 혼선 방지)
+        for (const t of allTabs) {
+          if (t.url && (t.url.includes("UTERNAAZ34") || t.url.includes("UTERNAAZ39"))) {
+            try { await chrome.tabs.remove(t.id); } catch (e) {}
+          }
         }
         sendResponse({ ok: true });
       } catch (e) {

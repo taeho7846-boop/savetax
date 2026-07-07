@@ -17,11 +17,12 @@
 })();
 
 // 신고서보기 '종합소득세 신고서 보기' 팝업(UTERNAAZ34) 자동 처리
-// → [일괄출력](#mf_triMatePrint) 클릭 후 리포트 뷰어의 프린터 아이콘 클릭 → clipreport.do PDF
+// → [일괄출력](#mf_triMatePrint) 클릭 → 뷰어가 전체 페이지(예: 1/33)로 재렌더될 때까지 대기
+// → 프린터 아이콘 클릭 → clipreport.do PDF. (일괄출력 없이 바로 찍으면 첫 서식 1장만 담김)
 (function autoPrintReturnViewer() {
   if (!location.href.includes("UTERNAAZ34")) return;
   console.log("SaveTax: [팝업] 신고서 보기 팝업 감지 — 일괄출력 대기");
-  // 리포트 뷰어가 iframe 안일 수 있어 document + iframe 모두 탐색
+  // 리포트 뷰어가 iframe 안일 수 있어 document + 접근 가능한 iframe 모두 탐색
   function docs() {
     const list = [document];
     for (const f of document.querySelectorAll("iframe")) { try { if (f.contentDocument) list.push(f.contentDocument); } catch (e) {} }
@@ -35,33 +36,62 @@
     }
     return null;
   }
+  // 뷰어 페이지네이션의 "/ 33" 총페이지 텍스트 파싱 (없으면 0)
+  function totalPages() {
+    let max = 0;
+    for (const d of docs()) {
+      for (const el of d.querySelectorAll("span, div, label, td")) {
+        if (el.children.length > 0 || el.offsetParent === null) continue;
+        const m = (el.textContent || "").trim().match(/^\/\s*(\d+)$/);
+        if (m) max = Math.max(max, parseInt(m[1], 10));
+      }
+    }
+    return max;
+  }
+  const RENDER_TIMEOUT = 180; // 일괄출력 재렌더 최대 대기(초) — 초과 시 현 상태로 인쇄 강행
+  const SETTLE_TICKS = 3;     // 총페이지 증가 감지 후 안정화 대기(초)
   let batchClicked = false, printClicked = false, ticks = 0;
+  let baseTotal = 0, batchTick = 0, grownTick = 0;
   const iv = setInterval(() => {
     ticks++;
     // 1. 일괄출력 클릭 (confirm '2~3분 소요'는 suppress-alert가 자동 확인)
     if (!batchClicked) {
       const batchBtn = document.getElementById("mf_triMatePrint") || document.querySelector("input[value='일괄출력']");
       if (batchBtn && batchBtn.offsetParent !== null) {
+        baseTotal = totalPages();
         batchBtn.click();
         batchClicked = true;
-        console.log("SaveTax: [팝업] 일괄출력 클릭 — 렌더 대기(최대 3분)");
+        batchTick = ticks;
+        console.log("SaveTax: [팝업] 일괄출력 클릭 (현재 총페이지 " + baseTotal + ") — 전체 렌더 대기(최대 " + RENDER_TIMEOUT + "초)");
       }
       return;
     }
-    // 2. 렌더 완료 후 프린터 아이콘 등장 대기 → 클릭
-    if (!printClicked) {
-      const printIcon = findPrintIcon();
-      if (printIcon) {
-        printIcon.click();
-        printClicked = true;
-        console.log("SaveTax: [팝업] 프린터 아이콘 클릭 (" + (printIcon.id || printIcon.title || printIcon.alt || printIcon.className) + ")");
-        clearInterval(iv);
-      } else if (ticks % 15 === 0) {
-        console.log("SaveTax: [팝업] 프린터 아이콘 대기중... (" + ticks + "s) — 안 나타나면 요소 확인 필요");
-      }
+    if (printClicked) return;
+    // 2. 전체 페이지 재렌더 대기: 총페이지가 늘어난 뒤 SETTLE_TICKS 지나면 인쇄.
+    //    페이지 수가 안 늘면(단일 서식 등) RENDER_TIMEOUT 후 강행.
+    const cur = totalPages();
+    if (cur > baseTotal && grownTick === 0) {
+      grownTick = ticks;
+      console.log("SaveTax: [팝업] 전체 렌더 감지 — 총페이지 " + baseTotal + " → " + cur);
+    }
+    const ready = (grownTick > 0 && ticks - grownTick >= SETTLE_TICKS) || (ticks - batchTick >= RENDER_TIMEOUT);
+    if (!ready) {
+      if (ticks % 15 === 0) console.log("SaveTax: [팝업] 전체 렌더 대기중... (" + ticks + "s, 총페이지 " + cur + ")");
+      return;
+    }
+    if (grownTick === 0) console.log("SaveTax: [팝업] " + RENDER_TIMEOUT + "초 내 페이지 증가 없음 — 현 상태(" + cur + "p)로 인쇄 강행");
+    // 3. 프린터 아이콘 클릭
+    const printIcon = findPrintIcon();
+    if (printIcon) {
+      printIcon.click();
+      printClicked = true;
+      console.log("SaveTax: [팝업] 프린터 아이콘 클릭 (" + (printIcon.id || printIcon.title || printIcon.alt || printIcon.className) + ")");
+      clearInterval(iv);
+    } else if (ticks % 15 === 0) {
+      console.log("SaveTax: [팝업] 프린터 아이콘 대기중... (" + ticks + "s) — 안 나타나면 요소 확인 필요");
     }
   }, 1000);
-  setTimeout(() => clearInterval(iv), 200000);
+  setTimeout(() => clearInterval(iv), 300000);
 })();
 
 // suppress-alert.js(MAIN)가 설정한 savetax_login_done 쿠키 감시 → chrome.storage로 전달
@@ -1619,6 +1649,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
+      console.log("SaveTax: content-hometax v4.5 — 신고서 원본(일괄출력 전체페이지) 수집");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1707,10 +1738,21 @@
       selectTaxType(rt.tax);
       await sleep(1500);
 
+      // 조회기간 단위 '1년' 토글 명시 클릭.
+      // 화면에 1년 초과 기간이 남아 있으면 홈택스가 조회 자체를 거부하므로,
+      // 항상 1년 단위 모드로 맞춘 뒤(자동 셋팅된 날짜는 루프에서 덮어씀) 진행한다.
+      async function clickPeriodUnit1Y() {
+        const btn = Array.from(document.querySelectorAll("a, button, span, input[type='button']"))
+          .find(el => el.offsetParent !== null && ((el.textContent || el.value || "").trim() === "1년"));
+        if (btn) { btn.click(); await sleep(800); console.log("SaveTax: 기간단위 '1년' 클릭"); return true; }
+        console.log("SaveTax: 기간단위 '1년' 버튼 못 찾음 — 화면 기본값으로 진행");
+        return false;
+      }
+
       // 4. 조회기간(startDate~endDate) 입력
       //    WebSquare 달력 input id 불명 → 화면에 보이는 날짜형 input 2개 추정.
       function fillDateRange(sd, ed) {
-        if (!sd && !ed) return;
+        if (!sd && !ed) return true;
         const all = Array.from(document.querySelectorAll("input"));
         const dateLike = all.filter(el => {
           if (el.offsetParent === null) return false;
@@ -1721,8 +1763,24 @@
           return /^\d{4}[-.\/]?\d{2}[-.\/]?\d{2}$/.test(v) || idl.includes("dt") || idl.includes("date") || Number(el.maxLength) === 10;
         });
         console.log("SaveTax: 조회기간 input 후보 " + dateLike.length + "개");
-        if (dateLike[0] && sd) setInput(dateLike[0], sd);
-        if (dateLike[1] && ed) setInput(dateLike[1], ed);
+        // 값 정규화: 구분자 제거 후 8자리면 yyyy-MM-dd 로 (홈택스가 20200101 형태로 들고 있어도 비교되게)
+        const norm = v => {
+          const d = String(v || "").replace(/[^0-9]/g, "");
+          return d.length === 8 ? d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6, 8) : String(v || "");
+        };
+        const apply = () => {
+          if (dateLike[0] && sd) setInput(dateLike[0], sd);
+          if (dateLike[1] && ed) setInput(dateLike[1], ed);
+        };
+        const verify = () =>
+          (!sd || (dateLike[0] && norm(dateLike[0].value) === sd)) &&
+          (!ed || (dateLike[1] && norm(dateLike[1].value) === ed));
+        apply();
+        let ok = verify();
+        if (!ok) { apply(); ok = verify(); } // 1회 재시도
+        if (!ok) console.log("SaveTax: 조회기간 입력 검증 실패 — 화면 값: "
+          + (dateLike[0] ? dateLike[0].value : "?") + " ~ " + (dateLike[1] ? dateLike[1].value : "?"));
+        return ok;
       }
 
       // 4-b. 사업자(주민)등록번호 입력 (전자신고 결과 조회의 필수 항목)
@@ -1763,16 +1821,24 @@
         return docs;
       }
 
-      // 접수증 수집: 각 결과 행(tr)에서 '접수증' 컬럼의 [보기] 버튼(= 행의 첫 '보기')만 클릭.
-      // ★ 컬럼 순서상 '보기'는 접수증→납부서 순이라, 행마다 첫 '보기'만 잡으면 납부서 팝업(지방소득세) 부작용 없음.
-      //   신고서 원본(접수번호 링크)은 리포트 뷰어 경로가 복잡해 별도 과제 — 여기선 접수증으로 수집.
+      // 신고서 원본 수집: 각 결과 행(tr)에서 '접수번호(신고서보기)' 컬럼의 번호 링크
+      // (예: "612-2020-…", 숫자와 '-'로 시작)를 클릭 → 신고서보기 팝업(UTERNAAZ34)에서
+      // 일괄출력 → 전체 페이지 PDF. 링크가 없는 행(서면신고 등)은 기존 접수증 첫 '보기' 폴백.
       function collectPrintTargets() {
         const targets = [];
         for (const doc of accessibleDocs()) {
           for (const tr of doc.querySelectorAll("tr")) {
+            const links = Array.from(tr.querySelectorAll("a"))
+              .filter(el => {
+                if (el.offsetParent === null) return false;
+                const t = (el.textContent || "").trim();
+                // 접수번호 형태(숫자-숫자…)만. '*' 포함(마스킹된 등록번호가 링크인 경우)은 제외
+                return /^\d[\d-]{5,}/.test(t) && !t.includes("*");
+              });
+            if (links.length > 0) { targets.push(links[0]); continue; }
             const viewBtns = Array.from(tr.querySelectorAll("a, button, input[type='button']"))
               .filter(el => el.offsetParent !== null && ((el.textContent || el.value || "").trim() === "보기"));
-            if (viewBtns.length > 0) targets.push(viewBtns[0]); // 첫 '보기' = 접수증
+            if (viewBtns.length > 0) targets.push(viewBtns[0]); // 폴백: 첫 '보기' = 접수증
           }
         }
         return targets;
@@ -1833,6 +1899,7 @@
             const fileName = rt.label + "_신고서_" + yearLabel + "_" + rowKey + ".pdf";
             const result = await chrome.runtime.sendMessage({
               type: "print-pdf",
+              waitSec: 240, // 일괄출력 전체 렌더(2~3분) + 프린터 클릭까지 리포트 탭 대기
               clientName: creds.clientName || "거래처",
               docName: rt.label + "_신고서_" + yearLabel + "_" + rowKey,
               upload: (creds.clientId && creds.appOrigin) ? {
@@ -1870,14 +1937,17 @@
       console.log("SaveTax: 조회 구간 " + windows.length + "개 → " +
         windows.map(w => w.s + "~" + w.e).join(", "));
 
+      await clickPeriodUnit1Y();
+
       let collectedCount = 0;
       for (const win of windows) {
         try {
           console.log("SaveTax: [" + win.y + "] 조회 시작 " + win.s + " ~ " + win.e);
 
-          // (a) 날짜 입력
-          fillDateRange(win.s, win.e);
+          // (a) 날짜 입력 (+검증) — 실패 시 화면에 남은 엉뚱한 기간으로 조회되는 것 방지
+          const dateOk = fillDateRange(win.s, win.e);
           await sleep(800);
+          if (!dateOk) { console.log("SaveTax: [" + win.y + "] 기간 입력 실패 — 이 구간 건너뜀"); continue; }
 
           // (b) 주민/사업자 등록번호 입력 (조회마다 재입력 — 조회 후 초기화 대비)
           fillIdNumber(idNo);
