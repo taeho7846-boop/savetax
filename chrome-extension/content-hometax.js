@@ -1659,7 +1659,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.11 — m_pageCount 기반 즉시 캡처");
+      console.log("SaveTax: content-hometax v4.12 — 즉시 캡처 + 200초 무조건 폴백 복원");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름

@@ -395,18 +395,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 const pr = await probeViewerReport(popupTab.id, fid);
                 probes.push({ frameId: fid, keys: pr.keys, total: pr.total, cands: pr.cands });
               }
-              probes.sort((a, b) => b.total - a.total);
-              const best = probes[0];
               captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, c: p.cands })) };
               if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
+              // ★ 죽은 프레임(execErr, keys<=0)은 후보에서 제외 — 총페이지가 전부 0이면 정렬이
+              //   죽은 프레임을 best로 뽑아 keys>0 검사에서 영원히 탈락하던 버그(v4.10/4.11)
+              // 후보 정렬: 총페이지 큰 순 → 동점이면 가장 최근 로드된 프레임(=일괄출력 결과물) 우선
+              const lastReadyOf = {};
+              for (const r of st.readies) lastReadyOf[r.frameId] = Math.max(lastReadyOf[r.frameId] || 0, r.time);
+              const alive = probes.filter(p => p.keys > 0)
+                .sort((a, b) => (b.total - a.total) || ((lastReadyOf[b.frameId] || 0) - (lastReadyOf[a.frameId] || 0)));
+              const best = alive.length ? alive[0] : null;
               // 일괄출력 클릭 "이후" 로드된 프레임의 리포트는 곧 일괄출력 결과물 → m_pageCount가
               // 1이어도 그게 전체(진짜 1페이지 신고서)이므로 즉시 캡처. 제자리 재렌더(프레임
               // 미교체)만 total>1 또는 200초 폴백으로 판정.
-              const bestReadyTime = best ? Math.max(0, ...st.readies.filter(r => r.frameId === best.frameId).map(r => r.time)) : 0;
-              const bestPostBatch = bestReadyTime > st.batchTime;
-              const overdue = sinceBatch > 200000; // 최후 폴백
-              if (best && best.keys > 0 && best.total >= 1 && (bestPostBatch || best.total > 1 || overdue)) {
-                if (!bestPostBatch && overdue && best.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(" + best.total + "p)로 강행");
+              const bestPostBatch = best ? (lastReadyOf[best.frameId] || 0) > st.batchTime : false;
+              const overdue = sinceBatch > 200000; // 최후 폴백 — total을 못 읽어도 무조건 강행(v4.11 회귀 복원)
+              if (best && best.keys > 0 && ((bestPostBatch && best.total >= 1) || best.total > 1 || overdue)) {
+                if (overdue && best.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(total=" + best.total + ")로 강행");
                 frameCapture = { tabId: popupTab.id, frameId: best.frameId, total: best.total };
                 break;
               }
