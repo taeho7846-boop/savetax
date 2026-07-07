@@ -21,7 +21,7 @@
 // → 프린터 아이콘 클릭 → clipreport.do PDF. (일괄출력 없이 바로 찍으면 첫 서식 1장만 담김)
 (function autoPrintReturnViewer() {
   if (!location.href.includes("UTERNAAZ34")) return;
-  console.log("SaveTax: [팝업] 신고서 보기 팝업 감지 — 일괄출력 대기");
+  console.log("SaveTax: [팝업] 신고서 보기 팝업 감지 — 일괄출력 대기 @ " + location.href);
   // 리포트 뷰어가 iframe 안일 수 있어 document + 접근 가능한 iframe 모두 탐색
   function docs() {
     const list = [document];
@@ -33,6 +33,24 @@
     for (const d of docs()) {
       const el = d.querySelector(sel);
       if (el && el.offsetParent !== null) return el;
+    }
+    return null;
+  }
+  // WebSquare 버튼은 synthetic .click()만으로 핸들러가 안 걸리는 경우가 있어 마우스 이벤트 시퀀스로 클릭
+  function realClick(el) {
+    for (const type of ["mousedown", "mouseup", "click"]) {
+      el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+    }
+  }
+  // 일괄출력 버튼: 알려진 ID → ID 부분일치(팝업에선 wframe 프리픽스가 붙음) → 텍스트/value 정확일치 순.
+  // 안내문("※ 일괄출력하려면 …")은 텍스트가 길어 정확일치에서 자동 제외됨. iframe 내부까지 탐색.
+  function findBatchBtn() {
+    for (const d of docs()) {
+      const byId = d.getElementById("mf_triMatePrint") || d.querySelector("[id*='triMatePrint']");
+      if (byId && byId.offsetParent !== null) return byId;
+      const byText = Array.from(d.querySelectorAll("input[type='button'], input[type='submit'], button, a"))
+        .find(el => el.offsetParent !== null && ((el.value || el.textContent || "").trim() === "일괄출력"));
+      if (byText) return byText;
     }
     return null;
   }
@@ -56,13 +74,25 @@
     ticks++;
     // 1. 일괄출력 클릭 (confirm '2~3분 소요'는 suppress-alert가 자동 확인)
     if (!batchClicked) {
-      const batchBtn = document.getElementById("mf_triMatePrint") || document.querySelector("input[value='일괄출력']");
-      if (batchBtn && batchBtn.offsetParent !== null) {
+      const batchBtn = findBatchBtn();
+      if (batchBtn) {
         baseTotal = totalPages();
-        batchBtn.click();
+        realClick(batchBtn);
         batchClicked = true;
         batchTick = ticks;
-        console.log("SaveTax: [팝업] 일괄출력 클릭 (현재 총페이지 " + baseTotal + ") — 전체 렌더 대기(최대 " + RENDER_TIMEOUT + "초)");
+        console.log("SaveTax: [팝업] 일괄출력 클릭 (" + (batchBtn.id || batchBtn.value || batchBtn.textContent || "?").trim()
+          + ", 현재 총페이지 " + baseTotal + ") — 전체 렌더 대기(최대 " + RENDER_TIMEOUT + "초)");
+      } else if (ticks % 15 === 0) {
+        // 진단: 버튼을 못 찾는 경우 화면의 클릭 가능 요소 텍스트를 덤프해 셀렉터를 맞출 수 있게 함
+        const seen = [];
+        for (const d of docs()) {
+          for (const el of d.querySelectorAll("a, button, input[type='button'], input[type='submit']")) {
+            if (el.offsetParent === null) continue;
+            const t = (el.value || el.textContent || el.title || "").trim();
+            if (t && t.length < 20) seen.push(t);
+          }
+        }
+        console.log("SaveTax: [팝업] 일괄출력 버튼 못 찾음 (" + ticks + "s) — 보이는 버튼:", JSON.stringify(seen.slice(0, 30)));
       }
       return;
     }
@@ -83,7 +113,7 @@
     // 3. 프린터 아이콘 클릭
     const printIcon = findPrintIcon();
     if (printIcon) {
-      printIcon.click();
+      realClick(printIcon);
       printClicked = true;
       console.log("SaveTax: [팝업] 프린터 아이콘 클릭 (" + (printIcon.id || printIcon.title || printIcon.alt || printIcon.className) + ")");
       clearInterval(iv);
@@ -1649,7 +1679,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.5 — 신고서 원본(일괄출력 전체페이지) 수집");
+      console.log("SaveTax: content-hometax v4.6 — 신고서 팝업 일괄출력 클릭 보강");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름

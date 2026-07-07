@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "4.5",
+  "version": "4.6",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": [
     "contentSettings",
@@ -14,12 +14,17 @@
   ],
   "host_permissions": [
     "http://64.176.227.99/*",
+    "https://64.176.227.99/*",
     "http://app.savetaxnh.com/*",
     "https://app.savetaxnh.com/*",
-    "http://localhost:3000/*",
-    "http://localhost:9000/*",
     "https://hometax.go.kr/*",
-    "https://sesw.hometax.go.kr/*"
+    "https://*.hometax.go.kr/*",
+    "https://sesw.hometax.go.kr/*",
+    "https://smarta.wehago.com/*",
+    "https://www.wemembers.net/*",
+    "https://tax.appplay.co.kr/*",
+    "http://localhost:3000/*",
+    "http://localhost:9000/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -27,7 +32,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://hometax.go.kr/*"
+        "https://hometax.go.kr/*",
+        "https://*.hometax.go.kr/*"
       ],
       "js": [
         "suppress-alert.js"
@@ -37,10 +43,31 @@
     },
     {
       "matches": [
-        "https://hometax.go.kr/*"
+        "https://hometax.go.kr/*",
+        "https://*.hometax.go.kr/*"
       ],
       "js": [
         "content-hometax.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://smarta.wehago.com/*"
+      ],
+      "js": [
+        "content-wehago-payslip.js",
+        "content-wehago-business.js",
+        "content-wehago-daily.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.wemembers.net/*"
+      ],
+      "js": [
+        "content-wemembers.js"
       ],
       "run_at": "document_idle"
     }
