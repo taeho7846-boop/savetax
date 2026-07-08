@@ -39,7 +39,7 @@ async function probeViewerReport(tabId, frameId) {
       world: "MAIN",
       func: () => {
         try {
-          var out = { keys: 0, total: 0, cands: [] };
+          var out = { keys: 0, total: 0, cands: [], url: (location.pathname + location.search).slice(0, 140) };
           // (1) DOM: id에 page 가 든 요소의 숫자값 후보 수집, total+page 는 판정에 사용
           var els = document.querySelectorAll("[id*='page' i], [id*='Page']");
           for (var i = 0; i < els.length && out.cands.length < 15; i++) {
@@ -67,9 +67,9 @@ async function probeViewerReport(tabId, frameId) {
         } catch (e) { return { keys: -1, total: 0, cands: ["err:" + String(e && e.message)] }; }
       },
     });
-    return (results && results[0] && results[0].result) || { keys: 0, total: 0, cands: [] };
+    return (results && results[0] && results[0].result) || { keys: 0, total: 0, cands: [], url: "" };
   } catch (e) {
-    return { keys: 0, total: 0, cands: ["execErr:" + e.message] };
+    return { keys: 0, total: 0, cands: ["execErr:" + e.message], url: "" };
   }
 }
 
@@ -360,6 +360,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
     return false;
   }
+  if (msg.type === "batch-diag") {
+    if (sender.tab?.id != null) viewerStateOf(sender.tab.id).diag = msg.snap;
+    sendResponse({ ok: true });
+    return false;
+  }
   if (msg.type === "viewer-ready-count") {
     const st = sender.tab?.id != null ? popupViewerState[sender.tab.id] : null;
     sendResponse({ ok: true, count: st ? st.readies.length : 0 });
@@ -439,7 +444,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               const probes = [];
               for (const fid of frameIds) {
                 const pr = await probeViewerReport(popupTab.id, fid);
-                probes.push({ frameId: fid, keys: pr.keys, total: pr.total, cands: pr.cands });
+                probes.push({ frameId: fid, keys: pr.keys, total: pr.total, cands: pr.cands, url: pr.url || "" });
               }
               // ★ 죽은 프레임(execErr, keys<=0)은 후보에서 제외 — 총페이지가 전부 0이면 정렬이
               //   죽은 프레임을 best로 뽑아 keys>0 검사에서 영원히 탈락하던 버그(v4.10/4.11)
@@ -458,7 +463,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               // overdue 폴백이 현 상태를 캡처한다.
               if (baselineTotal < 0 && best && best.total >= 1) baselineTotal = best.total;
               captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), click: st.clickInfo || null, base: baselineTotal, stable: stableCount,
-                probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, c: p.cands })) };
+                diag: st.diag || null,
+                tabs: allTabs.filter(t => t.url && (t.url.includes("UTERNAAZ") || t.url.includes("clipreport") || t.url.includes("sesw"))).map(t => (t.url.match(/UTERNAAZ\w+|clipreport|sesw/) || ["?"])[0]),
+                probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, u: p.url, c: p.cands })) };
               if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
               const grown = best && baselineTotal >= 1 && best.total > baselineTotal;
               const stable = stableCount >= 3;
@@ -551,7 +558,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         globalThis._savetaxReportTabId = reportTab ? reportTab.id : null;
 
         if (frameCapture) delete popupViewerState[frameCapture.tabId];
-        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, sec: captureDebug && captureDebug.sinceBatchSec, base: captureDebug && captureDebug.base, click: captureDebug && captureDebug.click, probes: captureDebug && captureDebug.probes } : null });
+        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, sec: captureDebug && captureDebug.sinceBatchSec, base: captureDebug && captureDebug.base, click: captureDebug && captureDebug.click, diag: captureDebug && captureDebug.diag, tabs: captureDebug && captureDebug.tabs, probes: captureDebug && captureDebug.probes } : null });
       } catch (e) {
         sendResponse({ ok: false, error: e.message, debug: captureDebug });
       }

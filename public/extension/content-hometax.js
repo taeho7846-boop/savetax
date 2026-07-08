@@ -81,6 +81,49 @@
     }
     try { await chrome.runtime.sendMessage({ type: "batch-clicked", attempts, verified, method }); } catch (e) {}
     if (!verified) console.warn("SaveTax: [팝업] 일괄출력 핸들러 발동 미확인(" + attempts + "회) — 초기 리포트 폴백 캡처로 진행될 수 있음");
+    watchAfterBatch(); // await 하지 않음 — 백그라운드 감시
+  }
+
+  // 일괄출력 후 팝업 내부 감시(240초): 떠 있는 대화상자 레이어와 iframe src를 background에 중계해
+  // 캡처디버그로 노출한다(팝업 콘솔은 사용자가 못 보므로). 공개여부 레이어만 자동 [적용].
+  async function watchAfterBatch() {
+    const t0 = Date.now();
+    let lastSent = "";
+    while (Date.now() - t0 < 240000) {
+      try {
+        const layers = [];
+        const layerEls = document.querySelectorAll("div.w2window, div[class*='w2window'], div[role='dialog'], div[class*='popup'], div[class*='layer']");
+        for (const el of layerEls) {
+          if (el.offsetParent === null) continue;
+          const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+          if (!text) continue;
+          const btns = Array.from(el.querySelectorAll("input[type='button'], input[type='submit'], button, a"))
+            .filter(b => b.offsetParent !== null)
+            .map(b => (b.value || b.textContent || "").trim())
+            .filter(t => t && t.length <= 10).slice(0, 6);
+          layers.push({ t: text.slice(0, 80), b: btns });
+          // 공개여부 선택 레이어 → 자동 적용 (UTERNAAZ39 별창 처리와 동일 패턴)
+          if (text.includes("공개")) {
+            const applyBtn = el.querySelector("input[value='적용'], input[value='확인'], button[value='적용']");
+            if (applyBtn && !applyBtn.dataset.savetaxClicked) {
+              applyBtn.dataset.savetaxClicked = "true";
+              applyBtn.click();
+              console.log("SaveTax: [팝업] 공개여부 레이어 자동 적용");
+            }
+          }
+          if (layers.length >= 3) break;
+        }
+        const frames = Array.from(document.querySelectorAll("iframe"))
+          .map(f => String(f.src || "").slice(-70)).filter(s => s).slice(0, 4);
+        const snap = { sec: Math.round((Date.now() - t0) / 1000), layers, frames };
+        const key = JSON.stringify({ l: snap.layers, f: snap.frames });
+        if (key !== lastSent) {
+          lastSent = key;
+          try { await chrome.runtime.sendMessage({ type: "batch-diag", snap }); } catch (e) {}
+        }
+      } catch (e) {}
+      await sleep(5000);
+    }
   }
 
   let started = false, ticks = 0, busy = false;
@@ -1699,7 +1742,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.15 — 세목 로드 대기 + 결과 그리드 폴링(느린 네트워크 0건 오보고 방지)");
+      console.log("SaveTax: content-hometax v4.16 — 일괄출력 후 팝업 내부 진단 중계(레이어/프레임/URL/탭)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1981,7 +2024,7 @@
                 fileName: fileName,
               } : null,
             });
-            if (result && result.debug) console.log("SaveTax: [캡처디버그] " + JSON.stringify(result.debug).slice(0, 1000));
+            if (result && result.debug) console.log("SaveTax: [캡처디버그] " + JSON.stringify(result.debug).slice(0, 1600));
             if (result && result.ok) {
               count++;
               console.log("SaveTax: " + fileName + " 저장 성공");
