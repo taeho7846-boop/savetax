@@ -1766,7 +1766,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.22 — 조회 결과 알림 팝업 자동 닫기(딤드 마스크 누적 방지)");
+      console.log("SaveTax: content-hometax v4.23 — 부가세·법인 신고서 사업자번호 필수화(주민번호 오조회 방지)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -2068,9 +2068,14 @@
         return count;
       }
 
-      const idNo = (creds.returnType === "vat" || creds.returnType === "corp")
-        ? (creds.bizNumber || creds.rn)
-        : (creds.rn || creds.bizNumber);
+      // 부가세·법인은 사업자 단위 신고 → 반드시 사업자등록번호로 조회. 사업자번호가 없을 때
+      // 주민번호로 폴백하면 잘못된 조건으로 조회돼 0건이 '내역 없음'으로 오기록되므로 폴백 금지.
+      const isBizReturn = (creds.returnType === "vat" || creds.returnType === "corp");
+      const idNo = isBizReturn ? (creds.bizNumber || "") : (creds.rn || creds.bizNumber);
+      if (isBizReturn && !idNo) {
+        // 사업자번호 미등록 — 조회하지 않고 중단(앱 상태 미갱신 → 거래처 정보 보완 후 재시도 가능)
+        throw new Error(rt.label + " 신고서는 사업자등록번호로 조회해야 하는데 거래처에 사업자번호가 없습니다 — 조회 중단(앱 상태 미갱신)");
+      }
 
       const windows = buildYearWindows(startDate, endDate);
       console.log("SaveTax: 조회 구간 " + windows.length + "개 → " +
