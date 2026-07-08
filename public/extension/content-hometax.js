@@ -1699,7 +1699,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.13 — 일괄출력 클릭 검증·사다리 재시도 + 캡처 안정성 가드");
+      console.log("SaveTax: content-hometax v4.14 — 일괄출력 병합 결과를 페이지 증가로 판정");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1949,7 +1949,7 @@
             const fileName = rt.label + "_신고서_" + yearLabel + "_" + rowKey + ".pdf";
             const result = await chrome.runtime.sendMessage({
               type: "print-pdf",
-              waitSec: 280, // 일괄출력 전체 렌더(2~3분) + 페이지수 프로브 확인까지 리포트 탭/프레임 대기
+              waitSec: 290, // 일괄출력 병합(2~3분) 대기 + 220초 overdue 폴백까지 여유
               clientName: creds.clientName || "거래처",
               docName: rt.label + "_신고서_" + yearLabel + "_" + rowKey,
               upload: (creds.clientId && creds.appOrigin) ? {

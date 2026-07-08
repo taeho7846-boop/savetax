@@ -62,7 +62,9 @@ export function getDefaultParams(
 
   // 세목별 정밀 기본값 (신고서 제출 시기 / 귀속연도 지급분)
   const byDoc: Record<string, Record<string, string>> = {
-    종합소득세_신고서: { startDate: d(y + 1, 5, 1), endDate: d(y + 1, 6, 30) },
+    // 신고서 원본은 과거 이력까지 한 번에 수집하는 용도 → 시작일을 2020-01-01로 고정
+    // (확장이 1년 단위 구간으로 쪼개 조회하므로 긴 범위도 문제 없음)
+    종합소득세_신고서: { startDate: d(2020, 1, 1), endDate: d(y + 1, 6, 30) },
     부가가치세_신고서: { startDate: d(y, 1, 1), endDate: d(y + 1, 1, 31) },
     법인소득세_신고서: { startDate: d(y + 1, 1, 1), endDate: d(y + 1, 4, 30) },
     양도소득세_신고서: { startDate: d(y, 1, 1), endDate: d(y + 1, 5, 31) },

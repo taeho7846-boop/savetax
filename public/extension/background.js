@@ -421,6 +421,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         //               (b) 신고서보기 팝업(UTERNAAZ34) 안의 뷰어 iframe — 일괄출력 후 직접 추출
         let reportTab = null;
         let stableSig = null, stableCount = 0; // 같은 (프레임,총페이지) 연속 관측 수 — 점진 렌더 중 조기 캡처 방지
+        let baselineTotal = -1; // 일괄출력 후 첫 관측 총페이지(=본표 재렌더). 병합 결과 도착은 이 값의 "증가"로만 판정
         for (let i = 0; i < waitSec * 2; i++) {
           const allTabs = await chrome.tabs.query({});
           reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
@@ -451,17 +452,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               // 안정성: best의 (프레임,총페이지)가 프로브 3연속(≈6초+) 동일해야 확정 — 렌더 진행 중 조기 캡처 방지
               const sig = best ? best.frameId + ":" + best.total : "none";
               if (sig === stableSig) stableCount++; else { stableSig = sig; stableCount = 1; }
-              captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), click: st.clickInfo || null, stable: stableCount,
+              // baseline = 일괄출력 후 첫 관측 총페이지. ★ 클릭 직후 재로드되는 프레임은 병합 결과가
+              // 아니라 본표(첫 서식) 재렌더다(v4.13 실측: confirm "2~3분 소요" 병합이 20초에 끝날 수 없음).
+              // 병합 결과 도착 = 총페이지가 baseline보다 "증가". 증가가 없으면(본표=전체인 추계 등)
+              // overdue 폴백이 현 상태를 캡처한다.
+              if (baselineTotal < 0 && best && best.total >= 1) baselineTotal = best.total;
+              captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), click: st.clickInfo || null, base: baselineTotal, stable: stableCount,
                 probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, c: p.cands })) };
               if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
-              // 일괄출력 클릭 "이후" 로드된 프레임의 리포트는 곧 일괄출력 결과물 → m_pageCount가
-              // 1이어도 그게 전체(진짜 1페이지 신고서)이므로 캡처. 제자리 재렌더(프레임
-              // 미교체)만 total>1 또는 200초 폴백으로 판정.
-              const bestPostBatch = best ? (lastReadyOf[best.frameId] || 0) > st.batchTime : false;
+              const grown = best && baselineTotal >= 1 && best.total > baselineTotal;
               const stable = stableCount >= 3;
-              const overdue = sinceBatch > 200000; // 최후 폴백 — total을 못 읽어도 무조건 강행(v4.11 회귀 복원)
-              if (best && best.keys > 0 && ((((bestPostBatch && best.total >= 1) || best.total > 1) && stable) || overdue)) {
-                if (overdue && best.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(total=" + best.total + ")로 강행");
+              const overdue = sinceBatch > 220000; // 최후 폴백 — 병합(2~3분)이 페이지 증가 없이 끝나는 유형(본표=전체) 대비
+              if (best && best.keys > 0 && ((grown && stable) || overdue)) {
+                if (grown) console.log("SaveTax BG: 일괄출력 병합 결과 감지 — 총페이지 " + baselineTotal + " → " + best.total);
+                else console.log("SaveTax BG: 220초 내 페이지 증가 없음 — 현 상태(total=" + best.total + ")로 캡처(본표=전체 유형)");
                 frameCapture = { tabId: popupTab.id, frameId: best.frameId, total: best.total };
                 break;
               }
@@ -547,7 +551,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         globalThis._savetaxReportTabId = reportTab ? reportTab.id : null;
 
         if (frameCapture) delete popupViewerState[frameCapture.tabId];
-        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, click: captureDebug && captureDebug.click, probes: captureDebug && captureDebug.probes } : null });
+        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, sec: captureDebug && captureDebug.sinceBatchSec, base: captureDebug && captureDebug.base, click: captureDebug && captureDebug.click, probes: captureDebug && captureDebug.probes } : null });
       } catch (e) {
         sendResponse({ ok: false, error: e.message, debug: captureDebug });
       }
