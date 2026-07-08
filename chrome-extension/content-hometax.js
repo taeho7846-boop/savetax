@@ -1766,7 +1766,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.20 — 신고서 목록 전체선택 후 일괄출력 + 페이저 전체페이지 판독");
+      console.log("SaveTax: content-hometax v4.21 — 등록번호 가드 + 캡처 전패 시 empty 오보고 방지");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1981,6 +1981,7 @@
       async function collectCurrentResults(yearLabel) {
         let targets = collectPrintTargets();
         console.log("SaveTax: [" + yearLabel + "] 출력 대상 " + targets.length + "건 발견");
+        if (targets.length > 0) anyTargetsFound = true;
         if (targets.length === 0) {
           // 진단: 결과 그리드/버튼 구조를 덤프해 실제 내역 유무 vs 파싱 실패를 구분 (최초 1회만)
           if (!emptyDiagDumped) {
@@ -2079,6 +2080,7 @@
 
       let collectedCount = 0;
       let anyQueryRan = false; // 조회 버튼을 실제로 누른 구간이 하나라도 있는가
+      let anyTargetsFound = false; // 출력 대상(접수번호 링크)을 하나라도 발견했는가
       for (const win of windows) {
         try {
           console.log("SaveTax: [" + win.y + "] 조회 시작 " + win.s + " ~ " + win.e);
@@ -2089,8 +2091,10 @@
           if (!dateOk) { console.log("SaveTax: [" + win.y + "] 기간 입력 실패 — 이 구간 건너뜀"); continue; }
 
           // (b) 주민/사업자 등록번호 입력 (조회마다 재입력 — 조회 후 초기화 대비)
-          fillIdNumber(idNo);
+          //     실패 시 잘못된 조건으로 조회돼 0건이 '내역 없음'으로 오보고되므로 구간 건너뜀
+          const idOk = fillIdNumber(idNo);
           await sleep(500);
+          if (!idOk) { console.log("SaveTax: [" + win.y + "] 등록번호 입력 실패 — 이 구간 건너뜀(오조회 방지)"); continue; }
 
           // ★ 직전 구간 결과가 그리드에 남은 채 새 결과로 오인(v4.15 회귀: 2025 조회에 2024 행이 잡힘) 방지
           //   — 조회 전 그리드 서명을 찍어두고, 클릭 후 서명이 "달라질 때까지" 기다린다.
@@ -2130,6 +2134,9 @@
 
       // 한 구간도 조회를 실행하지 못했다면 화면 문제 — '내역 없음(empty)'으로 오보고하지 않는다
       if (!anyQueryRan) throw new Error("조회를 한 번도 실행하지 못함 — 화면 로드 문제(앱 상태 미갱신)");
+      // 출력 대상을 발견하고도 한 건도 수집 못 했다면 캡처 실패 — '내역 없음'으로 오보고하지 않는다
+      // (예: 신고서보기 팝업이 미지원 화면 ID여서 290초 타임아웃 전패하는 경우)
+      if (anyTargetsFound && collectedCount === 0) throw new Error("출력 대상은 발견했으나 수집 0건 — 캡처 실패(앱 상태 미갱신)");
 
       // 7. 완료 보고 (1건 이상 성공 시)
       if (creds.clientId && creds.appOrigin) {

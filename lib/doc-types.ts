@@ -62,13 +62,14 @@ export function getDefaultParams(
 
   // 세목별 정밀 기본값 (신고서 제출 시기 / 귀속연도 지급분)
   const byDoc: Record<string, Record<string, string>> = {
-    // 신고서 원본은 과거 이력까지 한 번에 수집하는 용도 → 시작일을 2020-01-01로 고정
-    // (확장이 1년 단위 구간으로 쪼개 조회하므로 긴 범위도 문제 없음)
+    // 신고서 원본(전자신고결과조회)은 과거 이력까지 한 번에 수집하는 용도 → 시작일을 2020-01-01로 고정
+    // (확장이 1년 단위 구간으로 쪼개 조회하므로 긴 범위도 문제 없음. 특히 양도·증여는 수시 신고라
+    //  귀속연도 기준 기간으로는 과거 신고가 통째로 빠짐 — 2026-07 실측)
     종합소득세_신고서: { startDate: d(2020, 1, 1), endDate: d(y + 1, 6, 30) },
-    부가가치세_신고서: { startDate: d(y, 1, 1), endDate: d(y + 1, 1, 31) },
-    법인소득세_신고서: { startDate: d(y + 1, 1, 1), endDate: d(y + 1, 4, 30) },
-    양도소득세_신고서: { startDate: d(y, 1, 1), endDate: d(y + 1, 5, 31) },
-    증여세_신고서: { startDate: d(y, 1, 1), endDate: d(y + 1, 3, 31) },
+    부가가치세_신고서: { startDate: d(2020, 1, 1), endDate: d(y + 1, 1, 31) },
+    법인소득세_신고서: { startDate: d(2020, 1, 1), endDate: d(y + 1, 4, 30) },
+    양도소득세_신고서: { startDate: d(2020, 1, 1), endDate: d(y + 1, 5, 31) },
+    증여세_신고서: { startDate: d(2020, 1, 1), endDate: d(y + 1, 3, 31) },
     납부내역증명: { startDate: d(y, 1, 1), endDate: d(y + 1, 12, 31) },
     간이지급명세서: { startMonth: m(y, 1), endMonth: m(y, 12) },
     사업소득_지급명세서: { startMonth: m(y, 1), endMonth: m(y, 12) },

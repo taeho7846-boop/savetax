@@ -404,7 +404,10 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                       const isChecked = checkedDocs.has(doc.key);
                       const defaults = getDefaultParams(doc.settingType, taxYear, doc.key);
                       const saved = getParams(selectedClient, doc.key);
-                      const params = { ...defaults, ...saved };
+                      // 수집완료 행만 저장 파라미터(실제 사용 기간)를 보여준다. empty(내역 없음) 행이
+                      // 좁은 기간을 저장한 채 defaults를 덮어쓰면, 기본 기간을 넓혀도 재수집이 옛
+                      // 좁은 기간으로 고착되는 함정이 있음(2026-07 양도·증여 실측).
+                      const params = isCollected ? { ...defaults, ...saved } : defaults;
                       const files = getFiles(selectedClient, doc.key);
 
                       return (
