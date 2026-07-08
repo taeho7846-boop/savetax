@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "4.17",
+  "version": "4.18",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": [
     "contentSettings",

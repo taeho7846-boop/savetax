@@ -75,6 +75,33 @@ async function probeViewerReportAllFrames(tabId) {
   }
 }
 
+// 뷰어 프레임의 "마지막 페이지로 이동" 버튼 클릭 — ClipReport는 페이지를 지연 생성하므로
+// (m_pageCount = 생성된 페이지 수) 마지막 페이지로 이동시켜 전체 생성을 강제한다.
+// ※ UI 버튼 클릭(사용자 경로)만 사용 — 리포트 객체의 무인자 함수 직접 호출은 금지(v4.9 사고).
+async function clickViewerLastPage(tabId, frameId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId, frameIds: [frameId] },
+      world: "MAIN",
+      func: () => {
+        try {
+          var els = document.querySelectorAll("[id^='re_last'], button[title*='마지막']");
+          for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            if (el.disabled) continue;
+            el.click();
+            return el.id || el.title || "clicked";
+          }
+          return "";
+        } catch (e) { return ""; }
+      },
+    });
+    return (results && results[0] && results[0].result) || "";
+  } catch (e) {
+    return "";
+  }
+}
+
 // 홈택스 리포트 뷰어(ClipReport)의 네이티브 PDF 저장(pdfDownLoad)을 호출하고
 // 그 PDF 응답을 디버거 Fetch 도메인으로 가로채 base64로 반환한다.
 //  - 화면 캡처(Page.printToPDF)와 달리 툴바 없이 전체 페이지가 담긴 벡터 PDF가 나온다.
@@ -429,6 +456,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let reportTab = null;
         let stableSig = null, stableCount = 0; // 같은 (프레임,총페이지) 연속 관측 수 — 점진 렌더 중 조기 캡처 방지
         let baselineTotal = -1; // 일괄출력 후 첫 관측 총페이지(=본표 재렌더). 병합 결과 도착은 이 값의 "증가"로만 판정
+        let lpClicks = 0; // "마지막 페이지 이동" 클릭 횟수 — 지연 생성 강제 렌더용
         for (let i = 0; i < waitSec * 2; i++) {
           const allTabs = await chrome.tabs.query({});
           reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
@@ -459,18 +487,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               // 병합 결과 도착 = 총페이지가 baseline보다 "증가". 증가가 없으면(본표=전체인 추계 등)
               // overdue 폴백이 현 상태를 캡처한다.
               if (baselineTotal < 0 && best && best.total >= 1) baselineTotal = best.total;
-              captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), click: st.clickInfo || null, base: baselineTotal, stable: stableCount,
+              captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), click: st.clickInfo || null, base: baselineTotal, stable: stableCount, lp: lpClicks,
                 diag: st.diag || null,
                 tabs: allTabs.filter(t => t.url && (t.url.includes("UTERNAAZ") || t.url.includes("clipreport") || t.url.includes("sesw"))).map(t => (t.url.match(/UTERNAAZ\w+|clipreport|sesw/) || ["?"])[0]),
                 probes: probes.filter(p => p.keys > 0).concat(probes.filter(p => p.keys <= 0)).slice(0, 8)
                   .map(p => ({ f: p.frameId, k: p.keys, t: p.total, u: p.url, c: p.cands })) };
               if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
               const grown = best && baselineTotal >= 1 && best.total > baselineTotal;
+              // ClipReport 지연 생성 대응: 증가가 없으면 뷰어의 "마지막 페이지 이동"을 눌러
+              // 전체 생성을 강제한다(실측: 9페이지 병합 결과도 m_pageCount=1에서 멈춰 있었음).
+              if (!grown && best && best.keys > 0 && baselineTotal >= 1 && lpClicks < 6 && stableCount >= 2) {
+                const lr = await clickViewerLastPage(popupTab.id, best.frameId);
+                if (lr) { lpClicks++; console.log("SaveTax BG: 뷰어 마지막페이지 클릭 #" + lpClicks + " (" + lr + ") — 전체 생성 강제"); }
+              }
               const stable = stableCount >= 3;
-              const overdue = sinceBatch > 220000; // 최후 폴백 — 병합(2~3분)이 페이지 증가 없이 끝나는 유형(본표=전체) 대비
-              if (best && best.keys > 0 && ((grown && stable) || overdue)) {
+              // 마지막페이지 강제 2회 후에도 총페이지가 5연속 동일하면 그게 전체(본표=전체 유형) — 60초부터 조기 확정
+              const fullyStable = lpClicks >= 2 && stableCount >= 5 && sinceBatch > 60000;
+              const overdue = sinceBatch > 220000; // 최후 폴백 — 마지막페이지 버튼을 못 찾는 등 예외 대비
+              if (best && best.keys > 0 && ((grown && stable) || fullyStable || overdue)) {
                 if (grown) console.log("SaveTax BG: 일괄출력 병합 결과 감지 — 총페이지 " + baselineTotal + " → " + best.total);
-                else console.log("SaveTax BG: 220초 내 페이지 증가 없음 — 현 상태(total=" + best.total + ")로 캡처(본표=전체 유형)");
+                else console.log("SaveTax BG: 마지막페이지 강제 후에도 총페이지 불변(total=" + best.total + ") — 전체로 판정하고 캡처");
                 frameCapture = { tabId: popupTab.id, frameId: best.frameId, total: best.total };
                 break;
               }
@@ -509,6 +545,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           try { await chrome.debugger.detach({ tabId: targetTabId }); } catch (e) {}
         }
         console.log("SaveTax BG: PDF 캡처 방식 =", captureMethod);
+        // 캡처 PDF 페이지 수 추정(자가검증) — pdfDownLoad가 일부 페이지만 내보내는지 로그로 판별
+        let pdfPages = 0;
+        try {
+          const bin = atob(pdfBase64.length > 4000000 ? pdfBase64.slice(0, 4000000) : pdfBase64);
+          pdfPages = (bin.match(/\/Type\s*\/Page[^s]/g) || []).length;
+        } catch (e) {}
+        console.log("SaveTax BG: 캡처 PDF 페이지 수(추정) =", pdfPages);
         const result = { data: pdfBase64 };
 
         const clientName = (msg.clientName || "거래처").replace(/[/\\:*?"<>|]/g, "_");
@@ -556,7 +599,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         globalThis._savetaxReportTabId = reportTab ? reportTab.id : null;
 
         if (frameCapture) delete popupViewerState[frameCapture.tabId];
-        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, sec: captureDebug && captureDebug.sinceBatchSec, base: captureDebug && captureDebug.base, click: captureDebug && captureDebug.click, diag: captureDebug && captureDebug.diag, tabs: captureDebug && captureDebug.tabs, probes: captureDebug && captureDebug.probes } : null });
+        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, pdfPages, method: captureMethod, sec: captureDebug && captureDebug.sinceBatchSec, base: captureDebug && captureDebug.base, lp: captureDebug && captureDebug.lp, click: captureDebug && captureDebug.click, diag: captureDebug && captureDebug.diag, tabs: captureDebug && captureDebug.tabs, probes: captureDebug && captureDebug.probes } : null });
       } catch (e) {
         sendResponse({ ok: false, error: e.message, debug: captureDebug });
       }
