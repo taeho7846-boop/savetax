@@ -1766,7 +1766,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.23 — 부가세·법인 신고서 사업자번호 필수화(주민번호 오조회 방지)");
+      console.log("SaveTax: content-hometax v4.24 — 조회 결과 알림 팝업 자동 닫기 실질 수정(창 단위 판별)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -2091,18 +2091,24 @@
       // 안 누르면 조회할 때마다 반투명 마스크가 누적돼 화면을 덮는다(2026-07 증여세 실측).
       // ★ 상태변경(접수/신청) 확인은 건드리지 않도록 "알림성 텍스트"가 있는 팝업의 확인만 클릭.
       function dismissInfoAlert() {
-        const btns = document.querySelectorAll("input[type='button'][id*='btn_confirm'][value='확인'], button[id*='btn_confirm']");
-        for (const b of btns) {
-          if (b.offsetParent === null) continue;
-          const box = b.closest("div[class*='pop'], div[class*='window'], div[class*='bpr'], div[class*='layer']");
-          const t = box ? (box.textContent || "").replace(/\s+/g, " ").trim() : "";
-          if (/알림|없습니다|조회된 결과|총\s*\d+\s*건/.test(t)) {
-            b.click();
+        // 팝업 창 단위로 훑는다 — 확인 버튼에서 closest로 올라가면 버튼만 든 좁은 컨테이너(pop_bbox)가
+        // 잡혀 "알림"/"조회된 데이터가 없습니다" 본문(형제 div)을 못 봐 텍스트 판별이 실패한다(v4.22 버그).
+        let clicked = false;
+        const wins = document.querySelectorAll("div[class*='w2window'], div[class*='w2popup'], div[class*='w2modal'], div[class*='bpr_pop']");
+        for (const win of wins) {
+          if (win.offsetParent === null) continue;
+          const t = (win.textContent || "").replace(/\s+/g, " ").trim();
+          if (!/알림|없습니다|조회된\s*(데이터|결과)|총\s*\d+\s*건/.test(t)) continue;
+          if (/접수|신청|삭제|저장|제출/.test(t)) continue; // 상태변경 확인은 건드리지 않음
+          const confirm = Array.from(win.querySelectorAll("input[type='button'], button"))
+            .find(b => b.offsetParent !== null && ((b.value || b.textContent || "").trim() === "확인"));
+          if (confirm) {
+            confirm.click();
+            clicked = true;
             console.log("SaveTax: 조회 결과 알림 확인 클릭 — " + t.slice(0, 40));
-            return true;
           }
         }
-        return false;
+        return clicked;
       }
 
       for (const win of windows) {
