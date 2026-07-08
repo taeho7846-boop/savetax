@@ -1699,7 +1699,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.14 — 일괄출력 병합 결과를 페이지 증가로 판정");
+      console.log("SaveTax: content-hometax v4.15 — 세목 로드 대기 + 결과 그리드 폴링(느린 네트워크 0건 오보고 방지)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1782,10 +1782,26 @@
           const tab = document.evaluate("//*[self::a or self::label or self::span or self::button][normalize-space(text())='" + taxText + "']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
           if (tab) { tab.click(); console.log("SaveTax: 세목 탭/라디오 클릭 →", taxText); return true; }
         } catch (e) {}
-        console.log("SaveTax: 세목 선택 실패(옵션 없음) →", taxText, "— 전체 세목으로 조회될 수 있음");
         return false;
       }
-      selectTaxType(rt.tax);
+
+      // 세목 옵션은 느린 네트워크에서 비동기로 늦게 채워진다(v4.14 실측: 옵션 없는 상태로
+      // 진행하면 전 구간 0건 → '내역 없음' 오보고). 성공까지 폴링, 끝내 실패면 수집 중단.
+      async function selectTaxTypeWithWait(taxText, timeoutMs) {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          if (selectTaxType(taxText)) return true;
+          await sleep(1500);
+        }
+        console.log("SaveTax: 세목 선택 실패(옵션 없음, " + Math.round(timeoutMs / 1000) + "초 대기) →", taxText);
+        return false;
+      }
+
+      if (!(await selectTaxTypeWithWait(rt.tax, 60000))) {
+        // 화면 로드 실패 — 조회를 강행하면 0건이 나와 '내역 없음'으로 오보고되므로 여기서 중단.
+        // throw 하면 아래 mark-collected에 닿지 않아 앱 상태가 갱신되지 않는다(= 재시도 가능 상태 유지).
+        throw new Error("세목 선택 실패(60초) — 화면 로드 지연/실패, 수집 중단(앱 상태 미갱신)");
+      }
       await sleep(1500);
 
       // 조회기간 단위 '1년' 토글 명시 클릭.
@@ -1894,29 +1910,33 @@
         return targets;
       }
 
+      let emptyDiagDumped = false; // 0건 진단 덤프는 최초 1회만 (구간마다 반복 출력 방지)
       async function collectCurrentResults(yearLabel) {
         let targets = collectPrintTargets();
         console.log("SaveTax: [" + yearLabel + "] 출력 대상 " + targets.length + "건 발견");
         if (targets.length === 0) {
-          // 진단: 결과 그리드/버튼 구조를 덤프해 실제 내역 유무 vs 파싱 실패를 구분
-          try {
-            const docs = accessibleDocs();
-            console.log("SaveTax[진단]: 접근 가능 문서 수(메인+iframe) = " + docs.length);
-            for (let di = 0; di < docs.length; di++) {
-              const doc = docs[di];
-              const rows = doc.querySelectorAll("tr, .w2grid_dataArea tr, [class*='grid'] tr");
-              console.log(`SaveTax[진단]: 문서#${di} tr 개수 = ${rows.length}`);
-              const clickables = Array.from(doc.querySelectorAll("a, button, input[type='button'], input[type='image']"))
-                .filter(el => el.offsetParent !== null)
-                .map(el => (el.textContent || el.value || el.title || el.alt || "").trim())
-                .filter(t => t && t.length < 20);
-              console.log(`SaveTax[진단]: 문서#${di} 보이는 버튼/링크(<20자) 샘플 =`, JSON.stringify(clickables.slice(0, 40)));
-              // '자료가 없습니다' / '조회된 내역이 없습니다' 류 안내문 탐지
-              const emptyMsg = doc.evaluate("//*[contains(text(),'없습니다') or contains(text(),'조회 결과') or contains(text(),'자료가 없')]", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-              if (emptyMsg) console.log(`SaveTax[진단]: 문서#${di} 안내문 = "${(emptyMsg.textContent||'').trim().slice(0,60)}"`);
-            }
-            console.log("SaveTax[진단]: 위 샘플에서 신고서 출력/보기에 해당하는 버튼 텍스트를 알려주면 셀렉터를 맞춥니다. (내역 자체가 없으면 '없습니다' 안내문이 보일 것)");
-          } catch (e) { console.log("SaveTax[진단]: 덤프 실패", e.message); }
+          // 진단: 결과 그리드/버튼 구조를 덤프해 실제 내역 유무 vs 파싱 실패를 구분 (최초 1회만)
+          if (!emptyDiagDumped) {
+            emptyDiagDumped = true;
+            try {
+              const docs = accessibleDocs();
+              console.log("SaveTax[진단]: 접근 가능 문서 수(메인+iframe) = " + docs.length);
+              for (let di = 0; di < docs.length; di++) {
+                const doc = docs[di];
+                const rows = doc.querySelectorAll("tr, .w2grid_dataArea tr, [class*='grid'] tr");
+                console.log(`SaveTax[진단]: 문서#${di} tr 개수 = ${rows.length}`);
+                const clickables = Array.from(doc.querySelectorAll("a, button, input[type='button'], input[type='image']"))
+                  .filter(el => el.offsetParent !== null)
+                  .map(el => (el.textContent || el.value || el.title || el.alt || "").trim())
+                  .filter(t => t && t.length < 20);
+                console.log(`SaveTax[진단]: 문서#${di} 보이는 버튼/링크(<20자) 샘플 =`, JSON.stringify(clickables.slice(0, 40)));
+                // '자료가 없습니다' / '조회된 내역이 없습니다' 류 안내문 탐지
+                const emptyMsg = doc.evaluate("//*[contains(text(),'없습니다') or contains(text(),'조회 결과') or contains(text(),'자료가 없')]", doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                if (emptyMsg) console.log(`SaveTax[진단]: 문서#${di} 안내문 = "${(emptyMsg.textContent||'').trim().slice(0,60)}"`);
+              }
+              console.log("SaveTax[진단]: 위 샘플에서 신고서 출력/보기에 해당하는 버튼 텍스트를 알려주면 셀렉터를 맞춥니다. (내역 자체가 없으면 '없습니다' 안내문이 보일 것)");
+            } catch (e) { console.log("SaveTax[진단]: 덤프 실패", e.message); }
+          }
           return 0;
         }
         let count = 0;
@@ -1991,6 +2011,7 @@
       await clickPeriodUnit1Y();
 
       let collectedCount = 0;
+      let anyQueryRan = false; // 조회 버튼을 실제로 누른 구간이 하나라도 있는가
       for (const win of windows) {
         try {
           console.log("SaveTax: [" + win.y + "] 조회 시작 " + win.s + " ~ " + win.e);
@@ -2013,7 +2034,14 @@
             else await sleep(1000);
           }
           if (!searchClicked) { console.log("SaveTax: [" + win.y + "] 조회 버튼 못 찾음 — 이 구간 건너뜀"); continue; }
-          await sleep(6000);
+          anyQueryRan = true;
+          // 결과 그리드 로딩 폴링 — 느린 네트워크에서 고정 대기로는 그리드가 늦게 채워져
+          // 있는 내역을 0건으로 오판한다. 대상이 잡히면 즉시, 아니면 최대 25초 대기.
+          await sleep(3000);
+          for (let w = 0; w < 22; w++) {
+            if (collectPrintTargets().length > 0) break;
+            await sleep(1000);
+          }
 
           // (d) 이 구간 결과 수집 (없으면 0 반환하고 다음 연도로 — "없으면 패스")
           const gotThisWindow = await collectCurrentResults(win.y);
@@ -2024,6 +2052,9 @@
           console.error("SaveTax: [" + win.y + "] 조회/수집 실패 -", e.message);
         }
       }
+
+      // 한 구간도 조회를 실행하지 못했다면 화면 문제 — '내역 없음(empty)'으로 오보고하지 않는다
+      if (!anyQueryRan) throw new Error("조회를 한 번도 실행하지 못함 — 화면 로드 문제(앱 상태 미갱신)");
 
       // 7. 완료 보고 (1건 이상 성공 시)
       if (creds.clientId && creds.appOrigin) {
