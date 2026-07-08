@@ -25,6 +25,8 @@
     // 신고서 일괄출력 등 진행 확인 → 자동 승인 (자동화 중단 방지)
     if (s.indexOf("계속 진행") !== -1 || s.indexOf("소요됩니다") !== -1) {
       console.log("SaveTax: confirm 자동 확인 →", msg);
+      // 일괄출력 클릭이 실제 핸들러를 발동시켰다는 검증 신호 (content가 폴링)
+      document.cookie = "savetax_batch_ok=" + Date.now() + "; path=/; max-age=600";
       return true;
     }
     return origConfirm.call(window, msg);
@@ -223,6 +225,18 @@
           cancelBtn.dataset.savetaxClicked = "true";
           cancelBtn.click();
           console.log("SaveTax: 세무대리인 팝업 취소");
+        }
+        return;
+      }
+
+      // 일괄출력 진행 확인이 native confirm 대신 w2window DOM 팝업으로 뜨는 유형 → 확인 클릭 + 검증 쿠키
+      if (text.indexOf("소요됩니다") !== -1 || text.indexOf("계속 진행") !== -1) {
+        var goBtn = popup.querySelector("input[value='확인'], input[value='예']");
+        if (goBtn && !goBtn.dataset.savetaxClicked) {
+          goBtn.dataset.savetaxClicked = "true";
+          goBtn.click();
+          document.cookie = "savetax_batch_ok=" + Date.now() + "; path=/; max-age=600";
+          console.log("SaveTax: 일괄출력 진행 팝업 자동 확인");
         }
         return;
       }

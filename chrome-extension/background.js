@@ -352,8 +352,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === "batch-clicked") {
     if (sender.tab?.id != null) {
-      viewerStateOf(sender.tab.id).batchTime = Date.now();
-      console.log("SaveTax BG: 일괄출력 클릭 보고 tab=" + sender.tab.id);
+      const st = viewerStateOf(sender.tab.id);
+      st.batchTime = Date.now();
+      st.clickInfo = { a: msg.attempts | 0, v: !!msg.verified, m: String(msg.method || "") };
+      console.log("SaveTax BG: 일괄출력 클릭 보고 tab=" + sender.tab.id + " " + JSON.stringify(st.clickInfo));
     }
     sendResponse({ ok: true });
     return false;
@@ -362,6 +364,48 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const st = sender.tab?.id != null ? popupViewerState[sender.tab.id] : null;
     sendResponse({ ok: true, count: st ? st.readies.length : 0 });
     return false;
+  }
+
+  // 팝업 top 문서(MAIN world)에서 일괄출력 클릭 — isolated world 합성 이벤트가 안 먹는
+  // WebSquare 핸들러 대비: 좌표 포함 포인터/마우스 시퀀스 + 네이티브 click() + WebSquare 컴포넌트 API
+  if (msg.type === "batch-click-main") {
+    (async () => {
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: sender.tab.id },
+          world: "MAIN",
+          func: () => {
+            try {
+              var el = document.getElementById("mf_triMatePrint") || document.querySelector("[id*='triMatePrint']");
+              if (!el) return "no-btn";
+              var tried = [];
+              var r = el.getBoundingClientRect();
+              var o = { bubbles: true, cancelable: true, view: window, button: 0,
+                clientX: Math.floor(r.left + r.width / 2), clientY: Math.floor(r.top + r.height / 2) };
+              ["pointerover", "pointerdown", "mousedown", "pointerup", "mouseup", "click"].forEach(function (t) {
+                var E = t.indexOf("pointer") === 0 && window.PointerEvent ? PointerEvent : MouseEvent;
+                el.dispatchEvent(new E(t, o));
+              });
+              tried.push("ev");
+              try { el.click(); tried.push("click"); } catch (e) {}
+              try {
+                var api = (window.$p && window.$p.getComponentById) ? window.$p
+                  : (window.$w && window.$w.getComponentById) ? window.$w : null;
+                if (api) {
+                  var c = api.getComponentById(el.id) || api.getComponentById(String(el.id).replace(/^mf_/, ""));
+                  if (c && typeof c.click === "function") { c.click(); tried.push("ws"); }
+                }
+              } catch (e) {}
+              return tried.join(",");
+            } catch (e) { return "err:" + String(e && e.message); }
+          },
+        });
+        sendResponse({ ok: true, result: (results && results[0] && results[0].result) || "?" });
+      } catch (e) {
+        sendResponse({ ok: false, result: "execErr:" + e.message });
+      }
+    })();
+    return true;
   }
 
   if (msg.type === "print-pdf") {
@@ -376,6 +420,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // 캡처 대상 결정: (a) 리포트 새창(clipreport.do 탭) — 접수증 등 기존 흐름
         //               (b) 신고서보기 팝업(UTERNAAZ34) 안의 뷰어 iframe — 일괄출력 후 직접 추출
         let reportTab = null;
+        let stableSig = null, stableCount = 0; // 같은 (프레임,총페이지) 연속 관측 수 — 점진 렌더 중 조기 캡처 방지
         for (let i = 0; i < waitSec * 2; i++) {
           const allTabs = await chrome.tabs.query({});
           reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
@@ -395,8 +440,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 const pr = await probeViewerReport(popupTab.id, fid);
                 probes.push({ frameId: fid, keys: pr.keys, total: pr.total, cands: pr.cands });
               }
-              captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, c: p.cands })) };
-              if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
               // ★ 죽은 프레임(execErr, keys<=0)은 후보에서 제외 — 총페이지가 전부 0이면 정렬이
               //   죽은 프레임을 best로 뽑아 keys>0 검사에서 영원히 탈락하던 버그(v4.10/4.11)
               // 후보 정렬: 총페이지 큰 순 → 동점이면 가장 최근 로드된 프레임(=일괄출력 결과물) 우선
@@ -405,12 +448,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               const alive = probes.filter(p => p.keys > 0)
                 .sort((a, b) => (b.total - a.total) || ((lastReadyOf[b.frameId] || 0) - (lastReadyOf[a.frameId] || 0)));
               const best = alive.length ? alive[0] : null;
+              // 안정성: best의 (프레임,총페이지)가 프로브 3연속(≈6초+) 동일해야 확정 — 렌더 진행 중 조기 캡처 방지
+              const sig = best ? best.frameId + ":" + best.total : "none";
+              if (sig === stableSig) stableCount++; else { stableSig = sig; stableCount = 1; }
+              captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), click: st.clickInfo || null, stable: stableCount,
+                probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, c: p.cands })) };
+              if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
               // 일괄출력 클릭 "이후" 로드된 프레임의 리포트는 곧 일괄출력 결과물 → m_pageCount가
-              // 1이어도 그게 전체(진짜 1페이지 신고서)이므로 즉시 캡처. 제자리 재렌더(프레임
+              // 1이어도 그게 전체(진짜 1페이지 신고서)이므로 캡처. 제자리 재렌더(프레임
               // 미교체)만 total>1 또는 200초 폴백으로 판정.
               const bestPostBatch = best ? (lastReadyOf[best.frameId] || 0) > st.batchTime : false;
+              const stable = stableCount >= 3;
               const overdue = sinceBatch > 200000; // 최후 폴백 — total을 못 읽어도 무조건 강행(v4.11 회귀 복원)
-              if (best && best.keys > 0 && ((bestPostBatch && best.total >= 1) || best.total > 1 || overdue)) {
+              if (best && best.keys > 0 && ((((bestPostBatch && best.total >= 1) || best.total > 1) && stable) || overdue)) {
                 if (overdue && best.total <= 1) console.log("SaveTax BG: 200초 내 전체 렌더 미확인 — 현 상태(total=" + best.total + ")로 강행");
                 frameCapture = { tabId: popupTab.id, frameId: best.frameId, total: best.total };
                 break;
@@ -497,7 +547,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         globalThis._savetaxReportTabId = reportTab ? reportTab.id : null;
 
         if (frameCapture) delete popupViewerState[frameCapture.tabId];
-        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, probes: captureDebug && captureDebug.probes } : null });
+        sendResponse({ ok: true, uploaded, uploadError, debug: frameCapture ? { total: frameCapture.total, frameId: frameCapture.frameId, method: captureMethod, click: captureDebug && captureDebug.click, probes: captureDebug && captureDebug.probes } : null });
       } catch (e) {
         sendResponse({ ok: false, error: e.message, debug: captureDebug });
       }

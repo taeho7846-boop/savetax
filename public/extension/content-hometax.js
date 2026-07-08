@@ -26,9 +26,14 @@
   if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
   if (!location.href.includes("UTERNAAZ34")) return;
   console.log("SaveTax: [팝업] 신고서 보기 팝업 감지 — 일괄출력 대기 @ " + location.href);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   function realClick(el) {
-    for (const type of ["mousedown", "mouseup", "click"]) {
-      el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+    const r = el.getBoundingClientRect();
+    const opts = { bubbles: true, cancelable: true, view: window, button: 0,
+      clientX: Math.floor(r.left + r.width / 2), clientY: Math.floor(r.top + r.height / 2) };
+    for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+      const Ev = type.indexOf("pointer") === 0 && window.PointerEvent ? PointerEvent : MouseEvent;
+      el.dispatchEvent(new Ev(type, opts));
     }
   }
   function findBatchBtn() {
@@ -37,9 +42,50 @@
     return Array.from(document.querySelectorAll("input[type='button'], input[type='submit'], button, a"))
       .find(el => el.offsetParent !== null && ((el.value || el.textContent || "").trim() === "일괄출력")) || null;
   }
-  let batchClicked = false, ticks = 0, busy = false;
+  const confirmSeen = () => document.cookie.includes("savetax_batch_ok=");
+  const clearConfirmSignal = () => { document.cookie = "savetax_batch_ok=; path=/; max-age=0"; };
+  async function readyCountNow() {
+    try {
+      const r = await chrome.runtime.sendMessage({ type: "viewer-ready-count" });
+      return (r && r.count) || 0;
+    } catch (e) { return 0; }
+  }
+
+  // 클릭 사다리: 클릭 → (confirm 자동승인 쿠키 || 뷰어 프레임 신규 로드)로 발동 검증 → 실패 시 더 강한 클릭으로 재시도
+  async function clickLadder(baseReadyCount) {
+    let attempts = 0, verified = false, method = "";
+    while (attempts < 4 && !verified) {
+      attempts++;
+      const btn = findBatchBtn();
+      if (!btn) break;
+      clearConfirmSignal();
+      if (attempts % 2 === 1) {
+        method = "content";
+        try { btn.focus(); } catch (e) {}
+        realClick(btn);
+      } else {
+        method = "main";
+        try {
+          const r = await chrome.runtime.sendMessage({ type: "batch-click-main" });
+          method = "main:" + ((r && r.result) || "?");
+        } catch (e) { method = "main:err"; }
+      }
+      // 검증: suppress-alert가 confirm 자동승인 때 심는 쿠키, 또는 뷰어 프레임 신규 로드(확인창 없는 유형 대비)
+      for (let k = 0; k < 12 && !verified; k++) {
+        await sleep(500);
+        if (confirmSeen()) { verified = true; method += "+confirm"; break; }
+        if ((await readyCountNow()) > baseReadyCount) { verified = true; method += "+frame"; break; }
+      }
+      console.log("SaveTax: [팝업] 일괄출력 클릭 시도 " + attempts + " (" + method + ") → "
+        + (verified ? "핸들러 발동 확인" : "반응 없음"));
+    }
+    try { await chrome.runtime.sendMessage({ type: "batch-clicked", attempts, verified, method }); } catch (e) {}
+    if (!verified) console.warn("SaveTax: [팝업] 일괄출력 핸들러 발동 미확인(" + attempts + "회) — 초기 리포트 폴백 캡처로 진행될 수 있음");
+  }
+
+  let started = false, ticks = 0, busy = false;
   const iv = setInterval(async () => {
-    if (batchClicked || busy) return;
+    if (started || busy) return;
     busy = true;
     try {
       ticks++;
@@ -49,21 +95,15 @@
         return;
       }
       // 초기 뷰어 프레임 로드 확인 (최대 30초 대기, 이후 강행)
-      let readyCount = 0;
-      try {
-        const r = await chrome.runtime.sendMessage({ type: "viewer-ready-count" });
-        readyCount = (r && r.count) || 0;
-      } catch (e) {}
+      const readyCount = await readyCountNow();
       if (readyCount === 0 && ticks < 30) {
         if (ticks % 5 === 0) console.log("SaveTax: [팝업] 초기 뷰어 로드 대기중... (" + ticks + "s)");
         return;
       }
-      realClick(batchBtn);
-      batchClicked = true;
-      try { await chrome.runtime.sendMessage({ type: "batch-clicked" }); } catch (e) {}
-      console.log("SaveTax: [팝업] 일괄출력 클릭 (" + (batchBtn.id || "?") + ", 초기뷰어 " + readyCount
-        + "개 확인) — 이후 PDF 추출은 background가 뷰어 프레임에서 직접 수행");
+      started = true;
       clearInterval(iv);
+      console.log("SaveTax: [팝업] 초기뷰어 " + readyCount + "개 확인 — 일괄출력 클릭 사다리 시작");
+      await clickLadder(readyCount);
     } finally { busy = false; }
   }, 1000);
   setTimeout(() => clearInterval(iv), 300000);
@@ -1659,7 +1699,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.12 — 즉시 캡처 + 200초 무조건 폴백 복원");
+      console.log("SaveTax: content-hometax v4.13 — 일괄출력 클릭 검증·사다리 재시도 + 캡처 안정성 가드");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -1921,7 +1961,7 @@
                 fileName: fileName,
               } : null,
             });
-            if (result && result.debug) console.log("SaveTax: [캡처디버그] " + JSON.stringify(result.debug).slice(0, 800));
+            if (result && result.debug) console.log("SaveTax: [캡처디버그] " + JSON.stringify(result.debug).slice(0, 1000));
             if (result && result.ok) {
               count++;
               console.log("SaveTax: " + fileName + " 저장 성공");
