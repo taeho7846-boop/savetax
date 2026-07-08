@@ -1766,7 +1766,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.21 — 등록번호 가드 + 캡처 전패 시 empty 오보고 방지");
+      console.log("SaveTax: content-hometax v4.22 — 조회 결과 알림 팝업 자동 닫기(딤드 마스크 누적 방지)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -2081,8 +2081,28 @@
       let collectedCount = 0;
       let anyQueryRan = false; // 조회 버튼을 실제로 누른 구간이 하나라도 있는가
       let anyTargetsFound = false; // 출력 대상(접수번호 링크)을 하나라도 발견했는가
+
+      // 조회 결과 알림 팝업("총 0건 … 조회된 결과가 없습니다" 등)의 [확인]을 눌러 딤드 마스크를 걷는다.
+      // 안 누르면 조회할 때마다 반투명 마스크가 누적돼 화면을 덮는다(2026-07 증여세 실측).
+      // ★ 상태변경(접수/신청) 확인은 건드리지 않도록 "알림성 텍스트"가 있는 팝업의 확인만 클릭.
+      function dismissInfoAlert() {
+        const btns = document.querySelectorAll("input[type='button'][id*='btn_confirm'][value='확인'], button[id*='btn_confirm']");
+        for (const b of btns) {
+          if (b.offsetParent === null) continue;
+          const box = b.closest("div[class*='pop'], div[class*='window'], div[class*='bpr'], div[class*='layer']");
+          const t = box ? (box.textContent || "").replace(/\s+/g, " ").trim() : "";
+          if (/알림|없습니다|조회된 결과|총\s*\d+\s*건/.test(t)) {
+            b.click();
+            console.log("SaveTax: 조회 결과 알림 확인 클릭 — " + t.slice(0, 40));
+            return true;
+          }
+        }
+        return false;
+      }
+
       for (const win of windows) {
         try {
+          dismissInfoAlert(); // 직전 구간 알림 잔여 정리(딤드 누적 방지)
           console.log("SaveTax: [" + win.y + "] 조회 시작 " + win.s + " ~ " + win.e);
 
           // (a) 날짜 입력 (+검증) — 실패 시 화면에 남은 엉뚱한 기간으로 조회되는 것 방지
@@ -2116,10 +2136,12 @@
           // 같을 수 있으므로 타임아웃 후에는 현 상태로 진행(0건 판정).
           await sleep(2000);
           for (let w = 0; w < 25; w++) {
+            dismissInfoAlert(); // 조회 결과 알림 팝업이 뜨는 즉시 닫기(마스크 누적 방지)
             const sig = collectPrintTargets().map(el => (el.textContent || "").trim()).join("|");
             if (sig !== preSig) break;
             await sleep(1000);
           }
+          dismissInfoAlert();
           await sleep(1500); // 그리드 렌더 안정화
 
           // (d) 이 구간 결과 수집 (없으면 0 반환하고 다음 연도로 — "없으면 패스")
