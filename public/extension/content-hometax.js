@@ -1742,7 +1742,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.16 — 일괄출력 후 팝업 내부 진단 중계(레이어/프레임/URL/탭)");
+      console.log("SaveTax: content-hometax v4.17 — 전체 프레임 프로브 + 조회 그리드 서명 대기");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -2068,6 +2068,10 @@
           fillIdNumber(idNo);
           await sleep(500);
 
+          // ★ 직전 구간 결과가 그리드에 남은 채 새 결과로 오인(v4.15 회귀: 2025 조회에 2024 행이 잡힘) 방지
+          //   — 조회 전 그리드 서명을 찍어두고, 클릭 후 서명이 "달라질 때까지" 기다린다.
+          const preSig = collectPrintTargets().map(el => (el.textContent || "").trim()).join("|");
+
           // (c) 조회 클릭  ← 기존 조회버튼 클릭 로직(input[value='조회'] 보이는 것 우선, 최대 3회 재시도)을 그대로 사용
           let searchClicked = false;
           for (let attempt = 0; attempt < 3 && !searchClicked; attempt++) {
@@ -2078,13 +2082,17 @@
           }
           if (!searchClicked) { console.log("SaveTax: [" + win.y + "] 조회 버튼 못 찾음 — 이 구간 건너뜀"); continue; }
           anyQueryRan = true;
-          // 결과 그리드 로딩 폴링 — 느린 네트워크에서 고정 대기로는 그리드가 늦게 채워져
-          // 있는 내역을 0건으로 오판한다. 대상이 잡히면 즉시, 아니면 최대 25초 대기.
-          await sleep(3000);
-          for (let w = 0; w < 22; w++) {
-            if (collectPrintTargets().length > 0) break;
+          // 결과 그리드 로딩 폴링 — 서명이 조회 전과 "달라질 때까지" 대기(최대 27초).
+          // 대상 발견 즉시 진행하면 직전 구간의 잔존 그리드를 오인하고, 고정 대기는 느린
+          // 네트워크에서 있는 내역을 0건으로 오판한다. 두 구간 결과가 모두 0건이면 서명이
+          // 같을 수 있으므로 타임아웃 후에는 현 상태로 진행(0건 판정).
+          await sleep(2000);
+          for (let w = 0; w < 25; w++) {
+            const sig = collectPrintTargets().map(el => (el.textContent || "").trim()).join("|");
+            if (sig !== preSig) break;
             await sleep(1000);
           }
+          await sleep(1500); // 그리드 렌더 안정화
 
           // (d) 이 구간 결과 수집 (없으면 0 반환하고 다음 연도로 — "없으면 패스")
           const gotThisWindow = await collectCurrentResults(win.y);

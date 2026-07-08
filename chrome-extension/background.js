@@ -28,14 +28,15 @@ function viewerStateOf(tabId) {
 }
 chrome.tabs.onRemoved.addListener((tabId) => { delete popupViewerState[tabId]; });
 
-// 뷰어 프레임의 ClipReport 리포트 상태 프로브 (MAIN world, 읽기 전용 — 함수 호출 금지)
+// 탭의 "모든" 프레임에서 ClipReport 리포트 상태 프로브 (MAIN world, 읽기 전용 — 함수 호출 금지)
+// ★ allFrames:true — 뷰어 도우미가 감지 못하는 숨김/중첩 프레임에 병합 리포트가 로드되는
+//   경우를 놓치지 않기 위해 readies 목록이 아니라 탭 전체를 훑는다(결과에 frameId 포함).
 // total 판정(엄격): (1) id에 total+page 가 든 DOM 요소의 숫자 텍스트/값
-//                  (2) 리포트 객체의 이름에 total+page 가 든 "데이터" 숫자 속성
-// 둘 다 없으면 0 (그 외 page 계열 숫자는 후보 덤프로만 남김 — 버튼크기 등 오인 방지)
-async function probeViewerReport(tabId, frameId) {
+//                  (2) 리포트 객체(모든 키)의 m_pageCount 또는 이름에 total 이 든 숫자 속성
+async function probeViewerReportAllFrames(tabId) {
   try {
     const results = await chrome.scripting.executeScript({
-      target: { tabId, frameIds: [frameId] },
+      target: { tabId, allFrames: true },
       world: "MAIN",
       func: () => {
         try {
@@ -49,27 +50,28 @@ async function probeViewerReport(tabId, frameId) {
             out.cands.push((el.id || "?") + "=" + t);
             if (/total/i.test(el.id) && /page/i.test(el.id)) out.total = Math.max(out.total, parseInt(t, 10));
           }
-          // (2) 리포트 객체: 데이터 속성만 (함수 호출 금지)
+          // (2) 리포트 객체: 모든 키의 데이터 속성 (함수 호출 금지)
           var ks = Object.keys(window.m_reportHashMap || {});
           out.keys = ks.length;
-          if (ks.length) {
-            var r = window.m_reportHashMap[ks[ks.length - 1]];
+          for (var kk = 0; kk < ks.length && kk < 5; kk++) {
+            var r = window.m_reportHashMap[ks[kk]];
             for (var p in r) {
               if (!/page/i.test(p)) continue;
               var v = r[p];
               if (typeof v !== "number" || !isFinite(v)) continue;
-              if (out.cands.length < 25) out.cands.push("r." + p + "=" + v);
+              if (out.cands.length < 25) out.cands.push("k" + kk + "." + p + "=" + v);
               // 실측: ClipReport 총 페이지 속성은 m_pageCount (2026-07 캡처디버그로 확정)
               if (p === "m_pageCount" || /total/i.test(p)) out.total = Math.max(out.total, v);
             }
           }
           return out;
-        } catch (e) { return { keys: -1, total: 0, cands: ["err:" + String(e && e.message)] }; }
+        } catch (e) { return { keys: -1, total: 0, cands: ["err:" + String(e && e.message)], url: "" }; }
       },
     });
-    return (results && results[0] && results[0].result) || { keys: 0, total: 0, cands: [], url: "" };
+    return (results || [])
+      .map(fr => ({ frameId: fr.frameId, ...((fr && fr.result) || { keys: 0, total: 0, cands: [], url: "" }) }));
   } catch (e) {
-    return { keys: 0, total: 0, cands: ["execErr:" + e.message], url: "" };
+    return [{ frameId: -1, keys: 0, total: 0, cands: ["execErr:" + e.message], url: "" }];
   }
 }
 
@@ -439,13 +441,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             const quiet = Date.now() - last.time > 8000;       // 마지막 로드 보고 후 8초 안정화
             const sinceBatch = Date.now() - st.batchTime;
             if (quiet && sinceBatch > 10000 && i % 4 === 0) {  // ~2초에 한 번 프로브
-              // 초기 뷰어/전체 리포트 프레임이 공존할 수 있어 모든 ready 프레임을 프로브해 비교
-              const frameIds = [...new Set(st.readies.map(r => r.frameId))];
-              const probes = [];
-              for (const fid of frameIds) {
-                const pr = await probeViewerReport(popupTab.id, fid);
-                probes.push({ frameId: fid, keys: pr.keys, total: pr.total, cands: pr.cands, url: pr.url || "" });
-              }
+              // 탭의 모든 프레임을 프로브 — 도우미 미감지(숨김/중첩) 프레임의 병합 리포트도 후보에 포함
+              const probes = await probeViewerReportAllFrames(popupTab.id);
               // ★ 죽은 프레임(execErr, keys<=0)은 후보에서 제외 — 총페이지가 전부 0이면 정렬이
               //   죽은 프레임을 best로 뽑아 keys>0 검사에서 영원히 탈락하던 버그(v4.10/4.11)
               // 후보 정렬: 총페이지 큰 순 → 동점이면 가장 최근 로드된 프레임(=일괄출력 결과물) 우선
@@ -465,7 +462,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               captureDebug = { sinceBatchSec: Math.round(sinceBatch / 1000), click: st.clickInfo || null, base: baselineTotal, stable: stableCount,
                 diag: st.diag || null,
                 tabs: allTabs.filter(t => t.url && (t.url.includes("UTERNAAZ") || t.url.includes("clipreport") || t.url.includes("sesw"))).map(t => (t.url.match(/UTERNAAZ\w+|clipreport|sesw/) || ["?"])[0]),
-                probes: probes.map(p => ({ f: p.frameId, k: p.keys, t: p.total, u: p.url, c: p.cands })) };
+                probes: probes.filter(p => p.keys > 0).concat(probes.filter(p => p.keys <= 0)).slice(0, 8)
+                  .map(p => ({ f: p.frameId, k: p.keys, t: p.total, u: p.url, c: p.cands })) };
               if (i % 20 === 0) console.log("SaveTax BG: 리포트 프로브", JSON.stringify(captureDebug).slice(0, 600));
               const grown = best && baselineTotal >= 1 && best.total > baselineTotal;
               const stable = stableCount >= 3;
