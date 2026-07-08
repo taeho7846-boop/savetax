@@ -50,6 +50,12 @@ async function probeViewerReportAllFrames(tabId) {
             out.cands.push((el.id || "?") + "=" + t);
             if (/total/i.test(el.id) && /page/i.test(el.id)) out.total = Math.max(out.total, parseInt(t, 10));
           }
+          // 페이저의 "전체 페이지" input(value "/ 9")이 권위 있는 총페이지 — m_pageCount(생성 수)와 별개(2026-07 실측)
+          var tp = document.querySelector("input[title='전체 페이지']");
+          if (tp) {
+            var tm = String(tp.value || "").match(/(\d+)/);
+            if (tm) { out.cands.push("전체페이지=" + tm[1]); out.total = Math.max(out.total, parseInt(tm[1], 10)); }
+          }
           // (2) 리포트 객체: 모든 키의 데이터 속성 (함수 호출 금지)
           var ks = Object.keys(window.m_reportHashMap || {});
           out.keys = ks.length;
@@ -409,7 +415,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (sender.tab?.id != null) {
       const st = viewerStateOf(sender.tab.id);
       st.batchTime = Date.now();
-      st.clickInfo = { a: msg.attempts | 0, v: !!msg.verified, m: String(msg.method || "") };
+      st.clickInfo = { a: msg.attempts | 0, v: !!msg.verified, m: String(msg.method || ""), forms: msg.forms || null };
       console.log("SaveTax BG: 일괄출력 클릭 보고 tab=" + sender.tab.id + " " + JSON.stringify(st.clickInfo));
     }
     sendResponse({ ok: true });

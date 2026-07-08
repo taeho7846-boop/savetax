@@ -51,6 +51,28 @@
     } catch (e) { return 0; }
   }
 
+  // 신고서 목록(좌측 서식 체크박스)이 늦게 로드된 채 일괄출력하면 본표만 병합된다
+  // (실측: 자동 클릭=1쪽 vs 목록 로드 후 수동 클릭=9쪽). 목록 로드를 기다렸다가
+  // [전체선택]을 누른 뒤 일괄출력해야 전체 서식이 병합된다.
+  async function waitFormsAndSelectAll() {
+    let lastN = -1, stableN = 0, n = 0;
+    for (let t = 0; t < 30; t++) {
+      const boxes = Array.from(document.querySelectorAll("input[type='checkbox']")).filter(b => b.offsetParent !== null);
+      n = boxes.length;
+      if (n > 0 && n === lastN) { stableN++; if (stableN >= 2) break; } else { stableN = 0; }
+      if (t >= 12 && n === 0) break; // 목록이 없는 유형 — 12초까지만 기다리고 진행
+      lastN = n;
+      await sleep(1000);
+    }
+    const selAll = Array.from(document.querySelectorAll("input[type='button'], button, a"))
+      .find(el => el.offsetParent !== null && ((el.value || el.textContent || "").trim() === "전체선택"));
+    if (selAll) { realClick(selAll); await sleep(1000); }
+    const boxes = Array.from(document.querySelectorAll("input[type='checkbox']")).filter(b => b.offsetParent !== null);
+    const checked = boxes.filter(b => b.checked).length;
+    console.log("SaveTax: [팝업] 신고서 목록 " + boxes.length + "개, 전체선택 " + (selAll ? "클릭" : "버튼 없음") + " → 체크 " + checked + "개");
+    return { n: boxes.length, c: checked };
+  }
+
   // 클릭 사다리: 클릭 → (confirm 자동승인 쿠키 || 뷰어 프레임 신규 로드)로 발동 검증 → 실패 시 더 강한 클릭으로 재시도
   async function clickLadder(baseReadyCount) {
     let attempts = 0, verified = false, method = "";
@@ -79,7 +101,7 @@
       console.log("SaveTax: [팝업] 일괄출력 클릭 시도 " + attempts + " (" + method + ") → "
         + (verified ? "핸들러 발동 확인" : "반응 없음"));
     }
-    try { await chrome.runtime.sendMessage({ type: "batch-clicked", attempts, verified, method }); } catch (e) {}
+    try { await chrome.runtime.sendMessage({ type: "batch-clicked", attempts, verified, method, forms: formsInfo }); } catch (e) {}
     if (!verified) console.warn("SaveTax: [팝업] 일괄출력 핸들러 발동 미확인(" + attempts + "회) — 초기 리포트 폴백 캡처로 진행될 수 있음");
     watchAfterBatch(); // await 하지 않음 — 백그라운드 감시
   }
@@ -126,6 +148,7 @@
     }
   }
 
+  let formsInfo = null; // 신고서 목록 로드/전체선택 결과 (batch-clicked로 보고)
   let started = false, ticks = 0, busy = false;
   const iv = setInterval(async () => {
     if (started || busy) return;
@@ -145,8 +168,9 @@
       }
       started = true;
       clearInterval(iv);
-      console.log("SaveTax: [팝업] 초기뷰어 " + readyCount + "개 확인 — 일괄출력 클릭 사다리 시작");
-      await clickLadder(readyCount);
+      console.log("SaveTax: [팝업] 초기뷰어 " + readyCount + "개 확인 — 신고서 목록 대기 후 일괄출력");
+      formsInfo = await waitFormsAndSelectAll();
+      await clickLadder(await readyCountNow());
     } finally { busy = false; }
   }, 1000);
   setTimeout(() => clearInterval(iv), 300000);
@@ -1742,7 +1766,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.19 — PDF 추출 directPDFPrint 우선(서버 전체분) + pdfDownLoad 폴백");
+      console.log("SaveTax: content-hometax v4.20 — 신고서 목록 전체선택 후 일괄출력 + 페이저 전체페이지 판독");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
