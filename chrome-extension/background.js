@@ -102,8 +102,14 @@ async function clickViewerLastPage(tabId, frameId) {
   }
 }
 
-// 홈택스 리포트 뷰어(ClipReport)의 네이티브 PDF 저장(pdfDownLoad)을 호출하고
+// 마지막 ClipReport 캡처가 어떤 뷰어 메서드로 이뤄졌는지 (debug 표기용)
+let _clipCaptureVia = null;
+
+// 홈택스 리포트 뷰어(ClipReport)의 PDF 내보내기를 호출하고
 // 그 PDF 응답을 디버거 Fetch 도메인으로 가로채 base64로 반환한다.
+//  - 트리거 순서: directPDFPrint(서버 전체분 요청 — 복식 신고서처럼 클라이언트 리포트가
+//    1페이지로 잘린 경우에도 전체 PDF가 옴, 2026-07 실측) → 12초 내 미도착 시 pdfDownLoad 폴백
+//    (pdfDownLoad는 클라이언트에 생성된 페이지만 내보내는 한계가 실측됨).
 //  - 화면 캡처(Page.printToPDF)와 달리 툴바 없이 전체 페이지가 담긴 벡터 PDF가 나온다.
 //  - 캡처 성공 시 로컬 다운로드는 Abort 시켜 사용자 다운로드 폴더를 더럽히지 않는다.
 //  - 실패(메서드 없음/네트워크 아님/타임아웃) 시 null 반환 → 호출측이 printToPDF로 폴백.
@@ -114,10 +120,12 @@ async function captureClipReportPdf(tabId, timeoutMs = 30000, frameId = null) {
     const finish = (val) => {
       if (done) return;
       done = true;
+      if (val) _clipCaptureVia = lastTrigger; // 캡처를 만들어낸 트리거 기록
       chrome.debugger.onEvent.removeListener(onEvent);
       chrome.debugger.sendCommand({ tabId }, "Fetch.disable").catch(() => {});
       resolve(val);
     };
+    let lastTrigger = null;
 
     const onEvent = async (source, method, params) => {
       if (source.tabId !== tabId || method !== "Fetch.requestPaused") return;
@@ -142,36 +150,54 @@ async function captureClipReportPdf(tabId, timeoutMs = 30000, frameId = null) {
       }
     };
 
+    // 뷰어 리포트의 내보내기 메서드를 이름으로 호출 (마지막 키 리포트 대상)
+    async function trigger(methodName) {
+      try {
+        if (frameId != null) {
+          // 뷰어가 팝업 안 교차출처 iframe인 경우: scripting API로 해당 프레임 MAIN world에서 호출
+          const results = await chrome.scripting.executeScript({
+            target: { tabId, frameIds: [frameId] },
+            world: "MAIN",
+            func: (mname) => {
+              try {
+                var ks = Object.keys(window.m_reportHashMap || {});
+                if (!ks.length) return "nokey";
+                // 일괄출력 재조회로 리포트가 추가됐을 수 있어 가장 최신(마지막) 리포트 사용
+                var r = window.m_reportHashMap[ks[ks.length - 1]];
+                if (typeof r[mname] !== "function") return "nomethod";
+                r[mname]();
+                return "ok";
+              } catch (e) { return "err:" + (e && e.message); }
+            },
+            args: [methodName],
+          });
+          return results && results[0] ? results[0].result : "noresult";
+        }
+        const evalRes = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
+          expression: "(function(){try{var ks=Object.keys(m_reportHashMap||{});if(!ks.length)return 'nokey';var r=m_reportHashMap[ks[0]];if(typeof r['" + methodName + "']!=='function')return 'nomethod';r['" + methodName + "']();return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()",
+          returnByValue: true,
+        });
+        return evalRes?.result?.value;
+      } catch (e) { return "trigErr:" + e.message; }
+    }
+
     try {
       chrome.debugger.onEvent.addListener(onEvent);
       await chrome.debugger.sendCommand({ tabId }, "Fetch.enable", {
         patterns: [{ urlPattern: "*", requestStage: "Response" }],
       });
-      let verdict;
-      if (frameId != null) {
-        // 뷰어가 팝업 안 교차출처 iframe인 경우: scripting API로 해당 프레임 MAIN world에서 호출
-        const results = await chrome.scripting.executeScript({
-          target: { tabId, frameIds: [frameId] },
-          world: "MAIN",
-          func: () => {
-            try {
-              var ks = Object.keys(window.m_reportHashMap || {});
-              if (!ks.length) return "nokey";
-              // 일괄출력 재조회로 리포트가 추가됐을 수 있어 가장 최신(마지막) 리포트 사용
-              window.m_reportHashMap[ks[ks.length - 1]].pdfDownLoad();
-              return "ok";
-            } catch (e) { return "err:" + (e && e.message); }
-          },
-        });
-        verdict = results && results[0] ? results[0].result : "noresult";
-      } else {
-        const evalRes = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
-          expression: "(function(){try{var ks=Object.keys(m_reportHashMap||{});if(!ks.length)return 'nokey';m_reportHashMap[ks[0]].pdfDownLoad();return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()",
-          returnByValue: true,
-        });
-        verdict = evalRes?.result?.value;
+      // 1순위: directPDFPrint — 서버 세션의 "전체" 리포트 PDF를 요청 (인쇄 계열 경로)
+      lastTrigger = "directPDFPrint";
+      let verdict = await trigger("directPDFPrint");
+      console.log("SaveTax BG: ClipReport directPDFPrint 호출" + (frameId != null ? "(frame " + frameId + ")" : "") + " ->", verdict);
+      if (verdict === "ok") {
+        await new Promise(r => setTimeout(r, 12000)); // PDF 인터셉트 대기 (도착하면 finish가 먼저 resolve)
       }
-      console.log("SaveTax BG: ClipReport pdfDownLoad 호출" + (frameId != null ? "(frame " + frameId + ")" : "") + " ->", verdict);
+      if (done) return;
+      // 2순위(폴백): pdfDownLoad — 클라이언트에 생성된 페이지만 내보내는 한계 있음
+      lastTrigger = "pdfDownLoad";
+      verdict = await trigger("pdfDownLoad");
+      console.log("SaveTax BG: ClipReport pdfDownLoad 호출(폴백)" + (frameId != null ? "(frame " + frameId + ")" : "") + " ->", verdict);
       if (typeof verdict !== "string" || verdict !== "ok") {
         finish(null);
         return;
@@ -527,7 +553,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         try {
           // 1순위: ClipReport 네이티브 PDF 저장(pdfDownLoad) — 툴바 없는 전체 벡터 PDF
           pdfBase64 = await captureClipReportPdf(targetTabId, 30000, frameCapture ? frameCapture.frameId : null);
-          if (pdfBase64) captureMethod = "clipreport-pdf";
+          if (pdfBase64) captureMethod = "clipreport-" + (_clipCaptureVia || "pdf");
 
           // 폴백: 화면 인쇄(printToPDF) — 네이티브 저장이 안 될 때만 (reportTab 경로일 때만 실행)
           if (!pdfBase64 && reportTab) {
@@ -620,7 +646,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         // 신고서보기/공개여부 팝업 창이 남아 있으면 함께 닫기 (다음 행 수집 시 혼선 방지)
         for (const t of allTabs) {
-          if (t.url && (t.url.includes("UTERNAAZ34") || t.url.includes("UTERNAAZ39"))) {
+          if (t.url && (t.url.includes("UTERNAAZ34") || t.url.includes("UTERNAAZ39") || t.url.includes("sesw.hometax.go.kr"))) {
             try { await chrome.tabs.remove(t.id); } catch (e) {}
           }
         }

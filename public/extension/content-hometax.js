@@ -1742,7 +1742,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.18 — 마지막페이지 강제 렌더(지연 생성 대응) + PDF 페이지 자가검증");
+      console.log("SaveTax: content-hometax v4.19 — PDF 추출 directPDFPrint 우선(서버 전체분) + pdfDownLoad 폴백");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
