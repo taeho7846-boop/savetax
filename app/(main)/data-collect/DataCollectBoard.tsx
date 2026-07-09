@@ -101,6 +101,8 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   const [selectedClientId, setSelectedClientId] = useState<number | null>(clients[0]?.id ?? null);
   const [search, setSearch] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<Set<string>>(new Set());
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ i: number; total: number; label: string } | null>(null);
 
   // 수집 왕복(홈택스 새 탭 다녀오기) 후 화면이 새로 마운트되면 useState 초기값 때문에
   // 좌측 선택이 첫 거래처로 리셋된다 → 직전 선택/검색을 sessionStorage로 복원.
@@ -174,6 +176,40 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     window.addEventListener("focus", onVisible); // 별도 창으로 열린 경우 대비
   }
 
+  // 자격증명 fetch + payload 조립 → 홈택스 수집 URL 문자열 반환 (창은 열지 않음).
+  // 단일 수집과 일괄 수집이 공유. 실패 시 throw.
+  async function buildCollectUrl(docKey: string): Promise<string> {
+    const cfg = COLLECT_CONFIG[docKey];
+    const res = await fetch("/api/automation/hometax-credentials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: selectedClient!.id }),
+    });
+    const data: HometaxCreds = await res.json();
+    if (!res.ok) throw new Error((data as { error?: string }).error || "자격증명 조회 실패");
+
+    const container = document.querySelector(`[data-doc="${docKey}"]`);
+    const extra = cfg.build ? cfg.build(container, data, taxYear) : {};
+
+    const payload = {
+      mode: cfg.mode,
+      id: data.hometaxId,
+      pw: data.hometaxPw,
+      rn: data.residentNumber || "",
+      certName: cfg.useCert ? (data.certName || "") : "",
+      certPw: cfg.useCert ? (data.certPw || "") : "",
+      clientName: selectedClient!.name,
+      clientId: selectedClient!.id,
+      taxYear,
+      docType: docKey,
+      appOrigin: window.location.origin,
+      token: data.collectToken || "",
+      ...extra,
+    };
+    const creds = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`;
+  }
+
   // 서류 1건을 홈택스 새 탭에서 수집 (홈택스 탭이 로그인 세션을 점유하므로 항상 1건씩).
   async function collectOne(docKey: string) {
     if (!selectedClient) return;
@@ -190,60 +226,130 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       return;
     }
 
-    const cfg = COLLECT_CONFIG[docKey];
-    if (!cfg) {
+    if (!COLLECT_CONFIG[docKey]) {
       alert(`'${target.label}'의 자동 수집은 아직 지원되지 않습니다.`);
       return;
     }
     try {
-      const res = await fetch("/api/automation/hometax-credentials", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: selectedClient.id }),
-      });
-      const data: HometaxCreds = await res.json();
-      if (!res.ok) { alert(`오류: ${(data as { error?: string }).error}`); return; }
-
-      const container = document.querySelector(`[data-doc="${docKey}"]`);
-      const extra = cfg.build ? cfg.build(container, data, taxYear) : {};
-
-      const payload = {
-        mode: cfg.mode,
-        id: data.hometaxId,
-        pw: data.hometaxPw,
-        rn: data.residentNumber || "",
-        certName: cfg.useCert ? (data.certName || "") : "",
-        certPw: cfg.useCert ? (data.certPw || "") : "",
-        clientName: selectedClient.name,
-        clientId: selectedClient.id,
-        taxYear,
-        docType: docKey,
-        appOrigin: window.location.origin,
-        token: data.collectToken || "",
-        ...extra,
-      };
-      const creds = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-
-      window.open(
-        `https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`,
-        "_blank"
-      );
+      const url = await buildCollectUrl(docKey);
+      window.open(url, "_blank");
       refreshOnReturn();
     } catch (e) {
       alert(`오류: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  // 일괄 자료수집: 체크된 서류 중 자동수집(아이디) 가능한 첫 서류부터 1건 실행.
-  async function handleCollect() {
-    if (!selectedClient || checkedDocs.size === 0) return;
-    const checkedList = hometaxDocs.filter(d => checkedDocs.has(d.key));
-    const target = checkedList.find(d => d.auth === "id") ?? checkedList[0];
-    if (!target) return;
-    if (checkedList.length > 1 && target.auth === "id") {
-      if (!confirm(`한 번에 한 서류만 수집됩니다.\n먼저 "${target.label}"부터 수집할까요?`)) return;
+  // 특정 서류의 현재 updatedAt(ISO) 조회 — 없으면 null. 일괄 수집 baseline/완료 판정용.
+  async function fetchDocUpdatedAt(docKey: string): Promise<string | null> {
+    try {
+      const res = await fetch(
+        `/api/data-collect/status?clientId=${selectedClient!.id}&taxYear=${encodeURIComponent(taxYear)}`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) return null;
+      const rows: { docType: string; status: string; updatedAt: string }[] = await res.json();
+      const row = rows.find(r => r.docType === docKey);
+      return row ? row.updatedAt : null;
+    } catch {
+      return null;
     }
-    await collectOne(target.key);
+  }
+
+  // 한 서류의 수집 완료를 폴링 — 확장이 종료 시 mark-collected로 status/updatedAt을 갱신하면 완료로 판정.
+  // 창이 닫히면 aborted, 최대 20분 초과면 timedOut.
+  function waitForDocComplete(docKey: string, baseline: string | null, win: Window | null): Promise<{ done?: boolean; aborted?: boolean; timedOut?: boolean }> {
+    return new Promise(resolve => {
+      const start = Date.now();
+      const TIMEOUT = 20 * 60 * 1000; // 20분 (신고서 다구간 수집 대비)
+      const tick = async () => {
+        if (win && win.closed) return resolve({ aborted: true });
+        if (Date.now() - start > TIMEOUT) return resolve({ timedOut: true });
+        try {
+          const res = await fetch(
+            `/api/data-collect/status?clientId=${selectedClient!.id}&taxYear=${encodeURIComponent(taxYear)}`,
+            { cache: "no-store" }
+          );
+          if (res.ok) {
+            const rows: { docType: string; status: string; updatedAt: string }[] = await res.json();
+            const row = rows.find(r => r.docType === docKey);
+            if (row && (row.status === "collected" || row.status === "empty") && row.updatedAt !== baseline) {
+              return resolve({ done: true });
+            }
+          }
+        } catch {}
+        setTimeout(tick, 3000);
+      };
+      setTimeout(tick, 3000);
+    });
+  }
+
+  // 일괄 자료수집: 체크된 아이디 인증 서류를 "한 창을 재사용해" 순서대로 수집한다.
+  // (첫 서류만 window.open으로 창을 열고 — 클릭 제스처 유지 — 이후는 win.location.href로 재사용,
+  //  await 뒤 window.open이 팝업 차단되는 것과 세션 충돌을 동시에 회피.)
+  async function handleCollect() {
+    if (!selectedClient || checkedDocs.size === 0 || batchRunning) return;
+    const all = hometaxDocs.filter(d => checkedDocs.has(d.key));
+    const runnable = all.filter(d => d.auth === "id" && COLLECT_CONFIG[d.key]);
+    const skipped = all.filter(d => !(d.auth === "id" && COLLECT_CONFIG[d.key]));
+    if (runnable.length === 0) {
+      alert("자동 수집(아이디) 가능한 서류가 없습니다. 본인인증 서류는 일괄 수집 대상이 아닙니다.");
+      return;
+    }
+    const msg =
+      `${runnable.length}건을 순서대로 수집합니다:\n` +
+      runnable.map(d => "· " + d.label).join("\n") +
+      (skipped.length ? `\n\n제외(본인인증/미지원): ${skipped.map(d => d.label).join(", ")}` : "") +
+      `\n\n진행 중 열리는 홈택스 창을 닫지 마세요. 계속할까요?`;
+    if (!confirm(msg)) return;
+
+    setBatchRunning(true);
+    let win: Window | null = null;
+    const done: string[] = [];
+    const failed: string[] = [];
+    try {
+      for (let i = 0; i < runnable.length; i++) {
+        const doc = runnable[i];
+        setBatchProgress({ i: i + 1, total: runnable.length, label: doc.label });
+
+        const baseline = await fetchDocUpdatedAt(doc.key);
+        let url: string;
+        try {
+          url = await buildCollectUrl(doc.key);
+        } catch {
+          failed.push(doc.label + "(자격증명 오류)");
+          continue;
+        }
+
+        if (i === 0 || !win || win.closed) {
+          win = window.open(url, "savetax_batch");
+          if (!win) {
+            alert("팝업이 차단되었습니다. 이 사이트의 팝업을 허용한 뒤 다시 시도하세요.");
+            break;
+          }
+        } else {
+          win.location.href = url;
+        }
+
+        const r = await waitForDocComplete(doc.key, baseline, win);
+        if (r.aborted) {
+          alert("홈택스 창이 닫혀 일괄 수집을 중단합니다.");
+          break;
+        }
+        if (r.timedOut) failed.push(doc.label + "(시간초과)");
+        else done.push(doc.label);
+        router.refresh();
+        await new Promise(res => setTimeout(res, 2000)); // 다음 서류 내비게이션 전 안정화
+      }
+    } finally {
+      setBatchRunning(false);
+      setBatchProgress(null);
+      try { if (win && !win.closed) win.close(); } catch {}
+      router.refresh();
+    }
+    alert(
+      `일괄 수집 종료 — 완료 ${done.length}건` +
+      (failed.length ? `, 확인 필요 ${failed.length}건: ${failed.join(", ")}` : "")
+    );
   }
 
   function getStatus(client: Client, docType: string): string {
@@ -363,14 +469,16 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                 </div>
                 <button
                   onClick={handleCollect}
-                  disabled={checkedDocs.size === 0}
+                  disabled={checkedDocs.size === 0 || batchRunning}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    checkedDocs.size > 0
+                    checkedDocs.size > 0 && !batchRunning
                       ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]"
                       : "bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed"
                   }`}
                 >
-                  일괄 자료수집 ({checkedDocs.size}건)
+                  {batchProgress
+                    ? `수집 중 (${batchProgress.i}/${batchProgress.total}) ${batchProgress.label}`
+                    : `일괄 자료수집 (${checkedDocs.size}건)`}
                 </button>
               </div>
 
