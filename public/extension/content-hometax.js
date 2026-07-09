@@ -224,6 +224,27 @@
   }, 1000);
 })();
 
+// 홈택스 세션 자동 연장 — 긴 일괄 수집 중 "로그아웃 시간이 N분 남았습니다 / 연장하시겠습니까" 팝업
+// (별도 창 popup.html?w2xPath=/ui/pp/a/b/UTXPPABB27.xml)이 뜨면 연장하기(input#mf_trigger16,
+// value='연장하기')를 눌러 세션 만료를 막는다. 세션이 만료되면 다음 서류의 새 탭이 만료된 세션으로
+// 진입해 홈택스 오류 페이지(cmErrorPage)로 실패한다.
+// 수집 중(savetax_collecting 쿠키)에만 동작 — 세무사 일반 사용 시 임의 연장 방지. 쿠키는 도메인 공유라
+// 별도 sessionOut 창에서도 읽힌다. 메인 탭·팝업창 모두 top 문서에서 상시 감시.
+(function watchSessionExtend() {
+  if (window !== window.top) return; // all_frames 주입 대응: top 창 전용(메인 탭 top + 팝업창 top)
+  setInterval(function () {
+    try {
+      if (document.cookie.indexOf("savetax_collecting=1") === -1) return; // 수집 중일 때만
+      const btn = Array.from(document.querySelectorAll("input[type='button'], button, a"))
+        .find(el => el.offsetParent !== null && ((el.value || el.textContent || "").trim() === "연장하기"));
+      if (btn) {
+        btn.click();
+        console.log("SaveTax: 세션 로그아웃 경고 감지 — 연장하기 클릭");
+      }
+    } catch (e) {}
+  }, 4000);
+})();
+
 // 법인 로그인: 새 창에서 인증서 처리 + 관리번호 입력
 (async function () {
   if (window !== window.top) return; // all_frames 주입 대응: top 창 전용
@@ -714,6 +735,12 @@
 
   console.log("SaveTax: content mode:", creds.mode);
   const mode = creds.mode || "login";
+
+  // 수집 중 세션 자동 연장(watchSessionExtend) 게이트용 쿠키 — collect_* 모드일 때만.
+  // 각 서류가 새 탭에서 재진입할 때마다 갱신됨. max-age 25분(단일 서류 최대 소요 초과, 배치 종료 후 자동 만료).
+  if (typeof mode === "string" && mode.indexOf("collect_") === 0) {
+    document.cookie = "savetax_collecting=1; path=/; max-age=1500";
+  }
 
   // === 공통 유틸 ===
   function waitForId(id, timeout = 20000) {
@@ -1775,7 +1802,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.27 — 신고도움 년도옵션 폴링·0건도 마킹(배치 멈춤 방지)");
+      console.log("SaveTax: content-hometax v4.28 — 세션 자동 연장(연장하기)·신고도움 년도옵션 폴링·0건 마킹");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
