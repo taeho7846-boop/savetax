@@ -1,9 +1,15 @@
 // 서비스 워커: 파일 fetch + Input.dispatchMouseEvent + Page.handleFileChooser
 
 // 홈택스 팝업 자동 허용 (신고도움 미리보기 등 리포트 창이 팝업 차단에 걸리면 수집 실패)
+// 일괄 수집은 서류마다 새 탭을 여는데, 앱 오리진의 비제스처 window.open이 차단되지 않도록 앱 오리진도 허용
 function allowHometaxPopups() {
   if (!chrome.contentSettings?.popups) return;
-  for (const pattern of ["https://hometax.go.kr/*", "https://sesw.hometax.go.kr/*"]) {
+  for (const pattern of [
+    "https://hometax.go.kr/*",
+    "https://sesw.hometax.go.kr/*",
+    "https://app.savetaxnh.com/*",
+    "http://app.savetaxnh.com/*",
+  ]) {
     chrome.contentSettings.popups.set({ primaryPattern: pattern, setting: "allow" }, () => {
       if (chrome.runtime.lastError) {
         console.warn("SaveTax BG: 팝업 허용 설정 실패:", pattern, chrome.runtime.lastError.message);

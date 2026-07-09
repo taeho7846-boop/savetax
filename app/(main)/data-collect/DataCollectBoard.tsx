@@ -322,25 +322,20 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
           continue;
         }
 
-        if (i === 0 || !win || win.closed) {
-          win = window.open(url, "savetax_batch");
-          if (!win) {
-            alert("팝업이 차단되었습니다. 이 사이트의 팝업을 허용한 뒤 다시 시도하세요.");
-            break;
-          }
-        } else {
-          // 창 재사용 시 이전 서류의 홈택스 웹스퀘어 SPA 상태 위에 다음 딥링크를 얹으면
-          // 홈택스가 오류 페이지(cmErrorPage)를 띄운다. about:blank로 창을 완전히 비운 뒤
-          // 잠깐 안정화하고 딥링크를 로드해, 1번째 서류처럼 "빈 창 풀 로드"로 깨끗이 진입시킨다.
-          // (로그인 세션은 origin 쿠키라 about:blank로 사라지지 않는다.)
-          try { win.location.href = "about:blank"; } catch {}
-          await new Promise(res => setTimeout(res, 3000));
-          if (win.closed) {
-            alert("홈택스 창이 닫혀 일괄 수집을 중단합니다.");
-            break;
-          }
-          win.location.href = url;
+        // 서류마다 개별 수집과 똑같이 "새 탭"으로 연다. 한 탭을 재사용하면(win.location.href)
+        // 이전 서류의 홈택스 웹스퀘어 세션 상태가 그 탭에 남아, 다음 서류 진입 시 홈택스가
+        // 오류 페이지(cmErrorPage)를 띄운다. 개별 수집이 문제없는 이유가 매번 새 탭이기 때문.
+        // (확장이 background에서 앱 오리진 팝업을 허용하므로 await 뒤 window.open도 차단되지 않는다.)
+        const prevWin: Window | null = win;
+        win = window.open(url, "_blank");
+        if (!win) {
+          alert(
+            "팝업이 차단되어 다음 서류 창을 열 수 없습니다.\n" +
+            "주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트의 팝업을 '항상 허용'으로 설정한 뒤 다시 시도하세요."
+          );
+          break;
         }
+        if (prevWin && prevWin !== win) { try { prevWin.close(); } catch {} }
 
         const r = await waitForDocComplete(doc.key, baseline, win);
         if (r.aborted) {
