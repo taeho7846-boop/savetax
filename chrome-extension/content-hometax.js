@@ -1353,10 +1353,17 @@
       const sel = await waitForId("mf_txppWframe_selectTxyr", 15000);
       if (!sel) throw new Error("년도 선택 셀렉트 박스를 찾을 수 없습니다.");
 
-      // 사용 가능한 년도 목록 확인
-      const availableYears = [];
-      for (let i = 0; i < sel.options.length; i++) {
-        availableYears.push(sel.options[i].text.trim());
+      // 사용 가능한 년도 목록 확인 — 옵션이 AJAX로 늦게 채워지거나(rexpert 로드 지연) 비어 잡히면
+      // 실제 데이터가 있어도 0건이 된다. 4자리 연도 옵션이 나타날 때까지 폴링(최대 ~20초).
+      let availableYears = [];
+      for (let attempt = 0; attempt < 10; attempt++) {
+        availableYears = [];
+        for (let i = 0; i < sel.options.length; i++) {
+          const t = sel.options[i].text.trim();
+          if (/^\d{4}$/.test(t)) availableYears.push(t);
+        }
+        if (availableYears.length > 0) break;
+        await sleep(2000);
       }
       console.log("SaveTax: 사용 가능한 년도 목록 ->", availableYears);
 
@@ -1427,8 +1434,9 @@
         }
       }
 
-      // 수집 성공 시 앱에 완료 상태 보고 (background가 세션 쿠키 포함 fetch)
-      if (collectedCount > 0 && creds.clientId && creds.appOrigin) {
+      // 앱에 완료 상태 보고 — 0건이어도 반드시 마킹(empty)해 일괄 수집 폴러가 멈추지 않게 한다
+      // (종소 신고서 모드와 동일 정책). background가 세션 쿠키 포함 fetch.
+      if (creds.clientId && creds.appOrigin) {
         try {
           const markResult = await chrome.runtime.sendMessage({
             type: "mark-collected",
@@ -1437,7 +1445,8 @@
             clientId: creds.clientId,
             docType: creds.docType || "종합소득세_신고도움",
             taxYear: String(creds.taxYear || startYear),
-            params: { startYear: String(startYear), endYear: String(endYear) },
+            status: collectedCount > 0 ? "collected" : "empty",
+            params: { startYear: String(startYear), endYear: String(endYear), count: String(collectedCount) },
           });
           console.log("SaveTax: 앱 수집 상태 갱신 ->", JSON.stringify(markResult));
         } catch (e) {
@@ -1766,7 +1775,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.25 — 수집 종료 시 자격증명 정리(수집 후 재발동 방지)");
+      console.log("SaveTax: content-hometax v4.27 — 신고도움 년도옵션 폴링·0건도 마킹(배치 멈춤 방지)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름

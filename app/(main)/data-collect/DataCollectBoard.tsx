@@ -257,10 +257,13 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
 
   // 한 서류의 수집 완료를 폴링 — 확장이 종료 시 mark-collected로 status/updatedAt을 갱신하면 완료로 판정.
   // 창이 닫히면 aborted, 최대 20분 초과면 timedOut.
-  function waitForDocComplete(docKey: string, baseline: string | null, win: Window | null): Promise<{ done?: boolean; aborted?: boolean; timedOut?: boolean }> {
+  function waitForDocComplete(docKey: string, baseline: string | null, win: Window | null): Promise<{ done?: boolean; aborted?: boolean; timedOut?: boolean; stalled?: boolean }> {
     return new Promise(resolve => {
       const start = Date.now();
-      const TIMEOUT = 20 * 60 * 1000; // 20분 (신고서 다구간 수집 대비)
+      const TIMEOUT = 20 * 60 * 1000; // 20분 하드 상한 (신고서 다구간 수집 대비)
+      const STALL = 6 * 60 * 1000;    // 진행(파일 업로드=updatedAt 변화)이 6분간 없으면 멈춘 것으로 간주
+      let lastUpdatedAt: string | null = null;
+      let lastActivity = Date.now();
       const tick = async () => {
         if (win && win.closed) return resolve({ aborted: true });
         if (Date.now() - start > TIMEOUT) return resolve({ timedOut: true });
@@ -272,13 +275,21 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
           if (res.ok) {
             const rows: { docType: string; status: string; updatedAt: string; markAt: string | null }[] = await res.json();
             const row = rows.find(r => r.docType === docKey);
-            // 완료 신호는 mark(_markAt) 갱신뿐 — upload가 파일마다 status=collected로 올리는 것과 구분.
-            // baseline과 달라지면(신규는 null→타임스탬프, 재수집은 이전→새 타임스탬프) 이 서류 수집 종료.
-            if (row && row.markAt && row.markAt !== baseline) {
-              return resolve({ done: true });
+            if (row) {
+              // 완료 신호는 mark(_markAt) 갱신뿐 — upload가 파일마다 status=collected로 올리는 것과 구분.
+              if (row.markAt && row.markAt !== baseline) {
+                return resolve({ done: true });
+              }
+              // 진행 감지: 수집 중엔 파일 업로드마다 updatedAt이 바뀐다 → 활동 시각 갱신.
+              // 업로드도 mark도 없이 오래 정체되면(예: 확장이 예외로 mark 없이 끝남) 멈춘 것으로 보고 건너뛴다.
+              if (row.updatedAt && row.updatedAt !== lastUpdatedAt) {
+                lastUpdatedAt = row.updatedAt;
+                lastActivity = Date.now();
+              }
             }
           }
         } catch {}
+        if (Date.now() - lastActivity > STALL) return resolve({ stalled: true });
         setTimeout(tick, 3000);
       };
       setTimeout(tick, 3000);
@@ -343,6 +354,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
           break;
         }
         if (r.timedOut) failed.push(doc.label + "(시간초과)");
+        else if (r.stalled) failed.push(doc.label + "(진행 없음 — 건너뜀)");
         else done.push(doc.label);
         router.refresh();
         await new Promise(res => setTimeout(res, 2000)); // 다음 서류 내비게이션 전 안정화
