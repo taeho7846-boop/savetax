@@ -329,6 +329,16 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
             break;
           }
         } else {
+          // 창 재사용 시 이전 서류의 홈택스 웹스퀘어 SPA 상태 위에 다음 딥링크를 얹으면
+          // 홈택스가 오류 페이지(cmErrorPage)를 띄운다. about:blank로 창을 완전히 비운 뒤
+          // 잠깐 안정화하고 딥링크를 로드해, 1번째 서류처럼 "빈 창 풀 로드"로 깨끗이 진입시킨다.
+          // (로그인 세션은 origin 쿠키라 about:blank로 사라지지 않는다.)
+          try { win.location.href = "about:blank"; } catch {}
+          await new Promise(res => setTimeout(res, 3000));
+          if (win.closed) {
+            alert("홈택스 창이 닫혀 일괄 수집을 중단합니다.");
+            break;
+          }
           win.location.href = url;
         }
 
