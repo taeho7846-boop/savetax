@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
     try { merged = JSON.parse(existing.params); } catch {}
   }
   if (params && typeof params === "object") merged = { ...merged, ...params };
+  // 일괄 수집 완료 판정용 마커 — upload 라우트는 절대 쓰지 않고 mark(수집 종료)에서만 갱신한다.
+  // (파일당 status=collected로 올라오는 upload와 구분되는, 서류 단위 "진짜 완료" 신호)
+  merged._markAt = new Date().toISOString();
 
   await prisma.dataCollection.upsert({
     where,

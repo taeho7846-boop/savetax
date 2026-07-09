@@ -18,9 +18,18 @@ export async function GET(req: NextRequest) {
 
   const rows = await prisma.dataCollection.findMany({
     where: { clientId, taxYear },
-    select: { docType: true, status: true, updatedAt: true },
+    select: { docType: true, status: true, updatedAt: true, params: true },
   });
   return NextResponse.json(
-    rows.map(r => ({ docType: r.docType, status: r.status, updatedAt: r.updatedAt.toISOString() }))
+    rows.map(r => {
+      let markAt: string | null = null;
+      if (r.params) {
+        try {
+          const p = JSON.parse(r.params);
+          if (typeof p._markAt === "string") markAt = p._markAt;
+        } catch {}
+      }
+      return { docType: r.docType, status: r.status, updatedAt: r.updatedAt.toISOString(), markAt };
+    })
   );
 }

@@ -239,17 +239,17 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     }
   }
 
-  // 특정 서류의 현재 updatedAt(ISO) 조회 — 없으면 null. 일괄 수집 baseline/완료 판정용.
-  async function fetchDocUpdatedAt(docKey: string): Promise<string | null> {
+  // 특정 서류의 현재 완료 마커(_markAt, ISO)를 조회 — 없으면 null. 일괄 수집 baseline용.
+  async function fetchDocMarkAt(docKey: string): Promise<string | null> {
     try {
       const res = await fetch(
         `/api/data-collect/status?clientId=${selectedClient!.id}&taxYear=${encodeURIComponent(taxYear)}`,
         { cache: "no-store" }
       );
       if (!res.ok) return null;
-      const rows: { docType: string; status: string; updatedAt: string }[] = await res.json();
+      const rows: { docType: string; status: string; updatedAt: string; markAt: string | null }[] = await res.json();
       const row = rows.find(r => r.docType === docKey);
-      return row ? row.updatedAt : null;
+      return row ? row.markAt : null;
     } catch {
       return null;
     }
@@ -270,9 +270,11 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
             { cache: "no-store" }
           );
           if (res.ok) {
-            const rows: { docType: string; status: string; updatedAt: string }[] = await res.json();
+            const rows: { docType: string; status: string; updatedAt: string; markAt: string | null }[] = await res.json();
             const row = rows.find(r => r.docType === docKey);
-            if (row && (row.status === "collected" || row.status === "empty") && row.updatedAt !== baseline) {
+            // 완료 신호는 mark(_markAt) 갱신뿐 — upload가 파일마다 status=collected로 올리는 것과 구분.
+            // baseline과 달라지면(신규는 null→타임스탬프, 재수집은 이전→새 타임스탬프) 이 서류 수집 종료.
+            if (row && row.markAt && row.markAt !== baseline) {
               return resolve({ done: true });
             }
           }
@@ -311,7 +313,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
         const doc = runnable[i];
         setBatchProgress({ i: i + 1, total: runnable.length, label: doc.label });
 
-        const baseline = await fetchDocUpdatedAt(doc.key);
+        const baseline = await fetchDocMarkAt(doc.key);
         let url: string;
         try {
           url = await buildCollectUrl(doc.key);
