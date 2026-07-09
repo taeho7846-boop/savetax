@@ -1766,7 +1766,7 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.24 — 조회 결과 알림 팝업 자동 닫기 실질 수정(창 단위 판별)");
+      console.log("SaveTax: content-hometax v4.25 — 수집 종료 시 자격증명 정리(수집 후 재발동 방지)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -2193,12 +2193,19 @@
 
       console.log("SaveTax: " + rt.label + " 신고서 " + collectedCount + "건 수집 완료");
 
+      // ★ 수집 종료 — 자격증명을 세션에서 제거해, 이후 세무대리인이 같은 탭에서 홈택스를 쓸 때
+      //   수집 자동화가 다시 발동하지 않게 한다(2026-07 세무사 실측: 수집 후 전자신고결과조회 재실행).
+      //   재로그인(checkLogout)은 hash로도 자격증명을 실어 리로드하므로 이 정리는 안전하다.
+      try { sessionStorage.removeItem("savetax_creds"); sessionStorage.removeItem("savetax_pending"); } catch (e) {}
+
       // 홈으로 이동
       const homeBtn = document.getElementById("mf_wfHeader_hdGroup001");
       if (homeBtn) homeBtn.click();
 
     } catch (e) {
       console.error("SaveTax 신고서 수집 실패:", e);
+      // 실패 종료에서도 자격증명 정리 — 재발동 방지(성공 종료와 동일 취지)
+      try { sessionStorage.removeItem("savetax_creds"); sessionStorage.removeItem("savetax_pending"); } catch (e2) {}
     }
   }
 
