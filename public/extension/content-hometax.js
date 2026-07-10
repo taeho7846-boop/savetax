@@ -1358,6 +1358,15 @@
   // ============================================================
   if (mode === "collect_income_help") {
     try {
+      // ── 신고도움 수집 속도 튜닝 상수 (Tier A: 안전 — 리포트 새창 경로라 잘림 위험 없음) ──
+      // 조회→미리보기 사이(IH_AFTER_SEARCH)만 보수적으로: 너무 줄이면 데이터 로드 전 미리보기 위험.
+      const IH_AFTER_ENTRY   = 1200; // (기존 2000) 신고도움 페이지 진입 후
+      const IH_AFTER_SELECT  = 500;  // (기존 1000) 년도 선택 후
+      const IH_AFTER_SEARCH  = 2500; // (기존 4000) 조회 클릭 후(데이터 로드 대기 — 보수적)
+      const IH_AFTER_PREVIEW = 3000; // (기존 5000) 미리보기 클릭 후(리포트 새창 뜨는 여유, print-pdf가 폴링)
+      const IH_CLOSE_PRE     = 500;  // (기존 1000) 리포트 탭 닫기 전
+      const IH_CLOSE_POST    = 800;  // (기존 1500) 리포트 탭 닫은 후
+
       // 세션 스토리지를 사용하여 페이지 리로드 간의 진행 상태를 식별 (checkLogout()에 의한 자동 로그아웃 루프 방지)
       if (!sessionStorage.getItem("savetax_running")) {
         if (await checkLogout()) return;
@@ -1382,7 +1391,8 @@
       }
 
       console.log("SaveTax: 종합소득세 신고도움 서비스 페이지 진입 완료");
-      await sleep(2000);
+      console.log("SaveTax: content-hometax v4.32 — 신고도움 대기시간 단축");
+      await sleep(IH_AFTER_ENTRY);
 
       const startYear = parseInt(creds.startYear) || 2025;
       const endYear = parseInt(creds.endYear) || 2025;
@@ -1417,14 +1427,14 @@
         console.log(`SaveTax: ${yearStr}년 선택 중...`);
         sel.value = yearStr;
         sel.dispatchEvent(new Event("change", { bubbles: true }));
-        await sleep(1000);
+        await sleep(IH_AFTER_SELECT);
 
         // 조회 버튼 클릭
         const searchBtn = await waitForId("mf_txppWframe_trigger21", 5000);
         if (searchBtn) {
           searchBtn.click();
           console.log(`SaveTax: ${yearStr}년 조회 클릭`);
-          await sleep(4000);
+          await sleep(IH_AFTER_SEARCH);
         }
 
         // 미리보기 버튼 클릭
@@ -1432,7 +1442,7 @@
         if (previewBtn) {
           previewBtn.click();
           console.log(`SaveTax: ${yearStr}년 미리보기 클릭`);
-          await sleep(5000);
+          await sleep(IH_AFTER_PREVIEW);
         }
 
         // 새 창(리포트 탭)에서 PDF 다운로드 요청 (+앱 서버 업로드)
@@ -1461,11 +1471,11 @@
         }
 
         // 리포트 탭 닫기
-        await sleep(1000);
+        await sleep(IH_CLOSE_PRE);
         try {
           await chrome.runtime.sendMessage({ type: "close-report-tab" });
         } catch (e) {}
-        await sleep(1500);
+        await sleep(IH_CLOSE_POST);
         } catch (e) {
           // 한 연도 실패(버튼 미발견 등)해도 다음 연도 계속 진행
           console.error(`SaveTax: ${yearStr}년 수집 실패 -`, e.message);
@@ -1826,7 +1836,7 @@
       const T_POLL_INTERVAL    = 700;   // (기존 1000) 결과 그리드 폴링 간격
       const T_GRID_SETTLE      = 800;   // (기존 1500) 그리드 렌더 안정화
 
-      console.log("SaveTax: content-hometax v4.31 — 빈 연도 조회 조기종료 + 캡처 대기 추가 단축");
+      console.log("SaveTax: content-hometax v4.32 — 신고도움 대기시간 단축(신고서는 v4.31 유지)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
