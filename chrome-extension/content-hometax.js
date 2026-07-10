@@ -817,9 +817,20 @@
   // === 로그인 처리 ===
   async function doLogin(id, pw) {
     (await waitForId("mf_wfHeader_group1503")).click();
-    (await waitForId("mf_txppWframe_anchor15")).click();
-    await sleep(300);
-    setInput(await waitForId("mf_txppWframe_iptUserId"), id);
+
+    // 아이디 로그인 탭으로 전환 후 '아이디 입력칸'이 뜰 때까지 재시도.
+    // 홈택스 보안모듈(매직라인)이 로드되는 동안 첫 탭 클릭이 폼 준비 전에 먹혀
+    // 아이디칸이 안 뜨는 간헐 현상(2026-07 실측: Timeout #mf_txppWframe_iptUserId) 대응.
+    let userIdEl = null;
+    for (let attempt = 0; attempt < 4 && !userIdEl; attempt++) {
+      try { (await waitForId("mf_txppWframe_anchor15", 8000)).click(); } catch (e) {}
+      await sleep(500);
+      try { userIdEl = await waitForId("mf_txppWframe_iptUserId", 8000); } catch (e) {}
+      if (!userIdEl) console.log("SaveTax: 아이디 입력칸 대기 재시도 #" + (attempt + 1));
+    }
+    if (!userIdEl) throw new Error("로그인 아이디 입력칸이 끝내 표시되지 않음 — 홈택스 로그인 창 로드 지연/보안모듈 간섭(잠시 후 다시 수집)");
+
+    setInput(userIdEl, id);
     setInput(await waitForId("mf_txppWframe_iptUserPw"), pw);
     await sleep(200);
     (await waitForId("mf_txppWframe_anchor25")).click();
@@ -1815,7 +1826,7 @@
       const T_POLL_INTERVAL    = 700;   // (기존 1000) 결과 그리드 폴링 간격
       const T_GRID_SETTLE      = 800;   // (기존 1500) 그리드 렌더 안정화
 
-      console.log("SaveTax: content-hometax v4.29 — 신고서 수집 속도 개선(대기시간 단축)");
+      console.log("SaveTax: content-hometax v4.30 — 로그인 아이디칸 재시도 견고화 + 신고서 수집 속도 개선");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
