@@ -36,6 +36,13 @@ function readMonthRange(c: Element | null) {
   return { startMonth: m?.[0]?.value || "", endMonth: m?.[1]?.value || "" };
 }
 
+// 초 → "1분 22초" / "43초" 포맷
+function fmtDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m}분 ${s}초` : `${s}초`;
+}
+
 const COLLECT_CONFIG: Record<string, CollectConfig> = {
   종합소득세_신고도움: {
     mode: "collect_income_help",
@@ -102,7 +109,11 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   const [search, setSearch] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<Set<string>>(new Set());
   const [batchRunning, setBatchRunning] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{ i: number; total: number; label: string } | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ i: number; total: number; label: string; key: string } | null>(null);
+  // 서류별 수집 소요 시간(클라이언트 전용): start=시작 ms, finalSec=완료 시 확정 초(진행 중이면 null)
+  const [timers, setTimers] = useState<Record<string, { start: number; finalSec: number | null }>>({});
+  // 진행 중 1초마다 리렌더시켜 경과 시간을 갱신 (배치 중에만 동작)
+  const [, forceTick] = useState(0);
 
   // 수집 왕복(홈택스 새 탭 다녀오기) 후 화면이 새로 마운트되면 useState 초기값 때문에
   // 좌측 선택이 첫 거래처로 리셋된다 → 직전 선택/검색을 sessionStorage로 복원.
@@ -127,6 +138,13 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       sessionStorage.setItem("dc_search", search);
     } catch {}
   }, [selectedClientId, search]);
+
+  // 수집 진행 중에만 1초마다 리렌더 — 경과 시간(Date.now 기반) 표시용
+  useEffect(() => {
+    if (!batchRunning) return;
+    const id = setInterval(() => forceTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [batchRunning]);
 
   const hometaxDocs = DOC_TYPES.filter(d => d.source === "홈택스");
   const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) ?? null : null;
@@ -322,7 +340,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     try {
       for (let i = 0; i < runnable.length; i++) {
         const doc = runnable[i];
-        setBatchProgress({ i: i + 1, total: runnable.length, label: doc.label });
+        setBatchProgress({ i: i + 1, total: runnable.length, label: doc.label, key: doc.key });
 
         const baseline = await fetchDocMarkAt(doc.key);
         let url: string;
@@ -348,7 +366,14 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
         }
         if (prevWin && prevWin !== win) { try { prevWin.close(); } catch {} }
 
+        // 이 서류 수집 시작 — 소요시간 측정 개시(창을 실제로 연 시점부터)
+        setTimers(prev => ({ ...prev, [doc.key]: { start: Date.now(), finalSec: null } }));
+
         const r = await waitForDocComplete(doc.key, baseline, win);
+        // 결과(완료/시간초과/정체/중단) 상관없이 경과 시간 확정 — 라이브 타이머 정지
+        setTimers(prev => prev[doc.key]
+          ? { ...prev, [doc.key]: { start: prev[doc.key].start, finalSec: Math.max(0, Math.round((Date.now() - prev[doc.key].start) / 1000)) } }
+          : prev);
         if (r.aborted) {
           alert("홈택스 창이 닫혀 일괄 수집을 중단합니다.");
           break;
@@ -410,9 +435,19 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     } catch { return []; }
   }
 
+  // 서류의 현재 경과/확정 소요시간. 진행 중이면 running=true로 Date.now 기반 라이브 계산.
+  function docTiming(docKey: string): { running: boolean; sec: number } | null {
+    const t = timers[docKey];
+    if (!t) return null;
+    const sec = t.finalSec != null ? t.finalSec : Math.max(0, Math.round((Date.now() - t.start) / 1000));
+    return { running: t.finalSec == null, sec };
+  }
+
   const filteredClients = search
     ? clients.filter(c => c.name.includes(search))
     : clients;
+
+  const activeTiming = batchProgress ? docTiming(batchProgress.key) : null;
 
   return (
     <>
@@ -496,7 +531,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                   }`}
                 >
                   {batchProgress
-                    ? `수집 중 (${batchProgress.i}/${batchProgress.total}) ${batchProgress.label}`
+                    ? `수집 중 (${batchProgress.i}/${batchProgress.total}) ${batchProgress.label}${activeTiming ? " · " + fmtDuration(activeTiming.sec) : ""}`
                     : `일괄 자료수집 (${checkedDocs.size}건)`}
                 </button>
               </div>
@@ -528,6 +563,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                       const status = getStatus(selectedClient, doc.key);
                       const isCollected = status === "collected";
                       const isEmpty = status === "empty";
+                      const timing = docTiming(doc.key);
                       const isChecked = checkedDocs.has(doc.key);
                       const defaults = getDefaultParams(doc.settingType, taxYear, doc.key);
                       const saved = getParams(selectedClient, doc.key);
@@ -571,10 +607,12 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                             <SettingInput type={doc.settingType} params={params} docKey={doc.key} />
                           </td>
                           <td className="px-3 py-3 text-center">
-                            {isCollected ? (
+                            {timing?.running ? (
+                              <span className="text-xs text-[#3182F6] font-medium whitespace-nowrap">⏱ 수집 중 {fmtDuration(timing.sec)}</span>
+                            ) : isCollected ? (
                               <div className="flex flex-col items-center gap-1">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-xs text-[#16A865] font-medium">완료</span>
+                                  <span className="text-xs text-[#16A865] font-medium">완료{timing ? ` · ${fmtDuration(timing.sec)}` : ""}</span>
                                   <button
                                     onClick={() => handleDelete(doc.key, doc.label)}
                                     disabled={isDeleting}
@@ -599,7 +637,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                               </div>
                             ) : isEmpty ? (
                               <div className="flex flex-col items-center gap-1">
-                                <span className="text-xs text-[#8B95A1]" title="홈택스에서 조회했으나 해당 기간 신고/발급 내역이 없음">조회 결과 없음</span>
+                                <span className="text-xs text-[#8B95A1]" title="홈택스에서 조회했으나 해당 기간 신고/발급 내역이 없음">조회 결과 없음{timing ? ` · ${fmtDuration(timing.sec)}` : ""}</span>
                                 <button
                                   onClick={() => handleDelete(doc.key, doc.label)}
                                   disabled={isDeleting}
