@@ -497,8 +497,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let lpClicks = 0; // "마지막 페이지 이동" 클릭 횟수 — 지연 생성 강제 렌더용
         // ── 병합 감지 시간 바닥값 (Tier B: 정확도 민감 — 너무 줄이면 잘린 PDF 캡처) ──
         // grown(총페이지 증가)+stable(3연속 동일) 게이트는 그대로. 아래는 "언제부터/얼마나 조용하면"의 하한만 완화.
-        const Q_QUIET_MS   = 5000;  // (기존 8000)  마지막 프레임 로드 후 안정화 대기
-        const Q_PROBE_FROM = 6000;  // (기존 10000) 일괄출력 클릭 후 프로브 시작 시점
+        const Q_QUIET_MS   = 3500;  // (기존 8000)  마지막 프레임 로드 후 안정화 대기
+        const Q_PROBE_FROM = 4000;  // (기존 10000) 일괄출력 클릭 후 프로브 시작 시점
         const Q_FULLYSTABLE_FROM = 40000; // (기존 60000) 증가 없는(본표=전체) 유형 조기확정 하한
 
         for (let i = 0; i < waitSec * 2; i++) {

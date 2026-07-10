@@ -1816,17 +1816,17 @@
       // ── 신고서 수집 속도 튜닝 상수 (Tier A: 안전 — 정확도 영향 없는 순수 대기) ──
       // 느려서 실패하면 값을 다시 키워 back-off. 병합 완료 감지 자체는 background.js가 담당하므로
       // 여기 값들은 "화면 전환/팝업 여닫힘"을 기다리는 여유일 뿐이다.
-      const T_AFTER_VIEW_CLICK = 2500;  // (기존 5000) 출력 클릭 후 팝업 뜨는 여유
-      const T_AFTER_CONFIRM    = 2000;  // (기존 4000) 확인/예 팝업 클릭 후
-      const T_CLOSE_PRE        = 500;   // (기존 1000) 리포트 탭 닫기 전
-      const T_CLOSE_POST       = 800;   // (기존 1500) 리포트 탭 닫은 후
+      const T_AFTER_VIEW_CLICK = 1500;  // (기존 5000) 출력 클릭 후 팝업 뜨는 여유
+      const T_AFTER_CONFIRM    = 1200;  // (기존 4000) 확인/예 팝업 클릭 후
+      const T_CLOSE_PRE        = 300;   // (기존 1000) 리포트 탭 닫기 전
+      const T_CLOSE_POST       = 500;   // (기존 1500) 리포트 탭 닫은 후
       const T_DATE_FILL        = 400;   // (기존 800)  날짜 입력 후
       const T_ID_FILL          = 300;   // (기존 500)  등록번호 입력 후
       const T_PRE_POLL         = 1000;  // (기존 2000) 조회 클릭 후 결과 폴링 시작 전
       const T_POLL_INTERVAL    = 700;   // (기존 1000) 결과 그리드 폴링 간격
       const T_GRID_SETTLE      = 800;   // (기존 1500) 그리드 렌더 안정화
 
-      console.log("SaveTax: content-hometax v4.30 — 로그인 아이디칸 재시도 견고화 + 신고서 수집 속도 개선");
+      console.log("SaveTax: content-hometax v4.31 — 빈 연도 조회 조기종료 + 캡처 대기 추가 단축");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -2090,7 +2090,7 @@
 
             // 확인/예 팝업이 있으면 눌러 새창 유도
             try {
-              const yesBtn = await waitForXPath("//input[@value='예' or @value='확인'] | //button[normalize-space(text())='예' or normalize-space(text())='확인']", 2500);
+              const yesBtn = await waitForXPath("//input[@value='예' or @value='확인'] | //button[normalize-space(text())='예' or normalize-space(text())='확인']", 1500);
               if (yesBtn) { yesBtn.click(); await sleep(T_AFTER_CONFIRM); }
             } catch (e) {}
 
@@ -2146,6 +2146,18 @@
       let collectedCount = 0;
       let anyQueryRan = false; // 조회 버튼을 실제로 누른 구간이 하나라도 있는가
       let anyTargetsFound = false; // 출력 대상(접수번호 링크)을 하나라도 발견했는가
+
+      // 홈택스가 "조회된 결과가 없습니다"류 0건 알림을 띄웠는지 판정(확인 클릭 전에 호출).
+      // 결과가 있으면 알림 없이 그리드만 채워지므로, 이 알림이 보이면 0건 확답 = 폴링 조기 종료 가능.
+      function hasEmptyResultAlert() {
+        const wins = document.querySelectorAll("div[class*='w2window'], div[class*='w2popup'], div[class*='w2modal'], div[class*='bpr_pop']");
+        for (const win of wins) {
+          if (win.offsetParent === null) continue;
+          const t = (win.textContent || "").replace(/\s+/g, " ").trim();
+          if (/없습니다|조회된\s*(데이터|결과)가?\s*없|총\s*0\s*건/.test(t) && !/접수|신청|삭제|저장|제출/.test(t)) return true;
+        }
+        return false;
+      }
 
       // 조회 결과 알림 팝업("총 0건 … 조회된 결과가 없습니다" 등)의 [확인]을 눌러 딤드 마스크를 걷는다.
       // 안 누르면 조회할 때마다 반투명 마스크가 누적돼 화면을 덮는다(2026-07 증여세 실측).
@@ -2207,9 +2219,15 @@
           // 같을 수 있으므로 타임아웃 후에는 현 상태로 진행(0건 판정).
           await sleep(T_PRE_POLL);
           for (let w = 0; w < 25; w++) {
+            const emptyNow = hasEmptyResultAlert(); // 확인 클릭 전에 0건 여부 판정
             dismissInfoAlert(); // 조회 결과 알림 팝업이 뜨는 즉시 닫기(마스크 누적 방지)
             const sig = collectPrintTargets().map(el => (el.textContent || "").trim()).join("|");
-            if (sig !== preSig) break;
+            if (sig !== preSig) break;      // 결과 그리드가 바뀜(내역 있음) → 진행
+            // 0건 확답 + 그리드가 실제로 비었을 때만 조기 종료. ★ sig==="" 조건 필수:
+            // 알림은 떴는데 직전 연도 행이 아직 그리드에 남은 순간 break하면 그 잔존 행을
+            // 이번 연도 것으로 오수집한다(v4.15 회귀 부류). 잔존 행이 있으면 계속 폴링해
+            // 그리드가 비거나(sig 변화) 정리될 때까지 기다린다.
+            if (emptyNow && sig === "") break; // 0건 확답 → 남은 폴링(최대 ~17초) 생략
             await sleep(T_POLL_INTERVAL);
           }
           dismissInfoAlert();
