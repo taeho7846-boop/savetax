@@ -1802,7 +1802,20 @@
   // ============================================================
   if (mode === "collect_tax_return") {
     try {
-      console.log("SaveTax: content-hometax v4.28 — 세션 자동 연장(연장하기)·신고도움 년도옵션 폴링·0건 마킹");
+      // ── 신고서 수집 속도 튜닝 상수 (Tier A: 안전 — 정확도 영향 없는 순수 대기) ──
+      // 느려서 실패하면 값을 다시 키워 back-off. 병합 완료 감지 자체는 background.js가 담당하므로
+      // 여기 값들은 "화면 전환/팝업 여닫힘"을 기다리는 여유일 뿐이다.
+      const T_AFTER_VIEW_CLICK = 2500;  // (기존 5000) 출력 클릭 후 팝업 뜨는 여유
+      const T_AFTER_CONFIRM    = 2000;  // (기존 4000) 확인/예 팝업 클릭 후
+      const T_CLOSE_PRE        = 500;   // (기존 1000) 리포트 탭 닫기 전
+      const T_CLOSE_POST       = 800;   // (기존 1500) 리포트 탭 닫은 후
+      const T_DATE_FILL        = 400;   // (기존 800)  날짜 입력 후
+      const T_ID_FILL          = 300;   // (기존 500)  등록번호 입력 후
+      const T_PRE_POLL         = 1000;  // (기존 2000) 조회 클릭 후 결과 폴링 시작 전
+      const T_POLL_INTERVAL    = 700;   // (기존 1000) 결과 그리드 폴링 간격
+      const T_GRID_SETTLE      = 800;   // (기존 1500) 그리드 렌더 안정화
+
+      console.log("SaveTax: content-hometax v4.29 — 신고서 수집 속도 개선(대기시간 단축)");
       if (await checkLogout()) return;
 
       // 1. 로그인 (+ 주민번호/인증서) — collect_biz_cert 와 동일 흐름
@@ -2062,12 +2075,12 @@
 
             el.click();
             console.log("SaveTax: [" + yearLabel + "] 출력 클릭 #" + (idx + 1) + "/" + total + " (" + rowKey + ")");
-            await sleep(5000);
+            await sleep(T_AFTER_VIEW_CLICK);
 
             // 확인/예 팝업이 있으면 눌러 새창 유도
             try {
               const yesBtn = await waitForXPath("//input[@value='예' or @value='확인'] | //button[normalize-space(text())='예' or normalize-space(text())='확인']", 2500);
-              if (yesBtn) { yesBtn.click(); await sleep(4000); }
+              if (yesBtn) { yesBtn.click(); await sleep(T_AFTER_CONFIRM); }
             } catch (e) {}
 
             const fileName = rt.label + "_신고서_" + yearLabel + "_" + rowKey + ".pdf";
@@ -2094,9 +2107,9 @@
             }
 
             // 리포트 탭 닫기
-            await sleep(1000);
+            await sleep(T_CLOSE_PRE);
             try { await chrome.runtime.sendMessage({ type: "close-report-tab" }); } catch (e) {}
-            await sleep(1500);
+            await sleep(T_CLOSE_POST);
           } catch (e) {
             console.error("SaveTax: [" + yearLabel + "] 출력 #" + (idx + 1) + " 실패 -", e.message);
           }
@@ -2154,13 +2167,13 @@
 
           // (a) 날짜 입력 (+검증) — 실패 시 화면에 남은 엉뚱한 기간으로 조회되는 것 방지
           const dateOk = fillDateRange(win.s, win.e);
-          await sleep(800);
+          await sleep(T_DATE_FILL);
           if (!dateOk) { console.log("SaveTax: [" + win.y + "] 기간 입력 실패 — 이 구간 건너뜀"); continue; }
 
           // (b) 주민/사업자 등록번호 입력 (조회마다 재입력 — 조회 후 초기화 대비)
           //     실패 시 잘못된 조건으로 조회돼 0건이 '내역 없음'으로 오보고되므로 구간 건너뜀
           const idOk = fillIdNumber(idNo);
-          await sleep(500);
+          await sleep(T_ID_FILL);
           if (!idOk) { console.log("SaveTax: [" + win.y + "] 등록번호 입력 실패 — 이 구간 건너뜀(오조회 방지)"); continue; }
 
           // ★ 직전 구간 결과가 그리드에 남은 채 새 결과로 오인(v4.15 회귀: 2025 조회에 2024 행이 잡힘) 방지
@@ -2181,15 +2194,15 @@
           // 대상 발견 즉시 진행하면 직전 구간의 잔존 그리드를 오인하고, 고정 대기는 느린
           // 네트워크에서 있는 내역을 0건으로 오판한다. 두 구간 결과가 모두 0건이면 서명이
           // 같을 수 있으므로 타임아웃 후에는 현 상태로 진행(0건 판정).
-          await sleep(2000);
+          await sleep(T_PRE_POLL);
           for (let w = 0; w < 25; w++) {
             dismissInfoAlert(); // 조회 결과 알림 팝업이 뜨는 즉시 닫기(마스크 누적 방지)
             const sig = collectPrintTargets().map(el => (el.textContent || "").trim()).join("|");
             if (sig !== preSig) break;
-            await sleep(1000);
+            await sleep(T_POLL_INTERVAL);
           }
           dismissInfoAlert();
-          await sleep(1500); // 그리드 렌더 안정화
+          await sleep(T_GRID_SETTLE); // 그리드 렌더 안정화
 
           // (d) 이 구간 결과 수집 (없으면 0 반환하고 다음 연도로 — "없으면 패스")
           const gotThisWindow = await collectCurrentResults(win.y);

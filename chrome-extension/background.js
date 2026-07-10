@@ -495,6 +495,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let stableSig = null, stableCount = 0; // 같은 (프레임,총페이지) 연속 관측 수 — 점진 렌더 중 조기 캡처 방지
         let baselineTotal = -1; // 일괄출력 후 첫 관측 총페이지(=본표 재렌더). 병합 결과 도착은 이 값의 "증가"로만 판정
         let lpClicks = 0; // "마지막 페이지 이동" 클릭 횟수 — 지연 생성 강제 렌더용
+        // ── 병합 감지 시간 바닥값 (Tier B: 정확도 민감 — 너무 줄이면 잘린 PDF 캡처) ──
+        // grown(총페이지 증가)+stable(3연속 동일) 게이트는 그대로. 아래는 "언제부터/얼마나 조용하면"의 하한만 완화.
+        const Q_QUIET_MS   = 5000;  // (기존 8000)  마지막 프레임 로드 후 안정화 대기
+        const Q_PROBE_FROM = 6000;  // (기존 10000) 일괄출력 클릭 후 프로브 시작 시점
+        const Q_FULLYSTABLE_FROM = 40000; // (기존 60000) 증가 없는(본표=전체) 유형 조기확정 하한
+
         for (let i = 0; i < waitSec * 2; i++) {
           const allTabs = await chrome.tabs.query({});
           reportTab = allTabs.find(t => t.url && (t.url.includes("clipreport.do") || t.url.includes("sesw.hometax.go.kr")));
@@ -504,9 +510,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const st = popupTab && popupViewerState[popupTab.id];
           if (st && st.batchTime && st.readies.length) {
             const last = st.readies[st.readies.length - 1];
-            const quiet = Date.now() - last.time > 8000;       // 마지막 로드 보고 후 8초 안정화
+            const quiet = Date.now() - last.time > Q_QUIET_MS;
             const sinceBatch = Date.now() - st.batchTime;
-            if (quiet && sinceBatch > 10000 && i % 4 === 0) {  // ~2초에 한 번 프로브
+            if (quiet && sinceBatch > Q_PROBE_FROM && i % 4 === 0) {  // ~2초에 한 번 프로브
               // 탭의 모든 프레임을 프로브 — 도우미 미감지(숨김/중첩) 프레임의 병합 리포트도 후보에 포함
               const probes = await probeViewerReportAllFrames(popupTab.id);
               // ★ 죽은 프레임(execErr, keys<=0)은 후보에서 제외 — 총페이지가 전부 0이면 정렬이
@@ -540,7 +546,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               }
               const stable = stableCount >= 3;
               // 마지막페이지 강제 2회 후에도 총페이지가 5연속 동일하면 그게 전체(본표=전체 유형) — 60초부터 조기 확정
-              const fullyStable = lpClicks >= 2 && stableCount >= 5 && sinceBatch > 60000;
+              const fullyStable = lpClicks >= 2 && stableCount >= 5 && sinceBatch > Q_FULLYSTABLE_FROM;
               const overdue = sinceBatch > 220000; // 최후 폴백 — 마지막페이지 버튼을 못 찾는 등 예외 대비
               if (best && best.keys > 0 && ((grown && stable) || fullyStable || overdue)) {
                 if (grown) console.log("SaveTax BG: 일괄출력 병합 결과 감지 — 총페이지 " + baselineTotal + " → " + best.total);
