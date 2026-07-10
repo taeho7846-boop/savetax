@@ -139,12 +139,14 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     } catch {}
   }, [selectedClientId, search]);
 
+  // 실행 중(finalSec 미확정) 타이머가 하나라도 있는지 — 배치/개별 수집 공통
+  const anyRunning = Object.values(timers).some(t => t.finalSec == null);
   // 수집 진행 중에만 1초마다 리렌더 — 경과 시간(Date.now 기반) 표시용
   useEffect(() => {
-    if (!batchRunning) return;
+    if (!anyRunning) return;
     const id = setInterval(() => forceTick(t => t + 1), 1000);
     return () => clearInterval(id);
-  }, [batchRunning]);
+  }, [anyRunning]);
 
   const hometaxDocs = DOC_TYPES.filter(d => d.source === "홈택스");
   const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) ?? null : null;
@@ -248,10 +250,29 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       alert(`'${target.label}'의 자동 수집은 아직 지원되지 않습니다.`);
       return;
     }
+    // 홈택스 세션은 동시에 1건만 — 배치 중이거나 이 서류가 이미 수집 중이면 무시
+    if (batchRunning) return;
+    if (timers[docKey] && timers[docKey].finalSec == null) return;
     try {
+      const baseline = await fetchDocMarkAt(docKey);
       const url = await buildCollectUrl(docKey);
-      window.open(url, "_blank");
+      const win = window.open(url, "_blank");
+      if (!win) {
+        alert(
+          "팝업이 차단되어 수집 창을 열 수 없습니다.\n" +
+          "주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트의 팝업을 '항상 허용'으로 설정한 뒤 다시 시도하세요."
+        );
+        return;
+      }
       refreshOnReturn();
+      // 소요시간 측정 개시(창을 연 시점부터) — 완료를 폴링해 상태 칸에 실시간/총 소요시간 표시
+      setTimers(prev => ({ ...prev, [docKey]: { start: Date.now(), finalSec: null } }));
+      await waitForDocComplete(docKey, baseline, win);
+      // 결과(완료/시간초과/정체/중단) 상관없이 경과 시간 확정 — 라이브 타이머 정지
+      setTimers(prev => prev[docKey]
+        ? { ...prev, [docKey]: { start: prev[docKey].start, finalSec: Math.max(0, Math.round((Date.now() - prev[docKey].start) / 1000)) } }
+        : prev);
+      router.refresh();
     } catch (e) {
       alert(`오류: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -663,10 +684,11 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
                             ) : (
                               <button
                                 onClick={() => collectOne(doc.key)}
+                                disabled={batchRunning || anyRunning}
                                 title={`${doc.label} 수집`}
-                                className="text-[11px] whitespace-nowrap px-2 py-1 rounded-[6px] border border-[#3182F6]/40 text-[#1B64DA] hover:bg-[#F0F7FF] transition-colors"
+                                className="text-[11px] whitespace-nowrap px-2 py-1 rounded-[6px] border border-[#3182F6]/40 text-[#1B64DA] hover:bg-[#F0F7FF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {isCollected || isEmpty ? "다시 수집" : "수집"}
+                                {timing?.running ? "수집 중" : (isCollected || isEmpty ? "다시 수집" : "수집")}
                               </button>
                             )}
                           </td>
