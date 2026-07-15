@@ -46,23 +46,30 @@ function fmtResidentInput(s: string) {
   return d.length > 6 ? `${d.slice(0, 6)}-${d.slice(6)}` : d;
 }
 
-function payLine(r: Report) {
-  const parts: string[] = [];
-  if (r.baseSalary != null) parts.push(`기본급 ${r.baseSalary.toLocaleString()}`);
-  if (r.mealAllowance != null) parts.push(`식대 ${r.mealAllowance.toLocaleString()}`);
-  if (r.carAllowance != null) parts.push(`자가운전 ${r.carAllowance.toLocaleString()}`);
-  if (r.researchAllowance != null) parts.push(`연구수당 ${r.researchAllowance.toLocaleString()}`);
-  return parts.join(" · ");
+function money(n: number | null) {
+  return n != null ? `${n.toLocaleString()}원` : "—";
 }
 
-function infoLine(r: Report) {
-  return [
-    r.residentNumber,
-    r.insurances ? `가입: ${r.insurances.split(",").join("·")}` : null,
-    payLine(r),
-  ]
-    .filter(Boolean)
-    .join("  ·  ");
+function DetailGrid({ r }: { r: Report }) {
+  const isAcq = r.reportType === "acquisition";
+  const items: [string, string][] = [["주민등록번호", r.residentNumber || "—"]];
+  if (isAcq && r.workerType === "근로") {
+    items.push(["4대보험 가입", r.insurances ? r.insurances.split(",").join(" · ") : "—"]);
+  }
+  if (isAcq || r.baseSalary != null) items.push(["기본급", money(r.baseSalary)]);
+  if (isAcq || r.mealAllowance != null) items.push(["식대", money(r.mealAllowance)]);
+  if (isAcq || r.carAllowance != null) items.push(["자가운전보조금", money(r.carAllowance)]);
+  if (isAcq || r.researchAllowance != null) items.push(["연구수당", money(r.researchAllowance)]);
+  return (
+    <div className="grid grid-cols-2 gap-x-5 gap-y-1 bg-white border border-[#F2F4F6] rounded-lg px-3.5 py-2.5 mt-2">
+      {items.map(([label, value]) => (
+        <div key={label} className="flex items-center justify-between text-xs min-w-0">
+          <span className="text-[#8B95A1] shrink-0">{label}</span>
+          <span className={`ml-2 truncate ${value === "—" ? "text-[#B0B8C1]" : "text-[#333D4B] font-medium"}`}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function stepDate(r: Report | null, step: InsuranceStep) {
@@ -472,9 +479,7 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
               삭제
             </button>
           </div>
-          {infoLine(r) && (
-            <div className="text-[11px] text-[#8B95A1] mt-1">{infoLine(r)}</div>
-          )}
+          <DetailGrid r={r} />
           {r.reportType === "loss" && (
             <label className="flex items-center gap-1.5 mt-1.5 text-xs text-[#4E5968] cursor-pointer w-fit">
               <input
@@ -524,9 +529,7 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
                 접기
               </button>
             </div>
-            {infoLine(r) && (
-              <div className="text-[11px] text-[#8B95A1] mt-1">{infoLine(r)}</div>
-            )}
+            <DetailGrid r={r} />
             <Stepper report={r} onComplete={(step) => run(() => completeInsuranceStep(r.id, step))} />
           </div>
         ) : (
