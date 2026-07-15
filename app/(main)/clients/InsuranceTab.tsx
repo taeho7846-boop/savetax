@@ -53,9 +53,6 @@ function money(n: number | null) {
 function DetailGrid({ r }: { r: Report }) {
   const isAcq = r.reportType === "acquisition";
   const items: [string, string][] = [["주민등록번호", r.residentNumber || "—"]];
-  if (isAcq && r.workerType === "근로") {
-    items.push(["4대보험 가입", r.insurances ? r.insurances.split(",").join(" · ") : "—"]);
-  }
   if (isAcq || r.baseSalary != null) items.push(["기본급", money(r.baseSalary)]);
   if (isAcq || r.mealAllowance != null) items.push(["식대", money(r.mealAllowance)]);
   if (isAcq || r.carAllowance != null) items.push(["자가운전보조금", money(r.carAllowance)]);
@@ -260,17 +257,29 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
     );
   }
 
-  function WorkerBadge({ r }: { r: Report }) {
+  function HeaderChips({ r }: { r: Report }) {
+    const chip = "text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap";
     return (
       <>
         {r.reportType === "acquisition" ? (
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#E8F3FF] text-[#1B64DA]">취득신고</span>
+          <span className={`${chip} bg-[#E8F3FF] text-[#1B64DA]`}>취득신고</span>
         ) : (
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309]">상실신고</span>
+          <span className={`${chip} bg-[#FEF3C7] text-[#B45309]`}>상실신고</span>
         )}
-        {r.workerType && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968]">{r.workerType}</span>
+        {r.workerType && <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>{r.workerType}</span>}
+        {r.reportType === "acquisition" && r.hireDate && (
+          <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>입사 {fmtDate(r.hireDate)}</span>
         )}
+        {r.reportType === "loss" && r.leaveDate && (
+          <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>퇴사 {fmtDate(r.leaveDate)}</span>
+        )}
+        {r.reportType === "loss" && r.lossReason && (
+          <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>{r.lossReason}</span>
+        )}
+        {r.reportType === "acquisition" &&
+          r.insurances?.split(",").map((ins) => (
+            <span key={ins} className={`${chip} bg-[#F1FBF4] text-[#15803D]`}>{ins}</span>
+          ))}
       </>
     );
   }
@@ -453,31 +462,28 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
       {/* 진행중 근로자 카드 */}
       {active.map((r) => (
         <div key={r.id} className="border border-[#E5E8EB] rounded-xl px-4 py-3.5">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[#191F28]">{r.employeeName}</span>
-            <WorkerBadge r={r} />
-            <span className="text-[11px] text-[#8B95A1]">
-              {r.reportType === "acquisition"
-                ? r.hireDate ? `입사 ${fmtDate(r.hireDate)}` : ""
-                : [r.leaveDate ? `퇴사 ${fmtDate(r.leaveDate)}` : "", r.lossReason ? `사유: ${r.lossReason}` : ""].filter(Boolean).join(" · ")}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-bold text-[#191F28] mr-1">{r.employeeName}</span>
+            <HeaderChips r={r} />
+            <span className="ml-auto flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => startEdit(r)}
+                className="text-[11px] text-[#8B95A1] hover:text-[#3182F6]"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`'${r.employeeName}' ${r.reportType === "acquisition" ? "취득" : "상실"}신고 건을 삭제할까요?`))
+                    run(() => deleteInsuranceReport(r.id));
+                }}
+                className="text-[11px] text-[#B0B8C1] hover:text-[#E02E2E]"
+              >
+                삭제
+              </button>
             </span>
-            <button
-              type="button"
-              onClick={() => startEdit(r)}
-              className="ml-auto text-[11px] text-[#8B95A1] hover:text-[#3182F6]"
-            >
-              수정
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm(`'${r.employeeName}' ${r.reportType === "acquisition" ? "취득" : "상실"}신고 건을 삭제할까요?`))
-                  run(() => deleteInsuranceReport(r.id));
-              }}
-              className="text-[11px] text-[#B0B8C1] hover:text-[#E02E2E]"
-            >
-              삭제
-            </button>
           </div>
           <DetailGrid r={r} />
           {r.reportType === "loss" && (
@@ -506,28 +512,25 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
       {completed.map((r) =>
         expanded.has(r.id) ? (
           <div key={r.id} className="border border-[#E5E8EB] rounded-xl px-4 py-3.5 bg-[#F9FAFB]">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-[#191F28]">{r.employeeName}</span>
-              <WorkerBadge r={r} />
-              <span className="text-[11px] text-[#8B95A1]">
-                {r.reportType === "acquisition"
-                  ? r.hireDate ? `입사 ${fmtDate(r.hireDate)}` : ""
-                  : [r.leaveDate ? `퇴사 ${fmtDate(r.leaveDate)}` : "", r.lossReason ? `사유: ${r.lossReason}` : ""].filter(Boolean).join(" · ")}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-sm font-bold text-[#191F28] mr-1">{r.employeeName}</span>
+              <HeaderChips r={r} />
+              <span className="ml-auto flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => startEdit(r)}
+                  className="text-[11px] text-[#8B95A1] hover:text-[#3182F6]"
+                >
+                  수정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpanded((s) => { const n = new Set(s); n.delete(r.id); return n; })}
+                  className="text-[11px] text-[#8B95A1] hover:text-[#4E5968]"
+                >
+                  접기
+                </button>
               </span>
-              <button
-                type="button"
-                onClick={() => startEdit(r)}
-                className="ml-auto text-[11px] text-[#8B95A1] hover:text-[#3182F6]"
-              >
-                수정
-              </button>
-              <button
-                type="button"
-                onClick={() => setExpanded((s) => { const n = new Set(s); n.delete(r.id); return n; })}
-                className="text-[11px] text-[#8B95A1] hover:text-[#4E5968]"
-              >
-                접기
-              </button>
             </div>
             <DetailGrid r={r} />
             <Stepper report={r} onComplete={(step) => run(() => completeInsuranceStep(r.id, step))} />
