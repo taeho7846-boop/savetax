@@ -105,6 +105,7 @@ model Client {
   withholdingLaborOverrides WithholdingLaborOverride[]
   withholdingProcesses      WithholdingProcess[]
   withholdingRecords        WithholdingRecord[]
+  insuranceReports          InsuranceReport[]
   unpaidPostpone            UnpaidPostpone?
   alimtalkLogs              AlimtalkLog[]
   incomeTaxRejections       IncomeTaxRejection[]
@@ -300,6 +301,30 @@ model WithholdingLaborOverride {
   client     Client  @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, yearMonth])
+}
+
+// 4대보험 신고 관리 (성립/취득/상실) — 고객사수정 모달 원천세 탭
+model InsuranceReport {
+  id            Int      @id @default(autoincrement())
+  clientId      Int
+  reportType    String   // establishment(성립) | acquisition(취득) | loss(상실)
+  employeeName  String?
+  hireDate      String?  // 입사일 (취득)
+  leaveDate     String?  // 퇴사일 (상실)
+  lossReason    String?  // 상실사유 (상실)
+  jobCertNeeded Boolean  @default(false) // 이직확인서 필요 (상실)
+  requestedDate String?  // 대표자 요청
+  requestedBy   String?
+  filedDate     String?  // 실무자 신고
+  filedBy       String?
+  confirmedDate String?  // 확인
+  confirmedBy   String?
+  memo          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  client        Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
 }
 
 model TransferConfirm {

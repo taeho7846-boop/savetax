@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getClientById, updateClientInModal, deleteClient, getClientHistory, setClientContractStatus } from "@/app/actions/clients";
 import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
+import { InsuranceTab } from "@/app/(main)/clients/InsuranceTab";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 
 type ClientData = Awaited<ReturnType<typeof getClientById>>;
@@ -21,7 +22,7 @@ export function ClientEditModal({
 }) {
   const [data, setData] = useState<ClientData | null>(null);
   const [history, setHistory] = useState<HistoryData | null>(null);
-  const [tab, setTab] = useState<"edit" | "history">("edit");
+  const [tab, setTab] = useState<"edit" | "history" | "vat" | "incomeTax" | "withholding">("edit");
   const formRef = useRef<HTMLFormElement | null>(null);
   const router = useRouter();
 
@@ -162,28 +163,27 @@ export function ClientEditModal({
         </div>
 
         {/* 탭 */}
-        <div className="flex border-b border-[#F2F4F6] px-6 shrink-0">
-          <button
-            onClick={() => setTab("edit")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              tab === "edit"
-                ? "border-[#3182F6] text-[#191F28]"
-                : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
-            }`}
-          >
-            수정
-          </button>
-          <button
-            onClick={() => setTab("history")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              tab === "history"
-                ? "border-[#3182F6] text-[#191F28]"
-                : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
-            }`}
-          >
-            히스토리
-            {history && <span className="ml-1 text-xs text-[#8B95A1]">({timeline.length})</span>}
-          </button>
+        <div className="flex border-b border-[#F2F4F6] px-6 shrink-0 overflow-x-auto">
+          {([
+            { key: "edit", label: "수정" },
+            { key: "history", label: "히스토리" },
+            { key: "vat", label: "부가세" },
+            { key: "incomeTax", label: data?.client?.clientType?.includes("corporate") ? "법인세" : "종합소득세" },
+            { key: "withholding", label: "원천세" },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                tab === t.key
+                  ? "border-[#3182F6] text-[#191F28]"
+                  : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
+              }`}
+            >
+              {t.label}
+              {t.key === "history" && history && <span className="ml-1 text-xs text-[#8B95A1]">({timeline.length})</span>}
+            </button>
+          ))}
         </div>
 
         {/* 바디 */}
@@ -204,6 +204,10 @@ export function ClientEditModal({
               onSuccess={handleSuccess}
               hideButtons
             />
+          ) : tab === "withholding" ? (
+            <InsuranceTab clientId={clientId} />
+          ) : tab === "vat" || tab === "incomeTax" ? (
+            <div className="text-center py-16 text-[#8B95A1] text-sm">준비 중인 탭입니다</div>
           ) : (
             /* 히스토리 */
             !history ? (
