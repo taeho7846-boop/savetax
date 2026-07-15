@@ -26,6 +26,8 @@ export async function addInsuranceReport(
     reportType: "acquisition" | "loss";
     employeeName: string;
     residentNumber?: string | null;
+    workerType?: string | null;
+    insurances?: string | null;
     baseSalary?: number | null;
     mealAllowance?: number | null;
     carAllowance?: number | null;
@@ -43,6 +45,8 @@ export async function addInsuranceReport(
       reportType: data.reportType,
       employeeName: data.employeeName,
       residentNumber: data.residentNumber || null,
+      workerType: data.workerType || null,
+      insurances: data.insurances || null,
       baseSalary: data.baseSalary ?? null,
       mealAllowance: data.mealAllowance ?? null,
       carAllowance: data.carAllowance ?? null,
@@ -104,6 +108,8 @@ export async function updateInsuranceReport(
   data: {
     employeeName?: string;
     residentNumber?: string | null;
+    workerType?: string | null;
+    insurances?: string | null;
     baseSalary?: number | null;
     mealAllowance?: number | null;
     carAllowance?: number | null;

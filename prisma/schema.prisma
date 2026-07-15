@@ -310,6 +310,8 @@ model InsuranceReport {
   reportType    String   // establishment(성립) | acquisition(취득) | loss(상실)
   employeeName  String?
   residentNumber String? // 주민등록번호
+  workerType    String?  // 근로 | 사업 | 일용 (취득)
+  insurances    String?  // 가입 보험 콤마 목록: 연금,건강,고용,산재 (취득·근로)
   baseSalary    Int?     // 기본급
   mealAllowance Int?     // 식대
   carAllowance  Int?     // 자가운전보조금
