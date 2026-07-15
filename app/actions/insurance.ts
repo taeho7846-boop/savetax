@@ -25,6 +25,11 @@ export async function addInsuranceReport(
   data: {
     reportType: "acquisition" | "loss";
     employeeName: string;
+    residentNumber?: string | null;
+    baseSalary?: number | null;
+    mealAllowance?: number | null;
+    carAllowance?: number | null;
+    researchAllowance?: number | null;
     hireDate?: string | null;
     leaveDate?: string | null;
     lossReason?: string | null;
@@ -37,6 +42,11 @@ export async function addInsuranceReport(
       clientId,
       reportType: data.reportType,
       employeeName: data.employeeName,
+      residentNumber: data.residentNumber || null,
+      baseSalary: data.baseSalary ?? null,
+      mealAllowance: data.mealAllowance ?? null,
+      carAllowance: data.carAllowance ?? null,
+      researchAllowance: data.researchAllowance ?? null,
       hireDate: data.hireDate || null,
       leaveDate: data.leaveDate || null,
       lossReason: data.lossReason || null,
@@ -93,6 +103,11 @@ export async function updateInsuranceReport(
   reportId: number,
   data: {
     employeeName?: string;
+    residentNumber?: string | null;
+    baseSalary?: number | null;
+    mealAllowance?: number | null;
+    carAllowance?: number | null;
+    researchAllowance?: number | null;
     hireDate?: string | null;
     leaveDate?: string | null;
     lossReason?: string | null;

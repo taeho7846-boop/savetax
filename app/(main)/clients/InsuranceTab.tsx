@@ -29,6 +29,30 @@ function fmtDate(d: string | null) {
   return `${parseInt(m)}/${parseInt(day)}`;
 }
 
+function parseMoney(s: string) {
+  const d = s.replace(/[^0-9]/g, "");
+  return d ? parseInt(d) : null;
+}
+
+function fmtMoneyInput(s: string) {
+  const d = s.replace(/[^0-9]/g, "");
+  return d ? parseInt(d).toLocaleString() : "";
+}
+
+function fmtResidentInput(s: string) {
+  const d = s.replace(/[^0-9]/g, "").slice(0, 13);
+  return d.length > 6 ? `${d.slice(0, 6)}-${d.slice(6)}` : d;
+}
+
+function payLine(r: Report) {
+  const parts: string[] = [];
+  if (r.baseSalary != null) parts.push(`기본급 ${r.baseSalary.toLocaleString()}`);
+  if (r.mealAllowance != null) parts.push(`식대 ${r.mealAllowance.toLocaleString()}`);
+  if (r.carAllowance != null) parts.push(`자가운전 ${r.carAllowance.toLocaleString()}`);
+  if (r.researchAllowance != null) parts.push(`연구수당 ${r.researchAllowance.toLocaleString()}`);
+  return parts.join(" · ");
+}
+
 function stepDate(r: Report | null, step: InsuranceStep) {
   return r ? (r[`${step}Date`] as string | null) : null;
 }
@@ -46,12 +70,43 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [editingDate, setEditingDate] = useState<{ id: number; step: InsuranceStep } | null>(null);
 
-  // 추가 폼
+  // 추가/수정 폼
+  const [editId, setEditId] = useState<number | null>(null);
   const [formType, setFormType] = useState<"acquisition" | "loss">("acquisition");
   const [formName, setFormName] = useState("");
+  const [formResident, setFormResident] = useState("");
+  const [formPay, setFormPay] = useState({ base: "", meal: "", car: "", research: "" });
   const [formDate, setFormDate] = useState("");
   const [formReason, setFormReason] = useState(LOSS_REASONS[0]);
   const [formJobCert, setFormJobCert] = useState(false);
+
+  function resetForm() {
+    setEditId(null);
+    setFormType("acquisition");
+    setFormName("");
+    setFormResident("");
+    setFormPay({ base: "", meal: "", car: "", research: "" });
+    setFormDate("");
+    setFormReason(LOSS_REASONS[0]);
+    setFormJobCert(false);
+  }
+
+  function startEdit(r: Report) {
+    setEditId(r.id);
+    setFormType(r.reportType === "loss" ? "loss" : "acquisition");
+    setFormName(r.employeeName ?? "");
+    setFormResident(r.residentNumber ?? "");
+    setFormPay({
+      base: r.baseSalary != null ? r.baseSalary.toLocaleString() : "",
+      meal: r.mealAllowance != null ? r.mealAllowance.toLocaleString() : "",
+      car: r.carAllowance != null ? r.carAllowance.toLocaleString() : "",
+      research: r.researchAllowance != null ? r.researchAllowance.toLocaleString() : "",
+    });
+    setFormDate((r.reportType === "loss" ? r.leaveDate : r.hireDate) ?? "");
+    setFormReason(r.lossReason ?? LOSS_REASONS[0]);
+    setFormJobCert(r.jobCertNeeded);
+    setShowAdd(true);
+  }
 
   async function reload() {
     setReports(await getInsuranceReports(clientId));
@@ -76,24 +131,29 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
   const active = workers.filter((r) => !isDone(r));
   const completed = workers.filter(isDone);
 
-  function handleAdd() {
+  function handleSave() {
     if (!formName.trim()) {
       alert("근로자 이름을 입력해주세요");
       return;
     }
+    const payload = {
+      employeeName: formName.trim(),
+      residentNumber: formResident.trim() || null,
+      baseSalary: parseMoney(formPay.base),
+      mealAllowance: parseMoney(formPay.meal),
+      carAllowance: parseMoney(formPay.car),
+      researchAllowance: parseMoney(formPay.research),
+      hireDate: formType === "acquisition" ? formDate || null : null,
+      leaveDate: formType === "loss" ? formDate || null : null,
+      lossReason: formType === "loss" ? formReason : null,
+      jobCertNeeded: formType === "loss" ? formJobCert : false,
+    };
     run(() =>
-      addInsuranceReport(clientId, {
-        reportType: formType,
-        employeeName: formName.trim(),
-        hireDate: formType === "acquisition" ? formDate || null : null,
-        leaveDate: formType === "loss" ? formDate || null : null,
-        lossReason: formType === "loss" ? formReason : null,
-        jobCertNeeded: formType === "loss" ? formJobCert : false,
-      })
+      editId
+        ? updateInsuranceReport(editId, payload)
+        : addInsuranceReport(clientId, { reportType: formType, ...payload })
     ).then(() => {
-      setFormName("");
-      setFormDate("");
-      setFormJobCert(false);
+      resetForm();
       setShowAdd(false);
     });
   }
@@ -192,7 +252,7 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
         <span className="text-xs px-2.5 py-1 rounded-full bg-[#F2F4F6] text-[#4E5968]">완료 {completed.length}</span>
         <button
           type="button"
-          onClick={() => setShowAdd((v) => !v)}
+          onClick={() => { resetForm(); setShowAdd((v) => !v); }}
           className="ml-auto text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-lg hover:bg-[#1B64DA] transition-colors"
         >
           + 근로자 추가
@@ -207,8 +267,9 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
               <button
                 key={t}
                 type="button"
+                disabled={editId !== null}
                 onClick={() => setFormType(t)}
-                className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
+                className={`text-sm px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40 ${
                   formType === t ? "border-[#3182F6] bg-[#E8F3FF] text-[#1B64DA] font-medium" : "border-[#D1D6DB] text-[#4E5968]"
                 }`}
               >
@@ -222,7 +283,15 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
               placeholder="근로자 이름"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              className="flex-1 text-sm border border-[#D1D6DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#3182F6]"
+              className="flex-1 min-w-0 text-sm border border-[#D1D6DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#3182F6]"
+            />
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="주민등록번호"
+              value={formResident}
+              onChange={(e) => setFormResident(fmtResidentInput(e.target.value))}
+              className="w-[150px] text-sm border border-[#D1D6DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#3182F6]"
             />
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-[#8B95A1] shrink-0">{formType === "acquisition" ? "입사일" : "퇴사일"}</span>
@@ -233,6 +302,27 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
                 className="text-sm border border-[#D1D6DB] rounded-lg px-2 py-2 focus:outline-none focus:border-[#3182F6]"
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ["base", "기본급"],
+              ["meal", "식대"],
+              ["car", "자가운전보조금"],
+              ["research", "연구수당"],
+            ] as const).map(([key, label]) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <span className="text-xs text-[#8B95A1] w-[86px] shrink-0">{label}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={formPay[key]}
+                  onChange={(e) => setFormPay((v) => ({ ...v, [key]: fmtMoneyInput(e.target.value) }))}
+                  className="flex-1 min-w-0 text-sm text-right border border-[#D1D6DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#3182F6]"
+                />
+                <span className="text-xs text-[#8B95A1]">원</span>
+              </div>
+            ))}
           </div>
           {formType === "loss" && (
             <div className="flex items-center gap-3">
@@ -252,11 +342,15 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowAdd(false)} className="text-sm px-3 py-1.5 rounded-lg border border-[#D1D6DB] text-[#4E5968]">
+            <button
+              type="button"
+              onClick={() => { resetForm(); setShowAdd(false); }}
+              className="text-sm px-3 py-1.5 rounded-lg border border-[#D1D6DB] text-[#4E5968]"
+            >
               취소
             </button>
-            <button type="button" disabled={busy} onClick={handleAdd} className="text-sm px-4 py-1.5 rounded-lg bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50">
-              등록
+            <button type="button" disabled={busy} onClick={handleSave} className="text-sm px-4 py-1.5 rounded-lg bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50">
+              {editId ? "저장" : "등록"}
             </button>
           </div>
         </div>
@@ -297,15 +391,27 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
             </span>
             <button
               type="button"
+              onClick={() => startEdit(r)}
+              className="ml-auto text-[11px] text-[#8B95A1] hover:text-[#3182F6]"
+            >
+              수정
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 if (confirm(`'${r.employeeName}' ${r.reportType === "acquisition" ? "취득" : "상실"}신고 건을 삭제할까요?`))
                   run(() => deleteInsuranceReport(r.id));
               }}
-              className="ml-auto text-[11px] text-[#B0B8C1] hover:text-[#E02E2E]"
+              className="text-[11px] text-[#B0B8C1] hover:text-[#E02E2E]"
             >
               삭제
             </button>
           </div>
+          {(r.residentNumber || payLine(r)) && (
+            <div className="text-[11px] text-[#8B95A1] mt-1">
+              {[r.residentNumber, payLine(r)].filter(Boolean).join("  ·  ")}
+            </div>
+          )}
           {r.reportType === "loss" && (
             <label className="flex items-center gap-1.5 mt-1.5 text-xs text-[#4E5968] cursor-pointer w-fit">
               <input
@@ -342,12 +448,24 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
               </span>
               <button
                 type="button"
+                onClick={() => startEdit(r)}
+                className="ml-auto text-[11px] text-[#8B95A1] hover:text-[#3182F6]"
+              >
+                수정
+              </button>
+              <button
+                type="button"
                 onClick={() => setExpanded((s) => { const n = new Set(s); n.delete(r.id); return n; })}
-                className="ml-auto text-[11px] text-[#8B95A1] hover:text-[#4E5968]"
+                className="text-[11px] text-[#8B95A1] hover:text-[#4E5968]"
               >
                 접기
               </button>
             </div>
+            {(r.residentNumber || payLine(r)) && (
+              <div className="text-[11px] text-[#8B95A1] mt-1">
+                {[r.residentNumber, payLine(r)].filter(Boolean).join("  ·  ")}
+              </div>
+            )}
             <Stepper report={r} onComplete={(step) => run(() => completeInsuranceStep(r.id, step))} />
           </div>
         ) : (

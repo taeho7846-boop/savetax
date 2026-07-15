@@ -309,6 +309,11 @@ model InsuranceReport {
   clientId      Int
   reportType    String   // establishment(성립) | acquisition(취득) | loss(상실)
   employeeName  String?
+  residentNumber String? // 주민등록번호
+  baseSalary    Int?     // 기본급
+  mealAllowance Int?     // 식대
+  carAllowance  Int?     // 자가운전보조금
+  researchAllowance Int? // 연구수당
   hireDate      String?  // 입사일 (취득)
   leaveDate     String?  // 퇴사일 (상실)
   lossReason    String?  // 상실사유 (상실)
