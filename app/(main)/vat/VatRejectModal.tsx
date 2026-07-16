@@ -16,12 +16,14 @@ export function VatRejectModal({
   clientId,
   clientName,
   period,
+  readOnly = false,
   onClose,
   onRejected,
 }: {
   clientId: number;
   clientName: string;
   period: string;
+  readOnly?: boolean;
   onClose: () => void;
   onRejected?: () => void;
 }) {
@@ -65,20 +67,25 @@ export function VatRejectModal({
       >
         <div className="px-7 pt-6 pb-4 border-b border-white/40">
           <div className="text-[11.5px] font-bold text-[#DC2626] uppercase tracking-[0.12em] mb-1.5">
-            REJECT · {nextSequence}차 반려
+            {readOnly ? "반려 사유 확인" : `REJECT · ${nextSequence}차 반려`}
           </div>
           <h2 className="text-[19px] font-bold text-[#191F28] tracking-tight">{clientName}</h2>
           <div className="text-[12px] text-[#6B7684] mt-0.5">
-            반려 시 작성중 단계로 다시 돌아갑니다. 직원이 반려 사유를 보고 수정 후 재결재 요청합니다.
+            {readOnly
+              ? "반려 사유를 확인하고, 수정 후 다시 결재 단계로 올려주세요."
+              : "반려 시 작성중 단계로 다시 돌아갑니다. 직원이 반려 사유를 보고 수정 후 재결재 요청합니다."}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-7 py-5">
           {/* 이전 반려 히스토리 */}
+          {readOnly && history.length === 0 && (
+            <div className="text-center py-10 text-[#8B95A1] text-[13px]">반려 이력이 없습니다</div>
+          )}
           {history.length > 0 && (
             <div className="mb-4">
               <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2 px-1">
-                이전 반려 히스토리 ({history.length}건)
+                {readOnly ? `반려 이력 (${history.length}건)` : `이전 반려 히스토리 (${history.length}건)`}
               </div>
               <div className="space-y-2">
                 {history.map((h) => (
@@ -109,7 +116,8 @@ export function VatRejectModal({
             </div>
           )}
 
-          {/* 반려 사유 입력 */}
+          {/* 반려 사유 입력 (확인 전용 모드에서는 숨김) */}
+          {!readOnly && (
           <div>
             <div className="text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider mb-2 px-1">
               {nextSequence}차 반려 사유
@@ -127,6 +135,7 @@ export function VatRejectModal({
               autoFocus
             />
           </div>
+          )}
         </div>
 
         <div className="px-7 py-4 border-t border-white/40 bg-white/30 flex items-center justify-end gap-2">
@@ -134,16 +143,18 @@ export function VatRejectModal({
             onClick={onClose}
             className="px-4 py-2 rounded-2xl text-[#6B7684] hover:bg-white text-[13px] font-medium"
           >
-            취소
+            {readOnly ? "닫기" : "취소"}
           </button>
-          <button
-            onClick={submit}
-            disabled={!reason.trim() || submitting}
-            className="px-5 py-2 rounded-2xl bg-[#DC2626] text-white text-[13px] font-bold hover:bg-[#B91C1C] disabled:opacity-50"
-            style={{ boxShadow: "0 8px 20px -6px rgba(220,38,38,0.4)" }}
-          >
-            {submitting ? "처리 중..." : `${nextSequence}차 반려`}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={submit}
+              disabled={!reason.trim() || submitting}
+              className="px-5 py-2 rounded-2xl bg-[#DC2626] text-white text-[13px] font-bold hover:bg-[#B91C1C] disabled:opacity-50"
+              style={{ boxShadow: "0 8px 20px -6px rgba(220,38,38,0.4)" }}
+            >
+              {submitting ? "처리 중..." : `${nextSequence}차 반려`}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -316,8 +316,8 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
-  // 결재 반려 모달 대상
-  const [rejectTarget, setRejectTarget] = useState<{ clientId: number; clientName: string } | null>(null);
+  // 결재 반려 모달 대상 (readOnly: 사유 확인 전용)
+  const [rejectTarget, setRejectTarget] = useState<{ clientId: number; clientName: string; readOnly?: boolean } | null>(null);
 
   // 마지막 업로드 시각
   const lastImport = clients.reduce<Date | null>((acc, c) => {
@@ -733,12 +733,13 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             <span className="text-[12px] font-bold flex items-center gap-1.5" style={{ color: meta.color }}>
               {cur + 1}. {meta.label}{keys.length > 0 ? <span className="text-[#8B95A1] font-medium"> {doneN}/{keys.length}</span> : null}
               {r.rejectionCount > 0 && (
-                <span
-                  className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] rounded-md px-1.5 py-0.5"
-                  title={r.lastRejectedAt ? `최근 반려: ${new Date(r.lastRejectedAt).toLocaleString("ko-KR")}` : ""}
+                <button
+                  onClick={() => setRejectTarget({ clientId: client.id, clientName: client.name, readOnly: true })}
+                  className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] hover:bg-[#FECACA] rounded-md px-1.5 py-0.5 transition-colors"
+                  title={`클릭하면 반려 사유를 확인합니다${r.lastRejectedAt ? ` (최근 반려: ${new Date(r.lastRejectedAt).toLocaleString("ko-KR")})` : ""}`}
                 >
                   🔴 {r.rejectionCount}차반려
-                </span>
+                </button>
               )}
             </span>
             <div className="flex items-center gap-1">
@@ -904,6 +905,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           clientId={rejectTarget.clientId}
           clientName={rejectTarget.clientName}
           period={period}
+          readOnly={rejectTarget.readOnly}
           onClose={() => setRejectTarget(null)}
           onRejected={() => router.refresh()}
         />
