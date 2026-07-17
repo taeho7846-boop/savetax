@@ -116,13 +116,15 @@ function parseVatTypeDetail(raw: string) {
     t.replace(/부가가치세\s*/g, "").replace(/간이과세자\(세금계산서\s*발급사업자\)/g, "간이(세금계산서발행)").replace(/간이과세자/g, "간이").replace(/일반과세자/g, "일반").replace(/면세사업자/g, "면세").trim();
   const isClosed = raw.includes("폐업자");
   const closedDate = raw.match(/폐업일자\s*:?\s*([\d.-]+)/)?.[1] ?? null;
+  // 현재 유형은 첫 문장에서만 판정 (뒤의 "간이과세자에서 ... 전환" 문장에 낚이지 않도록)
+  const head = raw.split("입니다")[0];
   let label: string, bg: string, text: string;
   if (isClosed) { label = "폐업"; bg = "#FEF2F2"; text = "#DC2626"; }
-  else if (raw.includes("간이과세자(세금계산서")) { label = "간이(세금계산서발행)"; bg = "#FEF3C7"; text = "#B45309"; }
-  else if (raw.includes("간이과세자")) { label = "간이과세자"; bg = "#FEF3C7"; text = "#B45309"; }
-  else if (raw.includes("일반과세자")) { label = "일반과세자"; bg = "#E8F3FF"; text = "#1B64DA"; }
-  else if (raw.includes("면세사업자")) { label = "면세사업자"; bg = "#F0FDFA"; text = "#0F766E"; }
-  else { label = abbr(raw).slice(0, 16); bg = "#F2F4F6"; text = "#4E5968"; }
+  else if (head.includes("간이과세자(세금계산서")) { label = "간이(세금계산서발행)"; bg = "#FEF3C7"; text = "#B45309"; }
+  else if (head.includes("간이과세자")) { label = "간이과세자"; bg = "#FEF3C7"; text = "#B45309"; }
+  else if (head.includes("일반과세자")) { label = "일반과세자"; bg = "#E8F3FF"; text = "#1B64DA"; }
+  else if (head.includes("면세사업자")) { label = "면세사업자"; bg = "#F0FDFA"; text = "#0F766E"; }
+  else { label = abbr(head).slice(0, 16) || "기타"; bg = "#F2F4F6"; text = "#4E5968"; }
   const m = raw.match(/(\d{4})년\s*(\d{2})월\s*(\d{2})일\s*(.*?)에서\s*(.*?)(?:으로|로)\s*전환/);
   let trans: { date: string; from: string; to: string; recent: boolean } | null = null;
   if (m) {
