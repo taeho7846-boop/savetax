@@ -62,6 +62,7 @@ model Client {
   terminationMonth          String?
   paymentMethod             String                     @default("cms")
   taxationType              String?
+  vatTypeDetail             String?  // 홈택스 신고리스트 '과세유형 상세' (부가세 페이지 업로드로 갱신)
   taxTypes                  String?
   laborTypes                String?
   residentNumber            String?

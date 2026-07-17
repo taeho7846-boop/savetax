@@ -49,6 +49,7 @@ type ClientRow = {
   ceoName: string | null;
   clientType: string;
   taxationType: string | null;
+  vatTypeDetail: string | null;
   assignedUserName: string | null;
   record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null; htxData: string | null; htxImportedAt: Date | string | null; rejectionCount: number; lastRejectedAt: Date | string | null } | null;
 };
@@ -109,6 +110,17 @@ const TAXATION_CHIP: Record<string, string> = {
 };
 
 function fmtWon(n: number) { return n.toLocaleString("ko-KR") + "원"; }
+/** 홈택스 '과세유형 상세' 문구를 짧게 정리 ("부가가치세 일반과세자 입니다." → "일반과세자") */
+function fmtVatTypeDetail(s: string) {
+  const abbr = (t: string) =>
+    t.replace(/간이과세자\(세금계산서\s*발급사업자\)/g, "간이(세금계산서발행)").replace(/간이과세자/g, "간이").replace(/일반과세자/g, "일반").trim();
+  let t = s.replace(/부가가치세\s*/g, "").replace(/\s*입니다\.?/g, ".").trim();
+  t = t.replace(
+    /(\d{4})년\s*(\d{2})월\s*(\d{2})일\s*(.*?)에서\s*(.*?)(?:으로|로)\s*전환\s*되었습니다\.?/g,
+    (_m, y, mo, d, from, to) => `${y}.${mo}.${d} ${abbr(from)}→${abbr(to)} 전환`
+  );
+  return t.replace(/\.$/, "").replace(/\.\s+/g, " · ").trim();
+}
 function normStage(s: string | undefined): VatStage { return (STAGES.some(st => st.key === s) ? s : "collect") as VatStage; }
 function parseChecklist(s: string | null | undefined): Record<string, boolean> {
   if (!s) return {};
@@ -346,6 +358,33 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     }
   }
 
+  // 신고리스트관리 엑셀 업로드 (과세유형 상세)
+  const taxTypeFileRef = useRef<HTMLInputElement>(null);
+  const [taxTypeUploading, setTaxTypeUploading] = useState(false);
+
+  async function onTaxTypeFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setTaxTypeUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const res = await fetch("/api/vat/import-taxtype", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "업로드에 실패했습니다."); return; }
+      const unmatchedMsg = data.unmatchedCount > 0
+        ? `\n\n매칭 안 된 거래처 ${data.unmatchedCount}건:\n` + data.unmatched.map((u: { name: string; biz: string }) => `· ${u.name} (${u.biz || "사업자번호 없음"})`).join("\n")
+        : "";
+      alert(`✅ 과세유형 상세 업로드 완료${data.sheetTitle ? ` — ${data.sheetTitle}` : ""}\n\n반영된 거래처: ${data.updatedCount}건${unmatchedMsg}`);
+      router.refresh();
+    } catch (err) {
+      alert("업로드 중 오류가 발생했습니다.\n\n" + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setTaxTypeUploading(false);
+    }
+  }
+
   useEffect(() => { setRecMap(buildMap(clients, activeTab)); }, [clients, activeTab]);
 
   // 담당자 필터 드롭다운 외부 클릭 닫기
@@ -503,6 +542,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {client.bizNumber && <CopyBizBtn value={client.bizNumber} />}
           </div>
           <div className="text-[11px] text-[#8B95A1] mt-0.5">{client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}</div>
+          {client.vatTypeDetail && (
+            <div
+              className={`text-[11px] mt-0.5 max-w-[240px] truncate ${client.vatTypeDetail.includes("전환") ? "text-[#C2410C] font-medium" : "text-[#6B7684]"}`}
+              title={client.vatTypeDetail}
+            >
+              {fmtVatTypeDetail(client.vatTypeDetail)}
+            </div>
+          )}
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {/* 예정고지(6개월) / 예정신고(3개월) */}
             <div className="inline-flex rounded-md overflow-hidden border border-[#E5E8EB]">
@@ -817,6 +864,19 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               마지막 업로드 {lastImport.toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })} {lastImport.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
+          <input ref={taxTypeFileRef} type="file" accept=".xlsx,.xls" onChange={onTaxTypeFileSelected} className="hidden" />
+          <button
+            onClick={() => taxTypeFileRef.current?.click()}
+            disabled={taxTypeUploading}
+            className="flex items-center gap-1.5 rounded-xl px-3.5 h-9 text-[13px] font-bold glass-strong text-[#6B7684] hover:text-[#191F28] transition disabled:opacity-50"
+            title="홈택스 신고리스트관리 엑셀을 업로드하면 거래처별 '과세유형 상세'가 거래처명 아래에 표시됩니다"
+          >
+            {taxTypeUploading ? (
+              <><span className="w-3.5 h-3.5 border-2 border-[#B0B8C1] border-t-[#6B7684] rounded-full animate-spin" /> 업로드 중…</>
+            ) : (
+              <>🏷️ 과세유형 업로드</>
+            )}
+          </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={onFileSelected} className="hidden" />
           <button
             onClick={() => fileRef.current?.click()}

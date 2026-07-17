@@ -66,6 +66,7 @@ export default async function VatPage({
       ceoName: true,
       clientType: true,
       taxationType: true,
+      vatTypeDetail: true,
       assignedUser: isManager ? { select: { name: true } } : undefined,
       vatRecords: {
         where: { period },
