@@ -110,16 +110,28 @@ const TAXATION_CHIP: Record<string, string> = {
 };
 
 function fmtWon(n: number) { return n.toLocaleString("ko-KR") + "원"; }
-/** 홈택스 '과세유형 상세' 문구를 짧게 정리 ("부가가치세 일반과세자 입니다." → "일반과세자") */
-function fmtVatTypeDetail(s: string) {
+/** 홈택스 '과세유형 상세' 문구 파싱 → 유형 뱃지 + 전환 정보 */
+function parseVatTypeDetail(raw: string) {
   const abbr = (t: string) =>
-    t.replace(/간이과세자\(세금계산서\s*발급사업자\)/g, "간이(세금계산서발행)").replace(/간이과세자/g, "간이").replace(/일반과세자/g, "일반").trim();
-  let t = s.replace(/부가가치세\s*/g, "").replace(/\s*입니다\.?/g, ".").trim();
-  t = t.replace(
-    /(\d{4})년\s*(\d{2})월\s*(\d{2})일\s*(.*?)에서\s*(.*?)(?:으로|로)\s*전환\s*되었습니다\.?/g,
-    (_m, y, mo, d, from, to) => `${y}.${mo}.${d} ${abbr(from)}→${abbr(to)} 전환`
-  );
-  return t.replace(/\.$/, "").replace(/\.\s+/g, " · ").trim();
+    t.replace(/부가가치세\s*/g, "").replace(/간이과세자\(세금계산서\s*발급사업자\)/g, "간이(세금계산서발행)").replace(/간이과세자/g, "간이").replace(/일반과세자/g, "일반").replace(/면세사업자/g, "면세").trim();
+  const isClosed = raw.includes("폐업자");
+  const closedDate = raw.match(/폐업일자\s*:?\s*([\d.-]+)/)?.[1] ?? null;
+  let label: string, bg: string, text: string;
+  if (isClosed) { label = "폐업"; bg = "#FEF2F2"; text = "#DC2626"; }
+  else if (raw.includes("간이과세자(세금계산서")) { label = "간이(세금계산서발행)"; bg = "#FEF3C7"; text = "#B45309"; }
+  else if (raw.includes("간이과세자")) { label = "간이과세자"; bg = "#FEF3C7"; text = "#B45309"; }
+  else if (raw.includes("일반과세자")) { label = "일반과세자"; bg = "#E8F3FF"; text = "#1B64DA"; }
+  else if (raw.includes("면세사업자")) { label = "면세사업자"; bg = "#F0FDFA"; text = "#0F766E"; }
+  else { label = abbr(raw).slice(0, 16); bg = "#F2F4F6"; text = "#4E5968"; }
+  const m = raw.match(/(\d{4})년\s*(\d{2})월\s*(\d{2})일\s*(.*?)에서\s*(.*?)(?:으로|로)\s*전환/);
+  let trans: { date: string; from: string; to: string; recent: boolean } | null = null;
+  if (m) {
+    const date = `${m[1]}.${m[2]}.${m[3]}`;
+    // 최근 2년 내 전환만 강조 (신고 시 주의 필요), 오래된 전환은 회색으로
+    const recent = Date.now() - new Date(`${m[1]}-${m[2]}-${m[3]}`).getTime() < 730 * 24 * 3600 * 1000;
+    trans = { date, from: abbr(m[4]), to: abbr(m[5]), recent };
+  }
+  return { label, bg, text, isClosed, closedDate, trans };
 }
 function normStage(s: string | undefined): VatStage { return (STAGES.some(st => st.key === s) ? s : "collect") as VatStage; }
 function parseChecklist(s: string | null | undefined): Record<string, boolean> {
@@ -542,14 +554,31 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {client.bizNumber && <CopyBizBtn value={client.bizNumber} />}
           </div>
           <div className="text-[11px] text-[#8B95A1] mt-0.5">{client.clientType === "corporate" ? "법인" : "개인"}{client.ceoName ? ` · ${client.ceoName}` : ""}</div>
-          {client.vatTypeDetail && (
-            <div
-              className={`text-[11px] mt-0.5 max-w-[240px] truncate ${client.vatTypeDetail.includes("전환") ? "text-[#C2410C] font-medium" : "text-[#6B7684]"}`}
-              title={client.vatTypeDetail}
-            >
-              {fmtVatTypeDetail(client.vatTypeDetail)}
-            </div>
-          )}
+          {client.vatTypeDetail && (() => {
+            const v = parseVatTypeDetail(client.vatTypeDetail);
+            return (
+              <div className="mt-1 space-y-1 max-w-[250px]" title={client.vatTypeDetail}>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10.5px] font-bold" style={{ background: v.bg, color: v.text }}>
+                    {v.label}
+                  </span>
+                  {v.closedDate && <span className="text-[10.5px] font-bold text-[#DC2626]">폐업 {v.closedDate}</span>}
+                </div>
+                {v.trans && (
+                  v.trans.recent ? (
+                    <div className="inline-flex items-center flex-wrap gap-x-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA] whitespace-normal leading-snug">
+                      <span>{v.trans.from} → {v.trans.to} 전환</span>
+                      <span className="font-medium text-[#EA580C]">{v.trans.date}</span>
+                    </div>
+                  ) : (
+                    <div className="text-[10.5px] text-[#8B95A1] whitespace-normal leading-snug">
+                      {v.trans.from} → {v.trans.to} 전환 · {v.trans.date}
+                    </div>
+                  )
+                )}
+              </div>
+            );
+          })()}
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {/* 예정고지(6개월) / 예정신고(3개월) */}
             <div className="inline-flex rounded-md overflow-hidden border border-[#E5E8EB]">
