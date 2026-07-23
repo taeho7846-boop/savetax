@@ -542,6 +542,7 @@ export async function setClientContractStatus(id: number, status: "active" | "te
   revalidatePath("/data-collect");
   revalidatePath("/tax-agency");
   revalidatePath("/dashboard");
+  revalidatePath("/commission");
   return { status };
 }
 

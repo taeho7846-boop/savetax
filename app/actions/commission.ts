@@ -21,6 +21,7 @@ export async function getCommissions() {
     where: {
       client: {
         isDeleted: false,
+        contractStatus: "active", // 해지 거래처 제외
         ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
       },
       completedAt: null,
@@ -40,6 +41,7 @@ export async function getCompletedCommissions() {
     where: {
       client: {
         isDeleted: false,
+        contractStatus: "active", // 해지 거래처 제외
         ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
       },
       completedAt: { not: null },
@@ -62,6 +64,7 @@ export async function getClientsNotInCommission() {
   return prisma.client.findMany({
     where: {
       isDeleted: false,
+      contractStatus: "active", // 해지 거래처 제외
       ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
@@ -75,7 +78,7 @@ export async function bulkImportAllClients() {
 
   const [allClients, existing] = await Promise.all([
     prisma.client.findMany({
-      where: { isDeleted: false },
+      where: { isDeleted: false, contractStatus: "active" }, // 해지 거래처 제외
       select: { id: true },
     }),
     prisma.commissionProcess.findMany({ select: { clientId: true } }),
