@@ -477,15 +477,13 @@ export default async function DashboardPage({
               <UnpaidCard clients={unpaidClients} />
             </div>
 
-            {/* 프로세스 카드 3-col */}
-            <div className="grid grid-cols-3 gap-4">
+            {/* 프로세스 카드 4-col */}
+            <div className="grid grid-cols-4 gap-4">
               <HappyCallCard items={happyCallItems} />
               <DataCollectCard items={dataCollectItems} />
               <ExcludeRequestCard items={excludeItems} />
+              <InsuranceCard items={insuranceItems} />
             </div>
-
-            {/* 취득/상실 신고 진행 카드 */}
-            <InsuranceCard items={insuranceItems} />
           </div>
 
         </>
