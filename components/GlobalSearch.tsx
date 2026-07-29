@@ -56,6 +56,7 @@ type Action = {
 
 const ACTIONS: Action[] = [
   { key: "수정", label: "수정", desc: "거래처 정보 수정", icon: "✏️", path: (id: number) => `/clients/${id}/edit` },
+  { key: "취득", label: "취득/상실 신고", desc: "4대보험 취득·상실 등록 (원천세 탭)", icon: "🧑‍💼", custom: true },
   { key: "메모", label: "메모", desc: "메모 작성", icon: "📝", path: (id: number) => `/memos/new?clientId=${id}` },
   { key: "히스토리", label: "히스토리", desc: "업무/메모 히스토리", icon: "📋", path: (id: number) => `/clients/${id}?tab=history` },
   { key: "원천세", label: "원천세", desc: "원천세 현황", icon: "🧾", path: () => `/withholding` },
@@ -85,6 +86,9 @@ const MENUS = [
   { name: "설정", keywords: "설정, settings", icon: "⚙️", path: "/settings" },
 ];
 
+// 취득/상실 빠른 작업 검색어
+const INSURANCE_KEYWORDS = ["취득", "상실", "4대보험", "사대보험", "입사", "퇴사", "프리랜서"];
+
 // 빌트인 도구 (모달)
 const TOOLS = [
   { name: "근로소득세 계산기", keywords: "근로소득세, 계산기, 급여, 세금, 원천세, tax calculator", icon: "🧮", key: "income-tax-calc" },
@@ -113,6 +117,8 @@ export function GlobalSearch() {
   const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<SelectedClient>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  // 취득/상실 모드: "취득" 먼저 검색 → 거래처 고르면 원천세 탭으로 수정 모달 오픈
+  const [insuranceMode, setInsuranceMode] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -183,6 +189,7 @@ export function GlobalSearch() {
     if (open) {
       setQuery("");
       setSelectedClient(null);
+      setInsuranceMode(false);
       search("");
     }
   }, [open, search]);
@@ -208,13 +215,16 @@ export function GlobalSearch() {
   }
 
   // 거래처 직접 선택 (Enter) → 기장대리 목록과 동일한 수정 모달 열기
-  function openClientEditModal(clientId: number) {
-    window.dispatchEvent(new CustomEvent("savetax-open-client-edit", { detail: { clientId } }));
+  // tab을 주면 해당 탭이 열린 상태로 시작 (예: "withholding" = 원천세 탭)
+  function openClientEditModal(clientId: number, tab?: string) {
+    window.dispatchEvent(new CustomEvent("savetax-open-client-edit", { detail: { clientId, tab } }));
   }
   function handleSelectClient(clientId: number) {
+    const tab = insuranceMode ? "withholding" : undefined;
     setOpen(false);
     setSelectedClient(null);
-    openClientEditModal(clientId);
+    setInsuranceMode(false);
+    openClientEditModal(clientId, tab);
   }
 
   // 홈택스 로그인
@@ -283,6 +293,8 @@ export function GlobalSearch() {
       doHometaxLogin(selectedClient.id);
     } else if (action.custom && action.key === "드라이브") {
       openClientDrive(selectedClient.id, selectedClient.name);
+    } else if (action.custom && action.key === "취득") {
+      openClientEditModal(selectedClient.id, "withholding");
     } else if (action.key === "수정") {
       openClientEditModal(selectedClient.id);
     } else if (action.path) {
@@ -349,8 +361,20 @@ export function GlobalSearch() {
     }
   }
 
+  // 취득/상실 빠른 작업 (일반 모드에서 "취득" 등 검색 시)
+  const showInsuranceQuick =
+    !isActionMode && !insuranceMode && !!query.trim() &&
+    INSURANCE_KEYWORDS.some((k) => k.includes(query.trim()) || query.trim().includes(k));
+
+  function enterInsuranceMode() {
+    setInsuranceMode(true);
+    setQuery("");
+    search("");
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
   // 메뉴 필터 (액션 모드가 아닐 때)
-  const filteredMenus = !isActionMode && query.trim()
+  const filteredMenus = !isActionMode && !insuranceMode && query.trim()
     ? MENUS.filter((m) => {
         const q = query.toLowerCase();
         return m.name.toLowerCase().includes(q) || m.keywords.toLowerCase().includes(q);
@@ -358,7 +382,7 @@ export function GlobalSearch() {
     : [];
 
   // 빌트인 사이트 필터 (액션 모드가 아닐 때)
-  const filteredBuiltinSites = !isActionMode && query.trim()
+  const filteredBuiltinSites = !isActionMode && !insuranceMode && query.trim()
     ? BUILTIN_SITES.filter((s) => {
         const q = query.toLowerCase();
         return s.name.toLowerCase().includes(q) || s.keywords.toLowerCase().includes(q);
@@ -366,14 +390,14 @@ export function GlobalSearch() {
     : [];
 
   // 도구 필터
-  const filteredTools = !isActionMode && query.trim()
+  const filteredTools = !isActionMode && !insuranceMode && query.trim()
     ? TOOLS.filter((t) => {
         const q = query.toLowerCase();
         return t.name.toLowerCase().includes(q) || t.keywords.toLowerCase().includes(q);
       })
     : [];
 
-  const hasResults = clients.length > 0 || bookmarks.length > 0 || filteredBuiltinSites.length > 0 || filteredMenus.length > 0 || filteredTools.length > 0;
+  const hasResults = clients.length > 0 || bookmarks.length > 0 || filteredBuiltinSites.length > 0 || filteredMenus.length > 0 || filteredTools.length > 0 || showInsuranceQuick;
 
   if (!open && !activeTool) return null;
 
@@ -401,8 +425,13 @@ export function GlobalSearch() {
           className="bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] overflow-hidden"
           shouldFilter={false}
           onKeyDown={(e) => {
+            // 취득/상실 모드에서 빈 입력창 Backspace → 일반 모드 복귀
+            if (e.key === "Backspace" && insuranceMode && !query) {
+              setInsuranceMode(false);
+              return;
+            }
             // Space로 거래처 선택 → 액션 모드 (일반 모드일 때만)
-            if (e.key === " " && !isActionMode && clients.length > 0 && query.trim()) {
+            if (e.key === " " && !isActionMode && !insuranceMode && clients.length > 0 && query.trim()) {
               const selected = document.querySelector('[cmdk-item][data-selected="true"]');
               const clientId = selected?.getAttribute("data-client-id");
               if (clientId) {
@@ -423,11 +452,22 @@ export function GlobalSearch() {
                 {selectedClient!.name}
               </span>
             )}
+            {insuranceMode && (
+              <span className="ml-2 px-2 py-0.5 bg-[#F59E0B] text-white text-xs rounded-md shrink-0">
+                취득/상실 등록
+              </span>
+            )}
             <Command.Input
               ref={inputRef}
               value={query}
               onValueChange={handleQueryChange}
-              placeholder={isActionMode ? "액션 입력... (수정, 메모, 원천세...)" : "거래처, 사이트 검색..."}
+              placeholder={
+                isActionMode
+                  ? "액션 입력... (수정, 메모, 원천세...)"
+                  : insuranceMode
+                  ? "거래처 검색 → 원천세 탭이 바로 열려요"
+                  : "거래처, 사이트 검색..."
+              }
               className="w-full px-3 py-4 text-[15px] text-[#191F28] placeholder-gray-400 outline-none bg-transparent"
               autoFocus
             />
@@ -486,6 +526,31 @@ export function GlobalSearch() {
                   <div className="py-8 text-center text-sm text-[#8B95A1]">
                     검색 결과가 없습니다
                   </div>
+                )}
+
+                {/* 빠른 작업: 취득/상실 등록 */}
+                {showInsuranceQuick && (
+                  <Command.Group heading={
+                    <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
+                      빠른 작업
+                    </span>
+                  }>
+                    <Command.Item
+                      value="quick-insurance"
+                      onSelect={enterInsuranceMode}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors data-[selected=true]:bg-[#3182F6] data-[selected=true]:text-white group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#FFFBEB] group-data-[selected=true]:bg-white/20 flex items-center justify-center text-base shrink-0">
+                        🧑‍💼
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium">취득/상실 신고 등록</div>
+                        <div className="text-xs text-[#8B95A1] group-data-[selected=true]:text-white/60">
+                          거래처 고르면 원천세 탭이 바로 열려요
+                        </div>
+                      </div>
+                    </Command.Item>
+                  </Command.Group>
                 )}
 
                 {/* 메뉴 */}
@@ -566,7 +631,7 @@ export function GlobalSearch() {
                 )}
 
                 {/* 외부 사이트 (북마크) */}
-                {bookmarks.length > 0 && (
+                {bookmarks.length > 0 && !insuranceMode && (
                   <Command.Group heading={
                     <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
                       외부 사이트
@@ -606,7 +671,7 @@ export function GlobalSearch() {
                 {clients.length > 0 && (
                   <Command.Group heading={
                     <span className="px-2 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wider">
-                      거래처 <span className="text-[#B0B8C1] font-normal ml-1">Space로 액션 선택</span>
+                      거래처 {!insuranceMode && <span className="text-[#B0B8C1] font-normal ml-1">Space로 액션 선택</span>}
                     </span>
                   }>
                     {clients.map((client) => {
@@ -662,7 +727,7 @@ export function GlobalSearch() {
               <kbd className="px-1.5 py-0.5 bg-white rounded border border-[#E5E8EB] text-[10px] font-medium">↑↓</kbd>
               <span>이동</span>
             </div>
-            {!isActionMode && (
+            {!isActionMode && !insuranceMode && (
               <div className="flex items-center gap-1.5 text-[11px] text-[#8B95A1]">
                 <kbd className="px-1.5 py-0.5 bg-white rounded border border-[#E5E8EB] text-[10px] font-medium">Space</kbd>
                 <span>액션 선택</span>

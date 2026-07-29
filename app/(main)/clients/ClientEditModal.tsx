@@ -13,16 +13,20 @@ type HistoryData = Awaited<ReturnType<typeof getClientHistory>>;
 const MEMO_TYPE_LABELS: Record<string, string> = { general: "일반", handover: "인수인계", caution: "주의" };
 const MEMO_TYPE_COLORS: Record<string, string> = { general: "bg-[#F2F4F6] text-[#4E5968]", handover: "bg-[#E8F3FF] text-[#3182F6]", caution: "bg-[#FEF2F2] text-[#DC2626]" };
 
+export type ClientEditModalTab = "edit" | "history" | "vat" | "incomeTax" | "withholding";
+
 export function ClientEditModal({
   clientId,
   onClose,
+  initialTab,
 }: {
   clientId: number;
   onClose: () => void;
+  initialTab?: ClientEditModalTab;
 }) {
   const [data, setData] = useState<ClientData | null>(null);
   const [history, setHistory] = useState<HistoryData | null>(null);
-  const [tab, setTab] = useState<"edit" | "history" | "vat" | "incomeTax" | "withholding">("edit");
+  const [tab, setTab] = useState<ClientEditModalTab>(initialTab ?? "edit");
   const formRef = useRef<HTMLFormElement | null>(null);
   const router = useRouter();
 
