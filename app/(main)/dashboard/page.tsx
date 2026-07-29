@@ -121,12 +121,12 @@ export default async function DashboardPage({
         select: { id: true, clientType: true },
         orderBy: { createdAt: "desc" },
       }),
-      // 신규수임 프로세스 (해피콜/자료수집용)
+      // 신규수임 프로세스 (해피콜/자료수집용) — 삭제·해지 거래처 제외
       prisma.commissionProcess.findMany({
         where: {
           completedAt: null,
           excludeConfirmed: false,
-          client: { isDeleted: false, ...myClient },
+          client: { isDeleted: false, contractStatus: "active", ...myClient },
         },
         include: {
           client: { select: { name: true } },
