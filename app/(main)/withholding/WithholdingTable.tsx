@@ -171,20 +171,38 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
   const filtered = search ? clients.filter((c) => c.name.includes(search)) : clients;
 
+  // 신고 단계 + 필수 제출서류까지 전부 체크됐는지 (신고없음 처리 포함)
+  function isClientFullyDone(c: Client): boolean {
+    const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
+    if (doneMap.has("신고없음")) return true;
+    const steps = getStepsByType(c.withholdingType || "", month, c.halfYearTax);
+    const override = c.withholdingLaborOverrides?.[0];
+    const baseLaborTypes = c.laborTypes?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
+    const laborList = override?.laborTypes
+      ? override.laborTypes.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자")
+      : baseLaborTypes;
+    const extras = getRequiredTasks(laborList, c.halfYearTax, month);
+    if (steps.length === 0 && extras.length === 0) return false;
+    return steps.every(s => doneMap.has(s)) && extras.every(t => doneMap.has(t.key));
+  }
+  // 그룹 내 정렬: 덜 체크된 거래처 위, 완료 거래처 아래 (같은 상태끼리는 기존 이름순 유지)
+  const sortIncompleteFirst = (arr: Client[]) =>
+    [...arr].sort((a, b) => Number(isClientFullyDone(a)) - Number(isClientFullyDone(b)));
+
   // ABCD 그룹핑
   const groups: { type: string; label: string; config: typeof TYPE_CONFIG["A"] | null; clients: Client[] }[] = [];
 
   // 미지정
   const unassigned = filtered.filter(c => !c.withholdingType);
   if (unassigned.length > 0) {
-    groups.push({ type: "", label: "미지정", config: null, clients: unassigned });
+    groups.push({ type: "", label: "미지정", config: null, clients: sortIncompleteFirst(unassigned) });
   }
 
   for (const type of ["A", "B", "C", "D"]) {
     if (groupFilter && groupFilter !== type) continue; // 그룹 필터 적용
     const typeClients = filtered.filter(c => c.withholdingType === type);
     if (typeClients.length > 0) {
-      groups.push({ type, label: `${type} — ${TYPE_CONFIG[type].description}`, config: TYPE_CONFIG[type], clients: typeClients });
+      groups.push({ type, label: `${type} — ${TYPE_CONFIG[type].description}`, config: TYPE_CONFIG[type], clients: sortIncompleteFirst(typeClients) });
     }
   }
 
