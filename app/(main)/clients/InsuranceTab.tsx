@@ -53,10 +53,22 @@ function money(n: number | null) {
 function DetailGrid({ r }: { r: Report }) {
   const isAcq = r.reportType === "acquisition";
   const items: [string, string][] = [["주민등록번호", r.residentNumber || "—"]];
-  if (isAcq || r.baseSalary != null) items.push(["기본급", money(r.baseSalary)]);
-  if (isAcq || r.mealAllowance != null) items.push(["식대", money(r.mealAllowance)]);
-  if (isAcq || r.carAllowance != null) items.push(["자가운전보조금", money(r.carAllowance)]);
-  if (isAcq || r.researchAllowance != null) items.push(["연구수당", money(r.researchAllowance)]);
+  if (isAcq && r.workerType === "사업") {
+    items.push(["세전급여", money(r.baseSalary)]);
+  } else if (isAcq && r.workerType === "일용") {
+    items.push(["일급", money(r.baseSalary)]);
+  } else if (isAcq) {
+    items.push(["기본급", money(r.baseSalary)]);
+    items.push(["식대", money(r.mealAllowance)]);
+    items.push(["자가운전보조금", money(r.carAllowance)]);
+    items.push(["연구수당", money(r.researchAllowance)]);
+  } else {
+    // 상실: 급여 항목은 과거에 입력된 값이 있을 때만 표시
+    if (r.baseSalary != null) items.push(["기본급", money(r.baseSalary)]);
+    if (r.mealAllowance != null) items.push(["식대", money(r.mealAllowance)]);
+    if (r.carAllowance != null) items.push(["자가운전보조금", money(r.carAllowance)]);
+    if (r.researchAllowance != null) items.push(["연구수당", money(r.researchAllowance)]);
+  }
   return (
     <div className="grid grid-cols-2 gap-x-5 gap-y-1 bg-white border border-[#F2F4F6] rounded-lg px-3.5 py-2.5 mt-2">
       {items.map(([label, value]) => (
@@ -159,16 +171,18 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
       return;
     }
     const isLabor = formType === "acquisition" && formWorkerType === "근로";
+    // 사업·일용은 단일 금액(세전급여/일급)만 받으므로 나머지 급여 항목은 비움
+    const clearExtraPay = formType === "acquisition" && formWorkerType !== "근로";
     const payload = {
       employeeName: formName.trim(),
       residentNumber: formResident.trim() || null,
       workerType: formType === "acquisition" ? formWorkerType : null,
       insurances: isLabor && formInsurances.length > 0 ? formInsurances.join(",") : null,
       baseSalary: parseMoney(formPay.base),
-      mealAllowance: parseMoney(formPay.meal),
-      carAllowance: parseMoney(formPay.car),
-      researchAllowance: parseMoney(formPay.research),
-      hireDate: formType === "acquisition" ? formDate || null : null,
+      mealAllowance: clearExtraPay ? null : parseMoney(formPay.meal),
+      carAllowance: clearExtraPay ? null : parseMoney(formPay.car),
+      researchAllowance: clearExtraPay ? null : parseMoney(formPay.research),
+      hireDate: formType === "acquisition" && formWorkerType !== "사업" ? formDate || null : null,
       leaveDate: formType === "loss" ? formDate || null : null,
       lossReason: formType === "loss" ? formReason : null,
       jobCertNeeded: formType === "loss" ? formJobCert : false,
@@ -374,37 +388,59 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
               onChange={(e) => setFormResident(fmtResidentInput(e.target.value))}
               className="w-[150px] text-sm border border-[#D1D6DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#3182F6]"
             />
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-[#8B95A1] shrink-0">{formType === "acquisition" ? "입사일" : "퇴사일"}</span>
-              <input
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-                className="text-sm border border-[#D1D6DB] rounded-lg px-2 py-2 focus:outline-none focus:border-[#3182F6]"
-              />
-            </div>
+            {/* 사업(프리랜서)은 날짜 불필요 — 이름·주민번호·세전급여만 */}
+            {!(formType === "acquisition" && formWorkerType === "사업") && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-[#8B95A1] shrink-0">{formType === "acquisition" ? "입사일" : "퇴사일"}</span>
+                <input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                  className="text-sm border border-[#D1D6DB] rounded-lg px-2 py-2 focus:outline-none focus:border-[#3182F6]"
+                />
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              ["base", "기본급"],
-              ["meal", "식대"],
-              ["car", "자가운전보조금"],
-              ["research", "연구수당"],
-            ] as const).map(([key, label]) => (
-              <div key={key} className="flex items-center gap-1.5">
-                <span className="text-xs text-[#8B95A1] w-[86px] shrink-0">{label}</span>
+          {/* 급여 입력 — 근로: 4항목 / 사업: 세전급여 / 일용: 일급 / 상실: 없음 */}
+          {formType === "acquisition" && formWorkerType === "근로" && (
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ["base", "기본급"],
+                ["meal", "식대"],
+                ["car", "자가운전보조금"],
+                ["research", "연구수당"],
+              ] as const).map(([key, label]) => (
+                <div key={key} className="flex items-center gap-1.5">
+                  <span className="text-xs text-[#8B95A1] w-[86px] shrink-0">{label}</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={formPay[key]}
+                    onChange={(e) => setFormPay((v) => ({ ...v, [key]: fmtMoneyInput(e.target.value) }))}
+                    className="flex-1 min-w-0 text-sm text-right border border-[#D1D6DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#3182F6]"
+                  />
+                  <span className="text-xs text-[#8B95A1]">원</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {formType === "acquisition" && formWorkerType !== "근로" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-[#8B95A1] w-[86px] shrink-0">{formWorkerType === "사업" ? "세전급여" : "일급"}</span>
                 <input
                   type="text"
                   inputMode="numeric"
                   placeholder="0"
-                  value={formPay[key]}
-                  onChange={(e) => setFormPay((v) => ({ ...v, [key]: fmtMoneyInput(e.target.value) }))}
+                  value={formPay.base}
+                  onChange={(e) => setFormPay((v) => ({ ...v, base: fmtMoneyInput(e.target.value) }))}
                   className="flex-1 min-w-0 text-sm text-right border border-[#D1D6DB] rounded-lg px-3 py-2 focus:outline-none focus:border-[#3182F6]"
                 />
                 <span className="text-xs text-[#8B95A1]">원</span>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
           {formType === "loss" && (
             <div className="flex items-center gap-3">
               <select

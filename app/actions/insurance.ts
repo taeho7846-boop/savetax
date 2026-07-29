@@ -38,11 +38,14 @@ export async function addInsuranceReport(
     jobCertNeeded?: boolean;
   }
 ) {
-  await requireAuth();
+  const session = await requireAuth();
   return prisma.insuranceReport.create({
     data: {
       clientId,
       reportType: data.reportType,
+      // 등록 자체가 대표자 요청을 받아 하는 것이므로 '대표자 요청' 단계는 자동 완료
+      requestedDate: todayKST(),
+      requestedBy: session.name,
       employeeName: data.employeeName,
       residentNumber: data.residentNumber || null,
       workerType: data.workerType || null,
