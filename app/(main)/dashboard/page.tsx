@@ -149,7 +149,8 @@ export default async function DashboardPage({
           confirmedDate: true, confirmedBy: true,
           client: { select: { id: true, name: true } },
         },
-        orderBy: { createdAt: "asc" },
+        // 거래처명 가나다순, 같은 거래처 안에서는 등록순
+        orderBy: [{ client: { name: "asc" } }, { createdAt: "asc" }],
       }),
     ]);
 
