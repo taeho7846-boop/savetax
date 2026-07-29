@@ -229,7 +229,7 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
                         <span className="text-[13.5px] font-bold text-[#191F28]">{item.clientName}</span>
                         <span className="text-[13px] text-[#4E5968]">{item.employeeName || "이름 미입력"}</span>
                         {isAcq && item.hireDate && (
-                          <span className="text-[11.5px] text-[#8B95A1]">{item.workerType === "사업" ? "시작" : "입사"} {fmtDate(item.hireDate)}</span>
+                          <span className="text-[11.5px] text-[#8B95A1]">{item.workerType === "사업" ? "등록" : "입사"} {fmtDate(item.hireDate)}</span>
                         )}
                         {!isAcq && item.leaveDate && (
                           <span className="text-[11.5px] text-[#8B95A1]">퇴사 {fmtDate(item.leaveDate)}</span>
