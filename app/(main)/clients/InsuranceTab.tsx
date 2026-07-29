@@ -91,6 +91,14 @@ function isDone(r: Report) {
   return !!r.confirmedDate;
 }
 
+// 근로만 4대보험 '취득신고', 사업·일용은 인원 등록
+function typeLabel(r: Report) {
+  if (r.reportType === "loss") return "상실신고";
+  if (r.workerType === "사업") return "사업 등록";
+  if (r.workerType === "일용") return "일용 등록";
+  return "취득신고";
+}
+
 export function InsuranceTab({ clientId }: { clientId: number }) {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -275,12 +283,17 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
     const chip = "text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap";
     return (
       <>
-        {r.reportType === "acquisition" ? (
-          <span className={`${chip} bg-[#E8F3FF] text-[#1B64DA]`}>취득신고</span>
-        ) : (
+        {/* 근로만 4대보험 '취득신고', 사업·일용은 인원 등록 */}
+        {r.reportType === "loss" ? (
           <span className={`${chip} bg-[#FEF3C7] text-[#B45309]`}>상실신고</span>
+        ) : r.workerType === "사업" ? (
+          <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>사업 등록</span>
+        ) : r.workerType === "일용" ? (
+          <span className={`${chip} bg-[#F1FBF4] text-[#15803D]`}>일용 등록</span>
+        ) : (
+          <span className={`${chip} bg-[#E8F3FF] text-[#1B64DA]`}>취득신고</span>
         )}
-        {r.workerType && <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>{r.workerType}</span>}
+        {r.workerType === "근로" && <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>{r.workerType}</span>}
         {r.reportType === "acquisition" && r.hireDate && (
           <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>입사 {fmtDate(r.hireDate)}</span>
         )}
@@ -512,7 +525,7 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm(`'${r.employeeName}' ${r.reportType === "acquisition" ? "취득" : "상실"}신고 건을 삭제할까요?`))
+                  if (confirm(`'${r.employeeName}' ${typeLabel(r)} 건을 삭제할까요?`))
                     run(() => deleteInsuranceReport(r.id));
                 }}
                 className="text-[11px] text-[#B0B8C1] hover:text-[#E02E2E]"
@@ -580,7 +593,7 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
             <span className="text-[13px] text-[#4E5968]">
-              {r.employeeName} · {r.reportType === "acquisition" ? "취득신고" : "상실신고"} 완료
+              {r.employeeName} · {typeLabel(r)} 완료
               {r.confirmedDate ? ` (${fmtDate(r.confirmedDate)} 확인)` : ""}
             </span>
             <span className="ml-auto text-[#B0B8C1] text-xs">펼치기</span>

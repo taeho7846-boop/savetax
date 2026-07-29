@@ -141,7 +141,7 @@ export default async function DashboardPage({
           client: { isDeleted: false, contractStatus: "active", ...myClient },
         },
         select: {
-          id: true, reportType: true, employeeName: true, hireDate: true, leaveDate: true,
+          id: true, reportType: true, workerType: true, employeeName: true, hireDate: true, leaveDate: true,
           lossReason: true, jobCertNeeded: true,
           requestedDate: true, requestedBy: true, filedDate: true, filedBy: true,
           confirmedDate: true, confirmedBy: true,
