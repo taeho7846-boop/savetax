@@ -14,6 +14,7 @@ import { DashboardTabs } from "./DashboardTabs";
 import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard } from "./ProcessCards";
 import type { TransferItem } from "./ProcessCards";
 import { UnpaidCard } from "./UnpaidCard";
+import { InsuranceCard } from "./InsuranceCard";
 import { PhonePopupButton } from "./PhonePopupButton";
 import { BuildingIcon, ClockIcon, CalendarIcon, BellIcon } from "@/components/icons";
 
@@ -66,7 +67,7 @@ export default async function DashboardPage({
   };
 
   const [totalClients, individualClients, corporateClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
-         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, newDistributions, commissions] =
+         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, newDistributions, commissions, insuranceRaw] =
     await Promise.all([
       prisma.client.count({ where: clientCountWhere }),
       prisma.client.count({ where: { ...clientCountWhere, clientType: "individual" } }),
@@ -132,7 +133,25 @@ export default async function DashboardPage({
           happyCalls: { orderBy: { calledAt: "desc" } },
         },
       }),
+      // 4대보험 취득/상실 신고 진행 건 (확인 완료 전) — 거래처 수정 모달 원천세 탭에서 등록
+      prisma.insuranceReport.findMany({
+        where: {
+          confirmedDate: null,
+          reportType: { in: ["acquisition", "loss"] },
+          client: { isDeleted: false, contractStatus: "active", ...myClient },
+        },
+        select: {
+          id: true, reportType: true, employeeName: true, hireDate: true, leaveDate: true,
+          lossReason: true, jobCertNeeded: true,
+          requestedDate: true, requestedBy: true, filedDate: true, filedBy: true,
+          confirmedDate: true, confirmedBy: true,
+          client: { select: { name: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
+
+  const insuranceItems = insuranceRaw.map(({ client, ...r }) => ({ ...r, clientName: client.name }));
 
   // === 미수납 데이터 ===
   const unpaidRaw = await prisma.client.findMany({
@@ -464,6 +483,9 @@ export default async function DashboardPage({
               <DataCollectCard items={dataCollectItems} />
               <ExcludeRequestCard items={excludeItems} />
             </div>
+
+            {/* 취득/상실 신고 진행 카드 */}
+            <InsuranceCard items={insuranceItems} />
           </div>
 
         </>
