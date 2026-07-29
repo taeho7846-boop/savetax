@@ -63,8 +63,10 @@ function DetailGrid({ r }: { r: Report }) {
     items.push(["자가운전보조금", money(r.carAllowance)]);
     items.push(["연구수당", money(r.researchAllowance)]);
   } else {
-    // 상실: 급여 항목은 과거에 입력된 값이 있을 때만 표시
     if (r.baseSalary != null) items.push(["기본급", money(r.baseSalary)]);
+  }
+  // 유형과 무관하게, 다른 칸에 저장돼 있는 값은 절대 숨기지 않는다 (과거 입력분 보호)
+  if ((r.workerType === "사업" || r.workerType === "일용" || !isAcq)) {
     if (r.mealAllowance != null) items.push(["식대", money(r.mealAllowance)]);
     if (r.carAllowance != null) items.push(["자가운전보조금", money(r.carAllowance)]);
     if (r.researchAllowance != null) items.push(["연구수당", money(r.researchAllowance)]);
@@ -179,18 +181,17 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
       return;
     }
     const isLabor = formType === "acquisition" && formWorkerType === "근로";
-    // 사업·일용은 단일 금액(세전급여/일급)만 받으므로 나머지 급여 항목은 비움
-    const clearExtraPay = formType === "acquisition" && formWorkerType !== "근로";
+    // 사업·일용은 폼에서 일부 입력칸을 숨기지만, 기존에 저장된 값은 절대 지우지 않는다
     const payload = {
       employeeName: formName.trim(),
       residentNumber: formResident.trim() || null,
       workerType: formType === "acquisition" ? formWorkerType : null,
       insurances: isLabor && formInsurances.length > 0 ? formInsurances.join(",") : null,
       baseSalary: parseMoney(formPay.base),
-      mealAllowance: clearExtraPay ? null : parseMoney(formPay.meal),
-      carAllowance: clearExtraPay ? null : parseMoney(formPay.car),
-      researchAllowance: clearExtraPay ? null : parseMoney(formPay.research),
-      hireDate: formType === "acquisition" && formWorkerType !== "사업" ? formDate || null : null,
+      mealAllowance: parseMoney(formPay.meal),
+      carAllowance: parseMoney(formPay.car),
+      researchAllowance: parseMoney(formPay.research),
+      hireDate: formType === "acquisition" ? formDate || null : null,
       leaveDate: formType === "loss" ? formDate || null : null,
       lossReason: formType === "loss" ? formReason : null,
       jobCertNeeded: formType === "loss" ? formJobCert : false,

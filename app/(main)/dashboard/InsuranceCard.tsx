@@ -78,6 +78,9 @@ function detailItems(item: InsuranceItem): [string, string][] {
     if (item.insurances) items.push(["4대보험", item.insurances.split(",").join(" · ")]);
   } else {
     if (item.baseSalary != null) items.push(["기본급", money(item.baseSalary)]);
+  }
+  // 유형과 무관하게, 다른 칸에 저장돼 있는 값은 절대 숨기지 않는다 (과거 입력분 보호)
+  if (item.workerType === "사업" || item.workerType === "일용" || !isAcq) {
     if (item.mealAllowance != null) items.push(["식대", money(item.mealAllowance)]);
     if (item.carAllowance != null) items.push(["자가운전보조금", money(item.carAllowance)]);
     if (item.researchAllowance != null) items.push(["연구수당", money(item.researchAllowance)]);
@@ -91,9 +94,8 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  // 상세: 호버하면 잠깐 보이고, 클릭하면 고정(토글)
+  // 상세: 클릭하면 펼침/접힘 토글 (호버 펼침은 화면이 출렁여서 제거)
   const [pinned, setPinned] = useState<Set<number>>(new Set());
-  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   // 카테고리별 카운트 (0건인 카테고리는 요약에서 숨김)
   const countParts = ["취득", "사업", "일용", "상실"]
@@ -165,7 +167,7 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
               </div>
               <div className="flex-1">
                 <h2 className="text-[18px] font-bold text-[#191F28]">취득 · 상실 신고</h2>
-                <p className="text-[12px] text-[#6B7684]">요청 → 신고 → 확인 · {items.length}건 · 항목에 마우스를 올리거나 클릭하면 상세가 보여요</p>
+                <p className="text-[12px] text-[#6B7684]">요청 → 신고 → 확인 · {items.length}건 · 항목을 클릭하면 상세가 펼쳐져요</p>
               </div>
               <button onClick={() => setOpen(false)} className="text-[#8B95A1] hover:text-[#191F28] w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/60 text-xl leading-none">×</button>
             </div>
@@ -176,21 +178,16 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
                 const isAcq = item.reportType === "acquisition";
                 const category = categoryOf(item);
                 const nextIdx = STEPS.findIndex((s) => !stepDate(item, s.key));
-                const showDetail = pinned.has(item.id) || hoveredId === item.id;
+                const showDetail = pinned.has(item.id);
                 return (
-                  <div
-                    key={item.id}
-                    className="bg-white/60 rounded-2xl px-4 py-3"
-                    onMouseEnter={() => setHoveredId(item.id)}
-                    onMouseLeave={() => setHoveredId((v) => (v === item.id ? null : v))}
-                  >
+                  <div key={item.id} className="bg-white/60 rounded-2xl px-4 py-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       {/* 왼쪽(정보) 클릭 → 상세 고정 토글 */}
                       <button
                         type="button"
                         onClick={() => togglePin(item.id)}
                         className="flex items-center gap-2 flex-wrap flex-1 min-w-0 text-left cursor-pointer"
-                        title="클릭하면 상세를 고정합니다"
+                        title="클릭하면 상세를 펼치거나 접습니다"
                       >
                         <span className={`${chip} ${category.cls}`}>{category.label}</span>
                         <span className="text-[13.5px] font-bold text-[#191F28]">{item.clientName}</span>
