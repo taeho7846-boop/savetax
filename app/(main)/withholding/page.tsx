@@ -50,7 +50,7 @@ export default async function WithholdingPage({
       halfYearTax: true,
       accountingProgram: true,
       withholdingType: true,
-      assignedUser: isManager ? { select: { name: true } } : undefined,
+      assignedUser: { select: { name: true } },
       withholdingRecords: {
         where: { yearMonth },
       },
@@ -72,7 +72,7 @@ export default async function WithholdingPage({
 
   return (
     <div>
-      <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser={isManager} wehagoCompanyId={settings?.wehagoId || ""} wehagoTaxNum={settings?.wehagoTaxNum || ""} />
+      <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser wehagoCompanyId={settings?.wehagoId || ""} wehagoTaxNum={settings?.wehagoTaxNum || ""} />
     </div>
   );
 }

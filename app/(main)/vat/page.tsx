@@ -67,7 +67,7 @@ export default async function VatPage({
       clientType: true,
       taxationType: true,
       vatTypeDetail: true,
-      assignedUser: isManager ? { select: { name: true } } : undefined,
+      assignedUser: { select: { name: true } },
       vatRecords: {
         where: { period },
         select: {
@@ -154,7 +154,7 @@ export default async function VatPage({
         clients={clients}
         period={period}
         activeTab={activeTab}
-        showAssignedUser={isManager}
+        showAssignedUser
       />
     </div>
   );
