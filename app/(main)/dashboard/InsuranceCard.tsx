@@ -173,7 +173,7 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
       {open && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           {/* 높이 고정 — 카테고리 필터 전환 시 모달 크기가 출렁이지 않도록 */}
-          <div className="glass-strong rounded-3xl w-full max-w-2xl h-[min(620px,80vh)] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="glass-strong rounded-3xl w-full max-w-3xl h-[min(620px,80vh)] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 flex items-center gap-3 border-b border-white/40">
               <div className="w-10 h-10 rounded-2xl gradient-amber flex items-center justify-center text-white">
                 <UsersIcon width={20} height={20} strokeWidth={2.2} />
