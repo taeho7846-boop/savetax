@@ -143,15 +143,17 @@ export default async function DashboardPage({
         select: {
           id: true, reportType: true, workerType: true, employeeName: true, hireDate: true, leaveDate: true,
           lossReason: true, jobCertNeeded: true,
+          residentNumber: true, insurances: true,
+          baseSalary: true, mealAllowance: true, carAllowance: true, researchAllowance: true, memo: true,
           requestedDate: true, requestedBy: true, filedDate: true, filedBy: true,
           confirmedDate: true, confirmedBy: true,
-          client: { select: { name: true } },
+          client: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: "asc" },
       }),
     ]);
 
-  const insuranceItems = insuranceRaw.map(({ client, ...r }) => ({ ...r, clientName: client.name }));
+  const insuranceItems = insuranceRaw.map(({ client, ...r }) => ({ ...r, clientId: client.id, clientName: client.name }));
 
   // === 미수납 데이터 ===
   const unpaidRaw = await prisma.client.findMany({

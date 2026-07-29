@@ -7,6 +7,7 @@ import { UsersIcon } from "@/components/icons";
 
 export type InsuranceItem = {
   id: number;
+  clientId: number;
   clientName: string;
   reportType: string; // acquisition | loss
   workerType: string | null; // 근로 | 사업 | 일용 (취득)
@@ -15,6 +16,13 @@ export type InsuranceItem = {
   leaveDate: string | null;
   lossReason: string | null;
   jobCertNeeded: boolean;
+  residentNumber: string | null;
+  insurances: string | null;
+  baseSalary: number | null;
+  mealAllowance: number | null;
+  carAllowance: number | null;
+  researchAllowance: number | null;
+  memo: string | null;
   requestedDate: string | null;
   requestedBy: string | null;
   filedDate: string | null;
@@ -35,6 +43,10 @@ function fmtDate(d: string | null) {
   return `${parseInt(m)}/${parseInt(day)}`;
 }
 
+function money(n: number | null) {
+  return n != null ? `${n.toLocaleString()}원` : "—";
+}
+
 function stepDate(item: InsuranceItem, step: InsuranceStep) {
   return item[`${step}Date`] as string | null;
 }
@@ -50,11 +62,38 @@ function categoryOf(item: InsuranceItem): { label: string; cls: string } {
   return { label: "취득", cls: "bg-[#E8F3FF] text-[#1B64DA]" };
 }
 
+// 위하고 입력에 필요한 상세 항목 (유형별)
+function detailItems(item: InsuranceItem): [string, string][] {
+  const isAcq = item.reportType === "acquisition";
+  const items: [string, string][] = [["주민등록번호", item.residentNumber || "—"]];
+  if (isAcq && item.workerType === "사업") {
+    items.push(["세전급여", money(item.baseSalary)]);
+  } else if (isAcq && item.workerType === "일용") {
+    items.push(["일급", money(item.baseSalary)]);
+  } else if (isAcq) {
+    items.push(["기본급", money(item.baseSalary)]);
+    items.push(["식대", money(item.mealAllowance)]);
+    items.push(["자가운전보조금", money(item.carAllowance)]);
+    items.push(["연구수당", money(item.researchAllowance)]);
+    if (item.insurances) items.push(["4대보험", item.insurances.split(",").join(" · ")]);
+  } else {
+    if (item.baseSalary != null) items.push(["기본급", money(item.baseSalary)]);
+    if (item.mealAllowance != null) items.push(["식대", money(item.mealAllowance)]);
+    if (item.carAllowance != null) items.push(["자가운전보조금", money(item.carAllowance)]);
+    if (item.researchAllowance != null) items.push(["연구수당", money(item.researchAllowance)]);
+  }
+  if (item.memo) items.push(["메모", item.memo]);
+  return items;
+}
+
 // ============ 취득/상실 신고 미니 위젯 + 팝업 ============
 export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  // 상세: 호버하면 잠깐 보이고, 클릭하면 고정(토글)
+  const [pinned, setPinned] = useState<Set<number>>(new Set());
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   // 카테고리별 카운트 (0건인 카테고리는 요약에서 숨김)
   const countParts = ["취득", "사업", "일용", "상실"]
@@ -74,6 +113,23 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
       await undoInsuranceStep(id, step);
       router.refresh();
     });
+  }
+
+  function togglePin(id: number) {
+    setPinned((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  // 거래처 수정 모달을 원천세 탭으로 바로 열기
+  function openWithholdingTab(item: InsuranceItem) {
+    setOpen(false);
+    window.dispatchEvent(
+      new CustomEvent("savetax-open-client-edit", { detail: { clientId: item.clientId, tab: "withholding" } })
+    );
   }
 
   const chip = "text-[11px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap";
@@ -109,7 +165,7 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
               </div>
               <div className="flex-1">
                 <h2 className="text-[18px] font-bold text-[#191F28]">취득 · 상실 신고</h2>
-                <p className="text-[12px] text-[#6B7684]">요청 → 신고 → 확인 · {items.length}건 · 등록은 거래처 수정 모달 원천세 탭</p>
+                <p className="text-[12px] text-[#6B7684]">요청 → 신고 → 확인 · {items.length}건 · 항목에 마우스를 올리거나 클릭하면 상세가 보여요</p>
               </div>
               <button onClick={() => setOpen(false)} className="text-[#8B95A1] hover:text-[#191F28] w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/60 text-xl leading-none">×</button>
             </div>
@@ -120,24 +176,44 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
                 const isAcq = item.reportType === "acquisition";
                 const category = categoryOf(item);
                 const nextIdx = STEPS.findIndex((s) => !stepDate(item, s.key));
+                const showDetail = pinned.has(item.id) || hoveredId === item.id;
                 return (
-                  <div key={item.id} className="bg-white/60 rounded-2xl px-4 py-3">
+                  <div
+                    key={item.id}
+                    className="bg-white/60 rounded-2xl px-4 py-3"
+                    onMouseEnter={() => setHoveredId(item.id)}
+                    onMouseLeave={() => setHoveredId((v) => (v === item.id ? null : v))}
+                  >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`${chip} ${category.cls}`}>{category.label}</span>
-                      <span className="text-[13.5px] font-bold text-[#191F28]">{item.clientName}</span>
-                      <span className="text-[13px] text-[#4E5968]">{item.employeeName || "이름 미입력"}</span>
-                      {isAcq && item.hireDate && (
-                        <span className="text-[11.5px] text-[#8B95A1]">입사 {fmtDate(item.hireDate)}</span>
-                      )}
-                      {!isAcq && item.leaveDate && (
-                        <span className="text-[11.5px] text-[#8B95A1]">퇴사 {fmtDate(item.leaveDate)}</span>
-                      )}
-                      {!isAcq && item.lossReason && (
-                        <span className="text-[11.5px] text-[#8B95A1]">{item.lossReason}</span>
-                      )}
-                      {!isAcq && item.jobCertNeeded && (
-                        <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>이직확인서</span>
-                      )}
+                      {/* 왼쪽(정보) 클릭 → 상세 고정 토글 */}
+                      <button
+                        type="button"
+                        onClick={() => togglePin(item.id)}
+                        className="flex items-center gap-2 flex-wrap flex-1 min-w-0 text-left cursor-pointer"
+                        title="클릭하면 상세를 고정합니다"
+                      >
+                        <span className={`${chip} ${category.cls}`}>{category.label}</span>
+                        <span className="text-[13.5px] font-bold text-[#191F28]">{item.clientName}</span>
+                        <span className="text-[13px] text-[#4E5968]">{item.employeeName || "이름 미입력"}</span>
+                        {isAcq && item.hireDate && (
+                          <span className="text-[11.5px] text-[#8B95A1]">입사 {fmtDate(item.hireDate)}</span>
+                        )}
+                        {!isAcq && item.leaveDate && (
+                          <span className="text-[11.5px] text-[#8B95A1]">퇴사 {fmtDate(item.leaveDate)}</span>
+                        )}
+                        {!isAcq && item.lossReason && (
+                          <span className="text-[11.5px] text-[#8B95A1]">{item.lossReason}</span>
+                        )}
+                        {!isAcq && item.jobCertNeeded && (
+                          <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>이직확인서</span>
+                        )}
+                        <svg
+                          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B0B8C1" strokeWidth="2.5"
+                          className={`transition-transform ${showDetail ? "rotate-180" : ""}`}
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </button>
 
                       {/* 3단계: 요청 → 신고 → 확인 */}
                       <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -179,6 +255,29 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
                         })}
                       </div>
                     </div>
+
+                    {/* 상세 — 위하고 입력용 정보 */}
+                    {showDetail && (
+                      <div className="mt-2.5">
+                        <div className="grid grid-cols-2 gap-x-5 gap-y-1 bg-white border border-[#F2F4F6] rounded-xl px-3.5 py-2.5">
+                          {detailItems(item).map(([label, value]) => (
+                            <div key={label} className="flex items-center justify-between text-xs min-w-0">
+                              <span className="text-[#8B95A1] shrink-0">{label}</span>
+                              <span className={`ml-2 truncate ${value === "—" ? "text-[#B0B8C1]" : "text-[#333D4B] font-medium"}`}>{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-end mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openWithholdingTab(item)}
+                            className="text-[11.5px] text-[#3182F6] font-bold hover:text-[#1B64DA] hover:underline"
+                          >
+                            원천세 탭에서 수정 →
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
