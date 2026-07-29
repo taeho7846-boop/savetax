@@ -307,7 +307,7 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
         )}
         {r.workerType === "근로" && <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>{r.workerType}</span>}
         {r.reportType === "acquisition" && r.hireDate && (
-          <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>입사 {fmtDate(r.hireDate)}</span>
+          <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>{r.workerType === "사업" ? "시작" : "입사"} {fmtDate(r.hireDate)}</span>
         )}
         {r.reportType === "loss" && r.leaveDate && (
           <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>퇴사 {fmtDate(r.leaveDate)}</span>
