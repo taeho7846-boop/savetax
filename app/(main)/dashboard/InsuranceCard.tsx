@@ -96,11 +96,23 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
   const [isPending, startTransition] = useTransition();
   // 상세: 클릭하면 펼침/접힘 토글 (호버 펼침은 화면이 출렁여서 제거)
   const [pinned, setPinned] = useState<Set<number>>(new Set());
+  // 카테고리 필터
+  const [activeCat, setActiveCat] = useState<"all" | "취득" | "사업" | "일용" | "상실">("all");
 
   // 카테고리별 카운트 (0건인 카테고리는 요약에서 숨김)
   const countParts = ["취득", "사업", "일용", "상실"]
     .map((label) => ({ label, count: items.filter((i) => categoryOf(i).label === label).length }))
     .filter((c) => c.count > 0);
+
+  const catTabs: { key: "all" | "취득" | "사업" | "일용" | "상실"; label: string }[] = [
+    { key: "all", label: "전체" },
+    { key: "취득", label: "취득" },
+    { key: "사업", label: "사업" },
+    { key: "일용", label: "일용" },
+    { key: "상실", label: "상실" },
+  ];
+  const catCount = (key: string) => (key === "all" ? items.length : items.filter((i) => categoryOf(i).label === key).length);
+  const filteredItems = activeCat === "all" ? items : items.filter((i) => categoryOf(i).label === activeCat);
 
   function complete(id: number, step: InsuranceStep) {
     startTransition(async () => {
@@ -171,10 +183,33 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
               </div>
               <button onClick={() => setOpen(false)} className="text-[#8B95A1] hover:text-[#191F28] w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/60 text-xl leading-none">×</button>
             </div>
+            {/* 카테고리 필터 */}
+            <div className="px-4 pt-3 flex items-center gap-1.5 flex-wrap">
+              {catTabs.map((t) => {
+                const isActive = activeCat === t.key;
+                const c = catCount(t.key);
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveCat(t.key)}
+                    className={`text-[11.5px] px-3 py-1 rounded-full font-bold transition flex items-center gap-1.5 ${
+                      isActive
+                        ? "bg-[#3182F6] text-white shadow-[0_2px_6px_rgba(49,130,246,0.25)]"
+                        : "bg-white/60 text-[#6B7684] hover:bg-white/80 hover:text-[#191F28]"
+                    }`}
+                  >
+                    {t.label}
+                    <span className={`tabular-nums ${isActive ? "text-white/80" : "text-[#B0B8C1]"}`}>{c}</span>
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-[120px]">
-              {items.length === 0 ? (
-                <div className="py-10 text-center text-[#8B95A1] text-sm">진행 중인 취득·상실 신고가 없습니다</div>
-              ) : items.map((item) => {
+              {filteredItems.length === 0 ? (
+                <div className="py-10 text-center text-[#8B95A1] text-sm">
+                  {items.length === 0 ? "진행 중인 취득·상실 신고가 없습니다" : "이 카테고리에는 진행 건이 없습니다"}
+                </div>
+              ) : filteredItems.map((item) => {
                 const isAcq = item.reportType === "acquisition";
                 const category = categoryOf(item);
                 const nextIdx = STEPS.findIndex((s) => !stepDate(item, s.key));

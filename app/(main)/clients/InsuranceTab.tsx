@@ -101,12 +101,21 @@ function typeLabel(r: Report) {
   return "취득신고";
 }
 
+// 카테고리: 취득(근로) / 사업 / 일용 / 상실
+function categoryOf(r: Report) {
+  if (r.reportType === "loss") return "상실";
+  if (r.workerType === "사업") return "사업";
+  if (r.workerType === "일용") return "일용";
+  return "취득";
+}
+
 export function InsuranceTab({ clientId }: { clientId: number }) {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [editingDate, setEditingDate] = useState<{ id: number; step: InsuranceStep } | null>(null);
+  const [catFilter, setCatFilter] = useState<"all" | "취득" | "사업" | "일용" | "상실">("all");
 
   // 추가/수정 폼
   const [editId, setEditId] = useState<number | null>(null);
@@ -171,9 +180,11 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
   }
 
   const establishment = reports?.find((r) => r.reportType === "establishment") ?? null;
-  const workers = reports?.filter((r) => r.reportType !== "establishment") ?? [];
+  const workersAll = reports?.filter((r) => r.reportType !== "establishment") ?? [];
+  const workers = catFilter === "all" ? workersAll : workersAll.filter((r) => categoryOf(r) === catFilter);
   const active = workers.filter((r) => !isDone(r));
   const completed = workers.filter(isDone);
+  const catCount = (key: string) => (key === "all" ? workersAll.length : workersAll.filter((r) => categoryOf(r) === key).length);
 
   function handleSave() {
     if (!formName.trim()) {
@@ -330,6 +341,30 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
           + 근로자 추가
         </button>
       </div>
+
+      {/* 카테고리 필터 */}
+      {workersAll.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(["all", "취득", "사업", "일용", "상실"] as const).map((key) => {
+            const isActive = catFilter === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setCatFilter(key)}
+                className={`text-[11.5px] px-3 py-1 rounded-full font-bold transition flex items-center gap-1.5 ${
+                  isActive
+                    ? "bg-[#3182F6] text-white"
+                    : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]"
+                }`}
+              >
+                {key === "all" ? "전체" : key}
+                <span className={`tabular-nums ${isActive ? "text-white/80" : "text-[#B0B8C1]"}`}>{catCount(key)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* 추가 폼 */}
       {showAdd && (
@@ -552,9 +587,15 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
 
       {workers.length === 0 && (
         <div className="text-center py-10 text-[#8B95A1] text-sm">
-          등록된 근로자 신고 건이 없습니다
-          <br />
-          <span className="text-xs">상단의 '+ 근로자 추가'로 취득·상실신고를 등록하세요</span>
+          {workersAll.length > 0 ? (
+            "이 카테고리에는 등록 건이 없습니다"
+          ) : (
+            <>
+              등록된 근로자 신고 건이 없습니다
+              <br />
+              <span className="text-xs">상단의 '+ 근로자 추가'로 취득·상실신고를 등록하세요</span>
+            </>
+          )}
         </div>
       )}
 
