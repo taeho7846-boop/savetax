@@ -43,6 +43,19 @@ export default async function DashboardPage({
   const isReadonly = session.role === "readonly";
   const myClient = isReadonly ? {} : { assignedUserId: session.id };
 
+  // 관리 고객사 카드: 매니저(세무사/관리자/대표)는 본인 + 부하 직원 거래처 합산
+  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+  const teamMembers: { id: number; name: string }[] = isManager
+    ? [
+        { id: session.id, name: session.name },
+        ...(await prisma.user.findMany({
+          where: { managerId: session.id, isActive: true },
+          select: { id: true, name: true },
+        })),
+      ]
+    : [{ id: session.id, name: session.name }];
+  const teamIds = teamMembers.map((u) => u.id);
+
   const cmsWhere = (ym: string | { lt: string }) => ({
     isDeleted: false,
     ...myClient,
@@ -57,9 +70,11 @@ export default async function DashboardPage({
   });
   const cmsSelect = { id: true, name: true, phone: true, bankName: true, bankAccount: true };
 
+  // 팀(본인+직원) 기준 관리 고객사 — 해지 거래처는 운영 집계에서 제외
   const clientCountWhere = {
     isDeleted: false,
-    ...myClient,
+    contractStatus: "active",
+    ...(isReadonly ? {} : { assignedUserId: { in: teamIds } }),
     OR: [
       { taxTypes: null },
       { NOT: { taxTypes: { contains: "신고대리" } } },
@@ -67,7 +82,8 @@ export default async function DashboardPage({
   };
 
   const [totalClients, individualClients, corporateClients, totalTasks, urgentTasks, delayedTasks, recentTasks,
-         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, newDistributions, commissions, insuranceRaw] =
+         cmsPrev, cmsCurrent, cmsNext, feedbacks, tempMemosData, myClients, notices, knowledges, newDistributions, commissions, insuranceRaw,
+         assigneeGroups, unassignedClients] =
     await Promise.all([
       prisma.client.count({ where: clientCountWhere }),
       prisma.client.count({ where: { ...clientCountWhere, clientType: "individual" } }),
@@ -152,7 +168,33 @@ export default async function DashboardPage({
         // 거래처명 가나다순, 같은 거래처 안에서는 등록순
         orderBy: [{ client: { name: "asc" } }, { createdAt: "asc" }],
       }),
+      // 사수별 관리 고객사 수
+      prisma.client.groupBy({
+        by: ["assignedUserId"],
+        where: clientCountWhere,
+        _count: { _all: true },
+      }),
+      // 미배정 거래처 수 (담당자 없음)
+      prisma.client.count({
+        where: {
+          isDeleted: false,
+          contractStatus: "active",
+          assignedUserId: null,
+          OR: [
+            { taxTypes: null },
+            { NOT: { taxTypes: { contains: "신고대리" } } },
+          ],
+        },
+      }),
     ]);
+
+  // 사수별 건수 (팀 순서 유지: 본인 먼저)
+  const perAssignee = teamMembers
+    .map((u) => ({
+      name: u.name,
+      count: assigneeGroups.find((g) => g.assignedUserId === u.id)?._count._all ?? 0,
+    }))
+    .filter((u) => u.count > 0);
 
   const insuranceItems = insuranceRaw.map(({ client, ...r }) => ({ ...r, clientId: client.id, clientName: client.name }));
 
@@ -433,6 +475,22 @@ export default async function DashboardPage({
               </div>
               <div className="text-[14px] font-bold text-[#191F28]">관리 고객사</div>
               <div className="text-[11.5px] text-[#6B7684] mt-0.5 tabular-nums">개인 {individualClients} · 법인 {corporateClients}</div>
+              {(perAssignee.length > 1 || unassignedClients > 0) && (
+                <div className="text-[11.5px] text-[#6B7684] mt-0.5 tabular-nums">
+                  {perAssignee.map((u, i) => (
+                    <span key={u.name}>
+                      {i > 0 && <span className="mx-1 text-[#D1D6DB]">·</span>}
+                      {u.name} {u.count}
+                    </span>
+                  ))}
+                  {unassignedClients > 0 && (
+                    <>
+                      {perAssignee.length > 0 && <span className="mx-1 text-[#D1D6DB]">·</span>}
+                      <span className="text-[#DC2626] font-bold">미배정 {unassignedClients}</span>
+                    </>
+                  )}
+                </div>
+              )}
             </Link>
 
             <Link href="/tasks" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
