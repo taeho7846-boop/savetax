@@ -67,10 +67,20 @@ export async function createStaff(formData: FormData) {
 export async function updateStaff(id: number, formData: FormData) {
   await requireAdmin();
 
+  const username = (formData.get("username") as string)?.trim();
   const name = formData.get("name") as string;
   const role = formData.get("role") as string;
   const isActive = formData.get("isActive") === "true";
   const newPassword = formData.get("newPassword") as string;
+
+  if (!username) {
+    throw new Error("아이디를 입력하세요.");
+  }
+
+  const existing = await prisma.user.findUnique({ where: { username } });
+  if (existing && existing.id !== id) {
+    throw new Error("이미 존재하는 아이디입니다.");
+  }
 
   const managerId = formData.get("managerId") ? parseInt(formData.get("managerId") as string) : null;
   const bizName1 = (formData.get("bizName1") as string) || null;
@@ -78,7 +88,7 @@ export async function updateStaff(id: number, formData: FormData) {
   const allowedMenus = (formData.get("allowedMenus") as string) || null;
   const googleEmail = (formData.get("googleEmail") as string) || null;
   const googleCalendarId = (formData.get("googleCalendarId") as string) || null;
-  const data: Record<string, unknown> = { name, role, isActive, managerId, bizName1, bizName2, allowedMenus, googleEmail, googleCalendarId };
+  const data: Record<string, unknown> = { username, name, role, isActive, managerId, bizName1, bizName2, allowedMenus, googleEmail, googleCalendarId };
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);
   }

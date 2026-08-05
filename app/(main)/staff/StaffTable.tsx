@@ -328,6 +328,10 @@ function EditRow({
       }} className="space-y-3">
         <div className="flex items-end gap-3 flex-wrap">
           <div>
+            <label className="text-xs text-[#6B7684]">아이디</label>
+            <input name="username" defaultValue={staff.username} required className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-28 block" />
+          </div>
+          <div>
             <label className="text-xs text-[#6B7684]">이름</label>
             <input name="name" defaultValue={staff.name} className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-24 block" />
           </div>
