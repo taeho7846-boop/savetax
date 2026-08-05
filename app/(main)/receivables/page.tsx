@@ -59,7 +59,7 @@ export default async function ReceivablesPage({
     where: {
       isDeleted: false,
       ...assignedFilter,
-      monthlyFee: { not: null },
+      monthlyFee: { gt: 0 }, // 기장료 0원(무료) 거래처는 채권 관리 대상 아님
       firstWithdrawalMonth: { not: null },
       OR: [
         { taxTypes: null },
