@@ -65,14 +65,24 @@ export default function StaffTable({
   const [editId, setEditId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [openAccountants, setOpenAccountants] = useState<Set<number>>(new Set());
+  const [showInactive, setShowInactive] = useState(false);
+
+  const inactiveCount = staffList.filter(s => !s.isActive).length;
+
+  // 비활성 계정 숨기기 — 단, 비활성 관리자라도 소속 활성 직원이 있으면 그룹 유지를 위해 표시
+  const visibleStaff = showInactive ? staffList : staffList.filter(s => {
+    if (s.isActive) return true;
+    const isManagerRole = s.role === "owner" || s.role === "admin" || s.role === "accountant";
+    return isManagerRole && staffList.some(e => e.role === "employee" && e.managerId === s.id && e.isActive);
+  });
 
   // 그룹 분류: 직원을 가질 수 있는 사람 = 대표/관리자/세무사
-  const managers = staffList.filter(s => s.role === "owner" || s.role === "admin" || s.role === "accountant");
-  const unassigned = staffList.filter(s => s.role === "employee" && !s.managerId);
-  const readonlyUsers = staffList.filter(s => s.role === "readonly");
+  const managers = visibleStaff.filter(s => s.role === "owner" || s.role === "admin" || s.role === "accountant");
+  const unassigned = visibleStaff.filter(s => s.role === "employee" && !s.managerId);
+  const readonlyUsers = visibleStaff.filter(s => s.role === "readonly");
 
   function getEmployees(managerId: number) {
-    return staffList.filter(s => s.role === "employee" && s.managerId === managerId);
+    return visibleStaff.filter(s => s.role === "employee" && s.managerId === managerId);
   }
 
   function toggleAccountant(id: number) {
@@ -157,7 +167,18 @@ export default function StaffTable({
         </div>
       )}
 
-      <div className="flex justify-end mb-4">
+      <div className="flex items-center justify-end gap-4 mb-4">
+        {inactiveCount > 0 && (
+          <label className="flex items-center gap-1.5 text-xs text-[#6B7684] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={() => setShowInactive(v => !v)}
+              className="accent-[#3182F6] w-3.5 h-3.5"
+            />
+            비활성 계정 표시 ({inactiveCount})
+          </label>
+        )}
         <button
           onClick={() => setShowCreate(!showCreate)}
           className="bg-[#3182F6] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#1B64DA] transition-colors"

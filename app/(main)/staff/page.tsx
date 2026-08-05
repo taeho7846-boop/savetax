@@ -11,12 +11,13 @@ export default async function StaffPage() {
 
   const staffList = await getStaffList();
 
-  // 역할별 카운트 (stat 카드용)
+  // 역할별 카운트 (stat 카드용) — 활성 계정만
+  const activeStaff = staffList.filter(s => s.isActive);
   const roleCount = {
-    owner: staffList.filter(s => s.role === "owner" || s.role === "admin").length,
-    accountant: staffList.filter(s => s.role === "accountant").length,
-    employee: staffList.filter(s => s.role === "employee").length,
-    readonly: staffList.filter(s => s.role === "readonly").length,
+    owner: activeStaff.filter(s => s.role === "owner" || s.role === "admin").length,
+    accountant: activeStaff.filter(s => s.role === "accountant").length,
+    employee: activeStaff.filter(s => s.role === "employee").length,
+    readonly: activeStaff.filter(s => s.role === "readonly").length,
   };
 
   return (
@@ -25,7 +26,7 @@ export default async function StaffPage() {
         <div>
           <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
             <span className="live-dot" />
-            {staffList.length}명 활성 사용자
+            {activeStaff.length}명 활성 사용자
           </div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">직원 관리</h1>
         </div>
