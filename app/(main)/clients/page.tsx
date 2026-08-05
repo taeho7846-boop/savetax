@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ClientsTable } from "./ClientsTable";
 import { ClientCreateButton } from "./ClientCreateModal";
 import { BulkUploadButton, BulkUpdateButton } from "./BulkUploadModal";
+import { TransferButton } from "./TransferModal";
 import { TrashBinButton } from "./TrashBin";
 import { TerminatedBinButton } from "./TerminatedBin";
 import { MissingInfoCards } from "./MissingInfoCards";
@@ -151,6 +152,7 @@ export default async function ClientsPage({
             <>
               <TerminatedBinButton count={terminatedCount} />
               <TrashBinButton count={trashCount} />
+              {(session.role === "owner" || session.role === "admin") && <TransferButton />}
               <BulkUpdateButton />
               <BulkUploadButton />
               <ClientCreateButton />
