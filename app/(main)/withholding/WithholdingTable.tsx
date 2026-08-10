@@ -91,6 +91,14 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
   return tasks;
 }
 
+const STATEMENT_LABELS: Record<string, string> = {
+  "간이지급명세서_근로": "간이지급명세서(근로)",
+  "간이지급명세서_사업": "간이지급명세서(사업)",
+  "지급명세서_근로": "지급명세서(근로)",
+  "지급명세서_사업": "지급명세서(사업)",
+  "지급명세서_일용": "지급명세서(일용)",
+};
+
 function getAllExtraColumns() {
   return [
     { key: "간이지급명세서_근로", label: "간이지급명세서\n(근로)" },
@@ -113,12 +121,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["D"]));
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<{
+    hasFiling?: boolean;
+    hasReceipt?: boolean;
     excelCount: number;
     clientCount: number;
     verifiedCount?: number;
     checkedNotInExcel: { clientId: number; name: string; bizNumber: string; type: string }[];
     notCheckedButInExcel: { clientId: number; name: string; bizNumber: string; type: string }[];
     specialFilings?: { name: string; bizNumber: string; taxYearMonth: string; filingType: string; clientId: number | null; clientName: string | null; pageYearMonth: string | null; checked: boolean }[];
+    statementVerified?: { total: number; byKind: Record<string, number> };
+    statementUnmatched?: { name: string; bizNumber: string; kind: string }[];
     allMatch: boolean;
   } | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -134,19 +146,22 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   async function handleVerify(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setVerifyLoading(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      for (const file of Array.from(files)) fd.append("file", file);
       fd.append("yearMonth", yearMonth);
       const res = await fetch("/api/withholding-verify", { method: "POST", body: fd });
       const data = await res.json();
-      setManualChecked(new Set());
-      setVerifyResult(data);
-      router.refresh(); // 자동 검증 체크 반영
-
+      if (!res.ok) {
+        alert(data.error || "검증 중 오류가 발생했습니다.");
+      } else {
+        setManualChecked(new Set());
+        setVerifyResult(data);
+        router.refresh(); // 자동 검증 체크 반영
+      }
     } catch {
       alert("검증 중 오류가 발생했습니다.");
     }
@@ -292,7 +307,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               className="bg-transparent outline-none text-[12.5px] w-44"
             />
           </div>
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleVerify} className="hidden" />
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" multiple onChange={handleVerify} className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={verifyLoading}
@@ -832,23 +847,29 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                         {/* 구분선 */}
                         {extraColumns.length > 0 && <td className="w-[1px] px-0 bg-[#F2F4F6]"></td>}
                         {/* 추가 체크리스트 */}
-                        {extraColumns.map(col => (
-                          <td key={col.key} className="px-1 py-2 text-center">
-                            {isSkipped || client.withholdingType === "D" ? (
-                              <span className="text-[#D1D6DB] text-[10px]">-</span>
-                            ) : requiredExtraKeys.has(col.key) ? (
-                              <input
-                                type="checkbox"
-                                checked={doneMap.has(col.key)}
-                                onChange={() => handleToggle(client.id, col.key)}
-                                disabled={isPending}
-                                className="accent-[#3182F6] w-3.5 h-3.5 cursor-pointer"
-                              />
-                            ) : (
-                              <span className="text-[#D1D6DB] text-[10px]">-</span>
-                            )}
-                          </td>
-                        ))}
+                        {extraColumns.map(col => {
+                          const cellVerified = doneMap.has(`${col.key}_검증`);
+                          return (
+                            <td key={col.key} className="px-1 py-2 text-center">
+                              {isSkipped || client.withholdingType === "D" ? (
+                                <span className="text-[#D1D6DB] text-[10px]">-</span>
+                              ) : requiredExtraKeys.has(col.key) ? (
+                                <input
+                                  type="checkbox"
+                                  checked={doneMap.has(col.key)}
+                                  onChange={() => handleToggle(client.id, col.key)}
+                                  disabled={isPending}
+                                  title={cellVerified ? "홈택스 제출 확인됨" : undefined}
+                                  className={`w-3.5 h-3.5 cursor-pointer ${cellVerified ? "accent-[#15803D] ring-2 ring-[#34D399] ring-offset-1 rounded-[3px]" : "accent-[#3182F6]"}`}
+                                />
+                              ) : cellVerified ? (
+                                <span title="홈택스 제출 확인됨 (인건비 설정에 해당 소득 없음)" className="text-[#15803D] text-[11px] font-bold">✓</span>
+                              ) : (
+                                <span className="text-[#D1D6DB] text-[10px]">-</span>
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     );
                   })}
@@ -913,6 +934,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               <button onClick={() => setVerifyResult(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
             </div>
 
+            {verifyResult.hasFiling !== false && (
             <div className="flex gap-3 mb-4">
               <div className="flex-1 bg-[#F9FAFB] rounded-lg p-3 text-center">
                 <div className="text-xs text-[#6B7684]">엑셀 신고건수</div>
@@ -927,8 +949,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 <div className="text-lg font-bold text-[#15803D]">{verifyResult.verifiedCount ?? 0}</div>
               </div>
             </div>
+            )}
 
-            {verifyResult.allMatch ? (
+            {verifyResult.hasFiling === false ? null : verifyResult.allMatch ? (
               <div className="bg-[#F1FBF4] border border-[#BBF7D0] rounded-lg p-4 text-center">
                 <span className="text-[#15803D] font-medium">모두 일치합니다</span>
               </div>
@@ -1011,6 +1034,39 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {verifyResult.hasReceipt && (
+              <div className="mt-4">
+                <div className="text-sm font-medium text-[#15803D] mb-2">
+                  간이·지급명세서 검증 표시 ({verifyResult.statementVerified?.total ?? 0}건)
+                </div>
+                <div className="bg-[#F1FBF4] border border-[#BBF7D0] rounded-lg p-3 space-y-1">
+                  {Object.entries(verifyResult.statementVerified?.byKind ?? {}).map(([key, count]) => (
+                    <div key={key} className="flex items-center justify-between text-sm">
+                      <span className="text-[#191F28]">{STATEMENT_LABELS[key] ?? key}</span>
+                      <span className="font-bold text-[#15803D]">{count}건</span>
+                    </div>
+                  ))}
+                  {(verifyResult.statementVerified?.total ?? 0) === 0 && (
+                    <div className="text-sm text-[#8B95A1]">매칭된 제출 건이 없습니다</div>
+                  )}
+                  <div className="text-xs text-[#6B7684] pt-1">확인된 칸은 표에서 초록 테두리로 강조됩니다</div>
+                </div>
+                {(verifyResult.statementUnmatched?.length ?? 0) > 0 && (
+                  <div className="mt-2">
+                    <div className="text-xs font-medium text-[#8B95A1] mb-1">미등록 거래처 ({verifyResult.statementUnmatched!.length}건)</div>
+                    <div className="bg-[#F9FAFB] border border-[#E5E8EB] rounded-lg divide-y divide-gray-100">
+                      {verifyResult.statementUnmatched!.map((u, i) => (
+                        <div key={i} className="px-3 py-1.5 flex items-center justify-between text-xs">
+                          <span className="text-[#4E5968]">{u.name}</span>
+                          <span className="text-[#8B95A1]">{u.bizNumber} · {u.kind}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
