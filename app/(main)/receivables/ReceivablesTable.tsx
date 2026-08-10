@@ -74,6 +74,7 @@ type VerifyResult = {
 export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<string | null>(null);
+  const [showTerminated, setShowTerminated] = useState(false); // 해지 거래처 섹션 (기본 닫힘)
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -233,6 +234,10 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
     }
     return sortDir === "asc" ? diff : -diff;
   });
+
+  // 해지 거래처는 접이식 섹션으로 분리
+  const activeSorted = sorted.filter(c => c.contractStatus === "active");
+  const termSorted = sorted.filter(c => c.contractStatus !== "active");
 
   // 현재 보이는(필터 적용된) 거래처 기준 전체선택 상태
   const checkedCount = filtered.filter(c => checkedIds.has(c.id)).length;
@@ -648,7 +653,8 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                 </td>
               </tr>
             )}
-            {sorted.map((client) => {
+            {(() => {
+              const renderClientRow = (client: typeof clients[number]) => {
               const hasUnpaid = client.cumulativeUnpaid > 0;
               const isChecked = checkedIds.has(client.id);
               return (
@@ -731,7 +737,25 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                 </td>
               </tr>
               );
-            })}
+              };
+              return (
+                <>
+                  {activeSorted.map(renderClientRow)}
+                  {termSorted.length > 0 && (
+                    <tr
+                      className="cursor-pointer select-none bg-[#F9FAFB]/80 hover:bg-[#F2F4F6] transition-colors"
+                      onClick={() => setShowTerminated(o => !o)}
+                    >
+                      <td colSpan={months.length + 5} className="px-4 py-2.5 text-[12px] font-bold text-[#8B95A1]">
+                        <span className="mr-1.5 text-[10px]">{showTerminated ? "▼" : "▶"}</span>
+                        해지 거래처 {termSorted.length}곳{!showTerminated && <span className="font-medium text-[#B0B8C1]"> — 클릭하면 펼쳐집니다</span>}
+                      </td>
+                    </tr>
+                  )}
+                  {showTerminated && termSorted.map(renderClientRow)}
+                </>
+              );
+            })()}
           </tbody>
         </table>
        </div>
