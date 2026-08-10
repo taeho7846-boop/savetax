@@ -115,6 +115,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [verifyResult, setVerifyResult] = useState<{
     excelCount: number;
     clientCount: number;
+    verifiedCount?: number;
     checkedNotInExcel: { clientId: number; name: string; bizNumber: string; type: string }[];
     notCheckedButInExcel: { clientId: number; name: string; bizNumber: string; type: string }[];
     specialFilings?: { name: string; bizNumber: string; taxYearMonth: string; filingType: string; clientId: number | null; clientName: string | null; pageYearMonth: string | null; checked: boolean }[];
@@ -144,6 +145,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       const data = await res.json();
       setManualChecked(new Set());
       setVerifyResult(data);
+      router.refresh(); // 자동 검증 체크 반영
+
     } catch {
       alert("검증 중 오류가 발생했습니다.");
     }
@@ -916,6 +919,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               <div className="flex-1 bg-[#F9FAFB] rounded-lg p-3 text-center">
                 <div className="text-xs text-[#6B7684]">시스템 대상</div>
                 <div className="text-lg font-bold text-[#191F28]">{verifyResult.clientCount}</div>
+              </div>
+              <div className="flex-1 bg-[#F1FBF4] rounded-lg p-3 text-center">
+                <div className="text-xs text-[#15803D]">검증 체크</div>
+                <div className="text-lg font-bold text-[#15803D]">{verifyResult.verifiedCount ?? 0}</div>
               </div>
             </div>
 

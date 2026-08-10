@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
   const abcClients = allClients.filter(c => ["A", "B", "C"].includes(c.withholdingType || ""));
   const checkedNotInExcel: { clientId: number; name: string; bizNumber: string; type: string }[] = [];
   const notCheckedButInExcel: { clientId: number; name: string; bizNumber: string; type: string }[] = [];
+  const verifiedClientIds: number[] = [];
 
   for (const client of abcClients) {
     const biz = digits(client.bizNumber);
@@ -109,6 +110,8 @@ export async function POST(req: NextRequest) {
     const inExcel = regularByBiz.get(biz)?.has(expectedYm) ?? false;
 
     if (isSkipped) continue; // 신고없음은 제외
+
+    if (inExcel) verifiedClientIds.push(client.id);
 
     if (isChecked && !inExcel) {
       checkedNotInExcel.push({ clientId: client.id, name: client.name, bizNumber: client.bizNumber || "", type: client.withholdingType || "" });
@@ -151,9 +154,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 홈택스에서 정기신고가 확인된 거래처는 "검증" 컬럼 자동 체크
+  if (verifiedClientIds.length > 0) {
+    await prisma.$transaction(
+      verifiedClientIds.map(clientId =>
+        prisma.withholdingRecord.upsert({
+          where: { clientId_yearMonth_taskType: { clientId, yearMonth, taskType: "검증" } },
+          update: { done: true },
+          create: { clientId, yearMonth, taskType: "검증", done: true },
+        })
+      )
+    );
+  }
+
   return NextResponse.json({
     excelCount: regularByBiz.size,
     clientCount: abcClients.length,
+    verifiedCount: verifiedClientIds.length,
     checkedNotInExcel,
     notCheckedButInExcel,
     specialFilings,
