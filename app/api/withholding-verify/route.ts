@@ -19,10 +19,13 @@ export async function POST(req: NextRequest) {
   const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 });
 
   // 사업자번호 목록 (숫자만 추출, 헤더 제외)
+  // F열(인덱스 5) 과세연월이 조회 중인 월과 일치하는 행만 사용 (과거분 수정신고·기한후신고 제외)
+  const ymDigits = yearMonth.replace(/[^0-9]/g, "");
   const excelBizNumbers = new Set<string>();
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || !row[10]) continue;
+    if (String(row[5] ?? "").replace(/[^0-9]/g, "") !== ymDigits) continue;
     const biz = String(row[10]).replace(/[^0-9]/g, "");
     if (biz.length >= 10) excelBizNumbers.add(biz);
   }
