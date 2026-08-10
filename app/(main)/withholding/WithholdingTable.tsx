@@ -511,6 +511,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider w-10">메모</th>
               {showAssignedUser && <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">담당</th>}
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">신고없음</th>
+              <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#15803D] uppercase tracking-wider whitespace-nowrap">검증</th>
               <th className="text-center px-3 py-2.5 text-[10.5px] font-bold text-[#333D4B] uppercase tracking-wider whitespace-nowrap">인건비</th>
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">6개월납</th>
               {ALL_PROCESS_STEPS.map(step => (
@@ -532,7 +533,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             )}
             {groups.map((group) => {
               const cfg = group.config;
-              const totalCols = 7 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + (extraColumns.length > 0 ? 1 : 0) + extraColumns.length;
+              const totalCols = 8 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + (extraColumns.length > 0 ? 1 : 0) + extraColumns.length;
               return (
                 <React.Fragment key={group.type || "unassigned"}>
                   {/* 그룹 헤더 행 */}
@@ -743,6 +744,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                             onChange={() => handleToggle(client.id, "신고없음")}
                             disabled={isPending}
                             className="accent-gray-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                        </td>
+                        {/* 검증 (홈택스 신고내역 크로스체크 확인 표시) */}
+                        <td className="px-2 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={doneMap.has("검증")}
+                            onChange={() => handleToggle(client.id, "검증")}
+                            disabled={isPending}
+                            className="accent-[#15803D] w-3.5 h-3.5 cursor-pointer"
                           />
                         </td>
                         {/* 인건비 (3개 소득 전부 표시, 클릭으로 해당 월 토글) */}
