@@ -77,6 +77,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [showTerminated, setShowTerminated] = useState(false); // 해지 거래처 섹션 (기본 닫힘)
   const [showNotStarted, setShowNotStarted] = useState(false); // 출금월 미도래 섹션 (기본 닫힘)
+  const [unpaidFilter, setUnpaidFilter] = useState<"save" | "personal" | null>(null); // 미수금 카드 클릭 필터
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -219,6 +220,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const filtered = clients.filter(c =>
     (affFilter.length === 0 || affFilter.includes(c.affiliation || "")) &&
     (cmsAffFilter.length === 0 || cmsAffFilter.includes(c.cmsAffiliation || "")) &&
+    (unpaidFilter === null || (c.cumulativeUnpaid > 0 && (unpaidFilter === "save" ? c.affiliation === "세이브택스" : c.affiliation !== "세이브택스"))) &&
     (assignFilter.length === 0 || assignFilter.includes(c.assignedUserName || ""))
   );
   // 그룹 순서: 출금 진행 중(0) → 출금 미시작(1) → 해지(2)
@@ -502,10 +504,18 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                     <span className="text-[11px] text-[#B0B8C1]">{gc.length}곳</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2.5">
-                    {metrics.map((m) => (
-                      <div key={m.label} className="stat-card glass rounded-2xl p-4 relative overflow-hidden h-[96px] flex flex-col justify-between">
+                    {metrics.map((m) => {
+                      const isUnpaidCard = m.label === "미수금";
+                      const isActive = isUnpaidCard && unpaidFilter === g.key;
+                      return (
+                      <div
+                        key={m.label}
+                        onClick={isUnpaidCard ? () => setUnpaidFilter(prev => prev === g.key ? null : (g.key as "save" | "personal")) : undefined}
+                        title={isUnpaidCard ? (isActive ? "클릭하면 필터가 해제됩니다" : "클릭하면 미수 거래처만 모아봅니다") : undefined}
+                        className={`stat-card glass rounded-2xl p-4 relative overflow-hidden h-[96px] flex flex-col justify-between ${isUnpaidCard ? "cursor-pointer hover:brightness-[0.97] transition" : ""} ${isActive ? "ring-2 ring-[#DC2626]" : ""}`}
+                      >
                         <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r" style={{ background: m.bar }} />
-                        <div className="text-[10px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">{m.label}</div>
+                        <div className="text-[10px] font-bold text-[#8B95A1] tracking-wide uppercase pl-2">{m.label}{isActive && <span className="ml-1 text-[#DC2626] normal-case">· 모아보기 중</span>}</div>
                         <div className="text-[18px] font-extrabold leading-tight pl-2 truncate" style={{ color: m.color }} title={fmtWon(m.value)}>{fmtWon(m.value)}</div>
                         {m.label === "누적 수납" ? (
                           <div className="progress ml-2">
@@ -515,7 +525,8 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                           <div className="h-[6px]" />
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -804,7 +815,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                       </td>
                     </tr>
                   )}
-                  {showNotStarted && notStartedSorted.map(renderClientRow)}
+                  {(showNotStarted || unpaidFilter !== null) && notStartedSorted.map(renderClientRow)}
                   {termSorted.length > 0 && (
                     <tr
                       className="cursor-pointer select-none bg-[#F9FAFB]/80 hover:bg-[#F2F4F6] transition-colors"
@@ -816,7 +827,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                       </td>
                     </tr>
                   )}
-                  {showTerminated && termSorted.map(renderClientRow)}
+                  {(showTerminated || unpaidFilter !== null) && termSorted.map(renderClientRow)}
                 </>
               );
             })()}
