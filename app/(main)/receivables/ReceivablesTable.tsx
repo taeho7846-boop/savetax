@@ -210,11 +210,21 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
     (affFilter.length === 0 || affFilter.includes(c.affiliation || "")) &&
     (assignFilter.length === 0 || assignFilter.includes(c.assignedUserName || ""))
   );
+  // 그룹 순서: 출금 진행 중(0) → 출금 미시작(1) → 해지(2)
+  const groupRank = (c: typeof clients[number]) =>
+    c.contractStatus !== "active" ? 2
+    : c.firstWithdrawalMonth && c.firstWithdrawalMonth > currentYM ? 1
+    : 0;
   const sorted = [...filtered].sort((a, b) => {
-    // 해지 거래처는 항상 하단으로
-    const termDiff = (a.contractStatus !== "active" ? 1 : 0) - (b.contractStatus !== "active" ? 1 : 0);
-    if (termDiff !== 0) return termDiff;
-    if (!sortCol) return 0;
+    const rankDiff = groupRank(a) - groupRank(b);
+    if (rankDiff !== 0) return rankDiff;
+    if (!sortCol) {
+      // 기본 정렬: 최초출금월 오래된 순 (들어온 순서)
+      const fa = a.firstWithdrawalMonth || "";
+      const fb = b.firstWithdrawalMonth || "";
+      if (fa !== fb) return fa < fb ? -1 : 1;
+      return a.name.localeCompare(b.name, "ko");
+    }
     let diff = 0;
     if (sortCol === "unpaid") {
       diff = a.cumulativeUnpaid - b.cumulativeUnpaid;
