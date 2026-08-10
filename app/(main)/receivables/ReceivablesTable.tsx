@@ -211,6 +211,9 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
     (assignFilter.length === 0 || assignFilter.includes(c.assignedUserName || ""))
   );
   const sorted = [...filtered].sort((a, b) => {
+    // 해지 거래처는 항상 하단으로
+    const termDiff = (a.contractStatus !== "active" ? 1 : 0) - (b.contractStatus !== "active" ? 1 : 0);
+    if (termDiff !== 0) return termDiff;
     if (!sortCol) return 0;
     let diff = 0;
     if (sortCol === "unpaid") {
