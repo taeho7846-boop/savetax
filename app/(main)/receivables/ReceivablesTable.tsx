@@ -75,6 +75,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [showTerminated, setShowTerminated] = useState(false); // 해지 거래처 섹션 (기본 닫힘)
+  const [showNotStarted, setShowNotStarted] = useState(false); // 출금월 미도래 섹션 (기본 닫힘)
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -235,9 +236,10 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
     return sortDir === "asc" ? diff : -diff;
   });
 
-  // 해지 거래처는 접이식 섹션으로 분리
-  const activeSorted = sorted.filter(c => c.contractStatus === "active");
-  const termSorted = sorted.filter(c => c.contractStatus !== "active");
+  // 출금월 미도래·해지 거래처는 접이식 섹션으로 분리
+  const startedSorted = sorted.filter(c => groupRank(c) === 0);
+  const notStartedSorted = sorted.filter(c => groupRank(c) === 1);
+  const termSorted = sorted.filter(c => groupRank(c) === 2);
 
   // 현재 보이는(필터 적용된) 거래처 기준 전체선택 상태
   const checkedCount = filtered.filter(c => checkedIds.has(c.id)).length;
@@ -740,7 +742,19 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
               };
               return (
                 <>
-                  {activeSorted.map(renderClientRow)}
+                  {startedSorted.map(renderClientRow)}
+                  {notStartedSorted.length > 0 && (
+                    <tr
+                      className="cursor-pointer select-none bg-[#F5F9FF]/80 hover:bg-[#E8F3FF] transition-colors"
+                      onClick={() => setShowNotStarted(o => !o)}
+                    >
+                      <td colSpan={months.length + 5} className="px-4 py-2.5 text-[12px] font-bold text-[#6B7684]">
+                        <span className="mr-1.5 text-[10px]">{showNotStarted ? "▼" : "▶"}</span>
+                        출금월 미도래 {notStartedSorted.length}곳{!showNotStarted && <span className="font-medium text-[#B0B8C1]"> — 클릭하면 펼쳐집니다</span>}
+                      </td>
+                    </tr>
+                  )}
+                  {showNotStarted && notStartedSorted.map(renderClientRow)}
                   {termSorted.length > 0 && (
                     <tr
                       className="cursor-pointer select-none bg-[#F9FAFB]/80 hover:bg-[#F2F4F6] transition-colors"
