@@ -101,6 +101,7 @@ export default async function ReceivablesPage({
       monthlyFee: c.monthlyFee,
       firstWithdrawalMonth: c.firstWithdrawalMonth,
       affiliation: c.affiliation,
+      cmsAffiliation: c.cmsAffiliation,
       assignedUserName: c.assignedUser?.name ?? null,
       yearRecords,
       cumulativeExpected: expected,

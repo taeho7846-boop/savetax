@@ -11,6 +11,7 @@ interface ClientRow {
   monthlyFee: number | null;
   firstWithdrawalMonth: string | null;
   affiliation: string | null;
+  cmsAffiliation: string | null;
   assignedUserName: string | null;
   yearRecords: Record<string, string>;
   cumulativeExpected: number;
@@ -93,6 +94,12 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const [affFilterOpen, setAffFilterOpen] = useState(false);
   const affFilterRef = useRef<HTMLDivElement>(null);
   const affOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
+
+  // CMS(청구처) 필터
+  const [cmsAffFilter, setCmsAffFilter] = useState<string[]>([]);
+  const [cmsAffFilterOpen, setCmsAffFilterOpen] = useState(false);
+  const cmsAffFilterRef = useRef<HTMLDivElement>(null);
+  const cmsAffOptions = [...new Set(clients.map(c => c.cmsAffiliation).filter(Boolean))] as string[];
 
   // 담당자 필터
   const [assignFilter, setAssignFilter] = useState<string[]>([]);
@@ -189,6 +196,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   React.useEffect(() => {
     function onMouseDown(e: MouseEvent) {
       if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) setAffFilterOpen(false);
+      if (cmsAffFilterRef.current && !cmsAffFilterRef.current.contains(e.target as Node)) setCmsAffFilterOpen(false);
       if (assignFilterRef.current && !assignFilterRef.current.contains(e.target as Node)) setAssignFilterOpen(false);
     }
     document.addEventListener("mousedown", onMouseDown);
@@ -210,6 +218,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
 
   const filtered = clients.filter(c =>
     (affFilter.length === 0 || affFilter.includes(c.affiliation || "")) &&
+    (cmsAffFilter.length === 0 || cmsAffFilter.includes(c.cmsAffiliation || "")) &&
     (assignFilter.length === 0 || assignFilter.includes(c.assignedUserName || ""))
   );
   // 그룹 순서: 출금 진행 중(0) → 출금 미시작(1) → 해지(2)
@@ -585,6 +594,43 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                   )}
                 </div>
               </th>
+              {/* CMS(청구처) 필터 */}
+              <th className="text-center px-3 py-3 text-[#333D4B] font-medium min-w-[70px] whitespace-nowrap">
+                <div className="relative inline-block" ref={cmsAffFilterRef}>
+                  <button
+                    onClick={() => setCmsAffFilterOpen(o => !o)}
+                    className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${cmsAffFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
+                  >
+                    CMS
+                    {cmsAffFilter.length > 0 && (
+                      <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{cmsAffFilter.length}</span>
+                    )}
+                    <span className="text-[#8B95A1] text-[10px]">▼</span>
+                  </button>
+                  {cmsAffFilterOpen && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[120px]">
+                      {cmsAffOptions.length === 0 ? (
+                        <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
+                      ) : (
+                        cmsAffOptions.map(aff => (
+                          <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={cmsAffFilter.includes(aff)}
+                              onChange={() => setCmsAffFilter(prev => prev.includes(aff) ? prev.filter(v => v !== aff) : [...prev, aff])}
+                              className="accent-[#3182F6]"
+                            />
+                            {aff}
+                          </label>
+                        ))
+                      )}
+                      {cmsAffFilter.length > 0 && (
+                        <button onClick={() => setCmsAffFilter([])} className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]">초기화</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </th>
               {/* 담당자 필터 */}
               <th className="text-center px-3 py-3 text-[#333D4B] font-medium min-w-[80px] whitespace-nowrap">
                 <div className="relative inline-block" ref={assignFilterRef}>
@@ -650,7 +696,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
           <tbody className="divide-y divide-white/40">
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={months.length + 5} className="text-center py-12 text-[#8B95A1]">
+                <td colSpan={months.length + 6} className="text-center py-12 text-[#8B95A1]">
                   최초 출금월과 기장료가 등록된 고객사가 없습니다
                 </td>
               </tr>
@@ -687,6 +733,10 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                 {/* 소속 */}
                 <td className="px-3 py-3 text-center text-xs whitespace-nowrap">
                   {client.affiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.affiliation ? <span className="text-[#4E5968]">{client.affiliation}</span> : <span className="text-[#B0B8C1]">-</span>}
+                </td>
+                {/* CMS(청구처) */}
+                <td className="px-3 py-3 text-center text-xs whitespace-nowrap">
+                  {client.cmsAffiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.cmsAffiliation ? <span className="text-[#4E5968]">{client.cmsAffiliation}</span> : <span className="text-[#B0B8C1]">-</span>}
                 </td>
                 {/* 담당자 */}
                 <td className="px-3 py-3 text-center text-xs whitespace-nowrap">
@@ -748,7 +798,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                       className="cursor-pointer select-none bg-[#F5F9FF]/80 hover:bg-[#E8F3FF] transition-colors"
                       onClick={() => setShowNotStarted(o => !o)}
                     >
-                      <td colSpan={months.length + 5} className="px-4 py-2.5 text-[12px] font-bold text-[#6B7684]">
+                      <td colSpan={months.length + 6} className="px-4 py-2.5 text-[12px] font-bold text-[#6B7684]">
                         <span className="mr-1.5 text-[10px]">{showNotStarted ? "▼" : "▶"}</span>
                         출금월 미도래 {notStartedSorted.length}곳{!showNotStarted && <span className="font-medium text-[#B0B8C1]"> — 클릭하면 펼쳐집니다</span>}
                       </td>
@@ -760,7 +810,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                       className="cursor-pointer select-none bg-[#F9FAFB]/80 hover:bg-[#F2F4F6] transition-colors"
                       onClick={() => setShowTerminated(o => !o)}
                     >
-                      <td colSpan={months.length + 5} className="px-4 py-2.5 text-[12px] font-bold text-[#8B95A1]">
+                      <td colSpan={months.length + 6} className="px-4 py-2.5 text-[12px] font-bold text-[#8B95A1]">
                         <span className="mr-1.5 text-[10px]">{showTerminated ? "▼" : "▶"}</span>
                         해지 거래처 {termSorted.length}곳{!showTerminated && <span className="font-medium text-[#B0B8C1]"> — 클릭하면 펼쳐집니다</span>}
                       </td>
