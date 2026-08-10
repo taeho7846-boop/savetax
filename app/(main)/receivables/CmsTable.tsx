@@ -14,6 +14,7 @@ type CmsClient = {
   bankName: string | null;
   bankAccount: string | null;
   affiliation: string | null;
+  cmsAffiliation: string | null;
   paymentMethod: string;
 };
 
@@ -60,6 +61,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const [affFilter, setAffFilter] = useState<string[]>([]);
   const [affFilterOpen, setAffFilterOpen] = useState(false);
   const affFilterRef = useRef<HTMLDivElement>(null);
+  const [cmsAffFilter, setCmsAffFilter] = useState<string[]>([]);
+  const [cmsAffFilterOpen, setCmsAffFilterOpen] = useState(false);
+  const cmsAffFilterRef = useRef<HTMLDivElement>(null);
   const [pmFilter, setPmFilter] = useState<string[]>([]);
   const [pmFilterOpen, setPmFilterOpen] = useState(false);
   const pmFilterRef = useRef<HTMLDivElement>(null);
@@ -252,6 +256,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       if (affFilterRef.current && !affFilterRef.current.contains(e.target as Node)) {
         setAffFilterOpen(false);
       }
+      if (cmsAffFilterRef.current && !cmsAffFilterRef.current.contains(e.target as Node)) {
+        setCmsAffFilterOpen(false);
+      }
       if (pmFilterRef.current && !pmFilterRef.current.contains(e.target as Node)) {
         setPmFilterOpen(false);
       }
@@ -271,6 +278,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
   const allMonths = [...new Set(clients.map((c) => c.firstWithdrawalMonth).filter(Boolean) as string[])].sort();
   const affOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
+  const cmsAffOptions = [...new Set(clients.map(c => c.cmsAffiliation).filter(Boolean))] as string[];
 
   let rows = [...clients];
   if (monthFilter.length > 0) {
@@ -278,6 +286,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   }
   if (affFilter.length > 0) {
     rows = rows.filter((c) => affFilter.includes(c.affiliation || ""));
+  }
+  if (cmsAffFilter.length > 0) {
+    rows = rows.filter((c) => cmsAffFilter.includes(c.cmsAffiliation || ""));
   }
   if (pmFilter.length > 0) {
     rows = rows.filter((c) => pmFilter.includes(c.paymentMethod || "cms"));
@@ -1064,6 +1075,43 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             </th>
 
             <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
+              <div className="relative inline-block" ref={cmsAffFilterRef}>
+                <button
+                  onClick={() => setCmsAffFilterOpen(o => !o)}
+                  className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${cmsAffFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
+                >
+                  CMS
+                  {cmsAffFilter.length > 0 && (
+                    <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{cmsAffFilter.length}</span>
+                  )}
+                  <span className="text-[#8B95A1] text-[10px]">▼</span>
+                </button>
+                {cmsAffFilterOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[120px]">
+                    {cmsAffOptions.length === 0 ? (
+                      <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
+                    ) : (
+                      cmsAffOptions.map(aff => (
+                        <label key={aff} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={cmsAffFilter.includes(aff)}
+                            onChange={() => setCmsAffFilter(prev => prev.includes(aff) ? prev.filter(v => v !== aff) : [...prev, aff])}
+                            className="accent-[#3182F6]"
+                          />
+                          {aff}
+                        </label>
+                      ))
+                    )}
+                    {cmsAffFilter.length > 0 && (
+                      <button onClick={() => setCmsAffFilter([])} className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]">초기화</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </th>
+
+            <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
               <button
                 onClick={() => handleSort("cmsStatus")}
                 className="flex items-center justify-center mx-auto hover:text-[#191F28]"
@@ -1110,8 +1158,8 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         <tbody className="divide-y divide-[#F2F4F6]">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={9} className="text-center py-12 text-[#6B7684]">
-                {monthFilter.length > 0 || affFilter.length > 0 || pmFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
+              <td colSpan={10} className="text-center py-12 text-[#6B7684]">
+                {monthFilter.length > 0 || affFilter.length > 0 || cmsAffFilter.length > 0 || pmFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
               </td>
             </tr>
           ) : (
@@ -1159,6 +1207,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 </td>
                 <td className="px-4 py-3 text-center text-[#191F28]">{client.firstWithdrawalMonth || <span className="text-[#8B95A1]">-</span>}</td>
                 <td className="px-4 py-3 text-center text-xs">{client.affiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.affiliation ? <span className="text-[#4E5968]">{client.affiliation}</span> : <span className="text-[#B0B8C1]">-</span>}</td>
+                <td className="px-4 py-3 text-center text-xs">{client.cmsAffiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.cmsAffiliation ? <span className="text-[#4E5968]">{client.cmsAffiliation}</span> : <span className="text-[#B0B8C1]">-</span>}</td>
                 <td className="px-4 py-3 text-center">
                   <button
                     onClick={() => handleCycle(client.id)}

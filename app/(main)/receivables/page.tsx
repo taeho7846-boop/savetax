@@ -250,10 +250,12 @@ async function CmsTab({ sessionId, role }: { sessionId: number; role: string }) 
       bankName: true,
       bankAccount: true,
       affiliation: true,
+      cmsAffiliation: true,
       paymentMethod: true,
     },
     orderBy: { name: "asc" },
   });
 
-  return <CmsTable clients={cmsClients} />;
+  // 기장료 0원(추가사업장 등)은 CMS 출금 대상이 아니므로 비노출
+  return <CmsTable clients={cmsClients.filter(c => c.monthlyFee !== 0)} />;
 }
