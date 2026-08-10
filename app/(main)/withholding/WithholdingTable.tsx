@@ -577,6 +577,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                     const hasOverride = override?.laborTypes != null && override.laborTypes !== "";
                     const requiredExtra = getRequiredTasks(laborList, client.halfYearTax, month);
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
+                    // 검증칸: 신고없음이거나, 반기납인데 신고 검증 월(6·12월)이 아니면 비활성화
+                    const verifyDisabled = isSkipped || (client.halfYearTax && month !== 6 && month !== 12);
 
                     return (
                       <tr key={client.id} className={`border-b border-white/40 transition-colors ${checkedIds.has(client.id) ? "bg-[#E8F3FF]/70" : allStepsDone ? "bg-[#F1FBF4]/50" : "hover:bg-[#E8F3FF]/70"}`}>
@@ -753,10 +755,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                         <td className="px-2 py-2 text-center">
                           <input
                             type="checkbox"
-                            checked={doneMap.has("검증")}
+                            checked={!verifyDisabled && doneMap.has("검증")}
                             onChange={() => handleToggle(client.id, "검증")}
-                            disabled={isPending}
-                            className="accent-[#15803D] w-3.5 h-3.5 cursor-pointer"
+                            disabled={isPending || verifyDisabled}
+                            className={`accent-[#15803D] w-3.5 h-3.5 ${verifyDisabled ? "opacity-25 cursor-not-allowed" : "cursor-pointer"}`}
                           />
                         </td>
                         {/* 인건비 (3개 소득 전부 표시, 클릭으로 해당 월 토글) */}
