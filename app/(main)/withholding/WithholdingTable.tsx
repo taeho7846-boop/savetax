@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toggleWithholdingTask, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
+import { toggleWithholdingTask, markWithholdingDone, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
 import { PinIcon } from "@/components/icons";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 // 프로세스 단계도 withholdingRecords 테이블을 사용
@@ -115,11 +115,20 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [verifyResult, setVerifyResult] = useState<{
     excelCount: number;
     clientCount: number;
-    checkedNotInExcel: { name: string; bizNumber: string; type: string }[];
-    notCheckedButInExcel: { name: string; bizNumber: string; type: string }[];
+    checkedNotInExcel: { clientId: number; name: string; bizNumber: string; type: string }[];
+    notCheckedButInExcel: { clientId: number; name: string; bizNumber: string; type: string }[];
+    specialFilings?: { name: string; bizNumber: string; taxYearMonth: string; filingType: string; clientId: number | null; clientName: string | null; pageYearMonth: string | null; checked: boolean }[];
     allMatch: boolean;
   } | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
+
+  // 검증 결과 모달에서 수기 체크 (해당 월의 원천세신고를 완료 처리)
+  function handleManualCheck(clientId: number, ym: string) {
+    const key = `${clientId}|${ym}`;
+    setManualChecked(prev => new Set(prev).add(key));
+    startTransition(() => markWithholdingDone(clientId, ym, "원천세신고"));
+  }
   const [payslipLoading, setPayslipLoading] = useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -133,6 +142,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       fd.append("yearMonth", yearMonth);
       const res = await fetch("/api/withholding-verify", { method: "POST", body: fd });
       const data = await res.json();
+      setManualChecked(new Set());
       setVerifyResult(data);
     } catch {
       alert("검증 중 오류가 발생했습니다.");
@@ -928,18 +938,59 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                       체크 안 했는데 신고 됨 ({verifyResult.notCheckedButInExcel.length}건)
                     </div>
                     <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-lg divide-y divide-amber-100">
-                      {verifyResult.notCheckedButInExcel.map((c, i) => (
-                        <div key={i} className="px-3 py-2 flex items-center justify-between">
-                          <span className="text-sm text-[#191F28]">{c.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-[#8B95A1]">{c.bizNumber}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#D97706]">{c.type}</span>
+                      {verifyResult.notCheckedButInExcel.map((c, i) => {
+                        const isDone = manualChecked.has(`${c.clientId}|${yearMonth}`);
+                        return (
+                          <div key={i} className="px-3 py-2 flex items-center justify-between">
+                            <span className="text-sm text-[#191F28]">{c.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-[#8B95A1]">{c.bizNumber}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#D97706]">{c.type}</span>
+                              <button
+                                onClick={() => handleManualCheck(c.clientId, yearMonth)}
+                                disabled={isDone}
+                                className={`text-xs px-2 py-1 rounded-md transition-colors ${isDone ? "bg-[#F1FBF4] text-[#15803D] cursor-default" : "bg-[#3182F6] text-white hover:bg-[#1B64DA]"}`}
+                              >{isDone ? "체크됨 ✓" : "체크"}</button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {(verifyResult.specialFilings?.length ?? 0) > 0 && (
+              <div className="mt-4">
+                <div className="text-sm font-medium text-[#6B21A8] mb-2">
+                  수정신고·기한후신고 안내 ({verifyResult.specialFilings!.length}건) — 크로스체크에서 제외됨
+                </div>
+                <div className="bg-[#FAF5FF] border border-[#E9D5FF] rounded-lg divide-y divide-purple-100">
+                  {verifyResult.specialFilings!.map((s, i) => {
+                    const isDone = s.checked || (s.clientId && s.pageYearMonth ? manualChecked.has(`${s.clientId}|${s.pageYearMonth}`) : false);
+                    return (
+                      <div key={i} className="px-3 py-2 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm text-[#191F28] truncate">{s.clientName || s.name}</div>
+                          <div className="text-xs text-[#8B95A1]">{s.bizNumber} · 과세연월 {s.taxYearMonth}</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F3E8FF] text-[#6B21A8]">{s.filingType}</span>
+                          {s.clientId && s.pageYearMonth ? (
+                            <button
+                              onClick={() => handleManualCheck(s.clientId!, s.pageYearMonth!)}
+                              disabled={!!isDone}
+                              className={`text-xs px-2 py-1 rounded-md transition-colors ${isDone ? "bg-[#F1FBF4] text-[#15803D] cursor-default" : "bg-[#3182F6] text-white hover:bg-[#1B64DA]"}`}
+                            >{isDone ? "체크됨 ✓" : `${s.pageYearMonth}에 체크`}</button>
+                          ) : (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F9FAFB] text-[#8B95A1]">미등록 거래처</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

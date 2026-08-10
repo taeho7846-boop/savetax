@@ -29,6 +29,23 @@ export async function toggleWithholdingTask(
   revalidatePath("/withholding");
 }
 
+// 검증 결과 모달에서 수기 체크 (토글이 아니라 항상 완료 처리)
+export async function markWithholdingDone(
+  clientId: number,
+  yearMonth: string,
+  taskType: string = "원천세신고"
+) {
+  await requireAuth();
+
+  await prisma.withholdingRecord.upsert({
+    where: { clientId_yearMonth_taskType: { clientId, yearMonth, taskType } },
+    update: { done: true },
+    create: { clientId, yearMonth, taskType, done: true },
+  });
+
+  revalidatePath("/withholding");
+}
+
 export async function setLaborOverride(
   clientId: number,
   yearMonth: string,
