@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { normalizeClientName } from "@/lib/normalize-client-name";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -46,8 +47,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "회원명 컬럼을 찾을 수 없습니다." }, { status: 400 });
   }
 
-  // 거래처명 정규화: 모든 공백 제거 (CMS 엑셀과 시스템 등록명의 띄어쓰기 차이 무시)
-  const normalizeName = (s: string) => s.replace(/\s+/g, "");
+  // 거래처명 정규화: 공백·법인 표기("주식회사"↔"(주)"↔"㈜")·대소문자 차이 무시
+  const normalizeName = normalizeClientName;
 
   // 엑셀 파싱
   type ExcelEntry = {

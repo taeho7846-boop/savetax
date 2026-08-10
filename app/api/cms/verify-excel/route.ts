@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { normalizeClientName } from "@/lib/normalize-client-name";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     else if (rawStatus.includes("등록실패")) excelStatusType = "fail";
     else if (rawStatus.includes("일시정지")) excelStatusType = "paused";
     const entry: ExcelEntry = { excelStatus: rawStatus, excelStatusType, excelName: name };
-    excelMap.set(name, entry);
+    excelMap.set(normalizeClientName(name), entry);
     // 사업자번호 매핑
     if (bizNumberKey) {
       const biz = String(r[bizNumberKey] || "").replace(/[-\s]/g, "").trim();
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
   for (const client of dbClients) {
     // 1차: 이름 매칭, 2차: 사업자번호 매칭
     const clientBiz = (client.bizNumber || "").replace(/[-\s]/g, "").trim();
-    const excel = excelMap.get(client.name.trim())
+    const excel = excelMap.get(normalizeClientName(client.name))
       || (clientBiz ? excelBizMap.get(clientBiz) : undefined)
       || undefined;
     if (excel) {
