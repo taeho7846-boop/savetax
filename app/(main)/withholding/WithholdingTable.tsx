@@ -16,8 +16,8 @@ const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }>
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; description: string; short: string }> = {
   A: { label: "A", color: "text-[#B91C1C]", bg: "bg-[#FEF2F2]", border: "border-[#FECACA]", description: "매월 변동",            short: "매월 변동" },
-  B: { label: "B", color: "text-[#1B64DA]", bg: "bg-[#F5F9FF]", border: "border-[#A3CAFD]", description: "매월 동일, 납부서 O",  short: "동일·납부서 O" },
-  C: { label: "C", color: "text-[#15803D]", bg: "bg-[#F1FBF4]", border: "border-[#BBF7D0]", description: "매월 동일, 납부서 X",  short: "동일·납부서 X" },
+  B: { label: "B", color: "text-[#1B64DA]", bg: "bg-[#F5F9FF]", border: "border-[#A3CAFD]", description: "매월 동일, 매월납",    short: "동일·매월납" },
+  C: { label: "C", color: "text-[#15803D]", bg: "bg-[#F1FBF4]", border: "border-[#BBF7D0]", description: "매월 동일, 6개월납",   short: "동일·6개월납" },
   D: { label: "D", color: "text-[#4E5968]", bg: "bg-[#F9FAFB]", border: "border-[#E5E8EB]", description: "1인사업자 (원천세 없음)", short: "1인사업자" },
 };
 
@@ -37,8 +37,9 @@ function getStepsByType(type: string, month: number, halfYearTax: boolean = fals
         ? ["급여명세서전달"]
         : ["급여명세서전달", "원천세신고", "납부서전달"];
     case "C":
+      // 6개월납(반기) — 6·12월 신고 시 납부서가 나오므로 납부서전달 포함
       return isTaxMonth
-        ? ["급여명세서전달", "원천세신고"]
+        ? ["급여명세서전달", "원천세신고", "납부서전달"]
         : ["급여명세서전달"];
     case "D": return [];
     default:

@@ -106,9 +106,9 @@ export default async function NewClientPage() {
                 className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
               >
                 <option value="">미지정</option>
-                <option value="A">A — 매월 동일, 납부서 필요</option>
-                <option value="B">B — 매월 동일, 납부서 불필요</option>
-                <option value="C">C — 매월 변동</option>
+                <option value="A">A — 매월 변동</option>
+                <option value="B">B — 매월 동일, 매월납 (납부서 매월)</option>
+                <option value="C">C — 매월 동일, 6개월납 (납부서 6·12월)</option>
                 <option value="D">D — 1인사업자 (원천세 해당 없음)</option>
               </select>
             </div>
