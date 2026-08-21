@@ -42,14 +42,22 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string | nu
   return <span className="ml-1 text-[#191F28]">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-/** 월별 정렬 가중치: N/A=-1, 미수=0, 수납=1 */
-function monthSortValue(client: ClientRow, month: string, currentYM: string): number {
+type CellState = "paid" | "unpaid" | "na";
+
+/** 월 셀 상태 (표 렌더링·정렬·엑셀 공통) */
+function cellState(client: ClientRow, month: string, currentYM: string): CellState {
   const isBeforeStart = !!client.firstWithdrawalMonth && month < client.firstWithdrawalMonth;
   const isFuture = month > currentYM;
   const isAfterTermination = !!client.terminationMonth && month > client.terminationMonth;
   const isPaid = client.yearRecords[month] === "paid";
-  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) return -1;
-  return isPaid ? 1 : 0;
+  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) return "na";
+  return isPaid ? "paid" : "unpaid";
+}
+
+/** 월별 정렬 가중치: N/A=-1, 미수=0, 수납=1 */
+function monthSortValue(client: ClientRow, month: string, currentYM: string): number {
+  const s = cellState(client, month, currentYM);
+  return s === "na" ? -1 : s === "paid" ? 1 : 0;
 }
 
 type VerifyMatchedItem = {
@@ -79,6 +87,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
   const [showNotStarted, setShowNotStarted] = useState(false); // 출금월 미도래 섹션 (기본 닫힘)
   const [unpaidFilter, setUnpaidFilter] = useState<"save" | "personal" | null>(null); // 미수금 카드 클릭 필터
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [downloading, setDownloading] = useState(false); // 엑셀 다운로드
   const [, startTransition] = useTransition();
   const router = useRouter();
 
@@ -268,6 +277,62 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
       filtered.forEach(c => { if (allChecked) next.delete(c.id); else next.add(c.id); });
       return next;
     });
+  }
+
+  // 화면에 적용된 필터·정렬 그대로 엑셀로 내려받기
+  async function handleExcelDownload() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const toRow = (c: ClientRow, group: "started" | "notStarted" | "terminated") => ({
+        name: c.name,
+        group,
+        terminationMonth: c.terminationMonth,
+        affiliation: c.affiliation,
+        cmsAffiliation: c.cmsAffiliation,
+        assignedUserName: c.assignedUserName,
+        monthlyFee: c.monthlyFee,
+        firstWithdrawalMonth: c.firstWithdrawalMonth,
+        cells: months.map(m => cellState(c, m, currentYM)),
+        cumulativeExpected: c.cumulativeExpected,
+        cumulativePaid: c.cumulativePaid,
+        cumulativeUnpaid: c.cumulativeUnpaid,
+      });
+      // 접혀 있는 섹션(출금월 미도래·해지)도 엑셀에는 모두 포함
+      const rows = [
+        ...startedSorted.map(c => toRow(c, "started")),
+        ...notStartedSorted.map(c => toRow(c, "notStarted")),
+        ...termSorted.map(c => toRow(c, "terminated")),
+      ];
+
+      const parts: string[] = [];
+      if (affFilter.length > 0) parts.push(`소속 ${affFilter.join("/")}`);
+      if (cmsAffFilter.length > 0) parts.push(`CMS ${cmsAffFilter.join("/")}`);
+      if (assignFilter.length > 0) parts.push(`담당자 ${assignFilter.join("/")}`);
+      if (unpaidFilter) parts.push(unpaidFilter === "save" ? "세이브택스 미수만" : "개인세무 미수만");
+
+      const year = parseInt(months[0].slice(0, 4));
+      const res = await fetch("/api/receivables/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year, months, rows, filterSummary: parts.join(" · ") || "전체" }),
+      });
+      if (!res.ok) { alert("엑셀 다운로드 실패"); return; }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${year}년_채권관리.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("엑셀 다운로드 실패");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   return (
@@ -541,12 +606,22 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
           ✅ 확인 대기 <b className="text-[#191F28]">{checkedCount}곳</b>
           <span className="text-[#B0B8C1]"> / 전체 {filtered.length}곳</span>
         </span>
-        <button
-          onClick={toggleAllVisible}
-          className="text-[12px] font-bold text-[#3182F6] hover:underline"
-        >
-          {allChecked ? "전체 해제" : "전체 선택"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExcelDownload}
+            disabled={downloading || filtered.length === 0}
+            title="화면에 보이는 목록(필터·정렬 반영)을 엑셀로 받습니다"
+            className="text-[12px] font-bold px-3 py-1.5 rounded-xl bg-[#15803D] text-white hover:bg-[#166534] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            {downloading ? "생성 중..." : "📥 엑셀 다운로드"}
+          </button>
+          <button
+            onClick={toggleAllVisible}
+            className="text-[12px] font-bold text-[#3182F6] hover:underline"
+          >
+            {allChecked ? "전체 해제" : "전체 선택"}
+          </button>
+        </div>
       </div>
 
       {/* 테이블 */}
