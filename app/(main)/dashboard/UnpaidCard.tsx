@@ -71,6 +71,8 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
     : tabRows;
 
   const totalAmount = rows.reduce((s, c) => s + c.totalUnpaid, 0);
+  // 전체 미수액 (구간·사수 무관, 유예 제외)
+  const grandTotal = active.reduce((s, c) => s + c.totalUnpaid, 0);
   const display = rows.slice(0, 16);
   const remaining = rows.length - display.length;
 
@@ -78,10 +80,15 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
     <section className="glass rounded-3xl p-6">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <h2 className="text-[18px] font-bold tracking-tight text-[#191F28]">미수납</h2>
-          {totalAmount > 0 && (
-            <span className="text-[13px] font-bold tabular-nums" style={{ color: tone.accent }}>
-              {totalAmount.toLocaleString()}원
+          <h2 className="text-[18px] font-bold tracking-tight text-[#191F28]">미수관리</h2>
+          {grandTotal > 0 && (
+            <span className="text-[13px] font-bold tabular-nums text-[#DC2626]">
+              총 {grandTotal.toLocaleString()}원
+            </span>
+          )}
+          {totalAmount > 0 && totalAmount !== grandTotal && (
+            <span className="text-[12px] font-semibold tabular-nums" style={{ color: tone.accent }}>
+              {TABS.find((t) => t.key === tab)?.label}{activeOwner ? ` · ${activeOwner}` : ""} {totalAmount.toLocaleString()}원
             </span>
           )}
         </div>
