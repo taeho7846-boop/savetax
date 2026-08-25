@@ -215,7 +215,7 @@ export default async function DashboardPage({
       ],
     },
     select: {
-      id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true, affiliation: true, cmsStatus: true,
+      id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true, affiliation: true, cmsStatus: true, paymentMethod: true,
       cmsAffiliation: true, withdrawalDay: true, billingTiming: true,
       feeRecords: { where: { status: "paid" } },
       unpaidPostpone: true,
@@ -224,7 +224,7 @@ export default async function DashboardPage({
   });
   // === 미수납 데이터 가공 ===
   const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
-  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; affiliation: string | null; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null; cmsStatus: string; assignedUserName: string | null; dueDay: number; bucket: UnpaidBucket }[] = [];
+  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; affiliation: string | null; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null; cmsStatus: string; paymentMethod: string; assignedUserName: string | null; dueDay: number; bucket: UnpaidBucket }[] = [];
   for (const c of unpaidRaw) {
     // 담당 세무사 (사수가 직원이면 상위 세무사) — 최원석·세이브택스 후불 판정용
     const au = c.assignedUser;
@@ -256,6 +256,7 @@ export default async function DashboardPage({
         postponedUntil: isPostponed ? pp.postponedUntil.toISOString() : null,
         postponeNote: isPostponed ? pp.note : null,
         cmsStatus: c.cmsStatus ?? "none",
+        paymentMethod: c.paymentMethod ?? "cms",
         assignedUserName: c.assignedUser?.name ?? null,
         dueDay: dueDayOfMonth(wt, currentYM),
         // 당월·전월(직원 관리) / 장기(세무사 관리) 구분

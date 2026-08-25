@@ -16,6 +16,7 @@ type UnpaidClient = {
   postponedUntil: string | null;
   postponeNote: string | null;
   cmsStatus: string;
+  paymentMethod: string;
   assignedUserName: string | null;
   dueDay: number;
   bucket: Bucket;
@@ -182,7 +183,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
                         {client.unpaidMonths.length}개월
                       </span>
                     )}
-                    {client.cmsStatus === "none" && (
+                    {client.cmsStatus === "none" && client.paymentMethod === "cms" && (
                       <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">
                         CMS
                       </span>

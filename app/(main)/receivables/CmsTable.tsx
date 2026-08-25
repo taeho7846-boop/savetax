@@ -1167,7 +1167,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
               // 최초출금월이 현재월 이하인데 미등록이면 경고
               const now = new Date();
               const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-              const isOverdue = client.cmsStatus === "none" && client.firstWithdrawalMonth && client.firstWithdrawalMonth <= currentYM;
+              // 카드·직접입금 거래처는 CMS 등록 대상이 아니므로 미등록이어도 경고하지 않는다
+              const usesCms = (client.paymentMethod || "cms") === "cms";
+              const isOverdue = usesCms && client.cmsStatus === "none" && client.firstWithdrawalMonth && client.firstWithdrawalMonth <= currentYM;
               return (
               <tr
                 key={client.id}
