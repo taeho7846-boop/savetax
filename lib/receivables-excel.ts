@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 
-type CellState = "paid" | "unpaid" | "na";
+type CellState = "paid" | "unpaid" | "pending" | "na";
 
 export type ExportRow = {
   name: string;
@@ -35,6 +35,8 @@ const C = {
   unpaidBg: "FFFEF2F2",
   unpaidFg: "FFDC2626",
   naFg: "FFC4CCD4",
+  pendingBg: "FFEEF2FF",
+  pendingFg: "FF6366F1",
   termBg: "FFFFFBEB",
   termFg: "FFB45309",
   blue: "FF3182F6",
@@ -138,7 +140,7 @@ export async function buildReceivablesWorkbook(body: ReceivablesExportBody): Pro
       r.cmsAffiliation || "-",
       r.assignedUserName || "-",
       r.monthlyFee ?? null,
-      ...r.cells.map((s) => (s === "paid" ? "○" : s === "unpaid" ? "✕" : "·")),
+      ...r.cells.map((s) => (s === "paid" ? "○" : s === "unpaid" ? "✕" : s === "pending" ? "△" : "·")),
       r.cumulativeExpected,
       r.cumulativePaid,
       r.cumulativeUnpaid,
@@ -177,7 +179,7 @@ export async function buildReceivablesWorkbook(body: ReceivablesExportBody): Pro
     feeCell.numFmt = WON;
     feeCell.alignment = { horizontal: "right", vertical: "middle" };
 
-    // 월별 셀 (○ 수납 / ✕ 미수 / · 해당없음)
+    // 월별 셀 (○ 수납 / ✕ 미수 / △ 출금 예정 / · 해당없음)
     r.cells.forEach((state, i) => {
       const cell = row.getCell(monthStart + i);
       if (state === "paid") {
@@ -186,6 +188,9 @@ export async function buildReceivablesWorkbook(body: ReceivablesExportBody): Pro
       } else if (state === "unpaid") {
         cell.fill = fill(C.unpaidBg);
         cell.font = { name: FONT, size: 10, bold: true, color: { argb: C.unpaidFg } };
+      } else if (state === "pending") {
+        cell.fill = fill(C.pendingBg);
+        cell.font = { name: FONT, size: 10, bold: true, color: { argb: C.pendingFg } };
       } else {
         cell.font = { name: FONT, size: 10, color: { argb: C.naFg } };
       }

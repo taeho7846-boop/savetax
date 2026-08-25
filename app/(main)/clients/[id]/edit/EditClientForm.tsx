@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BizNumberInput, PhoneInput, ResidentNumberInput } from "@/components/FormattedInputs";
 import { CheckboxGroup } from "@/components/CheckboxGroup";
 import { DateInput } from "@/components/DateInput";
+import { effectiveWithdrawalDay } from "@/lib/withdrawal";
 
 function CopyWrap({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -83,6 +84,7 @@ interface Props {
     monthlyFee: number | null;
     freeMonths: number | null;
     firstWithdrawalMonth: string | null;
+    withdrawalDay?: number | null;
     bankName: string | null;
     bankAccount: string | null;
     openDate?: string | null;
@@ -113,6 +115,8 @@ interface Props {
 export function EditClientForm({ action, client, users, currentTaxTypes, currentLaborTypes, currentUserRole, affiliationOptions, onSuccess, hideButtons = false }: Props & { hideButtons?: boolean }) {
   const submitRef = useRef<HTMLButtonElement>(null);
   const [, startTransition] = useTransition();
+  // 출금일 미설정 시 적용되는 소속 기본값 (세이브택스 5일 / 세무회계태호 25일)
+  const defaultDay = effectiveWithdrawalDay({ cmsAffiliation: client.cmsAffiliation, affiliation: client.affiliation });
 
   function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key !== "Enter") return;
@@ -429,7 +433,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
       {/* 기장료 / 출금 정보 */}
       <div className="border-t border-[#F2F4F6] pt-4">
         <p className="text-xs font-bold text-[#6B7684] uppercase tracking-wide mb-3">청구 정보</p>
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-[#191F28] mb-1">월 기장료</label>
             <CopyWrap><div className="relative">
@@ -468,6 +472,24 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
               defaultValue={client.firstWithdrawalMonth ?? ""}
               className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
             />
+          </div>
+          <div>
+            <label
+              className="block text-sm font-medium text-[#191F28] mb-1"
+              title={`채권관리 미수 판정 기준일. 출금일 다음날부터 미수로 잡힙니다. 미설정 시 소속 기본값(${defaultDay}일)을 따릅니다.`}
+            >
+              출금일
+            </label>
+            <select
+              name="withdrawalDay"
+              defaultValue={client.withdrawalDay ? String(client.withdrawalDay) : ""}
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
+            >
+              <option value="">기본 ({defaultDay}일)</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>{d === 31 ? "31일 (말일)" : `${d}일`}</option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">

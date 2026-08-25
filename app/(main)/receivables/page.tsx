@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ReceivablesTable } from "./ReceivablesTable";
 import { CmsTable } from "./CmsTable";
+import { effectiveWithdrawalDay, dueDayOfMonth, lastBillableMonth } from "@/lib/withdrawal";
 
 /** 해당 연도 12개월 전부 반환 (미래 포함) */
 function getMonthsOfYear(year: number): string[] {
@@ -76,11 +77,13 @@ export default async function ReceivablesPage({
 
   // 누적 요약 계산 (전체 기간) — 소속별 카드는 ReceivablesTable에서 거래처별 값으로 합산
   const clients = rawClients.map((c) => {
-    // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 현재월까지(기존 동작).
+    // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
+    const billableEnd = lastBillableMonth(c, now);
+    // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 청구 가능월까지.
     const isTerminated = c.contractStatus !== "active";
     const endMonth = isTerminated && c.terminationMonth
-      ? (c.terminationMonth < currentYM ? c.terminationMonth : currentYM)
-      : currentYM;
+      ? (c.terminationMonth < billableEnd ? c.terminationMonth : billableEnd)
+      : billableEnd;
 
     const allMonths = getAllMonths(c.firstWithdrawalMonth!, endMonth);
     const expected = (c.monthlyFee ?? 0) * allMonths.length;
@@ -109,6 +112,10 @@ export default async function ReceivablesPage({
       cumulativeUnpaid: unpaid,
       contractStatus: c.contractStatus,
       terminationMonth: isTerminated ? c.terminationMonth : null,
+      withdrawalDay: effectiveWithdrawalDay(c),
+      isDefaultDay: !c.withdrawalDay,
+      billableEndMonth: billableEnd,
+      dueDay: dueDayOfMonth(c, currentYM),
     };
   });
 

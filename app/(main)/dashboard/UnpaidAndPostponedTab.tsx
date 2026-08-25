@@ -15,6 +15,9 @@ type UnpaidClient = {
   postponedUntil: string | null;
   postponeNote: string | null;
   cmsStatus: string;
+  assignedUserName: string | null;
+  dueDay: number;
+  isLongTerm: boolean;
 };
 
 type PostponedItem = {

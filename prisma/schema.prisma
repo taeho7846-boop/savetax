@@ -70,6 +70,7 @@ model Client {
   hometaxPw                 String?
   monthlyFee                Int?
   firstWithdrawalMonth      String?
+  withdrawalDay             Int?                       // 월 출금일(1~31). 미설정 시 소속 기본값(세이브택스 5일 / 세무회계태호 25일)
   bankName                  String?
   bankAccount               String?
   notes                     String?

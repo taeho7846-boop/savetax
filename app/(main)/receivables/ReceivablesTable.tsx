@@ -19,6 +19,10 @@ interface ClientRow {
   cumulativeUnpaid: number;
   contractStatus: string;
   terminationMonth: string | null;
+  withdrawalDay: number;        // 실제 적용 출금일 (개별 지정 없으면 소속 기본값)
+  isDefaultDay: boolean;        // 소속 기본값에서 온 값인지
+  billableEndMonth: string;     // 미수 판정 대상 마지막 월 (출금일 미도래면 전월)
+  dueDay: number;               // 당월 실제 출금일 (말일 보정 반영)
 }
 
 interface Props {
@@ -42,22 +46,27 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string | nu
   return <span className="ml-1 text-[#191F28]">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-type CellState = "paid" | "unpaid" | "na";
+type CellState = "paid" | "unpaid" | "pending" | "na";
 
-/** 월 셀 상태 (표 렌더링·정렬·엑셀 공통) */
+/**
+ * 월 셀 상태 (표 렌더링·정렬·엑셀 공통)
+ * pending = 당월인데 출금일이 아직 안 지난 상태 → 미수 아님
+ */
 function cellState(client: ClientRow, month: string, currentYM: string): CellState {
   const isBeforeStart = !!client.firstWithdrawalMonth && month < client.firstWithdrawalMonth;
-  const isFuture = month > currentYM;
   const isAfterTermination = !!client.terminationMonth && month > client.terminationMonth;
   const isPaid = client.yearRecords[month] === "paid";
-  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) return "na";
-  return isPaid ? "paid" : "unpaid";
+  if (isPaid) return "paid";
+  if (isBeforeStart || isAfterTermination) return "na";
+  // 출금일 기준 청구 시점이 안 됐으면 미수로 잡지 않는다
+  if (month > client.billableEndMonth) return month === currentYM ? "pending" : "na";
+  return "unpaid";
 }
 
-/** 월별 정렬 가중치: N/A=-1, 미수=0, 수납=1 */
+/** 월별 정렬 가중치: N/A·예정=-1, 미수=0, 수납=1 */
 function monthSortValue(client: ClientRow, month: string, currentYM: string): number {
   const s = cellState(client, month, currentYM);
-  return s === "na" ? -1 : s === "paid" ? 1 : 0;
+  return s === "paid" ? 1 : s === "unpaid" ? 0 : -1;
 }
 
 type VerifyMatchedItem = {
@@ -835,12 +844,25 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
 
                 {/* 1월 ~ 12월 */}
                 {months.map((m) => {
-                  const isFuture = m > currentYM;
-                  const isBeforeStart = !!client.firstWithdrawalMonth && m < client.firstWithdrawalMonth;
+                  const state = cellState(client, m, currentYM);
                   const isAfterTermination = !!client.terminationMonth && m > client.terminationMonth;
-                  const isPaid = client.yearRecords[m] === "paid";
 
-                  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) {
+                  // 출금일 미도래 — 미수 아님. 클릭하면 선수납 처리는 가능.
+                  if (state === "pending") {
+                    return (
+                      <td key={m} className="px-3 py-3 text-center">
+                        <button
+                          onClick={() => toggle(client.id, m)}
+                          className="w-8 h-8 rounded-full text-[10px] font-bold bg-[#EEF2FF] text-[#6366F1] hover:bg-[#E0E7FF] transition-colors"
+                          title={`출금 예정 (${client.dueDay}일)${client.isDefaultDay ? " · 소속 기본값" : ""} — 아직 미수 아님 (클릭: 수납 처리)`}
+                        >
+                          {client.dueDay}
+                        </button>
+                      </td>
+                    );
+                  }
+
+                  if (state === "na") {
                     return (
                       <td key={m} className={`px-3 py-3 text-center text-[#C4CCD4] ${isAfterTermination ? "bg-[#F9FAFB]/40" : ""}`} title={isAfterTermination ? "해지월 이후 (청구 종료)" : undefined}>
                         ·
@@ -848,6 +870,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                     );
                   }
 
+                  const isPaid = state === "paid";
                   return (
                     <td key={m} className="px-3 py-3 text-center">
                       <button
@@ -857,7 +880,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                             ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
                             : "bg-[#FEF2F2] text-[#F87171] hover:bg-[#FEE2E2]"
                         }`}
-                        title={isPaid ? "수납 완료 (클릭: 취소)" : "미수 (클릭: 수납 처리)"}
+                        title={isPaid ? "수납 완료 (클릭: 취소)" : `미수 (출금일 ${client.dueDay}일 경과 · 클릭: 수납 처리)`}
                       >
                         {isPaid ? "✓" : "✕"}
                       </button>

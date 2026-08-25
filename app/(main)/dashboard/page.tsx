@@ -14,6 +14,7 @@ import { DashboardTabs } from "./DashboardTabs";
 import { TodayTasksCard, HappyCallCard, DataCollectCard, ExcludeRequestCard } from "./ProcessCards";
 import type { TransferItem } from "./ProcessCards";
 import { UnpaidCard } from "./UnpaidCard";
+import { lastBillableMonth, dueDayOfMonth, isLongTermUnpaid } from "@/lib/withdrawal";
 import { InsuranceCard } from "./InsuranceCard";
 import { PhonePopupButton } from "./PhonePopupButton";
 import { BuildingIcon, ClockIcon, CalendarIcon, BellIcon } from "@/components/icons";
@@ -213,18 +214,22 @@ export default async function DashboardPage({
     },
     select: {
       id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true, affiliation: true, cmsStatus: true,
+      cmsAffiliation: true, withdrawalDay: true,
       feeRecords: { where: { status: "paid" } },
       unpaidPostpone: true,
+      assignedUser: { select: { name: true } },
     },
   });
   // === 미수납 데이터 가공 ===
   const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
-  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; affiliation: string | null; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null; cmsStatus: string }[] = [];
+  const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; affiliation: string | null; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null; cmsStatus: string; assignedUserName: string | null; dueDay: number; isLongTerm: boolean }[] = [];
   for (const c of unpaidRaw) {
+    // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
+    const billableEnd = lastBillableMonth(c, new Date());
     const paidSet = new Set(c.feeRecords.map((r: any) => r.yearMonth));
     const unpaidMonths: string[] = [];
     let [y, m] = c.firstWithdrawalMonth!.split("-").map(Number);
-    const [cy, cm] = currentYM.split("-").map(Number);
+    const [cy, cm] = billableEnd.split("-").map(Number);
     while (y < cy || (y === cy && m <= cm)) {
       const ym = `${y}-${String(m).padStart(2, "0")}`;
       if (!paidSet.has(ym)) unpaidMonths.push(ym);
@@ -245,6 +250,10 @@ export default async function DashboardPage({
         postponedUntil: isPostponed ? pp.postponedUntil.toISOString() : null,
         postponeNote: isPostponed ? pp.note : null,
         cmsStatus: c.cmsStatus ?? "none",
+        assignedUserName: c.assignedUser?.name ?? null,
+        dueDay: dueDayOfMonth(c, currentYM),
+        // 2개월치 이상 밀리면 장기미수 → 세무사 관리 대상
+        isLongTerm: isLongTermUnpaid(unpaidMonths.length),
       });
     }
   }

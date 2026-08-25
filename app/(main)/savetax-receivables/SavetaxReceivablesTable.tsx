@@ -15,6 +15,8 @@ interface ClientRow {
   cumulativeUnpaid: number;
   contractStatus: string;
   terminationMonth: string | null;
+  billableEndMonth: string;   // 미수 판정 대상 마지막 월 (출금일 미도래면 전월)
+  dueDay: number;             // 당월 실제 출금일
 }
 
 interface Props {
@@ -38,14 +40,22 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string | nu
   return <span className="ml-1 text-[#191F28]">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-/** 월별 정렬 가중치: N/A=-1, 미수=0, 수납=1 */
-function monthSortValue(client: ClientRow, month: string, currentYM: string): number {
+type CellState = "paid" | "unpaid" | "pending" | "na";
+
+/** 월 셀 상태 — pending = 당월인데 출금일이 아직 안 지난 상태(미수 아님) */
+function cellState(client: ClientRow, month: string, currentYM: string): CellState {
   const isBeforeStart = !!client.firstWithdrawalMonth && month < client.firstWithdrawalMonth;
-  const isFuture = month > currentYM;
   const isAfterTermination = !!client.terminationMonth && month > client.terminationMonth;
-  const isPaid = client.yearRecords[month] === "paid";
-  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) return -1;
-  return isPaid ? 1 : 0;
+  if (client.yearRecords[month] === "paid") return "paid";
+  if (isBeforeStart || isAfterTermination) return "na";
+  if (month > client.billableEndMonth) return month === currentYM ? "pending" : "na";
+  return "unpaid";
+}
+
+/** 월별 정렬 가중치: N/A·예정=-1, 미수=0, 수납=1 */
+function monthSortValue(client: ClientRow, month: string, currentYM: string): number {
+  const s = cellState(client, month, currentYM);
+  return s === "paid" ? 1 : s === "unpaid" ? 0 : -1;
 }
 
 type VerifyMatchedItem = {
@@ -629,12 +639,26 @@ export function SavetaxReceivablesTable({ clients, months, currentYM }: Props) {
 
                 {/* 1월 ~ 12월 */}
                 {months.map((m) => {
-                  const isFuture = m > currentYM;
-                  const isBeforeStart = !!client.firstWithdrawalMonth && m < client.firstWithdrawalMonth;
+                  const state = cellState(client, m, currentYM);
                   const isAfterTermination = !!client.terminationMonth && m > client.terminationMonth;
-                  const isPaid = client.yearRecords[m] === "paid";
+                  const isPaid = state === "paid";
 
-                  if (isBeforeStart || isAfterTermination || (isFuture && !isPaid)) {
+                  // 출금일 미도래 — 미수 아님. 클릭하면 선수납 처리는 가능.
+                  if (state === "pending") {
+                    return (
+                      <td key={m} className="px-3 py-3 text-center">
+                        <button
+                          onClick={() => toggle(client.id, m)}
+                          className="w-8 h-8 rounded-full text-[10px] font-bold bg-[#EEF2FF] text-[#6366F1] hover:bg-[#E0E7FF] transition-colors"
+                          title={`출금 예정 (${client.dueDay}일) — 아직 미수 아님 (클릭: 수납 처리)`}
+                        >
+                          {client.dueDay}
+                        </button>
+                      </td>
+                    );
+                  }
+
+                  if (state === "na") {
                     return (
                       <td key={m} className={`px-3 py-3 text-center text-[#C4CCD4] ${isAfterTermination ? "bg-[#F9FAFB]/40" : ""}`} title={isAfterTermination ? "해지월 이후 (청구 종료)" : undefined}>
                         ·
