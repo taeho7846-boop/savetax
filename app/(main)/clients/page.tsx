@@ -100,7 +100,8 @@ export default async function ClientsPage({
   const monthlyFeeSum = clients.reduce((s, c) => s + (c.monthlyFee ?? 0), 0);
   // CMS 등록 상태: "done" = 등록 / "pending" = 등록요청중 / 그 외 = 미등록
   // 카드/모달엔 (등록요청중 + 미등록) 모두 노출
-  const noCmsClients = clients.filter(c => c.cmsStatus !== "done");
+  // 카드·직접입금 거래처는 CMS 등록 대상이 아니므로 집계에서 제외
+  const noCmsClients = clients.filter(c => (c.paymentMethod ?? "cms") === "cms" && c.cmsStatus !== "done");
   const noDocsClients = clients.filter(c => !c.hometaxId || !c.hometaxPw);
   const noCmsCount = noCmsClients.length;
   const noDocsCount = noDocsClients.length;
