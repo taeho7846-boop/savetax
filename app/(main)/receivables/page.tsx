@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ReceivablesTable } from "./ReceivablesTable";
 import { CmsTable } from "./CmsTable";
-import { effectiveWithdrawalDay, dueDayOfMonth, lastBillableMonth } from "@/lib/withdrawal";
+import { effectiveWithdrawalDay, effectiveBillingTiming, dueDayOfMonth, lastBillableMonth } from "@/lib/withdrawal";
 
 /** 해당 연도 12개월 전부 반환 (미래 포함) */
 function getMonthsOfYear(year: number): string[] {
@@ -113,6 +113,7 @@ export default async function ReceivablesPage({
       contractStatus: c.contractStatus,
       terminationMonth: isTerminated ? c.terminationMonth : null,
       withdrawalDay: effectiveWithdrawalDay(c),
+      billing: effectiveBillingTiming(c),
       isDefaultDay: !c.withdrawalDay,
       billableEndMonth: billableEnd,
       dueDay: dueDayOfMonth(c, currentYM),

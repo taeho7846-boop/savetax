@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SavetaxReceivablesTable } from "./SavetaxReceivablesTable";
 import { CollectionBoard } from "./CollectionBoard";
-import { lastBillableMonth, dueDayOfMonth } from "@/lib/withdrawal";
+import { lastBillableMonth, dueDayOfMonth, effectiveBillingTiming } from "@/lib/withdrawal";
 
 /** 해당 연도 12개월 전부 반환 (미래 포함) */
 function getMonthsOfYear(year: number): string[] {
@@ -109,6 +109,7 @@ export default async function SavetaxReceivablesPage({
       terminationMonth: isTerminated ? c.terminationMonth : null,
       billableEndMonth: billableEnd,
       dueDay: dueDayOfMonth(c, currentYM),
+      billing: effectiveBillingTiming(c),
       contacts: c.collectionContacts.map((ct) => ({
         id: ct.id,
         contactedAt: ct.contactedAt.toISOString(),

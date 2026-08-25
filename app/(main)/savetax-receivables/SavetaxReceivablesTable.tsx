@@ -17,6 +17,7 @@ interface ClientRow {
   terminationMonth: string | null;
   billableEndMonth: string;   // 미수 판정 대상 마지막 월 (출금일 미도래면 전월)
   dueDay: number;             // 당월 실제 출금일
+  billing: "same" | "arrears";
 }
 
 interface Props {
@@ -48,7 +49,7 @@ function cellState(client: ClientRow, month: string, currentYM: string): CellSta
   const isAfterTermination = !!client.terminationMonth && month > client.terminationMonth;
   if (client.yearRecords[month] === "paid") return "paid";
   if (isBeforeStart || isAfterTermination) return "na";
-  if (month > client.billableEndMonth) return month === currentYM ? "pending" : "na";
+  if (month > client.billableEndMonth) return month <= currentYM ? "pending" : "na";
   return "unpaid";
 }
 
@@ -650,7 +651,7 @@ export function SavetaxReceivablesTable({ clients, months, currentYM }: Props) {
                         <button
                           onClick={() => toggle(client.id, m)}
                           className="w-8 h-8 rounded-full text-[10px] font-bold bg-[#EEF2FF] text-[#6366F1] hover:bg-[#E0E7FF] transition-colors"
-                          title={`출금 예정 (${client.dueDay}일) — 아직 미수 아님 (클릭: 수납 처리)`}
+                          title={`출금 예정 (${client.billing === "arrears" ? "다음달 " : ""}${client.dueDay}일 · ${client.billing === "arrears" ? "후불" : "당월"}수납) — 아직 미수 아님 (클릭: 수납 처리)`}
                         >
                           {client.dueDay}
                         </button>

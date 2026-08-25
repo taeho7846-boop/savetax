@@ -20,6 +20,7 @@ interface ClientRow {
   contractStatus: string;
   terminationMonth: string | null;
   withdrawalDay: number;        // 실제 적용 출금일 (개별 지정 없으면 소속 기본값)
+  billing: "same" | "arrears";  // 당월수납 / 후불수납
   isDefaultDay: boolean;        // 소속 기본값에서 온 값인지
   billableEndMonth: string;     // 미수 판정 대상 마지막 월 (출금일 미도래면 전월)
   dueDay: number;               // 당월 실제 출금일 (말일 보정 반영)
@@ -59,7 +60,8 @@ function cellState(client: ClientRow, month: string, currentYM: string): CellSta
   if (isPaid) return "paid";
   if (isBeforeStart || isAfterTermination) return "na";
   // 출금일 기준 청구 시점이 안 됐으면 미수로 잡지 않는다
-  if (month > client.billableEndMonth) return month === currentYM ? "pending" : "na";
+  // 후불은 전월분도 아직 출금 전일 수 있으므로, 판정종월~당월 사이는 모두 "예정"
+  if (month > client.billableEndMonth) return month <= currentYM ? "pending" : "na";
   return "unpaid";
 }
 
@@ -854,7 +856,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                         <button
                           onClick={() => toggle(client.id, m)}
                           className="w-8 h-8 rounded-full text-[10px] font-bold bg-[#EEF2FF] text-[#6366F1] hover:bg-[#E0E7FF] transition-colors"
-                          title={`출금 예정 (${client.dueDay}일)${client.isDefaultDay ? " · 소속 기본값" : ""} — 아직 미수 아님 (클릭: 수납 처리)`}
+                          title={`출금 예정 (${client.billing === "arrears" ? "다음달 " : ""}${client.dueDay}일 · ${client.billing === "arrears" ? "후불" : "당월"}수납)${client.isDefaultDay ? " · 소속 기본값" : ""} — 아직 미수 아님 (클릭: 수납 처리)`}
                         >
                           {client.dueDay}
                         </button>

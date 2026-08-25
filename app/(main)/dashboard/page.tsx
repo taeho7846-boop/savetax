@@ -216,7 +216,7 @@ export default async function DashboardPage({
     },
     select: {
       id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true, affiliation: true, cmsStatus: true,
-      cmsAffiliation: true, withdrawalDay: true,
+      cmsAffiliation: true, withdrawalDay: true, billingTiming: true,
       feeRecords: { where: { status: "paid" } },
       unpaidPostpone: true,
       assignedUser: { select: { name: true } },

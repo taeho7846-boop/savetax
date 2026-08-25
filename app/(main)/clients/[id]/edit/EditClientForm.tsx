@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BizNumberInput, PhoneInput, ResidentNumberInput } from "@/components/FormattedInputs";
 import { CheckboxGroup } from "@/components/CheckboxGroup";
 import { DateInput } from "@/components/DateInput";
-import { effectiveWithdrawalDay } from "@/lib/withdrawal";
+import { effectiveWithdrawalDay, effectiveBillingTiming } from "@/lib/withdrawal";
 
 function CopyWrap({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -85,6 +85,7 @@ interface Props {
     freeMonths: number | null;
     firstWithdrawalMonth: string | null;
     withdrawalDay?: number | null;
+    billingTiming?: string | null;
     bankName: string | null;
     bankAccount: string | null;
     openDate?: string | null;
@@ -117,6 +118,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
   const [, startTransition] = useTransition();
   // 출금일 미설정 시 적용되는 소속 기본값 (세이브택스 5일 / 세무회계태호 25일)
   const defaultDay = effectiveWithdrawalDay({ cmsAffiliation: client.cmsAffiliation, affiliation: client.affiliation });
+  const defaultTiming = effectiveBillingTiming({ cmsAffiliation: client.cmsAffiliation, affiliation: client.affiliation });
 
   function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key !== "Enter") return;
@@ -512,7 +514,24 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
             /></CopyWrap>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-3 gap-4 mt-4">
+          <div>
+            <label
+              className="block text-sm font-medium text-[#191F28] mb-1"
+              title="출금되는 돈이 몇 월분이냐. 당월수납: 8/25 출금=8월분 (예강·태호) · 후불수납: 8/5 출금=7월분 (세이브택스). 미수로 잡히는 시점이 달라집니다."
+            >
+              수납방식
+            </label>
+            <select
+              name="billingTiming"
+              defaultValue={client.billingTiming ?? ""}
+              className="w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]"
+            >
+              <option value="">기본 ({defaultTiming === "arrears" ? "후불" : "당월"}수납)</option>
+              <option value="same">당월수납 (출금월 = 그 달분)</option>
+              <option value="arrears">후불수납 (출금월 = 전월분)</option>
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-[#191F28] mb-1">결제수단</label>
             <select

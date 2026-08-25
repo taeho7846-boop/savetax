@@ -71,6 +71,7 @@ model Client {
   monthlyFee                Int?
   firstWithdrawalMonth      String?
   withdrawalDay             Int?                       // 월 출금일(1~31). 미설정 시 소속 기본값(세이브택스 5일 / 세무회계태호 25일)
+  billingTiming             String?                    // 수납방식 "same"(당월수납)|"arrears"(후불). 미설정 시 소속 기본값
   bankName                  String?
   bankAccount               String?
   notes                     String?

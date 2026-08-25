@@ -9,16 +9,41 @@
 export const DEFAULT_WITHDRAWAL_DAY: Record<string, number> = {
   세이브택스: 5,
   세무회계태호: 25,
+  예강세무회계: 25,
 };
+
+/**
+ * 수납방식 — 출금되는 돈이 몇 월분이냐.
+ * same    = 당월수납: 8/25 출금 = 8월분 (예강·태호)
+ * arrears = 후불수납: 8/5 출금 = 7월분 (세이브택스)
+ */
+export type BillingTiming = "same" | "arrears";
+
+export const DEFAULT_BILLING_TIMING: Record<string, BillingTiming> = {
+  세이브택스: "arrears",
+  세무회계태호: "same",
+  예강세무회계: "same",
+};
+
+export const FALLBACK_BILLING_TIMING: BillingTiming = "same";
 
 /** 소속을 알 수 없을 때의 최종 기본값 */
 export const FALLBACK_WITHDRAWAL_DAY = 5;
 
 export type WithdrawalTarget = {
   withdrawalDay?: number | null;
+  billingTiming?: string | null;
   cmsAffiliation?: string | null;
   affiliation?: string | null;
 };
+
+/** 거래처에 실제 적용되는 수납방식 (개별 지정 > CMS 청구처 기본 > 소속 기본 > 당월) */
+export function effectiveBillingTiming(c: WithdrawalTarget): BillingTiming {
+  if (c.billingTiming === "same" || c.billingTiming === "arrears") return c.billingTiming;
+  if (c.cmsAffiliation && DEFAULT_BILLING_TIMING[c.cmsAffiliation]) return DEFAULT_BILLING_TIMING[c.cmsAffiliation];
+  if (c.affiliation && DEFAULT_BILLING_TIMING[c.affiliation]) return DEFAULT_BILLING_TIMING[c.affiliation];
+  return FALLBACK_BILLING_TIMING;
+}
 
 /** 거래처에 실제 적용되는 출금일 (개별 지정 > CMS 청구처 기본 > 소속 기본 > 5일) */
 export function effectiveWithdrawalDay(c: WithdrawalTarget): number {
@@ -68,7 +93,9 @@ function prevMonth(ym: string): string {
  */
 export function lastBillableMonth(c: WithdrawalTarget, now: Date = kstNow()): string {
   const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  return now.getDate() > dueDayOfMonth(c, currentYM) ? currentYM : prevMonth(currentYM);
+  const base = now.getDate() > dueDayOfMonth(c, currentYM) ? currentYM : prevMonth(currentYM);
+  // 후불수납: 이번 달 출금이 지난달분이므로 미수 판정이 한 달 뒤로 밀린다
+  return effectiveBillingTiming(c) === "arrears" ? prevMonth(base) : base;
 }
 
 /** firstWithdrawalMonth 부터 to 까지 모든 월 (to < from 이면 빈 배열) */
