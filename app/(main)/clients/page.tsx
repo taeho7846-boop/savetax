@@ -63,7 +63,8 @@ export default async function ClientsPage({
       }] : []),
     ],
   };
-  const includeAssigned = (isReadonly || isManager) ? { assignedUser: { select: { name: true } } } : undefined;
+  // 담당자(사수)는 전 역할에 노출 — 직원도 부사수로 걸린 거래처의 사수를 알아야 한다
+  const includeAssigned = { assignedUser: { select: { name: true } } };
 
   // 메인 목록·집계는 활성(계약중)만. 해지(계약종료)는 우측 상단 '해지거래처' 버튼에서 조회.
   const clients = await prisma.client.findMany({
@@ -251,7 +252,7 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser={isReadonly || isManager} />
+      <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser />
     </div>
   );
 }

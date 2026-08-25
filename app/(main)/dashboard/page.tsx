@@ -225,7 +225,7 @@ export default async function DashboardPage({
   const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; affiliation: string | null; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null; cmsStatus: string; assignedUserName: string | null; dueDay: number; isLongTerm: boolean }[] = [];
   for (const c of unpaidRaw) {
     // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
-    const billableEnd = lastBillableMonth(c, new Date());
+    const billableEnd = lastBillableMonth(c);
     const paidSet = new Set(c.feeRecords.map((r: any) => r.yearMonth));
     const unpaidMonths: string[] = [];
     let [y, m] = c.firstWithdrawalMonth!.split("-").map(Number);

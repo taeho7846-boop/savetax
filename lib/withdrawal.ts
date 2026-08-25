@@ -44,6 +44,16 @@ export function dueDayOfMonth(c: WithdrawalTarget, ym: string): number {
   return Math.min(effectiveWithdrawalDay(c), daysInMonth(ym));
 }
 
+/**
+ * 한국 시간(KST) 기준 현재 시각.
+ * 서버 타임존이 UTC여도 출금일 판정이 하루 밀리지 않도록 명시적으로 보정한다.
+ * (서버가 이미 KST면 결과는 동일)
+ */
+export function kstNow(): Date {
+  const d = new Date();
+  return new Date(d.getTime() + (9 * 60 + d.getTimezoneOffset()) * 60000);
+}
+
 /** "YYYY-MM" 한 달 전 */
 function prevMonth(ym: string): string {
   let [y, m] = ym.split("-").map(Number);
@@ -56,7 +66,7 @@ function prevMonth(ym: string): string {
  * 미수 판정 대상이 되는 마지막 월.
  * 출금일이 지났으면(= 출금일 다음날부터) 당월까지, 아직이면 전월까지.
  */
-export function lastBillableMonth(c: WithdrawalTarget, now: Date = new Date()): string {
+export function lastBillableMonth(c: WithdrawalTarget, now: Date = kstNow()): string {
   const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   return now.getDate() > dueDayOfMonth(c, currentYM) ? currentYM : prevMonth(currentYM);
 }

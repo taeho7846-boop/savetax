@@ -78,7 +78,7 @@ export default async function ReceivablesPage({
   // 누적 요약 계산 (전체 기간) — 소속별 카드는 ReceivablesTable에서 거래처별 값으로 합산
   const clients = rawClients.map((c) => {
     // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
-    const billableEnd = lastBillableMonth(c, now);
+    const billableEnd = lastBillableMonth(c);
     // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 청구 가능월까지.
     const isTerminated = c.contractStatus !== "active";
     const endMonth = isTerminated && c.terminationMonth
