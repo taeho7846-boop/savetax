@@ -15,6 +15,7 @@ type UnpaidClient = {
   postponedUntil: string | null;
   postponeNote: string | null;
   cmsStatus: string;
+  paymentMethod: string;
   assignedUserName: string | null;
   dueDay: number;
   bucket: "current" | "prev" | "long";
