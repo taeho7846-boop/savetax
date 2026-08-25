@@ -4,25 +4,31 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-// 세무사(manager)는 본인 + 소속 직원의 고객도 조회
-async function getVisibleUserIds(session: { id: number; role: string }) {
+// 조회 범위: 사수(assignedUserId) 또는 부사수(subAssignedUserId) 모두 포함.
+// 세무사(manager)는 본인 + 소속 직원의 고객까지.
+async function getVisibleClientScope(session: { id: number; role: string }) {
   const employees = await prisma.user.findMany({
     where: { managerId: session.id, isActive: true },
     select: { id: true },
   });
-  if (employees.length === 0) return { equals: session.id };
-  return { in: [session.id, ...employees.map((e) => e.id)] };
+  const userIds = [session.id, ...employees.map((e) => e.id)];
+  return {
+    OR: [
+      { assignedUserId: { in: userIds } },
+      { subAssignedUserId: { in: userIds } },
+    ],
+  };
 }
 
 export async function getCommissions() {
   const session = await requireAuth();
-  const assignedFilter = await getVisibleUserIds(session);
+  const clientScope = await getVisibleClientScope(session);
   return prisma.commissionProcess.findMany({
     where: {
       client: {
         isDeleted: false,
         contractStatus: "active", // 해지 거래처 제외
-        ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
+        ...clientScope,
       },
       completedAt: null,
     },
@@ -36,13 +42,13 @@ export async function getCommissions() {
 
 export async function getCompletedCommissions() {
   const session = await requireAuth();
-  const assignedFilter = await getVisibleUserIds(session);
+  const clientScope = await getVisibleClientScope(session);
   return prisma.commissionProcess.findMany({
     where: {
       client: {
         isDeleted: false,
         contractStatus: "active", // 해지 거래처 제외
-        ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
+        ...clientScope,
       },
       completedAt: { not: null },
     },
@@ -56,7 +62,7 @@ export async function getCompletedCommissions() {
 
 export async function getClientsNotInCommission() {
   const session = await requireAuth();
-  const assignedFilter = await getVisibleUserIds(session);
+  const clientScope = await getVisibleClientScope(session);
   const inCommission = await prisma.commissionProcess.findMany({
     select: { clientId: true },
   });
@@ -65,7 +71,7 @@ export async function getClientsNotInCommission() {
     where: {
       isDeleted: false,
       contractStatus: "active", // 해지 거래처 제외
-      ...(assignedFilter ? { assignedUserId: assignedFilter } : {}),
+      ...clientScope,
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: { id: true, name: true, ceoName: true },

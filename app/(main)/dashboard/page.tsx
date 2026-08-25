@@ -204,8 +204,10 @@ export default async function DashboardPage({
     where: {
       isDeleted: false,
       contractStatus: "active", // 해지 거래처는 운영 페이지(홈 미수납 카드)에서 제외 — 채권관리에서만 노출
-      ...myClient,
-      monthlyFee: { not: null },
+      // 매니저는 본인 + 소속 직원 담당까지 (채권관리 페이지와 동일 범위).
+      // 직원은 teamIds가 본인뿐이라 기존과 같다.
+      ...(isReadonly ? {} : { assignedUserId: { in: teamIds } }),
+      monthlyFee: { gt: 0 }, // 기장료 0원(무료·추가사업장)은 채권 대상 아님 — 채권관리 페이지와 동일 기준
       firstWithdrawalMonth: { not: null, lte: currentYM },
       OR: [
         { taxTypes: null },
