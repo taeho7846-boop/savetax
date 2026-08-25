@@ -219,15 +219,19 @@ export default async function DashboardPage({
       cmsAffiliation: true, withdrawalDay: true, billingTiming: true,
       feeRecords: { where: { status: "paid" } },
       unpaidPostpone: true,
-      assignedUser: { select: { name: true } },
+      assignedUser: { select: { name: true, role: true, manager: { select: { name: true } } } },
     },
   });
   // === 미수납 데이터 가공 ===
   const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
   const unpaidClients: { id: number; name: string; phone: string | null; monthlyFee: number; affiliation: string | null; unpaidMonths: string[]; totalUnpaid: number; postponedUntil: string | null; postponeNote: string | null; cmsStatus: string; assignedUserName: string | null; dueDay: number; bucket: UnpaidBucket }[] = [];
   for (const c of unpaidRaw) {
+    // 담당 세무사 (사수가 직원이면 상위 세무사) — 최원석·세이브택스 후불 판정용
+    const au = c.assignedUser;
+    const accountantName = au ? (au.role === "employee" && au.manager ? au.manager.name : au.name) : null;
+    const wt = { withdrawalDay: c.withdrawalDay, billingTiming: c.billingTiming, cmsAffiliation: c.cmsAffiliation, affiliation: c.affiliation, accountantName };
     // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
-    const billableEnd = lastBillableMonth(c);
+    const billableEnd = lastBillableMonth(wt);
     const paidSet = new Set(c.feeRecords.map((r: any) => r.yearMonth));
     const unpaidMonths: string[] = [];
     let [y, m] = c.firstWithdrawalMonth!.split("-").map(Number);
@@ -253,7 +257,7 @@ export default async function DashboardPage({
         postponeNote: isPostponed ? pp.note : null,
         cmsStatus: c.cmsStatus ?? "none",
         assignedUserName: c.assignedUser?.name ?? null,
-        dueDay: dueDayOfMonth(c, currentYM),
+        dueDay: dueDayOfMonth(wt, currentYM),
         // 당월·전월(직원 관리) / 장기(세무사 관리) 구분
         bucket: unpaidBucket(unpaidMonths),
       });

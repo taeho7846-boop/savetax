@@ -70,15 +70,19 @@ export default async function ReceivablesPage({
     },
     include: {
       feeRecords: true, // 전체 기간
-      assignedUser: { select: { name: true } },
+      assignedUser: { select: { name: true, role: true, manager: { select: { name: true } } } },
     },
     orderBy: { name: "asc" },
   });
 
   // 누적 요약 계산 (전체 기간) — 소속별 카드는 ReceivablesTable에서 거래처별 값으로 합산
   const clients = rawClients.map((c) => {
+    // 담당 세무사 (사수가 직원이면 상위 세무사) — 최원석·세이브택스 후불 판정용
+    const au = c.assignedUser;
+    const accountantName = au ? (au.role === "employee" && au.manager ? au.manager.name : au.name) : null;
+    const wt = { withdrawalDay: c.withdrawalDay, billingTiming: c.billingTiming, cmsAffiliation: c.cmsAffiliation, affiliation: c.affiliation, accountantName };
     // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
-    const billableEnd = lastBillableMonth(c);
+    const billableEnd = lastBillableMonth(wt);
     // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 청구 가능월까지.
     const isTerminated = c.contractStatus !== "active";
     const endMonth = isTerminated && c.terminationMonth
@@ -112,11 +116,11 @@ export default async function ReceivablesPage({
       cumulativeUnpaid: unpaid,
       contractStatus: c.contractStatus,
       terminationMonth: isTerminated ? c.terminationMonth : null,
-      withdrawalDay: effectiveWithdrawalDay(c),
-      billing: effectiveBillingTiming(c),
+      withdrawalDay: effectiveWithdrawalDay(wt),
+      billing: effectiveBillingTiming(wt),
       isDefaultDay: !c.withdrawalDay,
       billableEndMonth: billableEnd,
-      dueDay: dueDayOfMonth(c, currentYM),
+      dueDay: dueDayOfMonth(wt, currentYM),
     };
   });
 

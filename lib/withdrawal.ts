@@ -17,17 +17,20 @@ export const DEFAULT_WITHDRAWAL_DAY: Record<string, number> = {
 /**
  * 수납방식 — 출금되는 돈이 몇 월분이냐.
  * same    = 당월수납: 8/25 출금 = 8월분 (예강·태호)
- * arrears = 후불수납: 8/5 출금 = 7월분 (세이브택스)
+ * arrears = 후불수납: 8/5 출금 = 7월분 (최원석·세이브택스만)
  */
 export type BillingTiming = "same" | "arrears";
 
 export const DEFAULT_BILLING_TIMING: Record<string, BillingTiming> = {
-  세이브택스: "arrears",
+  세이브택스: "same",
   세무회계태호: "same",
   예강세무회계: "same",
   세무회계세웅: "same",
   도율세무회계: "same",
 };
+
+/** 후불 예외 — 담당 세무사가 최원석인 세이브택스 거래처만 후불수납 */
+export const ARREARS_ACCOUNTANT = "최원석";
 
 export const FALLBACK_BILLING_TIMING: BillingTiming = "same";
 
@@ -39,13 +42,16 @@ export type WithdrawalTarget = {
   billingTiming?: string | null;
   cmsAffiliation?: string | null;
   affiliation?: string | null;
+  accountantName?: string | null; // 담당 세무사 (사수가 직원이면 상위 세무사)
 };
 
 /** 거래처에 실제 적용되는 수납방식 (개별 지정 > CMS 청구처 기본 > 소속 기본 > 당월) */
 export function effectiveBillingTiming(c: WithdrawalTarget): BillingTiming {
   if (c.billingTiming === "same" || c.billingTiming === "arrears") return c.billingTiming;
-  if (c.cmsAffiliation && DEFAULT_BILLING_TIMING[c.cmsAffiliation]) return DEFAULT_BILLING_TIMING[c.cmsAffiliation];
-  if (c.affiliation && DEFAULT_BILLING_TIMING[c.affiliation]) return DEFAULT_BILLING_TIMING[c.affiliation];
+  // 후불은 '최원석 세무사 + 세이브택스' 조합뿐. 나머지는 전부 당월수납.
+  const aff = c.cmsAffiliation || c.affiliation;
+  if (aff === "세이브택스" && c.accountantName === ARREARS_ACCOUNTANT) return "arrears";
+  if (aff && DEFAULT_BILLING_TIMING[aff]) return DEFAULT_BILLING_TIMING[aff];
   return FALLBACK_BILLING_TIMING;
 }
 

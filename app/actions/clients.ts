@@ -257,7 +257,10 @@ export async function updateClientPaymentMethod(id: number, method: string) {
 export async function getClientById(id: number) {
   const session = await requireAuth();
   const [client, allUsers, currentUser] = await Promise.all([
-    prisma.client.findUnique({ where: { id, isDeleted: false } }),
+    prisma.client.findUnique({
+      where: { id, isDeleted: false },
+      include: { assignedUser: { select: { name: true, role: true, manager: { select: { name: true } } } } },
+    }),
     prisma.user.findMany({
       where: { isActive: true },
       select: { id: true, name: true, role: true, managerId: true },

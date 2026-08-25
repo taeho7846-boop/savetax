@@ -86,6 +86,7 @@ interface Props {
     firstWithdrawalMonth: string | null;
     withdrawalDay?: number | null;
     billingTiming?: string | null;
+    assignedUser?: { name: string; role: string; manager?: { name: string } | null } | null;
     bankName: string | null;
     bankAccount: string | null;
     openDate?: string | null;
@@ -118,7 +119,9 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
   const [, startTransition] = useTransition();
   // 출금일 미설정 시 적용되는 소속 기본값 (세이브택스 5일 / 세무회계태호 25일)
   const defaultDay = effectiveWithdrawalDay({ cmsAffiliation: client.cmsAffiliation, affiliation: client.affiliation });
-  const defaultTiming = effectiveBillingTiming({ cmsAffiliation: client.cmsAffiliation, affiliation: client.affiliation });
+  const auForTiming = client.assignedUser;
+  const accountantName = auForTiming ? (auForTiming.role === "employee" && auForTiming.manager ? auForTiming.manager.name : auForTiming.name) : null;
+  const defaultTiming = effectiveBillingTiming({ cmsAffiliation: client.cmsAffiliation, affiliation: client.affiliation, accountantName });
 
   function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key !== "Enter") return;
@@ -518,7 +521,7 @@ export function EditClientForm({ action, client, users, currentTaxTypes, current
           <div>
             <label
               className="block text-sm font-medium text-[#191F28] mb-1"
-              title="출금되는 돈이 몇 월분이냐. 당월수납: 8/25 출금=8월분 (예강·태호) · 후불수납: 8/5 출금=7월분 (세이브택스). 미수로 잡히는 시점이 달라집니다."
+              title="출금되는 돈이 몇 월분이냐. 당월수납: 8/25 출금=8월분 · 후불수납: 8/5 출금=7월분 (최원석·세이브택스만). 미수로 잡히는 시점이 달라집니다."
             >
               수납방식
             </label>

@@ -70,8 +70,14 @@ export default async function SavetaxReceivablesPage({
   });
 
   const clients = rawClients.map((c) => {
+    // 담당 세무사: 담당자가 직원이면 상위 세무사(매니저) 이름, 아니면 본인 이름
+    const au = c.assignedUser;
+    const accountantName = au
+      ? (au.role === "employee" && au.manager ? au.manager.name : au.name)
+      : "미배정";
+    const wt = { withdrawalDay: c.withdrawalDay, billingTiming: c.billingTiming, cmsAffiliation: c.cmsAffiliation, affiliation: c.affiliation, accountantName };
     // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
-    const billableEnd = lastBillableMonth(c);
+    const billableEnd = lastBillableMonth(wt);
     // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 청구 가능월까지.
     const isTerminated = c.contractStatus !== "active";
     const endMonth = isTerminated && c.terminationMonth
@@ -91,12 +97,6 @@ export default async function SavetaxReceivablesPage({
     const yearRecords: Record<string, string> = {};
     months12.forEach((m) => { if (allRecords[m]) yearRecords[m] = allRecords[m]; });
 
-    // 담당 세무사: 담당자가 직원이면 상위 세무사(매니저) 이름, 아니면 본인 이름
-    const au = c.assignedUser;
-    const accountantName = au
-      ? (au.role === "employee" && au.manager ? au.manager.name : au.name)
-      : "미배정";
-
     return {
       id: c.id,
       name: c.name,
@@ -108,8 +108,8 @@ export default async function SavetaxReceivablesPage({
       contractStatus: c.contractStatus,
       terminationMonth: isTerminated ? c.terminationMonth : null,
       billableEndMonth: billableEnd,
-      dueDay: dueDayOfMonth(c, currentYM),
-      billing: effectiveBillingTiming(c),
+      dueDay: dueDayOfMonth(wt, currentYM),
+      billing: effectiveBillingTiming(wt),
       contacts: c.collectionContacts.map((ct) => ({
         id: ct.id,
         contactedAt: ct.contactedAt.toISOString(),
