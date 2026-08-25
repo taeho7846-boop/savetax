@@ -87,6 +87,20 @@ export function monthsBetween(from: string, to: string): string[] {
 /** 장기미수 기준 — 밀린 달이 2개월치 이상이면 세무사 관리 대상 */
 export const LONG_TERM_UNPAID_THRESHOLD = 2;
 
-export function isLongTermUnpaid(unpaidMonthCount: number): boolean {
-  return unpaidMonthCount >= LONG_TERM_UNPAID_THRESHOLD;
+/** 미수 구간: 당월(직원) / 전월(직원) / 장기(세무사) */
+export type UnpaidBucket = "current" | "prev" | "long";
+
+/**
+ * 미납 건수 우선 분류.
+ * - 2건 이상이면 무조건 장기미수
+ * - 1건이면 그 달이 당월/전월인지로 나누고, 그보다 오래 묵었으면 장기미수
+ */
+export function unpaidBucket(unpaidMonths: string[], now: Date = kstNow()): UnpaidBucket {
+  if (unpaidMonths.length >= LONG_TERM_UNPAID_THRESHOLD) return "long";
+  const ym = unpaidMonths[0];
+  if (!ym) return "current"; // 미납 없는 거래처는 호출 전에 걸러진다
+  const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  if (ym === currentYM) return "current";
+  if (ym === prevMonth(currentYM)) return "prev";
+  return "long";
 }

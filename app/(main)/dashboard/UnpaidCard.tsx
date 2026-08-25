@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
+type Bucket = "current" | "prev" | "long";
+
 type UnpaidClient = {
   id: number;
   name: string;
@@ -16,28 +18,40 @@ type UnpaidClient = {
   cmsStatus: string;
   assignedUserName: string | null;
   dueDay: number;
-  isLongTerm: boolean;
+  bucket: Bucket;
 };
 
-type Tab = "current" | "long";
+/** 구간별 색상 — 당월(경고 약) → 전월(경고 강) → 장기(위험) */
+const TONE: Record<Bucket, { accent: string; row: string; badge: string }> = {
+  current: { accent: "#D97706", row: "bg-white/60 hover:bg-white/80", badge: "bg-[#FEF3C7] text-[#92400E]" },
+  prev: { accent: "#EA580C", row: "bg-orange-50/60 hover:bg-orange-50", badge: "bg-[#FFEDD5] text-[#C2410C]" },
+  long: { accent: "#DC2626", row: "bg-rose-50/70 hover:bg-rose-50", badge: "bg-[#FEE2E2] text-[#B91C1C]" },
+};
 
 export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
   const active = clients.filter((c) => !c.postponedUntil);
-  const longTerm = active.filter((c) => c.isLongTerm);
-  const current = active.filter((c) => !c.isLongTerm);
+  const groups: Record<Bucket, UnpaidClient[]> = {
+    current: active.filter((c) => c.bucket === "current"),
+    prev: active.filter((c) => c.bucket === "prev"),
+    long: active.filter((c) => c.bucket === "long"),
+  };
 
-  // 장기미수가 있으면 그쪽을 먼저 보여준다 (세무사가 직접 관리해야 하는 건)
-  const [tab, setTab] = useState<Tab>(longTerm.length > 0 ? "long" : "current");
+  const TABS: { key: Bucket; label: string; hint: string }[] = [
+    { key: "current", label: "당월미수", hint: "직원 관리 — 이번 달분만 밀린 거래처" },
+    { key: "prev", label: "전월미수", hint: "직원 관리 — 지난 달분만 밀린 거래처" },
+    { key: "long", label: "장기미수", hint: "세무사 관리 — 2개월치 이상 밀렸거나 오래 묵은 거래처" },
+  ];
 
-  const rows = tab === "long" ? longTerm : current;
+  // 급한 구간부터 열어준다 (장기 → 전월 → 당월)
+  const [tab, setTab] = useState<Bucket>(
+    groups.long.length > 0 ? "long" : groups.prev.length > 0 ? "prev" : "current"
+  );
+
+  const rows = groups[tab];
+  const tone = TONE[tab];
   const totalAmount = rows.reduce((s, c) => s + c.totalUnpaid, 0);
   const display = rows.slice(0, 16);
   const remaining = rows.length - display.length;
-
-  const TABS: { key: Tab; label: string; count: number; hint: string; accent: string }[] = [
-    { key: "current", label: "당월미수", count: current.length, hint: "직원 관리 — 1개월치 밀린 거래처", accent: "#D97706" },
-    { key: "long", label: "장기미수", count: longTerm.length, hint: "세무사 관리 — 2개월치 이상 밀린 거래처", accent: "#DC2626" },
-  ];
 
   return (
     <section className="glass rounded-3xl p-6">
@@ -45,10 +59,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
         <div className="flex items-center gap-3">
           <h2 className="text-[18px] font-bold tracking-tight text-[#191F28]">미수납</h2>
           {totalAmount > 0 && (
-            <span
-              className="text-[13px] font-bold tabular-nums"
-              style={{ color: tab === "long" ? "#DC2626" : "#D97706" }}
-            >
+            <span className="text-[13px] font-bold tabular-nums" style={{ color: tone.accent }}>
               {totalAmount.toLocaleString()}원
             </span>
           )}
@@ -58,10 +69,11 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
         </Link>
       </div>
 
-      {/* 당월 / 장기 탭 */}
-      <div className="flex gap-1.5 mb-4">
+      {/* 당월 / 전월 / 장기 탭 */}
+      <div className="flex gap-1.5 mb-4 flex-wrap">
         {TABS.map((t) => {
           const on = tab === t.key;
+          const count = groups[t.key].length;
           return (
             <button
               key={t.key}
@@ -70,7 +82,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
               className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-1.5 text-[12.5px] font-bold transition ${
                 on ? "text-white" : "bg-white/60 text-[#6B7684] hover:bg-white/80"
               }`}
-              style={on ? { background: t.accent } : undefined}
+              style={on ? { background: TONE[t.key].accent } : undefined}
             >
               {t.label}
               <span
@@ -78,7 +90,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
                   on ? "bg-white/25" : "bg-[#F2F4F6] text-[#8B95A1]"
                 }`}
               >
-                {t.count}
+                {count}
               </span>
             </button>
           );
@@ -88,7 +100,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
       {rows.length === 0 ? (
         <div className="py-10 text-center">
           <div className="text-[14px] text-[#4E5968] font-[500]">
-            {tab === "long" ? "장기미수 거래처가 없습니다" : "당월미수 거래처가 없습니다"}
+            {TABS.find((t) => t.key === tab)?.label} 거래처가 없습니다
           </div>
           <div className="text-[12px] text-[#8B95A1] mt-1">깔끔하네요</div>
         </div>
@@ -99,19 +111,15 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
               <Link
                 key={client.id}
                 href="/receivables"
-                className={`rounded-2xl p-3 transition-colors block ${
-                  client.isLongTerm
-                    ? "bg-rose-50/70 hover:bg-rose-50"
-                    : "bg-white/60 hover:bg-white/80"
-                }`}
+                className={`rounded-2xl p-3 transition-colors block ${tone.row}`}
               >
                 <div className="flex items-start justify-between gap-1.5 mb-1">
                   <div className="text-[13px] font-semibold text-[#191F28] truncate">
                     {client.name}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {client.isLongTerm && (
-                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#B91C1C]">
+                    {client.unpaidMonths.length > 1 && (
+                      <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ${tone.badge}`}>
                         {client.unpaidMonths.length}개월
                       </span>
                     )}
@@ -122,10 +130,7 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
                     )}
                   </div>
                 </div>
-                <div
-                  className="text-[14px] font-bold tabular-nums"
-                  style={{ color: client.isLongTerm ? "#DC2626" : "#D97706" }}
-                >
+                <div className="text-[14px] font-bold tabular-nums" style={{ color: tone.accent }}>
                   {client.totalUnpaid.toLocaleString()}원
                 </div>
                 <div className="text-[10.5px] text-[#6B7684] mt-0.5 truncate">

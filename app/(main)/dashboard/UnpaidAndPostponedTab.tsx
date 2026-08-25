@@ -17,7 +17,7 @@ type UnpaidClient = {
   cmsStatus: string;
   assignedUserName: string | null;
   dueDay: number;
-  isLongTerm: boolean;
+  bucket: "current" | "prev" | "long";
 };
 
 type PostponedItem = {
