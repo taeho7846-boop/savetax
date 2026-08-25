@@ -14,6 +14,7 @@ import {
   bulkImportAllClients,
   deleteIdCard,
   moveCommissionStage,
+  setLaborOfficeManaged,
 } from "@/app/actions/commission";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 
@@ -34,6 +35,7 @@ type CommissionData = {
     ceoName: string | null;
     phone: string | null;
     laborTypes?: string | null;
+    laborOfficeManaged?: boolean;
     assignedUser?: { name: string } | null;
   };
   hasIdCard: boolean;
@@ -79,7 +81,8 @@ function getStage(c: CommissionData) {
   if (!c.wihagoDone)
     return { label: "위하고 대기", cls: "bg-violet-100 text-violet-700" };
   const hasWage = (c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득");
-  if (hasWage && (!c.nationalPensionDone || !c.healthInsuranceDone))
+  // 노무사사무실이 4대보험을 관리하는 거래처는 EDI 체크 불필요
+  if (hasWage && !c.client.laborOfficeManaged && (!c.nationalPensionDone || !c.healthInsuranceDone))
     return { label: "EDI 대기", cls: "bg-[#FEF3C7] text-[#92400E]" };
   return {
     label: "완료처리 필요",
@@ -176,6 +179,14 @@ export default function CommissionBoard({
   ) {
     setLoadingId(id);
     await toggleField(id, field, value);
+    router.refresh();
+    setLoadingId(null);
+  }
+
+  // 노무사 관리 토글 — Client 저장이라 clientId 기준
+  async function doToggleLaborOffice(commissionRowId: number, clientId: number, value: boolean) {
+    setLoadingId(commissionRowId);
+    await setLaborOfficeManaged(clientId, value);
     router.refresh();
     setLoadingId(null);
   }
@@ -838,24 +849,40 @@ export default function CommissionBoard({
                     <td className="px-4 py-3 text-center">
                       {(c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득") ? (
                         <div className="flex flex-col gap-1.5 items-center">
-                          <Pill
-                            checked={c.nationalPensionDone}
-                            label="국민연금"
-                            onClick={() => doToggle(c.id, "nationalPensionDone", !c.nationalPensionDone)}
-                            disabled={loading}
-                          />
-                          {c.nationalPensionAt && (
-                            <div className="text-xs text-[#8B95A1]">{fmtDate(c.nationalPensionAt)}</div>
+                          {!c.client.laborOfficeManaged && (
+                            <>
+                              <Pill
+                                checked={c.nationalPensionDone}
+                                label="국민연금"
+                                onClick={() => doToggle(c.id, "nationalPensionDone", !c.nationalPensionDone)}
+                                disabled={loading}
+                              />
+                              {c.nationalPensionAt && (
+                                <div className="text-xs text-[#8B95A1]">{fmtDate(c.nationalPensionAt)}</div>
+                              )}
+                              <Pill
+                                checked={c.healthInsuranceDone}
+                                label="건강보험"
+                                onClick={() => doToggle(c.id, "healthInsuranceDone", !c.healthInsuranceDone)}
+                                disabled={loading}
+                              />
+                              {c.healthInsuranceAt && (
+                                <div className="text-xs text-[#8B95A1]">{fmtDate(c.healthInsuranceAt)}</div>
+                              )}
+                            </>
                           )}
-                          <Pill
-                            checked={c.healthInsuranceDone}
-                            label="건강보험"
-                            onClick={() => doToggle(c.id, "healthInsuranceDone", !c.healthInsuranceDone)}
+                          <button
+                            onClick={() => doToggleLaborOffice(c.id, c.client.id, !c.client.laborOfficeManaged)}
                             disabled={loading}
-                          />
-                          {c.healthInsuranceAt && (
-                            <div className="text-xs text-[#8B95A1]">{fmtDate(c.healthInsuranceAt)}</div>
-                          )}
+                            title="노무사사무실이 4대보험을 관리하는 거래처 — 켜면 EDI 체크 없이 다음 단계로 넘어갑니다"
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+                              c.client.laborOfficeManaged
+                                ? "bg-[#EDE9FE] text-[#6D28D9] border border-[#DDD6FE]"
+                                : "bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]"
+                            }`}
+                          >
+                            {c.client.laborOfficeManaged ? "노무사 관리 ✓" : "노무사"}
+                          </button>
                         </div>
                       ) : (
                         <span className="text-xs text-[#B0B8C1]">-</span>
@@ -1027,9 +1054,19 @@ export default function CommissionBoard({
                             </div>
                           )}
                           {stage.key === "EDI 대기" && hasWage && (
-                            <div className="mt-2 grid grid-cols-2 gap-1">
-                              <Pill checked={c.nationalPensionDone} label="국민연금" onClick={() => doToggle(c.id, "nationalPensionDone", !c.nationalPensionDone)} disabled={loadingId === c.id} />
-                              <Pill checked={c.healthInsuranceDone} label="건강보험" onClick={() => doToggle(c.id, "healthInsuranceDone", !c.healthInsuranceDone)} disabled={loadingId === c.id} />
+                            <div className="mt-2 flex flex-col gap-1">
+                              <div className="grid grid-cols-2 gap-1">
+                                <Pill checked={c.nationalPensionDone} label="국민연금" onClick={() => doToggle(c.id, "nationalPensionDone", !c.nationalPensionDone)} disabled={loadingId === c.id} />
+                                <Pill checked={c.healthInsuranceDone} label="건강보험" onClick={() => doToggle(c.id, "healthInsuranceDone", !c.healthInsuranceDone)} disabled={loadingId === c.id} />
+                              </div>
+                              <button
+                                onClick={() => doToggleLaborOffice(c.id, c.client.id, true)}
+                                disabled={loadingId === c.id}
+                                title="노무사사무실이 4대보험을 관리 — EDI 체크 없이 다음 단계로"
+                                className="w-full text-[10.5px] py-1 rounded-lg bg-[#EDE9FE] text-[#6D28D9] font-bold hover:bg-[#DDD6FE]"
+                              >
+                                노무사 관리 (건너뛰기)
+                              </button>
                             </div>
                           )}
                           {stage.key === "완료처리 필요" && (
@@ -1121,7 +1158,9 @@ export default function CommissionBoard({
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        {(c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득") ? (
+                        {c.client.laborOfficeManaged ? (
+                          <span className="text-xs font-medium text-[#6D28D9]">노무사 관리</span>
+                        ) : (c.client.laborTypes ?? "").split(",").map(t => t.trim()).includes("근로소득") ? (
                           <div className="flex flex-col gap-0.5 items-center text-xs">
                             <span className={c.nationalPensionDone ? "text-[#6B7684]" : "text-[#D97706]"}>
                               국민연금 {c.nationalPensionDone ? "✓" : "미완료"}

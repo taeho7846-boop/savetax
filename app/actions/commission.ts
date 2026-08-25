@@ -33,7 +33,7 @@ export async function getCommissions() {
       completedAt: null,
     },
     include: {
-      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, assignedUser: { select: { name: true } } } },
+      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, laborOfficeManaged: true, assignedUser: { select: { name: true } } } },
       happyCalls: { orderBy: { calledAt: "asc" } },
     },
     orderBy: { createdAt: "desc" },
@@ -53,7 +53,7 @@ export async function getCompletedCommissions() {
       completedAt: { not: null },
     },
     include: {
-      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, assignedUser: { select: { name: true } } } },
+      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, laborOfficeManaged: true, assignedUser: { select: { name: true } } } },
       happyCalls: { orderBy: { calledAt: "asc" } },
     },
     orderBy: { completedAt: "desc" },
@@ -179,6 +179,13 @@ export async function toggleField(
     where: { id: commissionId },
     data: { [field]: value, ...extra },
   });
+  revalidatePath("/commission");
+}
+
+/** 노무사사무실 관리 여부 — 노무사가 4대보험을 관리하는 거래처는 EDI 체크를 건너뛴다 */
+export async function setLaborOfficeManaged(clientId: number, value: boolean) {
+  await requireAuth();
+  await prisma.client.update({ where: { id: clientId }, data: { laborOfficeManaged: value } });
   revalidatePath("/commission");
 }
 

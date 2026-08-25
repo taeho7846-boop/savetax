@@ -65,6 +65,7 @@ model Client {
   vatTypeDetail             String?  // 홈택스 신고리스트 '과세유형 상세' (부가세 페이지 업로드로 갱신)
   taxTypes                  String?
   laborTypes                String?
+  laborOfficeManaged        Boolean                    @default(false) // 4대보험을 노무사사무실이 관리 → 신규수임 EDI 체크 생략
   residentNumber            String?
   hometaxId                 String?
   hometaxPw                 String?
