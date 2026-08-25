@@ -10,6 +10,7 @@ export const DEFAULT_WITHDRAWAL_DAY: Record<string, number> = {
   세이브택스: 5,
   세무회계태호: 25,
   예강세무회계: 25,
+  세무회계세웅: 25,
 };
 
 /**
@@ -23,6 +24,7 @@ export const DEFAULT_BILLING_TIMING: Record<string, BillingTiming> = {
   세이브택스: "arrears",
   세무회계태호: "same",
   예강세무회계: "same",
+  세무회계세웅: "same",
 };
 
 export const FALLBACK_BILLING_TIMING: BillingTiming = "same";
