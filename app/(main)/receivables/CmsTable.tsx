@@ -1211,19 +1211,23 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 <td className="px-4 py-3 text-center text-xs">{client.affiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.affiliation ? <span className="text-[#4E5968]">{client.affiliation}</span> : <span className="text-[#B0B8C1]">-</span>}</td>
                 <td className="px-4 py-3 text-center text-xs">{client.cmsAffiliation === "세이브택스" ? <span className="text-[#3182F6] font-bold">세이브택스</span> : client.cmsAffiliation ? <span className="text-[#4E5968]">{client.cmsAffiliation}</span> : <span className="text-[#B0B8C1]">-</span>}</td>
                 <td className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => handleCycle(client.id)}
-                    disabled={isPending}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      client.cmsStatus === "done"
-                        ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
-                        : client.cmsStatus === "pending"
-                        ? "bg-[#FEF3C7] text-[#B45309] hover:bg-[#FDE68A]"
-                        : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
-                    }`}
-                  >
-                    {client.cmsStatus === "done" ? "등록" : client.cmsStatus === "pending" ? "등록요청중" : "미등록"}
-                  </button>
+                  {usesCms ? (
+                    <button
+                      onClick={() => handleCycle(client.id)}
+                      disabled={isPending}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        client.cmsStatus === "done"
+                          ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
+                          : client.cmsStatus === "pending"
+                          ? "bg-[#FEF3C7] text-[#B45309] hover:bg-[#FDE68A]"
+                          : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
+                      }`}
+                    >
+                      {client.cmsStatus === "done" ? "등록" : client.cmsStatus === "pending" ? "등록요청중" : "미등록"}
+                    </button>
+                  ) : (
+                    <span className="text-[#B0B8C1]" title="카드·직접입금 거래처는 CMS 등록 대상이 아닙니다">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {(() => {
