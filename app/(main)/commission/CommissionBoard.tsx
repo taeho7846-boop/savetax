@@ -688,7 +688,7 @@ export default function CommissionBoard({
                         />
                         <Pill
                           checked={c.hasHometaxCredentials}
-                          label="홈택스 정보"
+                          label="홈택스ID/PW"
                           onClick={() =>
                             doToggle(
                               c.id,
@@ -718,7 +718,7 @@ export default function CommissionBoard({
                         />
                         <Pill
                           checked={c.semoReportDone}
-                          label="세모리포트"
+                          label="세모리포트 등록"
                           onClick={() =>
                             doToggle(c.id, "semoReportDone", !c.semoReportDone)
                           }
@@ -1029,13 +1029,13 @@ export default function CommissionBoard({
                           {stage.key === "서류수집 중" && (
                             <div className="mt-2 grid grid-cols-2 gap-1">
                               <Pill checked={c.hasIdCard} label="신분증" onClick={() => doToggle(c.id, "hasIdCard", !c.hasIdCard)} disabled={loadingId === c.id} />
-                              <Pill checked={c.hasHometaxCredentials} label="홈택스" onClick={() => doToggle(c.id, "hasHometaxCredentials", !c.hasHometaxCredentials)} disabled={loadingId === c.id} />
+                              <Pill checked={c.hasHometaxCredentials} label="홈택스ID/PW" onClick={() => doToggle(c.id, "hasHometaxCredentials", !c.hasHometaxCredentials)} disabled={loadingId === c.id} />
                             </div>
                           )}
                           {stage.key === "수임 대기" && (
                             <div className="mt-2 grid grid-cols-2 gap-1">
-                              <Pill checked={c.hometaxCommissionDone} label="홈택스" onClick={() => doToggle(c.id, "hometaxCommissionDone", !c.hometaxCommissionDone)} disabled={loadingId === c.id} />
-                              <Pill checked={c.semoReportDone} label="세모리포트" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
+                              <Pill checked={c.hometaxCommissionDone} label="홈택스 수임" onClick={() => doToggle(c.id, "hometaxCommissionDone", !c.hometaxCommissionDone)} disabled={loadingId === c.id} />
+                              <Pill checked={c.semoReportDone} label="세모리포트 등록" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
                             </div>
                           )}
                           {stage.key === "위하고 대기" && (
