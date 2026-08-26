@@ -8,6 +8,8 @@ interface ClientData {
   freeMonths: number | null;
   firstWithdrawalMonth: string | null;
   affiliation: string | null;
+  contractStatus: string;
+  terminationMonth: string | null;
   assignedUserId: number | null;
   assignedUser: { name: string } | null;
 }
@@ -18,13 +20,7 @@ function addMonths(ym: string, months: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export function RevenueChart({
-  clients,
-  currentUserId,
-}: {
-  clients: ClientData[];
-  currentUserId: number;
-}) {
+export function RevenueChart({ clients }: { clients: ClientData[] }) {
   // 2026-01부터 36개월치
   const now = new Date();
   const startYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -42,6 +38,9 @@ export function RevenueChart({
 
     for (const c of clients) {
       if (!c.firstWithdrawalMonth || !c.monthlyFee) continue;
+
+      // 해지 거래처는 해지월(마지막 청구월)까지만 매출 반영 — 미래로 계속 잡히지 않게
+      if (c.contractStatus !== "active" && ym > (c.terminationMonth ?? startYM)) continue;
 
       const fee = c.monthlyFee;
       const freeM = c.freeMonths ?? 0;
@@ -138,6 +137,8 @@ export function RevenueChart({
 
         for (const c of clients) {
           if (!c.firstWithdrawalMonth || !c.monthlyFee) continue;
+          // 해지월이 지난 거래처는 이번 달 귀속 표에서 제외
+          if (c.contractStatus !== "active" && now > (c.terminationMonth ?? now)) continue;
           const fee = c.monthlyFee;
           const freeM = c.freeMonths ?? 0;
           const isSavetax = c.affiliation === "세이브택스";
