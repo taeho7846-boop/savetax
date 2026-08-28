@@ -157,6 +157,7 @@ export async function toggleField(
     | "hasHometaxCredentials"
     | "hometaxCommissionDone"
     | "semoReportDone"
+    | "wememberDone"
     | "wihagoDone"
     | "nationalPensionDone"
     | "healthInsuranceDone"
@@ -169,6 +170,8 @@ export async function toggleField(
     extra.hometaxCommissionAt = value ? new Date() : null;
   if (field === "semoReportDone")
     extra.semoReportAt = value ? new Date() : null;
+  if (field === "wememberDone")
+    extra.wememberAt = value ? new Date() : null;
   if (field === "wihagoDone") extra.wihagoAt = value ? new Date() : null;
   if (field === "nationalPensionDone")
     extra.nationalPensionAt = value ? new Date() : null;
@@ -211,6 +214,8 @@ export async function moveCommissionStage(commissionId: number, stageKey: string
       hometaxCommissionAt: idx >= 3 ? now : null,
       semoReportDone: idx >= 3,
       semoReportAt: idx >= 3 ? now : null,
+      wememberDone: idx >= 3,
+      wememberAt: idx >= 3 ? now : null,
       wihagoDone: idx >= 4,
       wihagoAt: idx >= 4 ? now : null,
       nationalPensionDone: idx >= 5,

@@ -44,6 +44,8 @@ type CommissionData = {
   hometaxCommissionAt: Date | string | null;
   semoReportDone: boolean;
   semoReportAt: Date | string | null;
+  wememberDone: boolean;
+  wememberAt: Date | string | null;
   wihagoType: string | null;
   wihagoDone: boolean;
   wihagoAt: Date | string | null;
@@ -76,7 +78,7 @@ function getStage(c: CommissionData) {
     return { label: "해피콜 대기", cls: "bg-[#F2F4F6] text-[#6B7684]" };
   if (!c.hasIdCard || !c.hasHometaxCredentials)
     return { label: "서류수집 중", cls: "bg-[#FFF4D0] text-[#B08809]" };
-  if (!c.hometaxCommissionDone || !c.semoReportDone)
+  if (!c.hometaxCommissionDone || !c.wememberDone || !c.semoReportDone)
     return { label: "수임 대기", cls: "bg-[#E8F3FF] text-[#1B64DA]" };
   if (!c.wihagoDone)
     return { label: "위하고 대기", cls: "bg-violet-100 text-violet-700" };
@@ -540,7 +542,7 @@ export default function CommissionBoard({
                 서류
               </th>
               <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[120px]">
-                홈택스·세모리포트
+                홈택스·위멤버스·세모리포트
               </th>
               <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
                 위하고
@@ -701,7 +703,7 @@ export default function CommissionBoard({
                       </div>
                     </td>
 
-                    {/* 홈택스·세모리포트 */}
+                    {/* 홈택스·위멤버스·세모리포트 */}
                     <td className="px-4 py-3 text-center">
                       <div className="flex flex-col gap-1.5 items-center">
                         <Pill
@@ -713,6 +715,14 @@ export default function CommissionBoard({
                               "hometaxCommissionDone",
                               !c.hometaxCommissionDone
                             )
+                          }
+                          disabled={loading}
+                        />
+                        <Pill
+                          checked={c.wememberDone}
+                          label="위멤버스"
+                          onClick={() =>
+                            doToggle(c.id, "wememberDone", !c.wememberDone)
                           }
                           disabled={loading}
                         />
@@ -947,7 +957,7 @@ export default function CommissionBoard({
         const STAGES: { key: string; label: string; dot: string }[] = [
           { key: "해피콜 대기",   label: "해피콜 대기",   dot: "bg-[#8B95A1]" },
           { key: "서류수집 중",   label: "서류수집 중",   dot: "bg-[#92400E]" },
-          { key: "수임 대기",     label: "홈택스·세모리포트", dot: "bg-[#3182F6]" },
+          { key: "수임 대기",     label: "홈택스·위멤버스·세모리포트", dot: "bg-[#3182F6]" },
           { key: "위하고 대기",   label: "위하고 등록",   dot: "bg-[#6D28D9]" },
           { key: "EDI 대기",      label: "EDI 대기",      dot: "bg-[#92400E]" },
           { key: "완료처리 필요", label: "완료처리 필요", dot: "bg-[#15803D]" },
@@ -1035,6 +1045,7 @@ export default function CommissionBoard({
                           {stage.key === "수임 대기" && (
                             <div className="mt-2 grid grid-cols-2 gap-1">
                               <Pill checked={c.hometaxCommissionDone} label="홈택스 수임" onClick={() => doToggle(c.id, "hometaxCommissionDone", !c.hometaxCommissionDone)} disabled={loadingId === c.id} />
+                              <Pill checked={c.wememberDone} label="위멤버스" onClick={() => doToggle(c.id, "wememberDone", !c.wememberDone)} disabled={loadingId === c.id} />
                               <Pill checked={c.semoReportDone} label="세모리포트 등록" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
                             </div>
                           )}

@@ -231,6 +231,8 @@ model CommissionProcess {
   hometaxCommissionAt   DateTime?
   semoReportDone        Boolean     @default(false)
   semoReportAt          DateTime?
+  wememberDone          Boolean     @default(false) // 위멤버스 등록
+  wememberAt            DateTime?
   wihagoType            String?
   wihagoDone            Boolean     @default(false)
   wihagoAt              DateTime?
