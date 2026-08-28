@@ -105,17 +105,19 @@ function Pill({
   label,
   onClick,
   disabled,
+  small,
 }: {
   checked: boolean;
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  small?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+      className={`${small ? "px-1.5 py-0.5 text-[10.5px]" : "px-2.5 py-1 text-xs"} rounded-full font-medium transition-colors whitespace-nowrap ${
         checked
           ? "bg-[#3182F6] text-white"
           : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB]"
@@ -541,7 +543,7 @@ export default function CommissionBoard({
               <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
                 서류
               </th>
-              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[120px]">
+              <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[230px]">
                 홈택스·위멤버스·세모리포트
               </th>
               <th className="px-4 py-3 text-center text-xs text-[#6B7684] font-medium min-w-[150px]">
@@ -704,11 +706,12 @@ export default function CommissionBoard({
                     </td>
 
                     {/* 홈택스·위멤버스·세모리포트 */}
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex flex-col gap-1.5 items-center">
+                    <td className="px-3 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <Pill
                           checked={c.hometaxCommissionDone}
                           label="홈택스 수임"
+                          small
                           onClick={() =>
                             doToggle(
                               c.id,
@@ -721,6 +724,7 @@ export default function CommissionBoard({
                         <Pill
                           checked={c.wememberDone}
                           label="위멤버스"
+                          small
                           onClick={() =>
                             doToggle(c.id, "wememberDone", !c.wememberDone)
                           }
@@ -729,6 +733,7 @@ export default function CommissionBoard({
                         <Pill
                           checked={c.semoReportDone}
                           label="세모리포트 등록"
+                          small
                           onClick={() =>
                             doToggle(c.id, "semoReportDone", !c.semoReportDone)
                           }
@@ -1043,10 +1048,10 @@ export default function CommissionBoard({
                             </div>
                           )}
                           {stage.key === "수임 대기" && (
-                            <div className="mt-2 grid grid-cols-2 gap-1">
-                              <Pill checked={c.hometaxCommissionDone} label="홈택스 수임" onClick={() => doToggle(c.id, "hometaxCommissionDone", !c.hometaxCommissionDone)} disabled={loadingId === c.id} />
-                              <Pill checked={c.wememberDone} label="위멤버스" onClick={() => doToggle(c.id, "wememberDone", !c.wememberDone)} disabled={loadingId === c.id} />
-                              <Pill checked={c.semoReportDone} label="세모리포트 등록" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
+                            <div className="mt-2 grid grid-cols-3 gap-1">
+                              <Pill small checked={c.hometaxCommissionDone} label="홈택스" onClick={() => doToggle(c.id, "hometaxCommissionDone", !c.hometaxCommissionDone)} disabled={loadingId === c.id} />
+                              <Pill small checked={c.wememberDone} label="위멤버스" onClick={() => doToggle(c.id, "wememberDone", !c.wememberDone)} disabled={loadingId === c.id} />
+                              <Pill small checked={c.semoReportDone} label="세모리포트" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
                             </div>
                           )}
                           {stage.key === "위하고 대기" && (
