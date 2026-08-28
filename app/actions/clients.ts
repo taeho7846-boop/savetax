@@ -108,6 +108,7 @@ export async function createClient(formData: FormData) {
       withholdingType: (formData.get("withholdingType") as string) || null,
       affiliation: (formData.get("affiliation") as string) || null,
       cmsAffiliation: (formData.get("cmsAffiliation") as string) || null,
+      paymentMethod: (formData.get("paymentMethod") as string) || "cms",
       notes: (formData.get("notes") as string) || null,
       ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string)),
       accountingProgram: getAccountingProgram(formData),
@@ -115,6 +116,9 @@ export async function createClient(formData: FormData) {
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,
+      subAssignedUserId: formData.get("subAssignedUserId")
+        ? parseInt(formData.get("subAssignedUserId") as string)
+        : null,
     },
   });
 
@@ -417,8 +421,10 @@ export async function createClientInModal(formData: FormData) {
       bizCategory: (formData.get("bizCategory") as string) || null,
       bizItem: (formData.get("bizItem") as string) || null,
       halfYearTax: formData.get("halfYearTax") === "true",
+      withholdingType: (formData.get("withholdingType") as string) || null,
       affiliation: (formData.get("affiliation") as string) || null,
       cmsAffiliation: (formData.get("cmsAffiliation") as string) || null,
+      paymentMethod: (formData.get("paymentMethod") as string) || "cms",
       notes: (formData.get("notes") as string) || null,
       ...(await parseWehagoUrl(formData.get("wehagoPayrollUrl") as string)),
       accountingProgram: getAccountingProgram(formData),
@@ -426,6 +432,9 @@ export async function createClientInModal(formData: FormData) {
       assignedUserId: formData.get("assignedUserId")
         ? parseInt(formData.get("assignedUserId") as string)
         : session.id,
+      subAssignedUserId: formData.get("subAssignedUserId")
+        ? parseInt(formData.get("subAssignedUserId") as string)
+        : null,
     },
   });
 
