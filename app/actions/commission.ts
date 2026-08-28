@@ -33,7 +33,7 @@ export async function getCommissions() {
       completedAt: null,
     },
     include: {
-      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, laborOfficeManaged: true, assignedUser: { select: { name: true } } } },
+      client: { select: { id: true, name: true, ceoName: true, phone: true, taxTypes: true, laborTypes: true, laborOfficeManaged: true, assignedUser: { select: { name: true } } } },
       happyCalls: { orderBy: { calledAt: "asc" } },
     },
     orderBy: { createdAt: "desc" },
@@ -53,7 +53,7 @@ export async function getCompletedCommissions() {
       completedAt: { not: null },
     },
     include: {
-      client: { select: { id: true, name: true, ceoName: true, phone: true, laborTypes: true, laborOfficeManaged: true, assignedUser: { select: { name: true } } } },
+      client: { select: { id: true, name: true, ceoName: true, phone: true, taxTypes: true, laborTypes: true, laborOfficeManaged: true, assignedUser: { select: { name: true } } } },
       happyCalls: { orderBy: { calledAt: "asc" } },
     },
     orderBy: { completedAt: "desc" },

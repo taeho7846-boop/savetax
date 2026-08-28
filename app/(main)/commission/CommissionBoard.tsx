@@ -34,6 +34,7 @@ type CommissionData = {
     name: string;
     ceoName: string | null;
     phone: string | null;
+    taxTypes?: string | null;
     laborTypes?: string | null;
     laborOfficeManaged?: boolean;
     assignedUser?: { name: string } | null;
@@ -68,6 +69,12 @@ type AvailableClient = {
   ceoName: string | null;
 };
 
+/** 신고대리 전용 거래처 — 세모리포트 등록이 필요 없다 (기장대리 겸업이면 필요) */
+function isReportOnlyClient(c: CommissionData) {
+  const t = (c.client.taxTypes ?? "").split(",").map((x) => x.trim());
+  return t.includes("신고대리") && !t.includes("기장대리");
+}
+
 function getStage(c: CommissionData) {
   if (c.completedAt)
     return { label: "완료", cls: "bg-[#E7F7EE] text-[#15803D]" };
@@ -78,7 +85,7 @@ function getStage(c: CommissionData) {
     return { label: "해피콜 대기", cls: "bg-[#F2F4F6] text-[#6B7684]" };
   if (!c.hasIdCard || !c.hasHometaxCredentials)
     return { label: "서류수집 중", cls: "bg-[#FFF4D0] text-[#B08809]" };
-  if (!c.hometaxCommissionDone || !c.wememberDone || !c.semoReportDone)
+  if (!c.hometaxCommissionDone || !c.wememberDone || (!isReportOnlyClient(c) && !c.semoReportDone))
     return { label: "수임 대기", cls: "bg-[#E8F3FF] text-[#1B64DA]" };
   if (!c.wihagoDone)
     return { label: "위하고 대기", cls: "bg-violet-100 text-violet-700" };
@@ -730,15 +737,17 @@ export default function CommissionBoard({
                           }
                           disabled={loading}
                         />
-                        <Pill
-                          checked={c.semoReportDone}
-                          label="세모리포트 등록"
-                          small
-                          onClick={() =>
-                            doToggle(c.id, "semoReportDone", !c.semoReportDone)
-                          }
-                          disabled={loading}
-                        />
+                        {!isReportOnlyClient(c) && (
+                          <Pill
+                            checked={c.semoReportDone}
+                            label="세모리포트 등록"
+                            small
+                            onClick={() =>
+                              doToggle(c.id, "semoReportDone", !c.semoReportDone)
+                            }
+                            disabled={loading}
+                          />
+                        )}
                       </div>
                     </td>
 
@@ -1048,10 +1057,12 @@ export default function CommissionBoard({
                             </div>
                           )}
                           {stage.key === "수임 대기" && (
-                            <div className="mt-2 grid grid-cols-3 gap-1">
+                            <div className={`mt-2 grid gap-1 ${isReportOnlyClient(c) ? "grid-cols-2" : "grid-cols-3"}`}>
                               <Pill small checked={c.hometaxCommissionDone} label="홈택스" onClick={() => doToggle(c.id, "hometaxCommissionDone", !c.hometaxCommissionDone)} disabled={loadingId === c.id} />
                               <Pill small checked={c.wememberDone} label="위멤버스" onClick={() => doToggle(c.id, "wememberDone", !c.wememberDone)} disabled={loadingId === c.id} />
-                              <Pill small checked={c.semoReportDone} label="세모리포트" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
+                              {!isReportOnlyClient(c) && (
+                                <Pill small checked={c.semoReportDone} label="세모리포트" onClick={() => doToggle(c.id, "semoReportDone", !c.semoReportDone)} disabled={loadingId === c.id} />
+                              )}
                             </div>
                           )}
                           {stage.key === "위하고 대기" && (
