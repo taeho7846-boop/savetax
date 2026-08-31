@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { findFileByName, downloadFile } from "@/lib/google-drive";
+import { access, writeFile, mkdir } from "fs/promises";
+import path from "path";
+import os from "os";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -50,6 +54,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // 로컬(G:)에 파일이 없으면 구글드라이브에서 내려받아 임시 경로로 대체
+    // (운영 서버에는 G:가 없음 — 확장이 운영 서버로 업로드한 엑셀은 드라이브에 있음)
+    for (const u of uploads) {
+      try {
+        await access(u.filePath);
+      } catch {
+        const fileName = u.filePath.split("\\").pop()!;
+        const driveFile = await findFileByName(fileName);
+        if (!driveFile) {
+          return NextResponse.json({ success: false, message: `파일을 찾을 수 없습니다: ${fileName}` }, { status: 404 });
+        }
+        const buf = await downloadFile(driveFile.id);
+        const tmpDir = path.join(os.tmpdir(), "savetax-wemembers");
+        await mkdir(tmpDir, { recursive: true });
+        const tmpPath = path.join(tmpDir, fileName);
+        await writeFile(tmpPath, buf);
+        u.filePath = tmpPath;
+      }
+    }
+
     const { uploadMultiToWemembers } = await import("@/lib/wemembers");
 
     const result = await uploadMultiToWemembers(

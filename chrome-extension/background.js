@@ -1021,21 +1021,35 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return;
         }
 
-        // 4. 서버 API로 전송
+        // 4. 서버 API로 전송 — 로컬 서버 먼저, 안 되면 운영 서버(app.savetaxnh.com)로 폴백
+        //    (드라이브 업로드는 서버가 드라이브 API로 처리하므로 어느 쪽이든 결과 동일)
         const monthPadded = String(msg.month).padStart(2, "0");
-        const uploadRes = await fetch("http://localhost:3000/api/automation/upload-business-income", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientName: msg.clientName,
-            year: msg.year,
-            month: monthPadded,
-            fileBase64: base64,
-            fileName: `${msg.year}년 ${monthPadded}월 사업소득조회_${msg.clientName}.xlsx`,
-          }),
+        const uploadBody = JSON.stringify({
+          clientName: msg.clientName,
+          year: msg.year,
+          month: monthPadded,
+          fileBase64: base64,
+          fileName: `${msg.year}년 ${monthPadded}월 사업소득조회_${msg.clientName}.xlsx`,
         });
-        const result = await uploadRes.json();
-        sendResponse(result);
+        let result = null;
+        for (const base of ["http://localhost:3000", "https://app.savetaxnh.com"]) {
+          try {
+            const uploadRes = await fetch(base + "/api/automation/upload-business-income", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: uploadBody,
+            });
+            // 로컬 서버가 켜져 있어도 로그인이 안 돼 있으면(401) 운영 서버로 넘어감
+            if (uploadRes.status === 401) { console.log("SaveTax BG:", base, "401 → 다음 서버 시도"); continue; }
+            result = await uploadRes.json();
+            console.log("SaveTax BG: 업로드 응답 (" + base + "):", result);
+            break;
+          } catch (e) {
+            console.log("SaveTax BG:", base, "연결 실패 → 다음 서버 시도:", e.message);
+          }
+        }
+        sendResponse(result || { ok: false, error: "로컬/운영 서버 모두 연결에 실패했습니다" });
       } catch (e) {
         console.error("SaveTax BG: 업로드 실패:", e);
         sendResponse({ ok: false, error: e.message });

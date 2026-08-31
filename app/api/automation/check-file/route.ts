@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { access } from "fs/promises";
+import { findFileByName } from "@/lib/google-drive";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -25,6 +26,13 @@ export async function POST(req: NextRequest) {
     await access(filePath);
     return NextResponse.json({ exists: true, path: filePath });
   } catch {
+    // 로컬(G:)에 없으면 구글드라이브에서 파일명으로 검색
+    // (운영 서버에는 G: 드라이브가 없음 — 확장이 운영 서버로 업로드한 파일은 드라이브에 있음)
+    try {
+      const fileName = filePath.split("\\").pop()!;
+      const driveFile = await findFileByName(fileName);
+      if (driveFile) return NextResponse.json({ exists: true, path: filePath, source: "drive" });
+    } catch {}
     return NextResponse.json({ exists: false });
   }
 }
