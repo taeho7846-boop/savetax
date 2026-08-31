@@ -698,6 +698,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                       일용
                                     </button>
                                   )}
+                                  {/* 위하고 바로가기(급여/사업/일용) ↔ 작업 버튼(위멤버스/명세서/대장) 구분선 */}
+                                  {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
+                                    <span className="mx-1 w-px h-3 bg-[#D1D6DB] shrink-0" />
+                                  )}
                                   {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
                                     <button
                                       onClick={async () => {
