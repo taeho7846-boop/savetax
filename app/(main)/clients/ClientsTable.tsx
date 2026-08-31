@@ -73,6 +73,7 @@ type Client = {
   withholdingType: string | null;
   monthlyFee: number | null;
   assignedUser?: { name: string } | null;
+  subAssignedUser?: { name: string } | null;
 };
 
 type SortCol = "bizNumber" | "phone" | "ceoName" | "residentNumber" | "monthlyFee" | "affiliation" | "contractDate" | "myboxLink" | "driveFolderId";
@@ -103,6 +104,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [programFilterOpen, setProgramFilterOpen] = useState(false);
   const [userFilter, setUserFilter] = useState<string[]>([]);
   const [userFilterOpen, setUserFilterOpen] = useState(false);
+  const [subUserFilter, setSubUserFilter] = useState<string[]>([]);
+  const [subUserFilterOpen, setSubUserFilterOpen] = useState(false);
   const [loginStatuses, setLoginStatuses] = useState<Record<number, LoginStatus>>({});
   const [loginErrors, setLoginErrors] = useState<Record<number, string>>({});
   const [vncOpen, setVncOpen] = useState(false);
@@ -121,6 +124,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const affFilterRef = useRef<HTMLDivElement>(null);
   const programFilterRef = useRef<HTMLDivElement>(null);
   const userFilterRef = useRef<HTMLDivElement>(null);
+  const subUserFilterRef = useRef<HTMLDivElement>(null);
 
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
 
@@ -339,6 +343,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       if (userFilterRef.current && !userFilterRef.current.contains(e.target as Node)) {
         setUserFilterOpen(false);
       }
+      if (subUserFilterRef.current && !subUserFilterRef.current.contains(e.target as Node)) {
+        setSubUserFilterOpen(false);
+      }
       if (taxationFilterRef.current && !taxationFilterRef.current.contains(e.target as Node)) {
         setTaxationFilterOpen(false);
       }
@@ -366,6 +373,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   // 소속 옵션 목록 추출
   const affiliationOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
   const userOptions = [...new Set(clients.map(c => c.assignedUser?.name).filter(Boolean))] as string[];
+  const subUserOptions = [...new Set(clients.map(c => c.subAssignedUser?.name).filter(Boolean))] as string[];
   const taxationOptions = [...new Set(clients.map(c => c.taxationType).filter(Boolean))] as string[];
 
   let rows = clients;
@@ -387,6 +395,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   }
   if (userFilter.length > 0) {
     rows = rows.filter((c) => userFilter.includes(c.assignedUser?.name || ""));
+  }
+  if (subUserFilter.length > 0) {
+    rows = rows.filter((c) => subUserFilter.includes(c.subAssignedUser?.name || ""));
   }
 
   // 정렬 적용
@@ -631,7 +642,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       onClick={() => setUserFilterOpen((o) => !o)}
                       className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${userFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
                     >
-                      담당자
+                      사수
                       {userFilter.length > 0 && (
                         <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
                           {userFilter.length}
@@ -662,6 +673,54 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                         {userFilter.length > 0 && (
                           <button
                             onClick={() => setUserFilter([])}
+                            className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]"
+                          >
+                            초기화
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </th>
+              )}
+              {showAssignedUser && (
+                <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
+                  <div className="relative inline-block" ref={subUserFilterRef}>
+                    <button
+                      onClick={() => setSubUserFilterOpen((o) => !o)}
+                      className={`flex items-center gap-1 mx-auto hover:text-[#191F28] ${subUserFilter.length > 0 ? "text-[#191F28] font-bold" : ""}`}
+                    >
+                      부사수
+                      {subUserFilter.length > 0 && (
+                        <span className="bg-[#3182F6] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                          {subUserFilter.length}
+                        </span>
+                      )}
+                      <span className="text-[#8B95A1] text-[10px]">▼</span>
+                    </button>
+                    {subUserFilterOpen && (
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] shadow-lg z-20 p-2 min-w-[120px] max-h-60 overflow-y-auto">
+                        {subUserOptions.length === 0 ? (
+                          <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
+                        ) : (
+                          subUserOptions.map((name) => (
+                            <label
+                              key={name}
+                              className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={subUserFilter.includes(name)}
+                                onChange={() => setSubUserFilter((prev) => prev.includes(name) ? prev.filter((v) => v !== name) : [...prev, name])}
+                                className="accent-[#3182F6]"
+                              />
+                              {name}
+                            </label>
+                          ))
+                        )}
+                        {subUserFilter.length > 0 && (
+                          <button
+                            onClick={() => setSubUserFilter([])}
                             className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]"
                           >
                             초기화
@@ -808,7 +867,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <tbody className="divide-y divide-white/40">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={(readonly ? 11 : 12) + (showTaxationType ? 1 : 0)} className="text-center py-12 text-[#6B7684]">
+                <td colSpan={(readonly ? 11 : 12) + (showTaxationType ? 1 : 0) + (showAssignedUser ? 2 : 0)} className="text-center py-12 text-[#6B7684]">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -856,6 +915,11 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                     {showAssignedUser && (
                       <td className="px-4 py-3 text-center text-[#333D4B] text-xs">
                         {client.assignedUser?.name || <span className="text-[#8B95A1]">-</span>}
+                      </td>
+                    )}
+                    {showAssignedUser && (
+                      <td className="px-4 py-3 text-center text-[#333D4B] text-xs">
+                        {client.subAssignedUser?.name || <span className="text-[#8B95A1]">-</span>}
                       </td>
                     )}
                     {!hide.has("labor") && (

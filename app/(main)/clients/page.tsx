@@ -67,11 +67,21 @@ export default async function ClientsPage({
   const includeAssigned = { assignedUser: { select: { name: true } } };
 
   // 메인 목록·집계는 활성(계약중)만. 해지(계약종료)는 우측 상단 '해지거래처' 버튼에서 조회.
-  const clients = await prisma.client.findMany({
+  const clientsRaw = await prisma.client.findMany({
     where: { ...listWhere, contractStatus: "active" },
     include: includeAssigned,
     orderBy: { name: "asc" },
   });
+
+  // 부사수는 관계가 아니라 ID만 저장돼 있어 이름을 매핑해서 내려준다
+  const allUserNames = await prisma.user.findMany({ select: { id: true, name: true } });
+  const userNameById = new Map(allUserNames.map(u => [u.id, u.name]));
+  const clients = clientsRaw.map(c => ({
+    ...c,
+    subAssignedUser: c.subAssignedUserId != null && userNameById.has(c.subAssignedUserId)
+      ? { name: userNameById.get(c.subAssignedUserId)! }
+      : null,
+  }));
 
   // KPI/카운트는 활성 거래처만 집계 (해지 제외)
   const baseWhere = {
