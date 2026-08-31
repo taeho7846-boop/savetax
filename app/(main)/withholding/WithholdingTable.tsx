@@ -278,9 +278,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     return { ok: true, msg: docWarns.length > 0 ? `완료 (경고: ${docWarns.join(" / ")})` : "완료" };
   }
 
-  // 거래처 드라이브의 1. 원천세/해당월 폴더 열기 (없으면 생성 후 오픈)
+  // 거래처 드라이브의 1. 원천세/해당월 폴더 열기
+  // 로컬 기준경로(savetax-drive-base-path) 설정 시 → 윈도우 탐색기(savetax-app://), 아니면 웹 드라이브
   const [folderOpening, setFolderOpening] = useState<number | null>(null);
-  async function openTaxMonthFolder(clientId: number) {
+  async function openTaxMonthFolder(clientId: number, clientName: string) {
+    const monthLabel = `${year}년 ${String(month).padStart(2, "0")}월`;
+    const basePath = typeof window !== "undefined" ? localStorage.getItem("savetax-drive-base-path") : null;
+    if (basePath) {
+      const sep = basePath.endsWith("\\") ? "" : "\\";
+      const fullPath = `${basePath}${sep}${clientName}\\1. 원천세\\${monthLabel}`;
+      window.location.href = `savetax-app://folder?path=${encodeURIComponent(fullPath)}`;
+      return;
+    }
     if (folderOpening) return;
     setFolderOpening(clientId);
     try {
@@ -796,7 +805,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                             {/* 거래처 드라이브의 1. 원천세/해당월 폴더 바로가기 (거래처 전달용) */}
                             {client.driveFolderId && (
                               <button
-                                onClick={() => openTaxMonthFolder(client.id)}
+                                onClick={() => openTaxMonthFolder(client.id, client.name)}
                                 disabled={folderOpening !== null}
                                 className="shrink-0 text-[#B0B8C1] hover:text-[#F59E0B] transition-colors disabled:opacity-40"
                                 title={`드라이브: 1. 원천세/${year}년 ${String(month).padStart(2, "0")}월 폴더 열기`}
