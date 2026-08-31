@@ -668,6 +668,15 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                   )}
                                   {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
                                     <button
+                                      onClick={() => window.open(`${baseUrl}/SWTA0101?${params}`, "_blank")}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-200 whitespace-nowrap shrink-0"
+                                      title="위하고 원천징수이행상황신고서"
+                                    >
+                                      신고서
+                                    </button>
+                                  )}
+                                  {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
+                                    <button
                                       onClick={async () => {
                                         const incomeTypes: string[] = [];
                                         if (laborList.includes("근로소득")) incomeTypes.push("salary");
