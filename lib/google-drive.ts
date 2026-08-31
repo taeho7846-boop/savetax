@@ -169,6 +169,43 @@ export async function uploadFile(
   };
 }
 
+// 폴더 찾기 (없으면 null — createFolder와 달리 생성하지 않음)
+export async function findFolder(name: string, parentId?: string): Promise<string | null> {
+  const parent = parentId || ROOT_FOLDER_ID;
+  if (!parent) return null;
+  const safeName = name.replace(/'/g, "\\'");
+  const data = await driveGet("/files", {
+    q: `name='${safeName}' and '${parent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: "files(id,name)",
+    corpora: "allDrives",
+  });
+  return data.files?.[0]?.id ?? null;
+}
+
+// 파일명으로 드라이브 전체에서 검색 (가장 최근 수정본)
+export async function findFileByName(name: string): Promise<{ id: string; name: string } | null> {
+  const safeName = name.replace(/'/g, "\\'");
+  const data = await driveGet("/files", {
+    q: `name='${safeName}' and trashed=false`,
+    fields: "files(id,name,modifiedTime)",
+    orderBy: "modifiedTime desc",
+    pageSize: "1",
+    corpora: "allDrives",
+  });
+  const f = data.files?.[0];
+  return f ? { id: f.id, name: f.name } : null;
+}
+
+// 파일 내용 다운로드
+export async function downloadFile(fileId: string): Promise<Buffer> {
+  const token = await getToken();
+  const res = await fetch(`${API}/files/${fileId}?alt=media&supportsAllDrives=true`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`드라이브 파일 다운로드 실패 (${res.status})`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 // 폴더 내 파일 목록
 export async function listFiles(folderId: string): Promise<Array<{ id: string; name: string; mimeType: string; modifiedTime: string; webViewLink: string }>> {
   const data = await driveGet("/files", {

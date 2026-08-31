@@ -138,6 +138,38 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   } | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
+  const [docGenerating, setDocGenerating] = useState<string | null>(null); // "clientId-docType"
+
+  // 드라이브의 위하고 엑셀 → PDF 생성 다운로드 (급여명세서 / 사업소득지급대장)
+  async function generateDoc(clientId: number, docType: "ledger" | "payslip") {
+    const key = `${clientId}-${docType}`;
+    if (docGenerating) return;
+    setDocGenerating(key);
+    try {
+      const res = await fetch("/api/withholding/generate-doc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, yearMonth, docType }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        alert(d?.message || "PDF 생성에 실패했습니다");
+        return;
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") || "";
+      const m = cd.match(/filename\*=UTF-8''(.+)/);
+      const fileName = m ? decodeURIComponent(m[1]) : "문서.pdf";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDocGenerating(null);
+    }
+  }
 
   // 검증 결과 모달에서 수기 체크 (해당 월의 원천세신고를 완료 처리)
   function handleManualCheck(clientId: number, ym: string) {
@@ -740,6 +772,26 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                   )}
                                   {doneMap.has("위멤버스완료") && (
                                     <span className="ml-0.5 text-[9px] text-[#16A865] font-bold">✓</span>
+                                  )}
+                                  {laborList.includes("근로소득") && (
+                                    <button
+                                      onClick={() => generateDoc(client.id, "payslip")}
+                                      disabled={docGenerating !== null}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-200 whitespace-nowrap shrink-0 disabled:opacity-40"
+                                      title="급여명세서 PDF 생성 (위멤버스로 받은 엑셀 기반)"
+                                    >
+                                      {docGenerating === `${client.id}-payslip` ? "생성중..." : "명세서"}
+                                    </button>
+                                  )}
+                                  {laborList.includes("사업소득") && (
+                                    <button
+                                      onClick={() => generateDoc(client.id, "ledger")}
+                                      disabled={docGenerating !== null}
+                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 whitespace-nowrap shrink-0 disabled:opacity-40"
+                                      title="사업소득지급대장 PDF 생성 (위멤버스로 받은 엑셀 기반)"
+                                    >
+                                      {docGenerating === `${client.id}-ledger` ? "생성중..." : "대장"}
+                                    </button>
                                   )}
                                 </>
                               );
