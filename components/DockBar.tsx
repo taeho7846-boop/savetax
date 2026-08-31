@@ -21,9 +21,13 @@ const ITEMS: (DockItem | "divider")[] = [
     key: "wehago",
     label: "위하고",
     title: "위하고 (더존)",
-    gradient: "from-[#A855F7] to-[#7E22CE]",
-    shadow: "shadow-[#A855F7]/30",
-    icon: <span className="text-white font-bold text-[16px]">W</span>,
+    gradient: "from-[#23262E] to-[#0F1115]",
+    shadow: "shadow-black/30",
+    icon: (
+      <svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+        <circle cx={12} cy={12} r={6.5} stroke="#2F8AF5" strokeWidth={5.5} />
+      </svg>
+    ),
     href: "https://www.wehago.com",
     external: true,
   },
@@ -31,15 +35,12 @@ const ITEMS: (DockItem | "divider")[] = [
     key: "wemembers",
     label: "위멤버스",
     title: "위멤버스",
-    gradient: "from-[#F59E0B] to-[#D97706]",
-    shadow: "shadow-[#F59E0B]/30",
+    gradient: "from-[#23262E] to-[#0F1115]",
+    shadow: "shadow-black/30",
     icon: (
-      <svg width={22} height={22} fill="none" stroke="white" strokeWidth={2.4} viewBox="0 0 24 24">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx={8.5} cy={7} r={4} />
-        <path d="M20 8v6" />
-        <path d="M23 11h-6" />
-      </svg>
+      <span className="w-[26px] h-[26px] rounded-[6px] bg-[#2456F0] text-white font-bold text-[12px] flex items-center justify-center tracking-tight">
+        We
+      </span>
     ),
     href: "https://www.wemembers.com",
     external: true,

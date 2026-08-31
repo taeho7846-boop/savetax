@@ -16,7 +16,6 @@ import type { TransferItem } from "./ProcessCards";
 import { UnpaidCard } from "./UnpaidCard";
 import { lastBillableMonth, dueDayOfMonth, unpaidBucket, type UnpaidBucket } from "@/lib/withdrawal";
 import { InsuranceCard } from "./InsuranceCard";
-import { PhonePopupButton } from "./PhonePopupButton";
 import { BuildingIcon, ClockIcon, CalendarIcon, BellIcon } from "@/components/icons";
 
 export default async function DashboardPage({
@@ -471,7 +470,6 @@ export default async function DashboardPage({
             )}
           </div>
         </div>
-        <PhonePopupButton />
       </div>
 
       {/* 서브탭 */}
