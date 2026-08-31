@@ -73,6 +73,18 @@ export async function setLaborOverride(
   revalidatePath("/withholding");
 }
 
+// 원천세 고정 특이사항 (거래처에 저장, 매월 유지)
+export async function setWithholdingNote(clientId: number, note: string) {
+  await requireAuth();
+
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { withholdingNote: note.trim() || null },
+  });
+
+  revalidatePath("/withholding");
+}
+
 export async function setWithholdingMemo(
   clientId: number,
   yearMonth: string,

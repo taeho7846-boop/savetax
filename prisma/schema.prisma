@@ -95,6 +95,7 @@ model Client {
   driveFolderId             String?
   withholdingDNotified      Boolean                    @default(false)
   withholdingType           String?
+  withholdingNote           String?                    // 원천세 고정 특이사항 (매월 유지, 거래처수정모달 원천세 탭에서 입력)
   wehagoCdCom               String?
   wehagoCno                 String?
   wehagoColors              String?

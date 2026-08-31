@@ -61,6 +61,7 @@ type Client = {
   halfYearTax: boolean;
   accountingProgram: string;
   withholdingType: string | null;
+  withholdingNote: string | null;
   wehagoCno: string | null;
   wehagoCdCom: string | null;
   wehagoColors: string | null; // JSON: {"2025":"#92B81E","2026":"#D0BA00"}
@@ -119,6 +120,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [lastCheckedIdx, setLastCheckedIdx] = useState<number | null>(null);
   const [memoModal, setMemoModal] = useState<{ clientId: number; clientName: string; value: string } | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedClientTab, setSelectedClientTab] = useState<"withholding" | undefined>(undefined);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["D"]));
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<{
@@ -527,7 +529,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             <tr className="border-b border-white/40">
               <th className="px-2 py-2.5 w-9"></th>
               <th className="text-left px-4 py-2.5 text-[10.5px] font-bold text-[#333D4B] uppercase tracking-wider whitespace-nowrap">고객사명</th>
-              <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider w-10">메모</th>
+              <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">특이사항·메모</th>
               {showAssignedUser && <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">담당</th>}
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">신고없음</th>
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#15803D] uppercase tracking-wider whitespace-nowrap">검증</th>
@@ -621,7 +623,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                         <td className="px-4 py-2 text-[#191F28] font-medium">
                           <div className="flex items-center gap-1 truncate">
                             <button
-                              onClick={() => setSelectedClientId(client.id)}
+                              onClick={() => { setSelectedClientTab(undefined); setSelectedClientId(client.id); }}
                               className="hover:text-[#3182F6] hover:underline cursor-pointer text-left truncate"
                               title="거래처 정보 수정"
                             >
@@ -745,14 +747,34 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                           </div>
                         </td>
                         <td className="px-1 py-2 text-center">
-                          {monthMemo ? (
-                            <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: monthMemo })}>
-                              <PinIcon width={12} height={12} className="text-[#F59E0B]" />
-                              <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#3182F6] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl">{monthMemo}</div>
-                            </span>
-                          ) : (
-                            <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-[#D1D6DB] hover:text-[#F59E0B] text-xs">+</button>
-                          )}
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* 고정 특이사항 — hover로 노출, 클릭 시 거래처수정모달 원천세 탭 */}
+                            {client.withholdingNote && (
+                              <span
+                                className="relative group cursor-pointer"
+                                onClick={() => { setSelectedClientTab("withholding"); setSelectedClientId(client.id); }}
+                                title=""
+                              >
+                                <span className="inline-flex items-center justify-center w-[15px] h-[15px] rounded-full bg-[#FEF2F2] border border-[#FECACA] text-[#DC2626] text-[9px] font-bold leading-none">!</span>
+                                <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#191F28] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl text-left">
+                                  <div className="text-[10px] text-[#FCA5A5] font-bold mb-1">특이사항 (고정)</div>
+                                  {client.withholdingNote}
+                                </div>
+                              </span>
+                            )}
+                            {/* 이번달 메모 */}
+                            {monthMemo ? (
+                              <span className="relative group cursor-pointer" onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: monthMemo })}>
+                                <PinIcon width={12} height={12} className="text-[#F59E0B]" />
+                                <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-[#3182F6] text-white text-xs rounded-xl px-3 py-2 whitespace-pre-wrap min-w-[200px] max-w-[350px] z-50 shadow-xl text-left">
+                                  <div className="text-[10px] text-[#BFDBFE] font-bold mb-1">이번달 메모</div>
+                                  {monthMemo}
+                                </div>
+                              </span>
+                            ) : (
+                              <button onClick={() => setMemoModal({ clientId: client.id, clientName: client.name, value: "" })} className="text-[#D1D6DB] hover:text-[#F59E0B] text-xs">+</button>
+                            )}
+                          </div>
                         </td>
                         {showAssignedUser && (
                           <td className="px-1 py-2 text-center text-[10px] text-[#6B7684] truncate">{client.assignedUser?.name ?? "-"}</td>
@@ -881,20 +903,20 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         </table>
       </div>
 
-      {/* 특이사항 모달 */}
+      {/* 이번달 메모 모달 */}
       {memoModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setMemoModal(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-bold text-[#191F28]">이번달 특이사항</h3>
+                <h3 className="text-base font-bold text-[#191F28]">이번달 메모</h3>
                 <p className="text-xs text-[#8B95A1] mt-0.5">{memoModal.clientName}</p>
               </div>
               <button onClick={() => setMemoModal(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
             </div>
             <textarea
               defaultValue={memoModal.value}
-              placeholder="이번달 특이사항을 입력하세요..."
+              placeholder="이번달에만 적용되는 메모를 입력하세요..."
               rows={4}
               className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] resize-none mb-4"
               id="memo-textarea"
@@ -923,7 +945,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       {selectedClientId && (
         <ClientEditModal
           clientId={selectedClientId}
-          onClose={() => { setSelectedClientId(null); router.refresh(); }}
+          initialTab={selectedClientTab}
+          onClose={() => { setSelectedClientId(null); setSelectedClientTab(undefined); router.refresh(); }}
         />
       )}
 

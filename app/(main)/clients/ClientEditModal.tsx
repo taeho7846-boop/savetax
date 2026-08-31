@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getClientById, updateClientInModal, deleteClient, getClientHistory, setClientContractStatus } from "@/app/actions/clients";
+import { setWithholdingNote } from "@/app/actions/withholding";
 import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
 import { InsuranceTab } from "@/app/(main)/clients/InsuranceTab";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
@@ -14,6 +15,62 @@ const MEMO_TYPE_LABELS: Record<string, string> = { general: "일반", handover: 
 const MEMO_TYPE_COLORS: Record<string, string> = { general: "bg-[#F2F4F6] text-[#4E5968]", handover: "bg-[#E8F3FF] text-[#3182F6]", caution: "bg-[#FEF2F2] text-[#DC2626]" };
 
 export type ClientEditModalTab = "edit" | "history" | "vat" | "incomeTax" | "withholding";
+
+// 원천세 고정 특이사항 — 매월 유지되며 원천세 페이지에서 hover로 표시
+function WithholdingNoteSection({ clientId, initialNote }: { clientId: number; initialNote: string }) {
+  const [note, setNote] = useState(initialNote);
+  const [savedNote, setSavedNote] = useState(initialNote);
+  const [saving, setSaving] = useState(false);
+  const dirty = note !== savedNote;
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await setWithholdingNote(clientId, note);
+      setSavedNote(note.trim());
+      setNote(note.trim());
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-[#FECACA] bg-[#FFF9F9] rounded-xl px-4 py-3.5">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-full bg-[#FEF2F2] border border-[#FECACA] text-[#DC2626] text-[9px] font-bold leading-none">!</span>
+        <span className="text-sm font-bold text-[#191F28]">특이사항 (고정)</span>
+        <span className="text-[11px] text-[#8B95A1]">매월 유지 · 원천세 페이지에서 마우스를 올리면 표시됩니다</span>
+      </div>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="예: 급여자료 매월 대표에게 직접 요청 / 식대 비과세 20만원 적용 등"
+        rows={3}
+        className="w-full border border-[#E5E8EB] rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#DC2626]/40 resize-none"
+      />
+      {dirty && (
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => setNote(savedNote)}
+            className="text-xs text-[#6B7684] px-3 py-1.5 rounded-lg hover:bg-[#F2F4F6] transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={save}
+            className="text-xs bg-[#DC2626] text-white px-4 py-1.5 rounded-lg hover:bg-[#B91C1C] disabled:opacity-50 transition-colors"
+          >
+            {saving ? "저장 중..." : "특이사항 저장"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ClientEditModal({
   clientId,
@@ -209,7 +266,10 @@ export function ClientEditModal({
               hideButtons
             />
           ) : tab === "withholding" ? (
-            <InsuranceTab clientId={clientId} />
+            <div className="space-y-4">
+              <WithholdingNoteSection clientId={clientId} initialNote={data.client.withholdingNote ?? ""} />
+              <InsuranceTab clientId={clientId} />
+            </div>
           ) : tab === "vat" || tab === "incomeTax" ? (
             <div className="text-center py-16 text-[#8B95A1] text-sm">준비 중인 탭입니다</div>
           ) : (

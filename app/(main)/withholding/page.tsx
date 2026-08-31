@@ -50,6 +50,7 @@ export default async function WithholdingPage({
       halfYearTax: true,
       accountingProgram: true,
       withholdingType: true,
+      withholdingNote: true,
       assignedUser: { select: { name: true } },
       withholdingRecords: {
         where: { yearMonth },
