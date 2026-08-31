@@ -8,6 +8,8 @@ import path from "path";
 
 export type LedgerRow = {
   name: string;
+  resident?: string; // 주민번호(마스킹) — 동명이인 구분용 합산 키
+
   gwisok: string;   // 귀속년월 "2026.03"
   jigub: string;    // 지급년월 "2026.03"
   amount: number;   // 지급액
@@ -51,6 +53,7 @@ export function parseBusinessIncomeXlsx(buf: Buffer): LedgerRow[] {
     if (!name) continue; // 연간소득계/소액징수계 등 합계 행은 이름 칸이 비어있음
     out.push({
       name,
+      resident: String(r[2] ?? "").trim(),
       gwisok: ym(r[4]),
       jigub: ym(r[5]),
       amount: num(r[6]),
@@ -63,7 +66,26 @@ export function parseBusinessIncomeXlsx(buf: Buffer): LedgerRow[] {
       net: num(r[16]),
     });
   }
-  return out;
+
+  // 같은 사람(이름+주민번호)이 같은 귀속/지급월에 여러 건 지급된 경우 한 줄로 합산 (합계 대장)
+  const merged = new Map<string, LedgerRow>();
+  for (const r of out) {
+    const key = `${r.name}|${r.resident}|${r.gwisok}|${r.jigub}`;
+    const m = merged.get(key);
+    if (m) {
+      m.amount += r.amount;
+      m.scholarship += r.scholarship;
+      m.incomeTax += r.incomeTax;
+      m.localTax += r.localTax;
+      m.expense += r.expense;
+      m.empIns += r.empIns;
+      m.accident += r.accident;
+      m.net += r.net;
+    } else {
+      merged.set(key, { ...r });
+    }
+  }
+  return [...merged.values()];
 }
 
 const fmt = (n: number) => (n ? n.toLocaleString("ko-KR") : "");

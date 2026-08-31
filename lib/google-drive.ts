@@ -206,6 +206,15 @@ export async function downloadFile(fileId: string): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer());
 }
 
+// 파일 삭제
+export async function deleteFile(fileId: string): Promise<void> {
+  const token = await getToken();
+  await fetch(`${API}/files/${fileId}?supportsAllDrives=true`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 // 폴더 내 파일 목록
 export async function listFiles(folderId: string): Promise<Array<{ id: string; name: string; mimeType: string; modifiedTime: string; webViewLink: string }>> {
   const data = await driveGet("/files", {

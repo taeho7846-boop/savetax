@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { findFileByName, downloadFile, createFolder, uploadFile } from "@/lib/google-drive";
+import { findFileByName, downloadFile, createFolder, uploadFile, listFiles, deleteFile } from "@/lib/google-drive";
 import { parseBusinessIncomeXlsx, generateLedgerPdf } from "@/lib/business-ledger";
 import { parsePayslipXlsx, generatePayslipPdf } from "@/lib/payslip-doc";
 
@@ -70,7 +70,12 @@ export async function POST(req: NextRequest) {
       try {
         const taxFolderId = await createFolder("1. 원천세", client.driveFolderId);
         const monthFolderId = await createFolder(`${year}년 ${month}월`, taxFolderId);
+        // 재생성 시 같은 이름 파일이 중복으로 쌓이지 않게 기존 것 삭제 후 업로드 (덮어쓰기)
+        const existing = await listFiles(monthFolderId);
         for (const f of driveFiles) {
+          for (const old of existing.filter(e => e.name === f.name)) {
+            await deleteFile(old.id).catch(() => {});
+          }
           await uploadFile(monthFolderId, f.name, Buffer.from(f.data), "application/pdf");
           driveSaved++;
         }
