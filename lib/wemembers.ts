@@ -66,7 +66,8 @@ export async function uploadMultiToWemembers(
     const chromium = pw.chromium;
 
     browser = await chromium.launch({
-      headless: false,
+      // 로컬(윈도우)에서는 브라우저 창을 보여주고, VPS(리눅스, 화면 없음)에서는 headless로 실행
+      headless: process.platform !== "win32",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
