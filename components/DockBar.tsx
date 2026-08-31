@@ -42,7 +42,7 @@ const ITEMS: (DockItem | "divider")[] = [
         We
       </span>
     ),
-    href: "https://www.wemembers.com",
+    href: "https://www.wemembers.net/login_0001_01.act",
     external: true,
   },
   {
