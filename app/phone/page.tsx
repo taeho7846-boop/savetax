@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PhoneClientViewer } from "@/app/(main)/dashboard/PhoneClientViewer";
 import { DriveBasePathSync } from "@/components/DriveBasePathSync";
+import { GlobalClientEditModal } from "@/components/GlobalClientEditModal";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
@@ -63,6 +64,8 @@ export default async function PhonePopupPage() {
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-0">
       <PhoneClientViewer clients={myClients} />
       <DriveBasePathSync value={settings?.driveBasePath ?? null} />
+      {/* 핸드폰 뷰어의 편집 버튼이 여는 전역 거래처 수정 모달 — (main) 레이아웃 밖이라 별도 마운트 */}
+      <GlobalClientEditModal />
     </div>
   );
 }
