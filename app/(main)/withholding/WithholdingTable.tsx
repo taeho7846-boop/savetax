@@ -62,6 +62,7 @@ type Client = {
   accountingProgram: string;
   withholdingType: string | null;
   withholdingNote: string | null;
+  driveFolderId: string | null;
   wehagoCno: string | null;
   wehagoCdCom: string | null;
   wehagoColors: string | null; // JSON: {"2025":"#92B81E","2026":"#D0BA00"}
@@ -275,6 +276,25 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     }
 
     return { ok: true, msg: docWarns.length > 0 ? `완료 (경고: ${docWarns.join(" / ")})` : "완료" };
+  }
+
+  // 거래처 드라이브의 1. 원천세/해당월 폴더 열기 (없으면 생성 후 오픈)
+  const [folderOpening, setFolderOpening] = useState<number | null>(null);
+  async function openTaxMonthFolder(clientId: number) {
+    if (folderOpening) return;
+    setFolderOpening(clientId);
+    try {
+      const res = await fetch("/api/withholding/tax-month-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, yearMonth }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) window.open(data.url, "_blank");
+      else alert(data.message || "폴더를 열 수 없습니다");
+    } finally {
+      setFolderOpening(null);
+    }
   }
 
   // 단일 실행
@@ -773,6 +793,23 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                         </td>
                         <td className="px-4 py-2 text-[#191F28] font-medium">
                           <div className="flex items-center gap-1 truncate">
+                            {/* 거래처 드라이브의 1. 원천세/해당월 폴더 바로가기 (거래처 전달용) */}
+                            {client.driveFolderId && (
+                              <button
+                                onClick={() => openTaxMonthFolder(client.id)}
+                                disabled={folderOpening !== null}
+                                className="shrink-0 text-[#B0B8C1] hover:text-[#F59E0B] transition-colors disabled:opacity-40"
+                                title={`드라이브: 1. 원천세/${year}년 ${String(month).padStart(2, "0")}월 폴더 열기`}
+                              >
+                                {folderOpening === client.id ? (
+                                  <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#F59E0B]/30 border-t-[#F59E0B] animate-spin" />
+                                ) : (
+                                  <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
                             <button
                               onClick={() => { setSelectedClientTab(undefined); setSelectedClientId(client.id); }}
                               className="hover:text-[#3182F6] hover:underline cursor-pointer text-left truncate"
