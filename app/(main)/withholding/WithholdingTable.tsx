@@ -140,6 +140,102 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
   const [docGenerating, setDocGenerating] = useState<string | null>(null); // "clientId-docType"
 
+  // 위멤버스 자동화 진행상황 모달
+  type WmStep = { key: string; label: string; status: "wait" | "run" | "done" | "error" };
+  const [wmProgress, setWmProgress] = useState<{
+    clientName: string;
+    steps: WmStep[];
+    message: string;
+    finished: boolean;
+    error: boolean;
+  } | null>(null);
+
+  function wmSetStep(key: string, status: WmStep["status"], message?: string) {
+    setWmProgress(prev =>
+      prev
+        ? {
+            ...prev,
+            steps: prev.steps.map(s => (s.key === key ? { ...s, status } : s)),
+            ...(message !== undefined ? { message } : {}),
+          }
+        : prev
+    );
+  }
+
+  async function runWemembersFlow(clientName: string, laborList: string[], baseUrl: string, params: string) {
+    const incomeTypes: string[] = [];
+    if (laborList.includes("근로소득")) incomeTypes.push("salary");
+    if (laborList.includes("사업소득")) incomeTypes.push("business");
+    if (laborList.includes("일용직")) incomeTypes.push("daily");
+    if (incomeTypes.length === 0) return;
+    const monthPadded = String(month).padStart(2, "0");
+
+    const TYPE_LABEL: Record<string, string> = { salary: "근로소득 급여자료", business: "사업소득 자료", daily: "일용직 급여자료" };
+    const DOWN_URL: Record<string, string> = {
+      salary: `${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`,
+      business: `${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`,
+      daily: `${baseUrl}/TWSA0107?${params}&autoDailyWorker=${month}`,
+    };
+
+    const steps: WmStep[] = [
+      ...incomeTypes.map(t => ({ key: t, label: `${TYPE_LABEL[t]} 다운로드`, status: "wait" as const })),
+      { key: "upload", label: "위멤버스 업로드", status: "wait" as const },
+    ];
+    setWmProgress({ clientName, steps, message: "시작하는 중...", finished: false, error: false });
+
+    // 파일 존재 체크 (위하고 다운로드 → 드라이브 도착 대기)
+    async function waitForFile(type: string): Promise<boolean> {
+      for (let i = 0; i < 90; i++) {
+        const res = await fetch("/api/automation/check-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientName, year: String(year), month: monthPadded, type }),
+        });
+        const data = await res.json();
+        if (data.exists) return true;
+        wmSetStep(type, "run", `위하고에서 자료를 내려받는 중... (${(i + 1) * 2}초)`);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      return false;
+    }
+
+    // 1~3단계: 소득유형별 다운로드
+    for (const type of incomeTypes) {
+      wmSetStep(type, "run", `${TYPE_LABEL[type]}를 위하고에서 내려받는 중...`);
+      const tab = window.open(DOWN_URL[type], "_blank");
+      const found = await waitForFile(type);
+      if (tab) tab.close();
+      if (!found) {
+        wmSetStep(type, "error", `${TYPE_LABEL[type]} 다운로드 시간 초과 — 위하고 로그인 상태를 확인해주세요`);
+        setWmProgress(prev => (prev ? { ...prev, finished: true, error: true } : prev));
+        return;
+      }
+      wmSetStep(type, "done");
+    }
+
+    // 4단계: 위멤버스 업로드 (서버에서 자동 진행)
+    wmSetStep("upload", "run", "서버가 위멤버스에 자동 업로드하는 중... (1~2분 소요)");
+    try {
+      const res = await fetch("/api/automation/wemembers-process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientName, year: String(year), month: monthPadded, incomeTypes }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        wmSetStep("upload", "done", "위멤버스 업로드 완료! 🎉");
+        setWmProgress(prev => (prev ? { ...prev, finished: true } : prev));
+        router.refresh();
+      } else {
+        wmSetStep("upload", "error", result.message || "업로드에 실패했습니다");
+        setWmProgress(prev => (prev ? { ...prev, finished: true, error: true } : prev));
+      }
+    } catch (err) {
+      wmSetStep("upload", "error", "업로드 실패: " + String(err));
+      setWmProgress(prev => (prev ? { ...prev, finished: true, error: true } : prev));
+    }
+  }
+
   // 드라이브의 위하고 엑셀 → PDF 생성 다운로드 (급여명세서 / 사업소득지급대장)
   async function generateDoc(clientId: number, docType: "ledger" | "payslip") {
     const key = `${clientId}-${docType}`;
@@ -704,70 +800,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                   )}
                                   {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
                                     <button
-                                      onClick={async () => {
-                                        const incomeTypes: string[] = [];
-                                        if (laborList.includes("근로소득")) incomeTypes.push("salary");
-                                        if (laborList.includes("사업소득")) incomeTypes.push("business");
-                                        if (laborList.includes("일용직")) incomeTypes.push("daily");
-                                        const monthPadded = String(month).padStart(2, "0");
-
-                                        // 파일 존재 체크 함수
-                                        async function waitForFile(type: string): Promise<boolean> {
-                                          for (let i = 0; i < 90; i++) {
-                                            const res = await fetch("/api/automation/check-file", {
-                                              method: "POST",
-                                              headers: { "Content-Type": "application/json" },
-                                              body: JSON.stringify({ clientName: client.name, year: String(year), month: monthPadded, type }),
-                                            });
-                                            const data = await res.json();
-                                            if (data.exists) return true;
-                                            await new Promise(r => setTimeout(r, 2000));
-                                          }
-                                          return false;
-                                        }
-
-                                        // 1단계: 근로소득 다운로드
-                                        if (incomeTypes.includes("salary")) {
-                                          const tab = window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank");
-                                          const found = await waitForFile("salary");
-                                          if (tab) tab.close();
-                                          if (!found) { alert("근로소득 다운로드 시간 초과"); return; }
-                                        }
-
-                                        // 2단계: 사업소득 다운로드
-                                        if (incomeTypes.includes("business")) {
-                                          const tab = window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank");
-                                          const found = await waitForFile("business");
-                                          if (tab) tab.close();
-                                          if (!found) { alert("사업소득 다운로드 시간 초과"); return; }
-                                        }
-
-                                        // 3단계: 일용직 다운로드
-                                        if (incomeTypes.includes("daily")) {
-                                          const tab = window.open(`${baseUrl}/TWSA0107?${params}&autoDailyWorker=${month}`, "_blank");
-                                          const found = await waitForFile("daily");
-                                          if (tab) tab.close();
-                                          if (!found) { alert("일용직 다운로드 시간 초과"); return; }
-                                        }
-
-                                        // 4단계: 위멤버스 업로드
-                                        try {
-                                          const res = await fetch("/api/automation/wemembers-process", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({
-                                              clientName: client.name,
-                                              year: String(year),
-                                              month: monthPadded,
-                                              incomeTypes,
-                                            }),
-                                          });
-                                          const result = await res.json();
-                                          alert(result.message || (result.success ? "위멤버스 업로드 완료!" : "업로드 실패"));
-                                        } catch (err) {
-                                          alert("위멤버스 업로드 실패: " + String(err));
-                                        }
-                                      }}
+                                      onClick={() => { if (!wmProgress || wmProgress.finished) runWemembersFlow(client.name, laborList, baseUrl, params); }}
                                       className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] border border-[#A3CAFD] whitespace-nowrap shrink-0"
                                       title="위멤버스 다운로드+업로드"
                                     >
@@ -958,6 +991,93 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           </tbody>
         </table>
       </div>
+
+      {/* 위멤버스 진행상황 모달 */}
+      {wmProgress && (() => {
+        const total = wmProgress.steps.length;
+        const done = wmProgress.steps.filter(s => s.status === "done").length;
+        const running = wmProgress.steps.some(s => s.status === "run");
+        const pct = Math.round(((done + (running ? 0.5 : 0)) / total) * 100);
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-7">
+              {/* 헤더 */}
+              <div className="text-center mb-5">
+                <div className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-3 bg-gradient-to-br from-[#3182F6] to-[#1B64DA] shadow-lg shadow-[#3182F6]/30">
+                  {wmProgress.finished && !wmProgress.error ? (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                  ) : wmProgress.error ? (
+                    <span className="text-white text-2xl font-bold">!</span>
+                  ) : (
+                    <div className="w-7 h-7 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
+                  )}
+                </div>
+                <h3 className="text-base font-bold text-[#191F28]">위멤버스 자동화</h3>
+                <p className="text-xs text-[#8B95A1] mt-0.5">{wmProgress.clientName}</p>
+              </div>
+
+              {/* 진행 바 */}
+              <div className="mb-5">
+                <div className="flex justify-between text-[11px] mb-1.5">
+                  <span className={`font-bold ${wmProgress.error ? "text-[#DC2626]" : "text-[#3182F6]"}`}>
+                    {wmProgress.error ? "오류 발생" : wmProgress.finished ? "완료" : "진행 중"}
+                  </span>
+                  <span className="text-[#8B95A1] tabular-nums">{wmProgress.error ? "" : `${pct}%`}</span>
+                </div>
+                <div className="h-2 rounded-full bg-[#F2F4F6] overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${wmProgress.error ? "bg-[#DC2626]" : "bg-gradient-to-r from-[#3182F6] to-[#1B64DA]"}`}
+                    style={{ width: `${wmProgress.error ? 100 : pct}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 단계 목록 */}
+              <div className="space-y-2.5 mb-5">
+                {wmProgress.steps.map(s => (
+                  <div key={s.key} className="flex items-center gap-2.5">
+                    {s.status === "done" ? (
+                      <span className="w-5 h-5 rounded-full bg-[#E8F5EE] flex items-center justify-center shrink-0">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#16A865" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                      </span>
+                    ) : s.status === "run" ? (
+                      <span className="w-5 h-5 rounded-full border-2 border-[#3182F6]/25 border-t-[#3182F6] animate-spin shrink-0" />
+                    ) : s.status === "error" ? (
+                      <span className="w-5 h-5 rounded-full bg-[#FEF2F2] text-[#DC2626] text-[11px] font-bold flex items-center justify-center shrink-0">!</span>
+                    ) : (
+                      <span className="w-5 h-5 rounded-full border-2 border-[#E5E8EB] shrink-0" />
+                    )}
+                    <span className={`text-[13px] ${
+                      s.status === "done" ? "text-[#8B95A1] line-through decoration-[#D1D6DB]"
+                      : s.status === "run" ? "text-[#191F28] font-bold"
+                      : s.status === "error" ? "text-[#DC2626] font-bold"
+                      : "text-[#B0B8C1]"
+                    }`}>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* 상태 메시지 */}
+              <div className={`text-[12px] rounded-xl px-3.5 py-2.5 mb-4 leading-relaxed ${
+                wmProgress.error ? "bg-[#FEF2F2] text-[#B91C1C]" : wmProgress.finished ? "bg-[#E8F5EE] text-[#15803D]" : "bg-[#F5F9FF] text-[#4E5968]"
+              }`}>
+                {wmProgress.message}
+              </div>
+
+              <button
+                onClick={() => setWmProgress(null)}
+                className={`w-full text-sm py-2.5 rounded-xl font-bold transition-colors ${
+                  wmProgress.finished
+                    ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]"
+                    : "bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]"
+                }`}
+              >
+                {wmProgress.finished ? "닫기" : "백그라운드로 진행 (창 닫기)"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 이번달 메모 모달 */}
       {memoModal && (
