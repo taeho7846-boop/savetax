@@ -641,38 +641,29 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                 <>
                                   {laborList.includes("근로소득") && (
                                     <button
-                                      onClick={() => window.open(`${baseUrl}/SWSA0101?${params}`, "_blank")}
+                                      onClick={() => { window.open(`${baseUrl}/SWSA0101?${params}`, "_blank"); window.open(`${baseUrl}/SWTA0101?${params}`, "_blank"); }}
                                       className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap shrink-0"
-                                      title="위하고 급여자료입력"
+                                      title="위하고 급여자료입력 + 원천징수이행상황신고서"
                                     >
                                       급여
                                     </button>
                                   )}
                                   {laborList.includes("사업소득") && (
                                     <button
-                                      onClick={() => window.open(`${baseUrl}/SWBU0102?${params}`, "_blank")}
+                                      onClick={() => { window.open(`${baseUrl}/SWBU0102?${params}`, "_blank"); window.open(`${baseUrl}/SWTA0101?${params}`, "_blank"); }}
                                       className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-[#FFFBEB] text-[#D97706] hover:bg-[#FEF3C7] border border-[#FDE68A] whitespace-nowrap shrink-0"
-                                      title="위하고 사업소득자료입력"
+                                      title="위하고 사업소득자료입력 + 원천징수이행상황신고서"
                                     >
                                       사업
                                     </button>
                                   )}
                                   {laborList.includes("일용직") && (
                                     <button
-                                      onClick={() => window.open(`${baseUrl}/TWSA0107?${params}`, "_blank")}
+                                      onClick={() => { window.open(`${baseUrl}/TWSA0107?${params}`, "_blank"); window.open(`${baseUrl}/SWTA0101?${params}`, "_blank"); }}
                                       className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 whitespace-nowrap shrink-0"
-                                      title="위하고 일용직급여자료입력"
+                                      title="위하고 일용직급여자료입력 + 원천징수이행상황신고서"
                                     >
                                       일용
-                                    </button>
-                                  )}
-                                  {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
-                                    <button
-                                      onClick={() => window.open(`${baseUrl}/SWTA0101?${params}`, "_blank")}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-200 whitespace-nowrap shrink-0"
-                                      title="위하고 원천징수이행상황신고서"
-                                    >
-                                      신고서
                                     </button>
                                   )}
                                   {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
