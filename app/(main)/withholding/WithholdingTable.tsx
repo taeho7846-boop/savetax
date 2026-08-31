@@ -170,8 +170,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     return `sao&cno=${cl.wehagoCno}&cd_com=${cl.wehagoCdCom}&gisu=${month}&yminsa=${year}&searchData=${year}0101${year}1231&color=${wehagoColor}&companyName=${encodeURIComponent(cl.name)}&companyID=${wehagoCompanyId}&taxNum=${wehagoTaxNum}&yn_private=1&wehagoT`;
   }
 
-  // 거래처 1곳 처리 (다운로드 1~3단계 + 업로드). 모달 상태를 갱신하며 결과를 반환
+  // 거래처 1곳 풀 파이프라인 (다운로드 → 위멤버스 업로드 → 명세서/대장 생성·드라이브 저장)
   async function wmRunOne(
+    clientId: number,
     clientName: string,
     laborList: string[],
     params: string,
@@ -191,9 +192,15 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       daily: `${WEHAGO_BASE}/TWSA0107?${params}&autoDailyWorker=${month}`,
     };
 
+    // 파이프라인 마지막: 문서 생성 (드라이브 저장만, 브라우저 다운로드 없음)
+    const docSteps: { key: string; docType: "payslip" | "ledger"; label: string }[] = [];
+    if (laborList.includes("근로소득")) docSteps.push({ key: "doc-payslip", docType: "payslip", label: "급여명세서 생성·드라이브 저장" });
+    if (laborList.includes("사업소득")) docSteps.push({ key: "doc-ledger", docType: "ledger", label: "사업소득지급대장 생성·드라이브 저장" });
+
     const steps: WmStep[] = [
       ...incomeTypes.map(t => ({ key: t, label: `${TYPE_LABEL[t]} 다운로드`, status: "wait" as const })),
       { key: "upload", label: "위멤버스 업로드", status: "wait" as const },
+      ...docSteps.map(d => ({ key: d.key, label: d.label, status: "wait" as const })),
     ];
     setWmProgress(prev => ({ clientName, steps, message: "시작하는 중...", finished: false, error: false, batch }));
 
@@ -232,24 +239,57 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         body: JSON.stringify({ clientName, year: String(year), month: monthPadded, incomeTypes }),
       });
       const result = await res.json();
-      if (result.success) {
-        wmSetStep("upload", "done");
-        return { ok: true, msg: "완료" };
+      if (!result.success) {
+        wmSetStep("upload", "error");
+        return { ok: false, msg: result.message || "업로드 실패" };
       }
-      wmSetStep("upload", "error");
-      return { ok: false, msg: result.message || "업로드 실패" };
+      wmSetStep("upload", "done");
     } catch (err) {
       wmSetStep("upload", "error");
       return { ok: false, msg: "업로드 실패: " + String(err) };
     }
+
+    // 문서 생성 (실패해도 파이프라인 전체는 성공으로 처리, 경고만 남김)
+    const docWarns: string[] = [];
+    for (const d of docSteps) {
+      wmSetStep(d.key, "run", `${d.label} 중...`);
+      try {
+        const res = await fetch("/api/withholding/generate-doc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId, yearMonth, docType: d.docType }),
+        });
+        if (res.ok) {
+          const saved = res.headers.get("X-Drive-Saved");
+          if (saved === "0") docWarns.push(`${d.label}: 드라이브 폴더 미연결로 저장 생략`);
+          wmSetStep(d.key, "done");
+        } else {
+          const data = await res.json().catch(() => null);
+          docWarns.push(`${d.label} 실패: ${data?.message || res.status}`);
+          wmSetStep(d.key, "error");
+        }
+      } catch (err) {
+        docWarns.push(`${d.label} 실패: ${String(err)}`);
+        wmSetStep(d.key, "error");
+      }
+    }
+
+    return { ok: true, msg: docWarns.length > 0 ? `완료 (경고: ${docWarns.join(" / ")})` : "완료" };
   }
 
   // 단일 실행
-  async function runWemembersSingle(clientName: string, laborList: string[], params: string) {
+  async function runWemembersSingle(clientId: number, clientName: string, laborList: string[], params: string) {
     if (wmProgress && !wmProgress.finished) return;
-    const r = await wmRunOne(clientName, laborList, params);
+    const r = await wmRunOne(clientId, clientName, laborList, params);
     setWmProgress(prev =>
-      prev ? { ...prev, finished: true, error: !r.ok, message: r.ok ? "위멤버스 업로드 완료! 🎉" : r.msg } : prev
+      prev
+        ? {
+            ...prev,
+            finished: true,
+            error: !r.ok,
+            message: !r.ok ? r.msg : r.msg === "완료" ? "위멤버스 업로드 + 문서 생성까지 완료! 🎉" : `완료! ${r.msg}`,
+          }
+        : prev
     );
     if (r.ok) router.refresh();
   }
@@ -265,7 +305,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         const laborList = override?.laborTypes
           ? override.laborTypes.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자")
           : base;
-        return { name: c.name, laborList, params: buildWehagoParams(c) };
+        return { id: c.id, name: c.name, laborList, params: buildWehagoParams(c) };
       })
       .filter(t => t.laborList.length > 0);
 
@@ -275,7 +315,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     const fails: string[] = [];
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
-      const r = await wmRunOne(t.name, t.laborList, t.params, { current: i + 1, total: targets.length });
+      const r = await wmRunOne(t.id, t.name, t.laborList, t.params, { current: i + 1, total: targets.length });
       if (!r.ok) fails.push(`${t.name} — ${r.msg}`);
     }
     setWmProgress(prev =>
@@ -941,7 +981,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                             }
                             return (
                               <button
-                                onClick={() => runWemembersSingle(client.name, laborList, buildWehagoParams(client))}
+                                onClick={() => runWemembersSingle(client.id, client.name, laborList, buildWehagoParams(client))}
                                 disabled={!!wmProgress && !wmProgress.finished}
                                 className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 border-[#A3CAFD] bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] text-[9px] font-bold transition-colors disabled:opacity-40"
                                 title="위멤버스 다운로드+업로드 실행"
