@@ -71,9 +71,23 @@ export default async function WithholdingPage({
     select: { wehagoId: true, wehagoTaxNum: true },
   });
 
+  // 세무사번호(taxNum)가 본인 설정에 없으면 소속 세무사(매니저)의 값을 사용
+  // (사무실 공통 번호인데 설정 페이지에 입력칸이 없어 직원 계정은 비어있는 경우가 많음)
+  let wehagoTaxNum = settings?.wehagoTaxNum || "";
+  if (!wehagoTaxNum) {
+    const me = await prisma.user.findUnique({ where: { id: session.id }, select: { managerId: true } });
+    if (me?.managerId) {
+      const mgrSettings = await prisma.settings.findUnique({
+        where: { userId: me.managerId },
+        select: { wehagoTaxNum: true },
+      });
+      wehagoTaxNum = mgrSettings?.wehagoTaxNum || "";
+    }
+  }
+
   return (
     <div>
-      <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser wehagoCompanyId={settings?.wehagoId || ""} wehagoTaxNum={settings?.wehagoTaxNum || ""} />
+      <WithholdingTable clients={clients} yearMonth={yearMonth} showAssignedUser wehagoCompanyId={settings?.wehagoId || ""} wehagoTaxNum={wehagoTaxNum} />
     </div>
   );
 }
