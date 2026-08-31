@@ -870,12 +870,13 @@ function ClientDetailView({
         >
           {isPinned ? <StarFilledIcon width={16} height={16} /> : <StarIcon width={16} height={16} />}
         </button>
-        <Link
-          href={`/clients/${detail.id}/edit`}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("savetax-open-client-edit", { detail: { clientId: detail.id } }))}
           className="text-[11.5px] px-2.5 py-1 rounded-[6px] bg-[#3182F6] text-white font-bold"
         >
           편집
-        </Link>
+        </button>
       </div>
 
       <div className="overflow-y-auto flex-1">
