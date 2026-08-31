@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getClientById, updateClientInModal, deleteClient, getClientHistory, setClientContractStatus } from "@/app/actions/clients";
-import { setWithholdingNote } from "@/app/actions/withholding";
+import { setWithholdingNote, getWithholdingMemos } from "@/app/actions/withholding";
 import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
 import { InsuranceTab } from "@/app/(main)/clients/InsuranceTab";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
@@ -15,6 +15,82 @@ const MEMO_TYPE_LABELS: Record<string, string> = { general: "일반", handover: 
 const MEMO_TYPE_COLORS: Record<string, string> = { general: "bg-[#F2F4F6] text-[#4E5968]", handover: "bg-[#E8F3FF] text-[#3182F6]", caution: "bg-[#FEF2F2] text-[#DC2626]" };
 
 export type ClientEditModalTab = "edit" | "history" | "vat" | "incomeTax" | "withholding";
+
+// 이번달 메모 모아보기 — 연도별 토글, 열면 1~12월 메모 표시
+function MonthlyMemoArchive({ clientId }: { clientId: number }) {
+  const [memos, setMemos] = useState<{ yearMonth: string; memo: string }[] | null>(null);
+  const [openYears, setOpenYears] = useState<Set<string>>(new Set([String(new Date().getFullYear())]));
+
+  useEffect(() => {
+    getWithholdingMemos(clientId).then(setMemos);
+  }, [clientId]);
+
+  if (!memos) {
+    return (
+      <div className="border border-[#E5E8EB] rounded-xl px-4 py-3.5 text-xs text-[#8B95A1]">
+        메모 불러오는 중...
+      </div>
+    );
+  }
+
+  if (memos.length === 0) return null;
+
+  // 연도별 그룹핑 (최신 연도 먼저, 연도 안에서는 1월→12월)
+  const byYear = new Map<string, { month: number; memo: string }[]>();
+  for (const m of memos) {
+    const [year, month] = m.yearMonth.split("-");
+    if (!byYear.has(year)) byYear.set(year, []);
+    byYear.get(year)!.push({ month: parseInt(month), memo: m.memo });
+  }
+  const years = [...byYear.keys()].sort((a, b) => b.localeCompare(a));
+  byYear.forEach((list) => list.sort((a, b) => a.month - b.month));
+
+  return (
+    <div className="border border-[#E5E8EB] rounded-xl px-4 py-3.5">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-sm font-bold text-[#191F28]">이번달 메모 모아보기</span>
+        <span className="text-[11px] text-[#8B95A1]">원천세 페이지에서 월별로 적은 메모 · 총 {memos.length}건</span>
+      </div>
+      <div className="space-y-1.5 mt-2">
+        {years.map((year) => {
+          const list = byYear.get(year)!;
+          const open = openYears.has(year);
+          return (
+            <div key={year} className="border border-[#F2F4F6] rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenYears((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(year)) next.delete(year); else next.add(year);
+                    return next;
+                  })
+                }
+                className="w-full flex items-center gap-2 px-3 py-2 bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors text-left"
+              >
+                <span className="text-[10px] text-[#8B95A1] w-3">{open ? "▼" : "▶"}</span>
+                <span className="text-[13px] font-bold text-[#333D4B]">{year}년</span>
+                <span className="text-[11px] text-[#8B95A1] bg-white rounded-full px-2 py-0.5">{list.length}건</span>
+              </button>
+              {open && (
+                <div className="divide-y divide-[#F2F4F6]">
+                  {list.map(({ month, memo }) => (
+                    <div key={month} className="flex gap-2.5 px-3 py-2 items-start">
+                      <span className="shrink-0 inline-flex items-center justify-center min-w-[34px] h-[20px] rounded-md bg-[#E8F3FF] text-[#1B64DA] text-[11px] font-bold px-1.5 mt-px">
+                        {month}월
+                      </span>
+                      <p className="text-xs text-[#4E5968] whitespace-pre-wrap leading-relaxed">{memo}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // 원천세 고정 특이사항 — 매월 유지되며 원천세 페이지에서 hover로 표시
 function WithholdingNoteSection({ clientId, initialNote }: { clientId: number; initialNote: string }) {
@@ -268,6 +344,7 @@ export function ClientEditModal({
           ) : tab === "withholding" ? (
             <div className="space-y-4">
               <WithholdingNoteSection clientId={clientId} initialNote={data.client.withholdingNote ?? ""} />
+              <MonthlyMemoArchive clientId={clientId} />
               <InsuranceTab clientId={clientId} />
             </div>
           ) : tab === "vat" || tab === "incomeTax" ? (

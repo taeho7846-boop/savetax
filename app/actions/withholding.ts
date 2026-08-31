@@ -73,6 +73,19 @@ export async function setLaborOverride(
   revalidatePath("/withholding");
 }
 
+// 거래처의 월별 메모 전체 조회 (거래처수정모달 원천세 탭 - 메모 모아보기)
+export async function getWithholdingMemos(clientId: number) {
+  await requireAuth();
+
+  const rows = await prisma.withholdingLaborOverride.findMany({
+    where: { clientId, memo: { not: null } },
+    select: { yearMonth: true, memo: true },
+    orderBy: { yearMonth: "desc" },
+  });
+
+  return rows.filter((r) => r.memo && r.memo.trim() !== "") as { yearMonth: string; memo: string }[];
+}
+
 // 원천세 고정 특이사항 (거래처에 저장, 매월 유지)
 export async function setWithholdingNote(clientId: number, note: string) {
   await requireAuth();
