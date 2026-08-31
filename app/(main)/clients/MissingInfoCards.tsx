@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 
 type ClientItem = {
   id: number;
@@ -259,11 +258,14 @@ function ClientListModal({
               const isOverdue = !!ym && ym < currentYM();
               const isThisMonth = !!ym && ym === currentYM();
               return (
-                <Link
+                <button
                   key={c.id}
-                  href={`/clients/${c.id}/edit`}
-                  onClick={onClose}
-                  className="group flex items-center gap-3 px-3.5 py-3 rounded-2xl hover:bg-white/80 transition-all duration-150 ring-1 ring-transparent hover:ring-white/80"
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    window.dispatchEvent(new CustomEvent("savetax-open-client-edit", { detail: { clientId: c.id } }));
+                  }}
+                  className="group w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-2xl hover:bg-white/80 transition-all duration-150 ring-1 ring-transparent hover:ring-white/80"
                 >
                   <span
                     className={`text-[10.5px] font-bold px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap ${
@@ -335,7 +337,7 @@ function ClientListModal({
                   >
                     {meta.actionLabel} →
                   </div>
-                </Link>
+                </button>
               );
             })
           )}
@@ -347,7 +349,7 @@ function ClientListModal({
           style={{ background: "rgba(255, 255, 255, 0.4)" }}
         >
           <div className="text-[11px] text-[#6B7684]">
-            클릭하면 해당 거래처 수정 페이지로 이동
+            클릭하면 해당 거래처 수정 모달이 열려요
           </div>
           <button
             type="button"
