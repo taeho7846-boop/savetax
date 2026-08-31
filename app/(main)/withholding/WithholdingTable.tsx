@@ -148,6 +148,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     message: string;
     finished: boolean;
     error: boolean;
+    batch?: { current: number; total: number };
   } | null>(null);
 
   function wmSetStep(key: string, status: WmStep["status"], message?: string) {
@@ -162,28 +163,40 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     );
   }
 
-  async function runWemembersFlow(clientName: string, laborList: string[], baseUrl: string, params: string) {
+  const WEHAGO_BASE = "https://smarta.wehago.com/#/smarta/humanresource";
+
+  function buildWehagoParams(cl: Client) {
+    const wehagoColor = (() => { try { const c = JSON.parse(cl.wehagoColors || "{}"); return c[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })();
+    return `sao&cno=${cl.wehagoCno}&cd_com=${cl.wehagoCdCom}&gisu=${month}&yminsa=${year}&searchData=${year}0101${year}1231&color=${wehagoColor}&companyName=${encodeURIComponent(cl.name)}&companyID=${wehagoCompanyId}&taxNum=${wehagoTaxNum}&yn_private=1&wehagoT`;
+  }
+
+  // 거래처 1곳 처리 (다운로드 1~3단계 + 업로드). 모달 상태를 갱신하며 결과를 반환
+  async function wmRunOne(
+    clientName: string,
+    laborList: string[],
+    params: string,
+    batch?: { current: number; total: number }
+  ): Promise<{ ok: boolean; msg: string }> {
     const incomeTypes: string[] = [];
     if (laborList.includes("근로소득")) incomeTypes.push("salary");
     if (laborList.includes("사업소득")) incomeTypes.push("business");
     if (laborList.includes("일용직")) incomeTypes.push("daily");
-    if (incomeTypes.length === 0) return;
+    if (incomeTypes.length === 0) return { ok: false, msg: "인건비 유형 없음" };
     const monthPadded = String(month).padStart(2, "0");
 
     const TYPE_LABEL: Record<string, string> = { salary: "근로소득 급여자료", business: "사업소득 자료", daily: "일용직 급여자료" };
     const DOWN_URL: Record<string, string> = {
-      salary: `${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`,
-      business: `${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`,
-      daily: `${baseUrl}/TWSA0107?${params}&autoDailyWorker=${month}`,
+      salary: `${WEHAGO_BASE}/SWSA0101?${params}&autoPayslip=${month}`,
+      business: `${WEHAGO_BASE}/SWBU0103?${params}&autoBusinessIncome=${month}`,
+      daily: `${WEHAGO_BASE}/TWSA0107?${params}&autoDailyWorker=${month}`,
     };
 
     const steps: WmStep[] = [
       ...incomeTypes.map(t => ({ key: t, label: `${TYPE_LABEL[t]} 다운로드`, status: "wait" as const })),
       { key: "upload", label: "위멤버스 업로드", status: "wait" as const },
     ];
-    setWmProgress({ clientName, steps, message: "시작하는 중...", finished: false, error: false });
+    setWmProgress(prev => ({ clientName, steps, message: "시작하는 중...", finished: false, error: false, batch }));
 
-    // 파일 존재 체크 (위하고 다운로드 → 드라이브 도착 대기)
     async function waitForFile(type: string): Promise<boolean> {
       for (let i = 0; i < 90; i++) {
         const res = await fetch("/api/automation/check-file", {
@@ -199,21 +212,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       return false;
     }
 
-    // 1~3단계: 소득유형별 다운로드
     for (const type of incomeTypes) {
       wmSetStep(type, "run", `${TYPE_LABEL[type]}를 위하고에서 내려받는 중...`);
       const tab = window.open(DOWN_URL[type], "_blank");
       const found = await waitForFile(type);
       if (tab) tab.close();
       if (!found) {
-        wmSetStep(type, "error", `${TYPE_LABEL[type]} 다운로드 시간 초과 — 위하고 로그인 상태를 확인해주세요`);
-        setWmProgress(prev => (prev ? { ...prev, finished: true, error: true } : prev));
-        return;
+        wmSetStep(type, "error");
+        return { ok: false, msg: `${TYPE_LABEL[type]} 다운로드 시간 초과 (위하고 로그인 확인)` };
       }
       wmSetStep(type, "done");
     }
 
-    // 4단계: 위멤버스 업로드 (서버에서 자동 진행)
     wmSetStep("upload", "run", "서버가 위멤버스에 자동 업로드하는 중... (1~2분 소요)");
     try {
       const res = await fetch("/api/automation/wemembers-process", {
@@ -223,17 +233,65 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       });
       const result = await res.json();
       if (result.success) {
-        wmSetStep("upload", "done", "위멤버스 업로드 완료! 🎉");
-        setWmProgress(prev => (prev ? { ...prev, finished: true } : prev));
-        router.refresh();
-      } else {
-        wmSetStep("upload", "error", result.message || "업로드에 실패했습니다");
-        setWmProgress(prev => (prev ? { ...prev, finished: true, error: true } : prev));
+        wmSetStep("upload", "done");
+        return { ok: true, msg: "완료" };
       }
+      wmSetStep("upload", "error");
+      return { ok: false, msg: result.message || "업로드 실패" };
     } catch (err) {
-      wmSetStep("upload", "error", "업로드 실패: " + String(err));
-      setWmProgress(prev => (prev ? { ...prev, finished: true, error: true } : prev));
+      wmSetStep("upload", "error");
+      return { ok: false, msg: "업로드 실패: " + String(err) };
     }
+  }
+
+  // 단일 실행
+  async function runWemembersSingle(clientName: string, laborList: string[], params: string) {
+    if (wmProgress && !wmProgress.finished) return;
+    const r = await wmRunOne(clientName, laborList, params);
+    setWmProgress(prev =>
+      prev ? { ...prev, finished: true, error: !r.ok, message: r.ok ? "위멤버스 업로드 완료! 🎉" : r.msg } : prev
+    );
+    if (r.ok) router.refresh();
+  }
+
+  // 일괄 실행 (체크된 거래처 순차 처리)
+  async function runWemembersBatch() {
+    if (wmProgress && !wmProgress.finished) return;
+    const targets = filtered
+      .filter(c => checkedIds.has(c.id) && c.wehagoCno && c.wehagoCdCom)
+      .map(c => {
+        const override = c.withholdingLaborOverrides?.[0];
+        const base = c.laborTypes?.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자") ?? [];
+        const laborList = override?.laborTypes
+          ? override.laborTypes.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자")
+          : base;
+        return { name: c.name, laborList, params: buildWehagoParams(c) };
+      })
+      .filter(t => t.laborList.length > 0);
+
+    if (targets.length === 0) { alert("처리 가능한 거래처가 없습니다 (위하고 연동·인건비 유형 확인)"); return; }
+    if (!confirm(`${targets.length}개 거래처 위멤버스 일괄 처리를 시작할까요?`)) return;
+
+    const fails: string[] = [];
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      const r = await wmRunOne(t.name, t.laborList, t.params, { current: i + 1, total: targets.length });
+      if (!r.ok) fails.push(`${t.name} — ${r.msg}`);
+    }
+    setWmProgress(prev =>
+      prev
+        ? {
+            ...prev,
+            finished: true,
+            error: fails.length > 0,
+            message: fails.length > 0
+              ? `완료 ${targets.length - fails.length}건 / 실패 ${fails.length}건\n${fails.join("\n")}`
+              : `${targets.length}개 거래처 모두 완료! 🎉`,
+          }
+        : prev
+    );
+    setCheckedIds(new Set());
+    router.refresh();
   }
 
   // 드라이브의 위하고 엑셀 → PDF 생성 다운로드 (급여명세서 / 사업소득지급대장)
@@ -452,85 +510,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 {checkedIds.size}개 선택
               </div>
               <button
-                onClick={async () => {
-                  const selectedClients = filtered.filter(c => checkedIds.has(c.id));
-                  if (!selectedClients.length) return;
-                  if (!confirm(`${selectedClients.length}개 거래처 위멤버스 일괄 처리를 시작할까요?`)) return;
-
-                  const monthPadded = String(month).padStart(2, "0");
-                  const baseUrl = `https://smarta.wehago.com/#/smarta/humanresource`;
-
-                  for (let idx = 0; idx < selectedClients.length; idx++) {
-                    const cl = selectedClients[idx];
-                    const override = cl.withholdingLaborOverrides?.[0];
-                    const baseLaborTypes = cl.laborTypes?.split(",").map((t: string) => t.trim()).filter((t: string) => t && t !== "1인사업자") ?? [];
-                    const laborList = override?.laborTypes
-                      ? override.laborTypes.split(",").map((t: string) => t.trim()).filter((t: string) => t && t !== "1인사업자")
-                      : baseLaborTypes;
-
-                    if (!cl.wehagoCno || !cl.wehagoCdCom) continue;
-                    const incomeTypes: string[] = [];
-                    if (laborList.includes("근로소득")) incomeTypes.push("salary");
-                    if (laborList.includes("사업소득")) incomeTypes.push("business");
-                    if (laborList.includes("일용직")) incomeTypes.push("daily");
-                    if (!incomeTypes.length) continue;
-
-                    const wehagoColor = (() => { try { const c = JSON.parse(cl.wehagoColors || "{}"); return c[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })();
-                    const params = `sao&cno=${cl.wehagoCno}&cd_com=${cl.wehagoCdCom}&gisu=${month}&yminsa=${year}&searchData=${year}0101${year}1231&color=${wehagoColor}&companyName=${encodeURIComponent(cl.name)}&companyID=${wehagoCompanyId}&taxNum=${wehagoTaxNum}&yn_private=1&wehagoT`;
-
-                    console.log(`[${idx + 1}/${selectedClients.length}] ${cl.name} 처리 시작 (${incomeTypes.map(t => t === "salary" ? "근로" : t === "business" ? "사업" : "일용").join("+")})`);
-
-                    async function waitForFile(type: string): Promise<boolean> {
-                      for (let i = 0; i < 90; i++) {
-                        const res = await fetch("/api/automation/check-file", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ clientName: cl.name, year: String(year), month: monthPadded, type }),
-                        });
-                        const data = await res.json();
-                        if (data.exists) return true;
-                        await new Promise(r => setTimeout(r, 2000));
-                      }
-                      return false;
-                    }
-
-                    // 근로소득 다운로드
-                    if (incomeTypes.includes("salary")) {
-                      const tab = window.open(`${baseUrl}/SWSA0101?${params}&autoPayslip=${month}`, "_blank");
-                      await waitForFile("salary");
-                      if (tab) tab.close();
-                    }
-                    // 사업소득 다운로드
-                    if (incomeTypes.includes("business")) {
-                      const tab = window.open(`${baseUrl}/SWBU0103?${params}&autoBusinessIncome=${month}`, "_blank");
-                      await waitForFile("business");
-                      if (tab) tab.close();
-                    }
-                    // 일용직 다운로드
-                    if (incomeTypes.includes("daily")) {
-                      const tab = window.open(`${baseUrl}/TWSA0107?${params}&autoDailyWorker=${month}`, "_blank");
-                      await waitForFile("daily");
-                      if (tab) tab.close();
-                    }
-
-                    // 위멤버스 업로드
-                    try {
-                      const res = await fetch("/api/automation/wemembers-process", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ clientName: cl.name, year: String(year), month: monthPadded, incomeTypes }),
-                      });
-                      const result = await res.json();
-                      if (result.success) {
-                        // 성공하면 체크 해제
-                        setCheckedIds(prev => { const n = new Set(prev); n.delete(cl.id); return n; });
-                      }
-                    } catch {}
-                  }
-
-                  alert(`${selectedClients.length}개 거래처 위멤버스 일괄 처리 완료!`);
-                  setCheckedIds(new Set());
-                }}
+                onClick={runWemembersBatch}
                 className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#3182F6] text-white hover:bg-[#1B64DA]"
               >
                 일괄 위멤버스
@@ -668,6 +648,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                   <span className="text-[10.5px] font-bold text-[#4E5968] uppercase tracking-wider">{step}</span>
                 </th>
               ))}
+              <th className="text-center px-2 py-2.5 whitespace-nowrap">
+                <span className="text-[10.5px] font-bold text-[#1B64DA] uppercase tracking-wider">위멤버스</span>
+              </th>
               {extraColumns.length > 0 && <th className="w-[1px] px-0 bg-white/40"></th>}
               {extraColumns.map(col => (
                 <th key={col.key} className="text-center px-2 py-2.5">
@@ -682,7 +665,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             )}
             {groups.map((group) => {
               const cfg = group.config;
-              const totalCols = 8 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + (extraColumns.length > 0 ? 1 : 0) + extraColumns.length;
+              const totalCols = 9 + (showAssignedUser ? 1 : 0) + ALL_PROCESS_STEPS.length + (extraColumns.length > 0 ? 1 : 0) + extraColumns.length;
               return (
                 <React.Fragment key={group.type || "unassigned"}>
                   {/* 그룹 헤더 행 */}
@@ -794,21 +777,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                       일용
                                     </button>
                                   )}
-                                  {/* 위하고 바로가기(급여/사업/일용) ↔ 작업 버튼(위멤버스/명세서/대장) 구분선 */}
+                                  {/* 위하고 바로가기(급여/사업/일용) ↔ 문서 생성(명세서/대장) 구분선. 위멤버스는 전용 컬럼으로 이동 */}
                                   {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
                                     <span className="mx-1 w-px h-3 bg-[#D1D6DB] shrink-0" />
-                                  )}
-                                  {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
-                                    <button
-                                      onClick={() => { if (!wmProgress || wmProgress.finished) runWemembersFlow(client.name, laborList, baseUrl, params); }}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] border border-[#A3CAFD] whitespace-nowrap shrink-0"
-                                      title="위멤버스 다운로드+업로드"
-                                    >
-                                      위멤버스
-                                    </button>
-                                  )}
-                                  {doneMap.has("위멤버스완료") && (
-                                    <span className="ml-0.5 text-[9px] text-[#16A865] font-bold">✓</span>
                                   )}
                                   {laborList.includes("근로소득") && (
                                     <button
@@ -956,6 +927,30 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                             )}
                           </td>
                         ))}
+                        {/* 위멤버스 실행/완료 */}
+                        <td className="px-2 py-2 text-center">
+                          {(() => {
+                            const canWm = !!client.wehagoCno && !!client.wehagoCdCom && laborList.length > 0 && !isSkipped;
+                            if (!canWm) return <span className="text-[#D1D6DB] text-[10px]">-</span>;
+                            if (doneMap.has("위멤버스완료")) {
+                              return (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#E8F5EE] border-2 border-[#BBF7D0] text-[#16A865] text-[11px] font-bold" title="위멤버스 업로드 완료">
+                                  ✓
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => runWemembersSingle(client.name, laborList, buildWehagoParams(client))}
+                                disabled={!!wmProgress && !wmProgress.finished}
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 border-[#A3CAFD] bg-[#F5F9FF] text-[#3182F6] hover:bg-[#E8F3FF] text-[9px] font-bold transition-colors disabled:opacity-40"
+                                title="위멤버스 다운로드+업로드 실행"
+                              >
+                                ▶
+                              </button>
+                            );
+                          })()}
+                        </td>
                         {/* 구분선 */}
                         {extraColumns.length > 0 && <td className="w-[1px] px-0 bg-[#F2F4F6]"></td>}
                         {/* 추가 체크리스트 */}
@@ -1012,7 +1007,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                     <div className="w-7 h-7 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
                   )}
                 </div>
-                <h3 className="text-base font-bold text-[#191F28]">위멤버스 자동화</h3>
+                <h3 className="text-base font-bold text-[#191F28]">
+                  위멤버스 자동화{wmProgress.batch ? ` (${wmProgress.batch.current}/${wmProgress.batch.total})` : ""}
+                </h3>
                 <p className="text-xs text-[#8B95A1] mt-0.5">{wmProgress.clientName}</p>
               </div>
 
@@ -1058,7 +1055,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               </div>
 
               {/* 상태 메시지 */}
-              <div className={`text-[12px] rounded-xl px-3.5 py-2.5 mb-4 leading-relaxed ${
+              <div className={`text-[12px] rounded-xl px-3.5 py-2.5 mb-4 leading-relaxed whitespace-pre-line max-h-32 overflow-y-auto ${
                 wmProgress.error ? "bg-[#FEF2F2] text-[#B91C1C]" : wmProgress.finished ? "bg-[#E8F5EE] text-[#15803D]" : "bg-[#F5F9FF] text-[#4E5968]"
               }`}>
                 {wmProgress.message}
