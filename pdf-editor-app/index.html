@@ -1,0 +1,206 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDF 편집기</title>
+<link rel="stylesheet" href="styles.css?v=35" />
+
+<div id="app">
+  <header class="toolbar">
+    <div class="tb-group">
+      <button id="btnOpen" class="btn primary round" data-ic="plus" title="PDF 열기 (이미 열려 있으면 뒤에 추가·합치기)"></button>
+      <button id="btnSave" class="btn iconbtn" data-ic="download" disabled title="저장 (위치·이름 지정)"></button>
+      <button id="btnOcr" class="btn" data-ic="scan" disabled title="OCR — 스캔본 글자 인식(검색·복사 가능하게)"></button>
+    </div>
+
+    <div class="tb-sep"></div>
+
+    <div class="tb-group tools" id="toolGroup">
+      <button class="tool" data-tool="select" data-ic="pointer" title="선택 / 이동"></button>
+      <button class="tool" data-tool="text" data-ic="type" title="글자 얹기"></button>
+      <button class="tool" data-tool="brush" data-ic="brush" title="브러쉬 (펜 / 형광펜)"></button>
+      <button class="tool" data-tool="eraser" data-ic="eraser" title="지우개 (도형/브러쉬 · 모두 덮기/편집만 지우기)"></button>
+      <button class="tool" data-tool="image" data-ic="image" title="이미지 삽입 (사진·그림을 그대로 넣기)"></button>
+      <button class="tool" data-tool="mosaic" data-ic="mosaic" title="모자이크 / 블러 (네모로 드래그해 가리기)"></button>
+      <button class="tool" data-tool="stamp" data-ic="stamp" title="도장 / 이미지 넣기"></button>
+    </div>
+
+    <div class="tb-sep"></div>
+
+    <div class="tb-group" id="textOpts" style="display:none">
+      <label>크기 <input id="fontSize" type="number" value="12" min="4" max="200" step="1" /></label>
+      <label>글씨체
+        <select id="fontFamily">
+          <option value="malgun">맑은 고딕</option>
+          <option value="nanummyeongjo">바탕(명조)</option>
+          <option value="nanumgothic">나눔고딕</option>
+        </select>
+      </label>
+      <label>색 <input id="fontColor" type="color" value="#000000" /></label>
+    </div>
+
+    <div class="tb-group" id="brushOpts" style="display:none">
+      <div class="seg" id="brushMode">
+        <button class="segbtn active" data-mode="pen" title="펜 (선)">펜</button>
+        <button class="segbtn" data-mode="highlight" title="형광펜">형광펜</button>
+      </div>
+      <label>굵기 <input id="brushWidth" type="range" value="2" min="1" max="45" step="1" class="brush-range" /><span id="brushWidthVal" class="brush-wval">2</span></label>
+      <label>색 <input id="brushColor" type="color" value="#111111" /></label>
+      <span class="swatches" id="brushSwatches">
+        <button type="button" class="sw" data-c="#111111" title="검정" style="background:#111111"></button>
+        <button type="button" class="sw" data-c="#e11d1d" title="빨강" style="background:#e11d1d"></button>
+        <button type="button" class="sw" data-c="#1d6ff0" title="파랑" style="background:#1d6ff0"></button>
+        <button type="button" class="sw" data-c="#16a34a" title="초록" style="background:#16a34a"></button>
+        <button type="button" class="sw" data-c="#ffe100" title="노랑(형광)" style="background:#ffe100"></button>
+      </span>
+    </div>
+
+    <div class="tb-group" id="eraserOpts" style="display:none">
+      <div class="seg" id="eraserShape">
+        <button class="segbtn" data-shape="rect" title="도형 — 드래그한 네모 영역을 지움">도형</button>
+        <button class="segbtn active" data-shape="brush" title="브러쉬 — 문지르듯이 지움 (휠로 크기 조절)">브러쉬</button>
+      </div>
+      <div class="seg" id="eraserTarget">
+        <button class="segbtn active" data-target="all" title="원본까지 흰색으로 덮어 지움">모두</button>
+        <button class="segbtn" data-target="edits" title="내가 얹은 편집(글자·도장·브러쉬·덮개)만 지우고 원본은 그대로 둠">편집만</button>
+      </div>
+      <label id="eraserSizeWrap" style="display:none">굵기 <input id="eraserSize" type="range" value="20" min="4" max="80" step="1" class="brush-range" /><span id="eraserSizeVal" class="brush-wval">20</span></label>
+    </div>
+
+    <div class="tb-group" id="mosaicOpts" style="display:none">
+      <div class="seg" id="mosaicMode">
+        <button class="segbtn active" data-mmode="mosaic" title="모자이크 — 네모 블록으로 픽셀화">모자이크</button>
+        <button class="segbtn" data-mmode="blur" title="블러 — 흐릿하게">블러</button>
+      </div>
+      <label>강도 <input id="mosaicStrength" type="range" value="20" min="1" max="100" step="1" class="brush-range" /><span id="mosaicStrengthVal" class="brush-wval">20</span></label>
+    </div>
+
+    <div class="tb-spacer"></div>
+
+    <div class="tb-group">
+      <button id="btnUndo" class="btn" data-ic="history" disabled title="편집 전 원본으로 되돌리기 (모든 편집 취소)"></button>
+      <span id="hint" class="hint"></span>
+    </div>
+  </header>
+
+  <main class="body">
+    <aside class="sidebar" id="thumbs">
+      <div class="file-section" id="fileSection" style="display:none">
+        <div class="file-head">
+          <span class="file-title">파일 순서</span>
+          <button id="btnConfirmOrder" class="mini-btn"></button>
+        </div>
+        <ul id="fileList" class="file-list"></ul>
+      </div>
+      <div class="empty" id="thumbsEmpty">
+        상단의 <b>＋</b> 버튼으로 PDF를 불러오세요.
+      </div>
+      <ul id="thumbList" class="thumb-list"></ul>
+    </aside>
+
+    <div class="resizer" id="resizer" title="드래그하여 폭 조절"></div>
+
+    <section class="stage" id="stage">
+      <div class="stage-empty" id="stageEmpty">
+        <div class="drop-hint">
+          <div class="big">여기로 PDF를 끌어다 놓으세요</div>
+          <div>또는 <b>PDF 열기</b> 버튼을 누르세요</div>
+        </div>
+      </div>
+      <div class="canvas-wrap" id="canvasWrap" style="display:none">
+        <canvas id="pageCanvas"></canvas>
+        <canvas id="overlay"></canvas>
+        <input id="textInput" class="floating-input" style="display:none" placeholder="글자 입력 후 Enter" />
+        <textarea id="textArea" class="floating-input floating-textarea" style="display:none" placeholder="글자 입력 · Enter 완성 · Ctrl+Enter 줄바꿈"></textarea>
+      </div>
+      <div class="zoombar" id="zoombar" style="display:none">
+        <button id="zoomOut" class="zbtn" title="축소">−</button>
+        <input id="zoomRange" type="range" min="10" max="600" step="10" value="100" title="드래그하여 확대/축소" />
+        <button id="zoomIn" class="zbtn" title="확대">＋</button>
+        <span id="zoomVal">100%</span>
+        <button id="zoomReset" class="zreset" title="원위치 (100%)">100%</button>
+      </div>
+      <div class="histbar" id="histbar" style="display:none">
+        <button id="btnStepUndo" class="hbtn" data-ic="undo" disabled title="바로 전 작업 되돌리기 (Ctrl+Z)"></button>
+        <button id="btnStepRedo" class="hbtn" data-ic="redo" disabled title="앞으로 가기 (Ctrl+Y)"></button>
+      </div>
+    </section>
+  </main>
+
+  <div id="busy" class="busy" style="display:none"><div class="spinner"></div><span id="busyMsg">처리 중…</span></div>
+
+  <!-- 도장 만들기 팝업 -->
+  <div class="modal-backdrop" id="stampModal" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <span>도장 만들기</span>
+        <button class="modal-x" id="stampClose" title="닫기">✕</button>
+      </div>
+      <div class="modal-tabs">
+        <button class="mtab active" data-mode="image">이미지 넣기</button>
+        <button class="mtab" data-mode="name">이름 도장 생성</button>
+      </div>
+      <div class="modal-body">
+        <div class="mode" id="modeImage">
+          <div class="drop-area" id="stampDrop">
+            <div class="da-inner">
+              이미지를 여기로 끌어놓거나 <b>붙여넣기(Ctrl+V)</b><br />
+              <button id="stampPick" class="btn">파일 선택</button>
+            </div>
+          </div>
+          <div id="imgEditor" style="display:none">
+            <div class="preview-box"><canvas id="stampImgCanvas"></canvas></div>
+            <label class="row"><input type="checkbox" id="cutBg" checked /> 흰 배경 지우기(누끼)</label>
+            <label class="row">배경 제거 강도 <input type="range" id="cutTol" min="0" max="200" value="90" /> <span id="cutTolVal">90</span></label>
+            <label class="row"><input type="checkbox" id="cutRecolor" checked /> 도장 색 통일 <input type="color" id="cutColor" value="#d81e06" /></label>
+            <label class="row"><input type="checkbox" id="cutSolid" checked /> 진하게(선명하게)</label>
+          </div>
+        </div>
+        <div class="mode" id="modeName" style="display:none">
+          <div class="name-form">
+            <label>모양
+              <select id="stampShape">
+                <option value="ellipse">타원형 (세로 이름·막도장)</option>
+                <option value="circle">원형 (이름 + 인)</option>
+                <option value="square">네모 (이름 + 인)</option>
+                <option value="corp">법인 (회사 인감·代表理事)</option>
+              </select>
+            </label>
+            <label><span id="nameLabel">이름</span> <input id="stampName" type="text" value="홍길동" maxlength="16" /></label>
+            <label>색 <input id="stampColor" type="color" value="#d81e06" /></label>
+          </div>
+          <div class="preview-box"><canvas id="stampNameCanvas"></canvas></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="stampCancel">취소</button>
+        <button class="btn primary" id="stampUse">이 도장 사용</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input id="fileOpen" type="file" accept="application/pdf" multiple hidden />
+<input id="fileStamp" type="file" accept="image/png,image/jpeg" hidden />
+<input id="fileImage" type="file" accept="image/*" hidden />
+
+<script src="lib/pdf.min.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
+<script src="lib/fontkit.umd.min.js"></script>
+<script src="lib/tesseract/tesseract.min.js"></script>
+<script src="app.js?v=38"></script>
+<script>
+  // 개발용 자동 새로고침: 브라우저(localhost)에서 볼 때만 동작. 패키징된 Electron 앱에선 꺼짐.
+  if (!navigator.userAgent.includes("Electron")) {
+    const watch = ["styles.css", "app.js", "index.html"];
+    const seen = {};
+    setInterval(async () => {
+      for (const f of watch) {
+        try {
+          const r = await fetch(f + "?_=" + Date.now(), { method: "HEAD", cache: "no-store" });
+          const tag = (r.headers.get("last-modified") || "") + (r.headers.get("content-length") || "");
+          if (seen[f] && seen[f] !== tag) return location.reload();
+          seen[f] = tag;
+        } catch (_) {}
+      }
+    }, 1000);
+  }
+</script>

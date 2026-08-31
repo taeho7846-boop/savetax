@@ -46,6 +46,23 @@ const ITEMS: (DockItem | "divider")[] = [
     external: true,
   },
   {
+    key: "pdf",
+    label: "PDF 편집",
+    title: "PDF 편집기 (순서·합치기·글자·도장·OCR)",
+    gradient: "from-[#EF4444] to-[#B91C1C]",
+    shadow: "shadow-[#EF4444]/30",
+    icon: (
+      <svg width={22} height={22} fill="none" stroke="white" strokeWidth={2.2} viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M9 15h6" />
+        <path d="M9 11h2" />
+      </svg>
+    ),
+    href: "/pdf-editor/index.html",
+    external: true,
+  },
+  {
     key: "drive",
     label: "드라이브",
     title: "구글드라이브",
