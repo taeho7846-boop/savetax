@@ -5,8 +5,9 @@
 import { chromium } from "playwright";
 import * as fs from "fs";
 
-const WEHAGO_ID = "doyultax";
-const WEHAGO_PW = "doyultax24!";
+// 환경변수로 세무사별 위하고 계정 지정 (설정 페이지에 저장된 계정 사용)
+const WEHAGO_ID = process.env.WEHAGO_ID || "doyultax";
+const WEHAGO_PW = process.env.WEHAGO_PW || "doyultax24!";
 const YEARS_TO_COLLECT = ["2026", "2025"];
 
 const JSON_FILE = "scripts/labor-clients.json";
