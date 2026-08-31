@@ -269,10 +269,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     }
   }
 
-  // ABCD 그룹별 진행률 계산
+  // ABCD 그룹별 진행률 계산 — 검색과 무관하게 전체 기준 (검색 시 상단이 흔들리지 않도록)
   type GroupProgress = { type: string; description: string; total: number; done: number; pct: number };
   const groupProgress: GroupProgress[] = ["A", "B", "C", "D"].map(type => {
-    const typeClients = filtered.filter(c => c.withholdingType === type);
+    const typeClients = clients.filter(c => c.withholdingType === type);
     if (type === "D") {
       return { type, description: TYPE_CONFIG[type].description, total: typeClients.length, done: 0, pct: 0 };
     }
@@ -296,8 +296,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     };
   });
 
-  // 전체 진행률
-  const allClients = filtered;
+  // 전체 진행률 — 검색과 무관하게 전체 기준
+  const allClients = clients;
   const totalProcess = allClients.reduce((sum, c) => {
     const steps = getStepsByType(c.withholdingType || "", month, c.halfYearTax);
     return sum + steps.length;
@@ -308,8 +308,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     return sum + steps.filter(s => doneMap.has(s)).length;
   }, 0);
 
-  // 원천세 신고 진행률 (ABC 그룹만, 신고없음 제외)
-  const abcClients = filtered.filter(c => ["A", "B", "C"].includes(c.withholdingType || ""));
+  // 원천세 신고 진행률 (ABC 그룹만, 신고없음 제외) — 검색과 무관하게 전체 기준
+  const abcClients = clients.filter(c => ["A", "B", "C"].includes(c.withholdingType || ""));
   const taxFilingTotal = abcClients.filter(c => {
     const steps = getStepsByType(c.withholdingType || "", month, c.halfYearTax);
     const doneMap = new Map(c.withholdingRecords.filter(r => r.done).map(r => [r.taskType, true]));
