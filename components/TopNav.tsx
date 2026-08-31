@@ -137,8 +137,8 @@ export default function TopNav({
 
   return (
     <header className="sticky top-0 z-30 px-6 pt-4 pb-2 bg-gradient-to-b from-[#f0f4ff]/95 via-[#f0f4ff]/70 to-transparent">
-      {/* Row 1: 3 pills */}
-      <div className="flex items-center gap-3 mb-2.5">
+      {/* Row 1: 3 pills — 카테고리 pill은 화면 정중앙 고정 (서브탭과 세로 정렬) */}
+      <div className="relative flex items-center justify-between gap-3 mb-2.5">
         {/* 좌: 로고 */}
         <Link href="/dashboard" className="glass-strong rounded-2xl px-3 py-2 flex items-center gap-2">
           <div className="w-9 h-9 rounded-xl gradient-blue flex items-center justify-center text-white font-bold text-[15px] shadow-md shadow-[#3182F6]/30">
@@ -150,8 +150,8 @@ export default function TopNav({
           </div>
         </Link>
 
-        {/* 중: 카테고리 */}
-        <div className="flex-1 flex justify-center">
+        {/* 중: 카테고리 — 좌우 pill 폭과 무관하게 화면 정중앙 */}
+        <div className="absolute left-1/2 -translate-x-1/2">
           <div className="glass-strong rounded-2xl px-2 py-2 flex items-center gap-1">
             {visibleCategories.map((cat) => {
               const isActive = cat.key === activeCat;
@@ -183,42 +183,26 @@ export default function TopNav({
         </div>
       </div>
 
-      {/* Row 2: 서브탭 (개별 pill) */}
+      {/* Row 2: 서브탭 (개별 pill) — 화면 기준 정중앙 정렬 */}
       {activeSubs.length > 1 && (
-        <div className="flex items-center gap-3">
-          {/* 좌측 placeholder (로고 pill 폭 매칭) */}
-          <div className="invisible flex items-center gap-2 px-3 py-2" aria-hidden>
-            <div className="w-9 h-9" />
-            <div>
-              <div className="text-[13px] font-bold">Savetax</div>
-              <div className="text-[9.5px]">세무 업무</div>
-            </div>
-          </div>
-          <div className="flex-1 flex justify-center">
-            <div className="flex items-center gap-2">
-              {activeSubs.map((s) => {
-                const active = pathname.startsWith(s.href);
-                return (
-                  <Link
-                    key={s.href}
-                    href={s.href}
-                    className={`rounded-xl px-4 py-2 text-[12.5px] font-bold transition ${
-                      active
-                        ? "text-white bg-[#3182F6]"
-                        : "glass-strong text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px"
-                    }`}
-                  >
-                    {s.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-          {/* 우측 placeholder (검색·알림·프로필 pill 폭 매칭) */}
-          <div className="invisible flex items-center gap-1.5 px-2 py-2" aria-hidden>
-            <div className="w-[200px] h-9" />
-            <div className="w-9 h-9" />
-            <div className="w-9 h-9" />
+        <div className="flex justify-center">
+          <div className="flex items-center gap-2">
+            {activeSubs.map((s) => {
+              const active = pathname.startsWith(s.href);
+              return (
+                <Link
+                  key={s.href}
+                  href={s.href}
+                  className={`rounded-xl px-4 py-2 text-[12.5px] font-bold transition ${
+                    active
+                      ? "text-white bg-[#3182F6]"
+                      : "glass-strong text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px"
+                  }`}
+                >
+                  {s.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
