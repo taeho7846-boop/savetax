@@ -33,33 +33,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "설정 페이지에 위하고 ID/PW를 먼저 저장해주세요 (본인 또는 소속 세무사)" }, { status: 400 });
   }
 
-  // 수집 대상: 관할 거래처 중 위하고 연동정보 없는 곳 (위하고 사용 거래처만)
-  const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
-  let assignedFilter: any = { OR: [{ assignedUserId: session.id }, { subAssignedUserId: session.id }] };
-  if (isManager) {
-    const employees = await prisma.user.findMany({
-      where: { managerId: session.id, isActive: true },
-      select: { id: true },
+  // 개별 수집: body에 clientId가 오면 그 거래처만 (이미 연동된 곳도 재수집 가능)
+  const body = await req.json().catch(() => ({}));
+  const singleClientId = typeof body?.clientId === "number" ? body.clientId : null;
+
+  let targets: { id: number; name: string; bizNumber: string | null }[];
+  if (singleClientId) {
+    const one = await prisma.client.findUnique({
+      where: { id: singleClientId },
+      select: { id: true, name: true, bizNumber: true, isDeleted: true },
     });
-    assignedFilter = { assignedUserId: { in: [session.id, ...employees.map(e => e.id)] } };
+    if (!one || one.isDeleted) return NextResponse.json({ message: "거래처를 찾을 수 없습니다" }, { status: 404 });
+    if (!one.bizNumber) return NextResponse.json({ message: "사업자번호가 입력되어 있지 않습니다" }, { status: 400 });
+    targets = [one];
+  } else {
+    // 일괄 수집: 관할 ABC그룹(원천세 대상) 중 위하고 연동정보 없는 곳
+    const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
+    let assignedFilter: any = { OR: [{ assignedUserId: session.id }, { subAssignedUserId: session.id }] };
+    if (isManager) {
+      const employees = await prisma.user.findMany({
+        where: { managerId: session.id, isActive: true },
+        select: { id: true },
+      });
+      assignedFilter = { assignedUserId: { in: [session.id, ...employees.map(e => e.id)] } };
+    }
+    targets = await prisma.client.findMany({
+      where: {
+        isDeleted: false,
+        contractStatus: "active",
+        wehagoCno: null,
+        bizNumber: { not: null },
+        accountingProgram: { contains: "위하고" },
+        withholdingType: { in: ["A", "B", "C"] },
+        AND: [assignedFilter],
+      },
+      select: { id: true, name: true, bizNumber: true },
+      orderBy: { name: "asc" },
+    });
   }
-  const targets = await prisma.client.findMany({
-    where: {
-      isDeleted: false,
-      contractStatus: "active",
-      wehagoCno: null,
-      bizNumber: { not: null },
-      accountingProgram: { contains: "위하고" },
-      OR: [
-        { laborTypes: { contains: "근로소득" } },
-        { laborTypes: { contains: "사업소득" } },
-        { laborTypes: { contains: "일용직" } },
-      ],
-      AND: [assignedFilter],
-    },
-    select: { id: true, name: true, bizNumber: true },
-    orderBy: { name: "asc" },
-  });
 
   if (targets.length === 0) {
     return NextResponse.json({ message: "수집할 거래처가 없습니다 (모두 연동됨)" }, { status: 404 });

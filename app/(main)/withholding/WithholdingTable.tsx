@@ -286,10 +286,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   } | null>(null);
   const collectPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function startCollect() {
-    const missing = clients.filter(c => !c.wehagoCno && (c.laborTypes || "").trim() && c.accountingProgram?.includes("위하고"));
-    if (!confirm(`위하고 연동정보가 없는 거래처를 수집합니다.\n(위하고에 로그인해서 자동 조회 — 몇 분 걸릴 수 있어요)\n\n시작할까요?`)) return;
-    const res = await fetch("/api/wehago/collect", { method: "POST" });
+  async function startCollect(clientId?: number, clientName?: string) {
+    const msg = clientId
+      ? `'${clientName}' 위하고 연동정보를 수집합니다. (약 30초)\n\n시작할까요?`
+      : `위하고 연동정보가 없는 ABC그룹 거래처를 일괄 수집합니다.\n(위하고에 로그인해서 자동 조회 — 몇 분 걸릴 수 있어요)\n\n시작할까요?`;
+    if (!confirm(msg)) return;
+    const res = await fetch("/api/wehago/collect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(clientId ? { clientId } : {}),
+    });
     const data = await res.json();
     if (!res.ok) { alert(data.message || "수집 시작 실패"); return; }
     setCollectJob({ total: data.total, current: 0, currentName: "시작 중...", results: [], done: false });
@@ -610,10 +616,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             {verifyLoading ? "검증중..." : "신고 검증"}
           </button>
           {(() => {
-            const missingCount = clients.filter(c => !c.wehagoCno && (c.laborTypes || "").trim() && c.accountingProgram?.includes("위하고")).length;
+            const missingCount = clients.filter(c => !c.wehagoCno && ["A", "B", "C"].includes(c.withholdingType || "") && c.accountingProgram?.includes("위하고")).length;
             return (
               <button
-                onClick={startCollect}
+                onClick={() => startCollect()}
                 disabled={missingCount === 0 || (!!collectJob && !collectJob.done)}
                 title="신규 거래처의 위하고 연동정보를 수집해서 급여/사업/일용 버튼을 생성합니다"
                 className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB] disabled:opacity-40 flex items-center gap-1.5"
@@ -1069,7 +1075,26 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                         <td className="px-2 py-2 text-center">
                           {(() => {
                             const canWm = !!client.wehagoCno && !!client.wehagoCdCom && laborList.length > 0 && !isSkipped;
-                            if (!canWm) return <span className="text-[#D1D6DB] text-[10px]">-</span>;
+                            if (!canWm) {
+                              // 미연동 ABC 거래처 → 개별 연동 수집 버튼
+                              const canCollect = (!client.wehagoCno || !client.wehagoCdCom)
+                                && ["A", "B", "C"].includes(client.withholdingType || "")
+                                && client.accountingProgram?.includes("위하고")
+                                && !isSkipped;
+                              if (canCollect) {
+                                return (
+                                  <button
+                                    onClick={() => startCollect(client.id, client.name)}
+                                    disabled={!!collectJob && !collectJob.done}
+                                    className="text-[9px] px-1.5 py-0.5 rounded bg-[#FFFBEB] text-[#D97706] hover:bg-[#FEF3C7] border border-[#FDE68A] whitespace-nowrap disabled:opacity-40"
+                                    title="위하고 연동정보 수집 (급여/사업/일용 버튼 생성)"
+                                  >
+                                    연동
+                                  </button>
+                                );
+                              }
+                              return <span className="text-[#D1D6DB] text-[10px]">-</span>;
+                            }
                             if (doneMap.has("위멤버스완료")) {
                               return (
                                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#E8F5EE] border-2 border-[#BBF7D0] text-[#16A865] text-[11px] font-bold" title="위멤버스 업로드 완료">
