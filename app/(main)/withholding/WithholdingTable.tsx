@@ -139,7 +139,6 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   } | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
-  const [docGenerating, setDocGenerating] = useState<string | null>(null); // "clientId-docType"
 
   // 위멤버스 자동화 진행상황 모달
   type WmStep = { key: string; label: string; status: "wait" | "run" | "done" | "error" };
@@ -403,37 +402,6 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     );
     setCheckedIds(new Set());
     router.refresh();
-  }
-
-  // 드라이브의 위하고 엑셀 → PDF 생성 다운로드 (급여명세서 / 사업소득지급대장)
-  async function generateDoc(clientId: number, docType: "ledger" | "payslip") {
-    const key = `${clientId}-${docType}`;
-    if (docGenerating) return;
-    setDocGenerating(key);
-    try {
-      const res = await fetch("/api/withholding/generate-doc", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, yearMonth, docType }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => null);
-        alert(d?.message || "PDF 생성에 실패했습니다");
-        return;
-      }
-      const blob = await res.blob();
-      const cd = res.headers.get("Content-Disposition") || "";
-      const m = cd.match(/filename\*=UTF-8''(.+)/);
-      const fileName = m ? decodeURIComponent(m[1]) : "문서.pdf";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setDocGenerating(null);
-    }
   }
 
   // 검증 결과 모달에서 수기 체크 (해당 월의 원천세신고를 완료 처리)
@@ -919,30 +887,6 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                       title="위하고 일용직급여자료입력 + 원천징수이행상황신고서"
                                     >
                                       일용
-                                    </button>
-                                  )}
-                                  {/* 위하고 바로가기(급여/사업/일용) ↔ 문서 생성(명세서/대장) 구분선. 위멤버스는 전용 컬럼으로 이동 */}
-                                  {(laborList.includes("근로소득") || laborList.includes("사업소득") || laborList.includes("일용직")) && (
-                                    <span className="mx-1 w-px h-3 bg-[#D1D6DB] shrink-0" />
-                                  )}
-                                  {laborList.includes("근로소득") && (
-                                    <button
-                                      onClick={() => generateDoc(client.id, "payslip")}
-                                      disabled={docGenerating !== null}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-200 whitespace-nowrap shrink-0 disabled:opacity-40"
-                                      title="급여명세서 PDF 생성 (위멤버스로 받은 엑셀 기반)"
-                                    >
-                                      {docGenerating === `${client.id}-payslip` ? "생성중..." : "명세서"}
-                                    </button>
-                                  )}
-                                  {laborList.includes("사업소득") && (
-                                    <button
-                                      onClick={() => generateDoc(client.id, "ledger")}
-                                      disabled={docGenerating !== null}
-                                      className="ml-0.5 text-[9px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 whitespace-nowrap shrink-0 disabled:opacity-40"
-                                      title="사업소득지급대장 PDF 생성 (위멤버스로 받은 엑셀 기반)"
-                                    >
-                                      {docGenerating === `${client.id}-ledger` ? "생성중..." : "대장"}
                                     </button>
                                   )}
                                 </>
