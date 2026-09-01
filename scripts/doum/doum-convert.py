@@ -40,6 +40,10 @@ def num(v):
         return 0.0
 
 
+def floor10(x):
+    return int(x // 10) * 10
+
+
 def check_rrn(rrn, today):
     issues = []
     d = rrn.replace("-", "").strip()
@@ -88,9 +92,17 @@ def main():
         name = str(r[2] or "").strip()
         if not name:
             continue
+        amount = num(r[9])
+        tax = num(r[11])
+        local = num(r[13])
+        # 원본이 수식 셀이라 값이 비어 읽히면 규칙대로 재계산 (3% 절사, 지방세는 그 10% 절사)
+        if amount > 0 and tax == 0:
+            tax = floor10(amount * 0.03)
+        if tax > 0 and local == 0:
+            local = floor10(tax * 0.1)
         biz.append({
             "date": fmt_date(r[16], ym), "name": name, "resident": clean_resident(r[5]),
-            "amount": num(r[9]), "tax": num(r[11]), "local": num(r[13]), "work": str(r[1] or "").strip(),
+            "amount": amount, "tax": tax, "local": local, "work": str(r[1] or "").strip(),
         })
 
     # ── 일용직 (일용직고용보험) — 같은 사람+같은 일자 합산 ──
@@ -101,11 +113,16 @@ def main():
             continue
         d = r[12]
         day = d.day if isinstance(d, datetime) else int(str(d)[8:10])
+        d_amount = num(r[9])
+        d_emp = num(r[11])
+        # 고용보험(0.9% 10원 절사)이 수식 셀이라 비어 읽히면 재계산
+        if d_amount > 0 and d_emp == 0:
+            d_emp = floor10(d_amount * 0.009)
         daily_raw.append({
             "day": day, "name": name, "resident": clean_resident(r[5]),
             "rrn_disp": str(r[5] or "").strip(), "work": str(r[1] or "").strip(),
             "bank": str(r[3] or "").strip(), "account": str(r[4] or "").strip(),
-            "amount": num(r[9]), "emp": num(r[11]),
+            "amount": d_amount, "emp": d_emp,
         })
     merged = {}
     for p in daily_raw:
