@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { toggleWithholdingTask, markWithholdingDone, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
 import { PinIcon } from "@/components/icons";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
@@ -276,6 +276,42 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     }
 
     return { ok: true, msg: docWarns.length > 0 ? `완료 (경고: ${docWarns.join(" / ")})` : "완료" };
+  }
+
+  // 위하고 연동 수집 (신규 거래처의 급여/사업/일용 버튼 생성)
+  const [collectJob, setCollectJob] = useState<{
+    total: number; current: number; currentName: string;
+    results: { name: string; status: string; msg?: string }[];
+    done: boolean; fatal?: string | null;
+  } | null>(null);
+  const collectPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function startCollect() {
+    const missing = clients.filter(c => !c.wehagoCno && (c.laborTypes || "").trim() && c.accountingProgram?.includes("위하고"));
+    if (!confirm(`위하고 연동정보가 없는 거래처를 수집합니다.\n(위하고에 로그인해서 자동 조회 — 몇 분 걸릴 수 있어요)\n\n시작할까요?`)) return;
+    const res = await fetch("/api/wehago/collect", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) { alert(data.message || "수집 시작 실패"); return; }
+    setCollectJob({ total: data.total, current: 0, currentName: "시작 중...", results: [], done: false });
+    collectPollRef.current = setInterval(async () => {
+      try {
+        const r = await fetch("/api/wehago/collect");
+        if (!r.ok) return;
+        const j = await r.json();
+        setCollectJob(j);
+        if (j.done) {
+          if (collectPollRef.current) clearInterval(collectPollRef.current);
+          collectPollRef.current = null;
+          router.refresh();
+        }
+      } catch {}
+    }, 2500);
+  }
+
+  function closeCollectModal() {
+    if (collectPollRef.current) { clearInterval(collectPollRef.current); collectPollRef.current = null; }
+    setCollectJob(null);
+    router.refresh();
   }
 
   // 거래처 드라이브의 1. 원천세/해당월 폴더 열기
@@ -573,6 +609,22 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           >
             {verifyLoading ? "검증중..." : "신고 검증"}
           </button>
+          {(() => {
+            const missingCount = clients.filter(c => !c.wehagoCno && (c.laborTypes || "").trim() && c.accountingProgram?.includes("위하고")).length;
+            return (
+              <button
+                onClick={startCollect}
+                disabled={missingCount === 0 || (!!collectJob && !collectJob.done)}
+                title="신규 거래처의 위하고 연동정보를 수집해서 급여/사업/일용 버튼을 생성합니다"
+                className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB] disabled:opacity-40 flex items-center gap-1.5"
+              >
+                연동 수집
+                {missingCount > 0 && (
+                  <span className="bg-[#F59E0B] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{missingCount}</span>
+                )}
+              </button>
+            );
+          })()}
           {checkedIds.size > 0 && (
             <div className="flex items-center gap-2">
               <div className="text-sm text-[#3182F6] font-medium bg-[#F5F9FF] px-3 py-1 rounded-lg">
@@ -1072,6 +1124,70 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           </tbody>
         </table>
       </div>
+
+      {/* 위하고 연동 수집 모달 */}
+      {collectJob && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-7">
+            <div className="text-center mb-5">
+              <div className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-3 bg-gradient-to-br from-[#F59E0B] to-[#D97706] shadow-lg shadow-[#F59E0B]/30">
+                {collectJob.done && !collectJob.fatal ? (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                ) : collectJob.fatal ? (
+                  <span className="text-white text-2xl font-bold">!</span>
+                ) : (
+                  <div className="w-7 h-7 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
+                )}
+              </div>
+              <h3 className="text-base font-bold text-[#191F28]">위하고 연동 수집</h3>
+              <p className="text-xs text-[#8B95A1] mt-0.5">
+                {collectJob.done ? "완료" : collectJob.currentName || "진행 중..."}
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <div className="flex justify-between text-[11px] mb-1.5">
+                <span className="font-bold text-[#D97706]">{collectJob.current} / {collectJob.total}</span>
+                <span className="text-[#8B95A1] tabular-nums">{collectJob.total > 0 ? Math.round((collectJob.current / collectJob.total) * 100) : 0}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-[#F2F4F6] overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-[#F59E0B] to-[#D97706] transition-all duration-700"
+                  style={{ width: `${collectJob.total > 0 ? (collectJob.current / collectJob.total) * 100 : 0}%` }} />
+              </div>
+            </div>
+
+            {collectJob.results.length > 0 && (
+              <div className="space-y-1 mb-4 max-h-44 overflow-y-auto">
+                {collectJob.results.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[12px]">
+                    <span className={r.status === "ok" ? "text-[#16A865]" : r.status === "skip" ? "text-[#B0B8C1]" : "text-[#DC2626]"}>
+                      {r.status === "ok" ? "✓" : r.status === "skip" ? "−" : "✕"}
+                    </span>
+                    <span className="text-[#333D4B]">{r.name}</span>
+                    {r.msg && <span className="text-[10.5px] text-[#8B95A1] truncate">{r.msg}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {collectJob.fatal && (
+              <div className="text-[12px] bg-[#FEF2F2] text-[#B91C1C] rounded-xl px-3.5 py-2.5 mb-4">{collectJob.fatal}</div>
+            )}
+            {collectJob.done && !collectJob.fatal && (
+              <div className="text-[12px] bg-[#E8F5EE] text-[#15803D] rounded-xl px-3.5 py-2.5 mb-4">
+                성공 {collectJob.results.filter(r => r.status === "ok").length}건 · 스킵 {collectJob.results.filter(r => r.status === "skip").length}건 · 실패 {collectJob.results.filter(r => r.status === "fail").length}건 — 성공한 거래처는 버튼이 생겼어요!
+              </div>
+            )}
+
+            <button onClick={closeCollectModal}
+              className={`w-full text-sm py-2.5 rounded-xl font-bold transition-colors ${
+                collectJob.done ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]" : "bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]"
+              }`}>
+              {collectJob.done ? "닫기" : "백그라운드로 진행 (창 닫기)"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 위멤버스 진행상황 모달 */}
       {wmProgress && (() => {
