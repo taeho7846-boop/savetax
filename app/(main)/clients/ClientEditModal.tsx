@@ -92,6 +92,138 @@ function MonthlyMemoArchive({ clientId }: { clientId: number }) {
   );
 }
 
+// 도움컴퍼니 원천세 변환 마법사 — 정산원본+사원등록 업로드 → 검증(게이트) → 서식 3종 생성
+function DoumConvertSection() {
+  const now = new Date();
+  const defaultYm = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [ym, setYm] = useState(defaultYm);
+  const [srcFile, setSrcFile] = useState<File | null>(null);
+  const [regFile, setRegFile] = useState<File | null>(null);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  function pickYmFromName(name: string) {
+    const m = name.match(/(\d{2})년\s?(\d{2})월/);
+    if (m) setYm(`20${m[1]}.${m[2]}`);
+  }
+
+  async function run() {
+    if (!srcFile || !regFile || running) return;
+    setRunning(true);
+    setResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("source", srcFile);
+      fd.append("reg", regFile);
+      fd.append("yearMonth", ym);
+      const res = await fetch("/api/withholding/doum-convert", { method: "POST", body: fd });
+      setResult(await res.json());
+    } catch (e) {
+      setResult({ ok: false, fatal: "요청 실패: " + String(e) });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  function download(name: string, b64: string) {
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([arr]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const fmt = (n: number) => (n ?? 0).toLocaleString("ko-KR");
+
+  return (
+    <div className="border border-[#A3CAFD] bg-[#F5F9FF] rounded-xl px-4 py-3.5">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm font-bold text-[#191F28]">원천세 변환 마법사</span>
+        <span className="text-[11px] text-[#8B95A1]">정산 원본 → 검증 → 위하고 업로드 서식</span>
+      </div>
+
+      {/* 입력 */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#6B7684] w-16 shrink-0">귀속월</span>
+          <input value={ym} onChange={e => setYm(e.target.value)} placeholder="2026.09"
+            className="w-24 text-sm border border-[#D1D6DB] rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-[#3182F6]" />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#6B7684] w-16 shrink-0">정산 원본</span>
+          <input type="file" accept=".xlsx" onChange={e => { const f = e.target.files?.[0] ?? null; setSrcFile(f); if (f) pickYmFromName(f.name); }}
+            className="text-xs text-[#4E5968] file:mr-2 file:text-xs file:border-0 file:rounded-lg file:px-3 file:py-1.5 file:bg-[#E8F3FF] file:text-[#1B64DA] file:font-bold" />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#6B7684] w-16 shrink-0">사원등록</span>
+          <input type="file" accept=".xlsx" onChange={e => setRegFile(e.target.files?.[0] ?? null)}
+            className="text-xs text-[#4E5968] file:mr-2 file:text-xs file:border-0 file:rounded-lg file:px-3 file:py-1.5 file:bg-[#E8F3FF] file:text-[#1B64DA] file:font-bold" />
+        </div>
+        <button type="button" disabled={!srcFile || !regFile || running} onClick={run}
+          className="w-full text-sm py-2 rounded-lg bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA] disabled:opacity-40 transition-colors">
+          {running ? "검증·변환 중..." : "① 주민번호 검증 → 변환 실행"}
+        </button>
+      </div>
+
+      {/* 결과 */}
+      {result && (
+        <div className="mt-3 space-y-2">
+          {result.fatal && (
+            <div className="text-xs bg-[#FEF2F2] text-[#B91C1C] rounded-lg px-3 py-2.5 whitespace-pre-wrap">{result.fatal}</div>
+          )}
+          {!result.fatal && !result.ok && (
+            <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-lg px-3 py-2.5">
+              <div className="text-xs font-bold text-[#B91C1C] mb-1.5">🚫 주민번호 검증 실패 — 정정 후 다시 업로드하세요 (파일 미생성)</div>
+              {(result.errors ?? []).map((e: any, i: number) => (
+                <div key={i} className="text-[11.5px] text-[#B91C1C]">· [{e.tag}] {e.name} {e.rrn} — {e.msg}{e.work ? ` (${e.work})` : ""}</div>
+              ))}
+            </div>
+          )}
+          {result.ok && (
+            <>
+              <div className="text-xs bg-[#E8F5EE] text-[#15803D] rounded-lg px-3 py-2 font-bold">
+                ✅ 검증 통과 — 사업소득 {result.totals.bizCount}명 {fmt(result.totals.bizAmount)}원 · 일용직 {result.totals.dailyCount}건 {fmt(result.totals.dailyAmount)}원
+              </div>
+              {(result.warns ?? []).length > 0 && (
+                <div className="text-[11.5px] bg-[#FFFBEB] text-[#B45309] rounded-lg px-3 py-2">
+                  {result.warns.map((w: any, i: number) => <div key={i}>⚠ [{w.tag}] {w.name} {w.rrn} — {w.msg}</div>)}
+                </div>
+              )}
+              {/* 신규 등록 대상 */}
+              <div className="bg-white border border-[#E5E8EB] rounded-lg px-3 py-2.5">
+                <div className="text-xs font-bold text-[#191F28] mb-1">
+                  ② 위하고에 직접 등록할 일용직: {result.newWorkers.length}명
+                </div>
+                {result.newWorkers.length === 0 ? (
+                  <div className="text-[11.5px] text-[#8B95A1]">전원 등록되어 있음 — 바로 업로드하세요</div>
+                ) : (
+                  result.newWorkers.map((p: any, i: number) => (
+                    <div key={i} className="text-[11.5px] text-[#4E5968]">· {p.name} {p.rrn} ({p.work}{p.bank ? ` / ${p.bank} ${p.account}` : ""})</div>
+                  ))
+                )}
+              </div>
+              {/* 다운로드 */}
+              <div className="grid grid-cols-3 gap-1.5">
+                {result.filesOut?.map((f: any, i: number) => (
+                  <button key={f.name} type="button" onClick={() => download(f.name, f.b64)}
+                    className="text-[11px] py-2 rounded-lg border border-[#A3CAFD] bg-white text-[#1B64DA] font-bold hover:bg-[#E8F3FF] transition-colors">
+                    {["② 신규명단", "③ 사업소득", "④ 일용직"][i]} ⬇
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10.5px] text-[#8B95A1]">②를 위하고에 직접 입력(등록) 후 → ③④를 SmartA 자료입력 메뉴에서 엑셀 업로드</div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // 원천세 고정 특이사항 — 매월 유지되며 원천세 페이지에서 hover로 표시
 function WithholdingNoteSection({ clientId, initialNote }: { clientId: number; initialNote: string }) {
   const [note, setNote] = useState(initialNote);
@@ -343,6 +475,7 @@ export function ClientEditModal({
             />
           ) : tab === "withholding" ? (
             <div className="space-y-4">
+              {data.client.name.includes("도움컴퍼니") && <DoumConvertSection />}
               <WithholdingNoteSection clientId={clientId} initialNote={data.client.withholdingNote ?? ""} />
               <MonthlyMemoArchive clientId={clientId} />
               <InsuranceTab clientId={clientId} />
