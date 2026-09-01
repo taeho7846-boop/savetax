@@ -104,8 +104,18 @@ export async function uploadMultiToWemembers(
     await page.waitForTimeout(3000);
     await screenshot("search_client");
 
-    // 검색 결과에서 거래처명 클릭
-    await frame.getByText(input.clientName, { exact: true }).first().click();
+    // 검색 결과에서 거래처명 클릭 — 완전 일치 우선, 실패 시 공백 차이 허용
+    // (예: 우리 "오엠(OM)우레탄" vs 위멤버스 "오엠(OM) 우레탄")
+    try {
+      await frame.getByText(input.clientName, { exact: true }).first().click({ timeout: 8000 });
+    } catch {
+      const esc = input.clientName
+        .replace(/\s+/g, "")
+        .split("")
+        .map((ch: string) => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("\\s*");
+      await frame.getByText(new RegExp(`^\\s*${esc}\\s*$`)).first().click({ timeout: 15000 });
+    }
     await page.waitForTimeout(3000);
     await screenshot("client_detail");
 
