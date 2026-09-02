@@ -141,7 +141,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
 
   // 위멤버스 자동화 진행상황 모달
-  type WmStep = { key: string; label: string; status: "wait" | "run" | "done" | "error" };
+  type WmStep = { key: string; label: string; status: "wait" | "run" | "done" | "error" | "skip" };
+  const wmSkipRef = useRef(false); // [이 단계 건너뛰기] 버튼
   const [wmProgress, setWmProgress] = useState<{
     clientName: string;
     steps: WmStep[];
@@ -204,8 +205,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     ];
     setWmProgress(prev => ({ clientName, steps, message: "시작하는 중...", finished: false, error: false, batch }));
 
-    async function waitForFile(type: string): Promise<boolean> {
+    async function waitForFile(type: string): Promise<boolean | "usercancel"> {
       for (let i = 0; i < 90; i++) {
+        if (wmSkipRef.current) return "usercancel";
         const res = await fetch("/api/automation/check-file", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -213,22 +215,40 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         });
         const data = await res.json();
         if (data.exists) return true;
-        wmSetStep(type, "run", `위하고에서 자료를 내려받는 중... (${(i + 1) * 2}초)`);
+        wmSetStep(type, "run", `위하고에서 자료를 내려받는 중... (${(i + 1) * 2}초 — 자료 없는 달이면 건너뛰기를 누르세요)`);
         await new Promise(r => setTimeout(r, 2000));
       }
       return false;
     }
 
+    // 자료가 없는 소득유형은 건너뛰고 나머지로 계속 진행 (예: 근로소득 없는 달 → 사업소득만)
+    const collected: string[] = [];
     for (const type of incomeTypes) {
+      wmSkipRef.current = false;
       wmSetStep(type, "run", `${TYPE_LABEL[type]}를 위하고에서 내려받는 중...`);
       const tab = window.open(DOWN_URL[type], "_blank");
       const found = await waitForFile(type);
       if (tab) tab.close();
-      if (!found) {
-        wmSetStep(type, "error");
-        return { ok: false, msg: `${TYPE_LABEL[type]} 다운로드 시간 초과 (위하고 로그인 확인)` };
+      if (found === true) {
+        wmSetStep(type, "done");
+        collected.push(type);
+      } else {
+        wmSetStep(type, "skip", found === "usercancel"
+          ? `${TYPE_LABEL[type]} 건너뜀 (사용자 선택)`
+          : `${TYPE_LABEL[type]} 건너뜀 (시간 초과 — 자료 없는 달로 처리)`);
       }
-      wmSetStep(type, "done");
+    }
+    wmSkipRef.current = false;
+    if (collected.length === 0) {
+      return { ok: false, msg: "내려받은 자료가 없습니다 (위하고 로그인 상태 확인)" };
+    }
+    // 건너뛴 유형의 문서 생성 단계도 스킵 표시
+    for (const d of [...docSteps]) {
+      const need = d.docType === "payslip" ? "salary" : "business";
+      if (!collected.includes(need)) {
+        wmSetStep(d.key, "skip", undefined);
+        docSteps.splice(docSteps.indexOf(d), 1);
+      }
     }
 
     wmSetStep("upload", "run", "서버가 위멤버스에 자동 업로드하는 중... (1~2분 소요)");
@@ -236,7 +256,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       const res = await fetch("/api/automation/wemembers-process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientName, year: String(year), month: monthPadded, incomeTypes }),
+        body: JSON.stringify({ clientName, year: String(year), month: monthPadded, incomeTypes: collected }),
       });
       const result = await res.json();
       if (!result.success) {
@@ -1161,7 +1181,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       {/* 위멤버스 진행상황 모달 */}
       {wmProgress && (() => {
         const total = wmProgress.steps.length;
-        const done = wmProgress.steps.filter(s => s.status === "done").length;
+        const done = wmProgress.steps.filter(s => s.status === "done" || s.status === "skip").length;
         const running = wmProgress.steps.some(s => s.status === "run");
         const pct = Math.round(((done + (running ? 0.5 : 0)) / total) * 100);
         return (
@@ -1212,6 +1232,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                       <span className="w-5 h-5 rounded-full border-2 border-[#3182F6]/25 border-t-[#3182F6] animate-spin shrink-0" />
                     ) : s.status === "error" ? (
                       <span className="w-5 h-5 rounded-full bg-[#FEF2F2] text-[#DC2626] text-[11px] font-bold flex items-center justify-center shrink-0">!</span>
+                    ) : s.status === "skip" ? (
+                      <span className="w-5 h-5 rounded-full bg-[#F2F4F6] text-[#8B95A1] text-[11px] font-bold flex items-center justify-center shrink-0">−</span>
                     ) : (
                       <span className="w-5 h-5 rounded-full border-2 border-[#E5E8EB] shrink-0" />
                     )}
@@ -1219,8 +1241,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                       s.status === "done" ? "text-[#8B95A1] line-through decoration-[#D1D6DB]"
                       : s.status === "run" ? "text-[#191F28] font-bold"
                       : s.status === "error" ? "text-[#DC2626] font-bold"
+                      : s.status === "skip" ? "text-[#8B95A1] line-through decoration-[#D1D6DB]"
                       : "text-[#B0B8C1]"
                     }`}>{s.label}</span>
+                    {s.status === "run" && ["salary", "business", "daily"].includes(s.key) && (
+                      <button
+                        onClick={() => { wmSkipRef.current = true; }}
+                        className="ml-auto text-[10px] px-2 py-0.5 rounded-md border border-[#FDE68A] bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7] shrink-0"
+                        title="이번 달 자료가 없는 소득유형이면 건너뛰고 다음 단계로 진행"
+                      >
+                        건너뛰기
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
