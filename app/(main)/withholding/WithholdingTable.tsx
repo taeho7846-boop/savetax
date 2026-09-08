@@ -143,6 +143,21 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   // 위멤버스 자동화 진행상황 모달
   type WmStep = { key: string; label: string; status: "wait" | "run" | "done" | "error" | "skip" };
   const wmSkipRef = useRef(false); // [이 단계 건너뛰기] 버튼
+
+  // 담당자 헤더 필터
+  const [userFilter, setUserFilter] = useState<string[]>([]);
+  const [userFilterOpen, setUserFilterOpen] = useState(false);
+  const userFilterRef = useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (userFilterRef.current && !userFilterRef.current.contains(e.target as Node)) {
+        setUserFilterOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+  const userOptions = [...new Set(clients.map(c => c.assignedUser?.name).filter(Boolean))] as string[];
   const [wmProgress, setWmProgress] = useState<{
     clientName: string;
     steps: WmStep[];
@@ -485,7 +500,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     startTransition(async () => { await toggleWithholdingTask(clientId, yearMonth, step); });
   }
 
-  const filtered = search ? clients.filter((c) => c.name.includes(search)) : clients;
+  let filtered = search ? clients.filter((c) => c.name.includes(search)) : clients;
+  if (userFilter.length > 0) {
+    filtered = filtered.filter((c) => userFilter.includes(c.assignedUser?.name || ""));
+  }
 
   // 신고 단계 + 필수 제출서류까지 전부 체크됐는지 (신고없음 처리 포함)
   function isClientFullyDone(c: Client): boolean {
@@ -753,7 +771,49 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               <th className="px-2 py-2.5 w-9"></th>
               <th className="text-left px-4 py-2.5 text-[10.5px] font-bold text-[#333D4B] uppercase tracking-wider whitespace-nowrap">고객사명</th>
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">특이사항·메모</th>
-              {showAssignedUser && <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">담당</th>}
+              {showAssignedUser && (
+                <th className="text-center px-2 py-2.5 whitespace-nowrap">
+                  <div className="relative inline-block" ref={userFilterRef}>
+                    <button
+                      onClick={() => setUserFilterOpen(o => !o)}
+                      className={`flex items-center gap-1 mx-auto text-[10.5px] uppercase tracking-wider hover:text-[#191F28] ${userFilter.length > 0 ? "text-[#191F28] font-bold" : "text-[#6B7684] font-medium"}`}
+                    >
+                      담당
+                      {userFilter.length > 0 && (
+                        <span className="bg-[#3182F6] text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center">{userFilter.length}</span>
+                      )}
+                      <span className="text-[#8B95A1] text-[9px]">▼</span>
+                    </button>
+                    {userFilterOpen && (
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-[#E5E8EB] rounded-[10px] shadow-lg z-20 p-2 min-w-[110px] max-h-60 overflow-y-auto normal-case">
+                        {userOptions.length === 0 ? (
+                          <p className="text-xs text-[#8B95A1] px-2 py-1">데이터 없음</p>
+                        ) : (
+                          userOptions.map(name => (
+                            <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F9FAFB] rounded cursor-pointer text-sm text-[#333D4B] whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={userFilter.includes(name)}
+                                onChange={() => setUserFilter(prev => prev.includes(name) ? prev.filter(v => v !== name) : [...prev, name])}
+                                className="accent-[#3182F6]"
+                              />
+                              {name}
+                            </label>
+                          ))
+                        )}
+                        {userFilter.length > 0 && (
+                          <button
+                            onClick={() => setUserFilter([])}
+                            className="w-full text-center text-xs text-[#8B95A1] hover:text-[#4E5968] mt-1 pt-1 border-t border-[#F2F4F6]"
+                          >
+                            초기화
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </th>
+              )}
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#6B7684] uppercase tracking-wider whitespace-nowrap">신고없음</th>
               <th className="text-center px-2 py-2.5 text-[10.5px] font-medium text-[#15803D] uppercase tracking-wider whitespace-nowrap">검증</th>
               <th className="text-center px-3 py-2.5 text-[10.5px] font-bold text-[#333D4B] uppercase tracking-wider whitespace-nowrap">인건비</th>
