@@ -148,18 +148,19 @@ export async function POST(req: NextRequest) {
       ws[`J${row}`] = { t: "s", v: bankAccount };
       ws[`K${row}`] = { t: "s", v: depositor };
       ws[`L${row}`] = { t: "s", v: idNumber };
-      ws[`M${row}`] = { t: "n", v: client.monthlyFee ?? 0 };
-      ws[`N${row}`] = { t: "s", v: "05" };
-      ws[`O${row}`] = { t: "s", v: "99" };
-      ws[`P${row}`] = { t: "s", v: firstMonth };
-      ws[`R${row}`] = { t: "s", v: (client.bizNumber || "").replace(/[-\s]/g, "") };
-      ws[`AA${row}`] = { t: "s", v: "N" };
+      // 2026-09 신양식: M열(valyn, 카드유효기간) 추가로 이후 열이 한 칸씩 밀림
+      ws[`N${row}`] = { t: "n", v: client.monthlyFee ?? 0 };   // 납부금액
+      ws[`O${row}`] = { t: "s", v: "05" };                     // 약정일
+      ws[`P${row}`] = { t: "s", v: "99" };                     // 납부횟수
+      ws[`Q${row}`] = { t: "s", v: firstMonth };               // 서비스시작월
+      ws[`S${row}`] = { t: "s", v: (client.bizNumber || "").replace(/[-\s]/g, "") }; // 사업자번호
+      ws[`AB${row}`] = { t: "s", v: "N" };                     // 세금계산서발행
     });
 
     const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
     const lastRow = 4 + clients.length - 1;
     if (lastRow > range.e.r + 1) range.e.r = lastRow - 1;
-    if (26 > range.e.c) range.e.c = 26;
+    if (27 > range.e.c) range.e.c = 27;
     ws["!ref"] = XLSX.utils.encode_range(range);
 
     bulkBuf = XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;

@@ -173,16 +173,17 @@ export async function POST(req: NextRequest) {
     ws[`J${row}`] = { t: "s", v: bankAccountClean };
     ws[`K${row}`] = { t: "s", v: depositor };
     ws[`L${row}`] = { t: "s", v: idNumber };
-    ws[`M${row}`] = { t: "n", v: Number(amount) };
-    ws[`N${row}`] = { t: "s", v: withdrawalDay2 };
-    ws[`O${row}`] = { t: "s", v: "99" };
-    ws[`P${row}`] = { t: "s", v: firstMonthDigits };
-    ws[`R${row}`] = { t: "s", v: bizDigits };
-    ws[`AA${row}`] = { t: "s", v: "N" };
+    // 2026-09 신양식: M열(valyn, 카드유효기간) 추가로 이후 열이 한 칸씩 밀림
+    ws[`N${row}`] = { t: "n", v: Number(amount) };      // 납부금액
+    ws[`O${row}`] = { t: "s", v: withdrawalDay2 };      // 약정일
+    ws[`P${row}`] = { t: "s", v: "99" };                // 납부횟수
+    ws[`Q${row}`] = { t: "s", v: firstMonthDigits };    // 서비스시작월
+    ws[`S${row}`] = { t: "s", v: bizDigits };           // 사업자번호
+    ws[`AB${row}`] = { t: "s", v: "N" };                // 세금계산서발행
 
     const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
     if (row > range.e.r + 1) range.e.r = row - 1;
-    if (26 > range.e.c) range.e.c = 26;
+    if (27 > range.e.c) range.e.c = 27;
     ws["!ref"] = XLSX.utils.encode_range(range);
 
     return XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;
