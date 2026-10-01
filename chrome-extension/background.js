@@ -1058,6 +1058,80 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // 급여자료입력 엑셀(Ctrl+G 내려받기) → 서버가 급여명세서 양식으로 변환 + 구글드라이브 저장
+  if (msg.type === "upload-salary") {
+    (async () => {
+      try {
+        // 1. content script가 내려받기를 누른 시각(msg.since) 이후의 엑셀 다운로드를 기다림
+        const deadline = Date.now() + (msg.waitMs || 15000);
+        let downloadItem = null;
+        while (Date.now() < deadline) {
+          const found = await chrome.downloads.search({
+            filenameRegex: ".*\\.xlsx$",
+            orderBy: ["-startTime"],
+            limit: 1,
+            state: "complete",
+            startedAfter: new Date(msg.since).toISOString(),
+          });
+          if (found && found.length > 0) { downloadItem = found[0]; break; }
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (!downloadItem) {
+          sendResponse({ ok: false, noDownload: true, error: "급여 엑셀이 내려받아지지 않았습니다" });
+          return;
+        }
+        console.log("SaveTax BG: 급여 엑셀 찾음:", downloadItem.filename);
+
+        // 2. 다른 달 자료가 받아졌으면 중단 (위하고 파일명: {거래처}-{YYYYMM}.xlsx)
+        const monthPadded = String(msg.month).padStart(2, "0");
+        const baseName = downloadItem.filename.split(/[\\/]/).pop() || "";
+        const ymMatch = baseName.match(/-(\d{6})(?: \(\d+\))?\.xlsx$/);
+        if (ymMatch && ymMatch[1] !== String(msg.year) + monthPadded) {
+          sendResponse({ ok: false, error: "다른 달 자료가 내려받아졌습니다: " + baseName });
+          return;
+        }
+
+        // 3. 파일 내용 읽기 (사업소득과 동일: 원본 URL fetch → 실패 시 탭에서 fetch)
+        const base64 = await fetchDownloadAsBase64(downloadItem, sender.tab.id);
+        if (!base64) {
+          sendResponse({ ok: false, error: "내려받은 급여 엑셀을 읽을 수 없습니다" });
+          return;
+        }
+
+        const body = JSON.stringify({
+          clientName: msg.clientName,
+          year: msg.year,
+          month: monthPadded,
+          payDate: msg.payDate || "",
+          fileBase64: base64,
+        });
+        // 4. 로컬 서버 먼저, 안 되면 운영 서버(app.savetaxnh.com)로 폴백 (사업소득과 동일)
+        let result = null;
+        for (const base of ["http://localhost:3000", "https://app.savetaxnh.com"]) {
+          try {
+            const res = await fetch(base + "/api/automation/upload-salary", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body,
+            });
+            if (res.status === 401) { console.log("SaveTax BG:", base, "401 → 다음 서버 시도"); continue; }
+            result = await res.json();
+            console.log("SaveTax BG: 급여 업로드 응답 (" + base + "):", result);
+            break;
+          } catch (e) {
+            console.log("SaveTax BG:", base, "연결 실패 → 다음 서버 시도:", e.message);
+          }
+        }
+        sendResponse(result || { ok: false, error: "로컬/운영 서버 모두 연결에 실패했습니다" });
+      } catch (e) {
+        console.error("SaveTax BG: 급여 업로드 실패:", e);
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+
   // 홈택스 로그인 완료 → 탭 닫고 새 탭으로 홈택스 열기
 
   if (msg.type === "hometax-reopen") {
@@ -1155,6 +1229,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 });
+
+// 완료된 다운로드 항목의 내용을 base64로 읽기 — 원본 URL fetch, 안 되면(blob 등) 해당 탭에서 fetch
+async function fetchDownloadAsBase64(downloadItem, tabId) {
+  const downloadUrl = downloadItem.finalUrl || downloadItem.url;
+  if (!downloadUrl || downloadUrl.startsWith("file:")) return null;
+  try {
+    const res = await fetch(downloadUrl);
+    const bytes = new Uint8Array(await (await res.blob()).arrayBuffer());
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  } catch (e) {
+    console.log("SaveTax BG: URL fetch 실패, 탭에서 시도:", e.message);
+  }
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: async (url) => {
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(",")[1]);
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          return null;
+        }
+      },
+      args: [downloadUrl],
+    });
+    return result?.result || null;
+  } catch (e) {
+    console.log("SaveTax BG: 탭 fetch도 실패:", e.message);
+    return null;
+  }
+}
 
 async function handleFileUpload(files, tabId) {
   // 1. 파일 다운로드

@@ -1,4 +1,4 @@
-// 위하고 급여명세서 자동 다운로드
+// 위하고 급여자료입력 엑셀 자동 다운로드 (Ctrl+G 엑셀 내려받기 → 서버가 급여명세서 양식으로 변환)
 // URL에 autoPayslip=N (N=월) 파라미터가 있으면 자동 실행
 
 (function () {
@@ -78,28 +78,51 @@
     }
     await sleep(3000);
 
-    // 6. F9 인쇄 미리보기
-    simulateKeyPress("F9");
-    console.log("[SaveTax] F9 인쇄 미리보기 - 로딩 대기 중...");
-    await sleep(5000);
+    // 6. 화면의 지급일 읽기 (엑셀에는 지급일이 없어 따로 보냄 — 예: 2026.09.30)
+    let payDate = "";
+    for (const input of document.querySelectorAll("input")) {
+      const v = (input.value || "").replace(/\s/g, "");
+      if (/^\d{4}\.\d{2}\.\d{2}$/.test(v)) { payDate = v; break; }
+    }
+    console.log("[SaveTax] 지급일:", payDate || "(못 읽음)");
 
-    // 7. background.js를 통해 서버 API 호출 → pyautogui로 저장
-    console.log("[SaveTax] pyautogui 저장 요청 중...");
-    chrome.runtime.sendMessage(
-      {
-        type: "save-payslip-pdf",
-        clientName: clientName,
-        year: targetYear,
-        month: targetMonth,
-      },
-      (res) => {
-        if (res?.ok) {
-          console.log("[SaveTax] PDF 저장 완료:", res.path);
-        } else {
-          console.error("[SaveTax] PDF 저장 실패:", res?.error);
+    // 7. 엑셀 내려받기 (Ctrl+G) → background가 내려받은 파일을 서버로 전송 (로컬 서버 불필요)
+    let since = Date.now();
+    simulateKeyPress("g", { ctrlKey: true, code: "KeyG" });
+    console.log("[SaveTax] Ctrl+G 엑셀 내려받기");
+    let res = await uploadSalary(since, payDate);
+
+    // Ctrl+G가 안 먹었으면 메뉴의 엑셀 내려받기 항목을 직접 클릭
+    if (res?.noDownload) {
+      since = Date.now();
+      const collectBtn = document.querySelector('#collect');
+      if (collectBtn) collectBtn.click();
+      await sleep(300);
+      for (const a of document.querySelectorAll('a')) {
+        if (/엑셀\s*(내려받기|내보내기)/.test(a.textContent)) {
+          a.click();
+          console.log("[SaveTax] 엑셀 내려받기 메뉴 클릭");
+          break;
         }
       }
-    );
+      res = await uploadSalary(since, payDate);
+    }
+
+    if (res?.ok) {
+      console.log("[SaveTax] 급여 엑셀 업로드 완료:", res.message);
+      setTimeout(() => window.close(), 1000);
+    } else {
+      console.error("[SaveTax] 급여 엑셀 업로드 실패:", res?.error);
+    }
+  }
+
+  function uploadSalary(since, payDate) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: "upload-salary", clientName, year: targetYear, month: targetMonth, payDate, since, waitMs: 10000 },
+        (res) => resolve(res)
+      );
+    });
   }
 
   function sleep(ms) {
@@ -120,7 +143,7 @@
   }
 
   function simulateKeyPress(key, opts = {}) {
-    const keyCode = key === "F9" ? 120 : key.charCodeAt(0);
+    const keyCode = key === "F9" ? 120 : key.toUpperCase().charCodeAt(0);
     const eventOpts = {
       key,
       keyCode,
