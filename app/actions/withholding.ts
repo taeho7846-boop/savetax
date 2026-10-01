@@ -98,6 +98,18 @@ export async function setWithholdingNote(clientId: number, note: string) {
   revalidatePath("/withholding");
 }
 
+// 근로내용확인신고서 미제출 거래처 설정 (원천세 페이지에서 해당 체크칸 숨김)
+export async function setSkipDailyWorkReport(clientId: number, skip: boolean) {
+  await requireAuth();
+
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { skipDailyWorkReport: skip },
+  });
+
+  revalidatePath("/withholding");
+}
+
 export async function setWithholdingMemo(
   clientId: number,
   yearMonth: string,

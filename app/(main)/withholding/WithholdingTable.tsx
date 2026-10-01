@@ -62,6 +62,7 @@ type Client = {
   accountingProgram: string;
   withholdingType: string | null;
   withholdingNote: string | null;
+  skipDailyWorkReport: boolean;
   driveFolderId: string | null;
   wehagoCno: string | null;
   wehagoCdCom: string | null;
@@ -71,7 +72,7 @@ type Client = {
   withholdingLaborOverrides: { laborTypes: string | null; memo: string | null }[];
 };
 
-function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: number) {
+function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: number, skipDailyWorkReport: boolean = false) {
   const tasks: { key: string; label: string }[] = [];
   const has근로 = laborTypes.includes("근로소득");
   const has사업 = laborTypes.includes("사업소득");
@@ -86,7 +87,8 @@ function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: num
   // 간이지급명세서(근로)는 반기 제출 — 6월(상반기)·12월(하반기)에 원천세와 함께 제출
   if (has근로 && (month === 6 || month === 12)) tasks.push({ key: "간이지급명세서_근로", label: "간이지급명세서(근로)" });
   if (has사업) tasks.push({ key: "간이지급명세서_사업", label: "간이지급명세서(사업)" });
-  if (has일용) tasks.push({ key: "근로내용확인신고서", label: "근로내용확인신고서" });
+  // 근로내용확인신고서 미제출 거래처(거래처수정모달 원천세 탭에서 설정)는 체크칸을 만들지 않음
+  if (has일용 && !skipDailyWorkReport) tasks.push({ key: "근로내용확인신고서", label: "근로내용확인신고서" });
   if (has근로 && month === 2) tasks.push({ key: "지급명세서_근로", label: "지급명세서(근로)" });
   if (has사업 && month === 2) tasks.push({ key: "지급명세서_사업", label: "지급명세서(사업)" });
   if (has일용) tasks.push({ key: "지급명세서_일용", label: "지급명세서(일용)" });
@@ -515,7 +517,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     const laborList = override?.laborTypes
       ? override.laborTypes.split(",").map(t => t.trim()).filter(t => t && t !== "1인사업자")
       : baseLaborTypes;
-    const extras = getRequiredTasks(laborList, c.halfYearTax, month);
+    const extras = getRequiredTasks(laborList, c.halfYearTax, month, c.skipDailyWorkReport);
     if (steps.length === 0 && extras.length === 0) return false;
     return steps.every(s => doneMap.has(s)) && extras.every(t => doneMap.has(t.key));
   }
@@ -879,7 +881,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                     const steps = new Set(getStepsByType(client.withholdingType || "", month, client.halfYearTax));
                     const allStepsDone = isSkipped || (steps.size > 0 && [...steps].every(s => doneMap.has(s)));
                     const hasOverride = override?.laborTypes != null && override.laborTypes !== "";
-                    const requiredExtra = getRequiredTasks(laborList, client.halfYearTax, month);
+                    const requiredExtra = getRequiredTasks(laborList, client.halfYearTax, month, client.skipDailyWorkReport);
                     const requiredExtraKeys = new Set(requiredExtra.map(t => t.key));
                     // 검증칸: 신고없음이거나, 반기납인데 신고 검증 월(6·12월)이 아니면 비활성화
                     const verifyDisabled = isSkipped || (client.halfYearTax && month !== 6 && month !== 12);
@@ -1156,6 +1158,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                                   title={cellVerified ? "홈택스 제출 확인됨" : undefined}
                                   className={`w-3.5 h-3.5 cursor-pointer ${cellVerified ? "accent-[#15803D] ring-2 ring-[#34D399] ring-offset-1 rounded-[3px]" : "accent-[#3182F6]"}`}
                                 />
+                              ) : col.key === "근로내용확인신고서" && client.skipDailyWorkReport && laborList.includes("일용직") ? (
+                                <span title="근로내용확인신고서 미제출 거래처 (거래처 수정 → 원천세 탭에서 변경)" className="text-[#B0B8C1] text-[9px]">미제출</span>
                               ) : cellVerified ? (
                                 <span title="홈택스 제출 확인됨 (인건비 설정에 해당 소득 없음)" className="text-[#15803D] text-[11px] font-bold">✓</span>
                               ) : (

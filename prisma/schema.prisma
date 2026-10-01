@@ -96,6 +96,7 @@ model Client {
   withholdingDNotified      Boolean                    @default(false)
   withholdingType           String?
   withholdingNote           String?                    // 원천세 고정 특이사항 (매월 유지, 거래처수정모달 원천세 탭에서 입력)
+  skipDailyWorkReport       Boolean                    @default(false) // 근로내용확인신고서 미제출 거래처 (원천세 페이지에서 해당 체크칸 숨김)
   wehagoCdCom               String?
   wehagoCno                 String?
   wehagoColors              String?

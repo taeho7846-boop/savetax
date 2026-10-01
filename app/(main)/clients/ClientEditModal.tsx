@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getClientById, updateClientInModal, deleteClient, getClientHistory, setClientContractStatus } from "@/app/actions/clients";
-import { setWithholdingNote, getWithholdingMemos } from "@/app/actions/withholding";
+import { setWithholdingNote, getWithholdingMemos, setSkipDailyWorkReport } from "@/app/actions/withholding";
 import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
 import { InsuranceTab } from "@/app/(main)/clients/InsuranceTab";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
@@ -280,6 +280,40 @@ function WithholdingNoteSection({ clientId, initialNote }: { clientId: number; i
   );
 }
 
+// 근로내용확인신고서 미제출 거래처 설정 — 켜면 원천세 페이지에서 해당 체크칸이 사라짐
+function DailyWorkReportSkipSection({ clientId, initialSkip }: { clientId: number; initialSkip: boolean }) {
+  const [skip, setSkip] = useState(initialSkip);
+  const [saving, setSaving] = useState(false);
+
+  async function toggle() {
+    if (saving) return;
+    const next = !skip;
+    setSaving(true);
+    setSkip(next);
+    try {
+      await setSkipDailyWorkReport(clientId, next);
+    } catch {
+      setSkip(!next);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <label className="flex items-center gap-3 border border-[#E5E8EB] bg-white rounded-xl px-4 py-3.5 cursor-pointer hover:bg-[#F9FAFB] transition-colors">
+      <input
+        type="checkbox"
+        checked={skip}
+        onChange={toggle}
+        disabled={saving}
+        className="accent-[#3182F6] w-4 h-4 cursor-pointer"
+      />
+      <span className="text-sm font-bold text-[#191F28]">근로내용확인신고서 미제출</span>
+      <span className="text-[11px] text-[#8B95A1]">체크하면 원천세 페이지에서 근로내용확인신고서 체크칸이 표시되지 않습니다</span>
+    </label>
+  );
+}
+
 export function ClientEditModal({
   clientId,
   onClose,
@@ -477,6 +511,7 @@ export function ClientEditModal({
             <div className="space-y-4">
               {data.client.name.includes("도움컴퍼니") && <DoumConvertSection />}
               <WithholdingNoteSection clientId={clientId} initialNote={data.client.withholdingNote ?? ""} />
+              <DailyWorkReportSkipSection clientId={clientId} initialSkip={data.client.skipDailyWorkReport ?? false} />
               <MonthlyMemoArchive clientId={clientId} />
               <InsuranceTab clientId={clientId} />
             </div>

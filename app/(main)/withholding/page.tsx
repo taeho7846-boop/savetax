@@ -51,6 +51,7 @@ export default async function WithholdingPage({
       accountingProgram: true,
       withholdingType: true,
       withholdingNote: true,
+      skipDailyWorkReport: true,
       driveFolderId: true,
       assignedUser: { select: { name: true } },
       withholdingRecords: {
