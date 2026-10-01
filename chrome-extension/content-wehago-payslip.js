@@ -79,11 +79,7 @@
     await sleep(3000);
 
     // 6. 화면의 지급일 읽기 (엑셀에는 지급일이 없어 따로 보냄 — 예: 2026.09.30)
-    let payDate = "";
-    for (const input of document.querySelectorAll("input")) {
-      const v = (input.value || "").replace(/\s/g, "");
-      if (/^\d{4}\.\d{2}\.\d{2}$/.test(v)) { payDate = v; break; }
-    }
+    const payDate = readPayDate();
     console.log("[SaveTax] 지급일:", payDate || "(못 읽음)");
 
     // 7. 엑셀 내려받기 (Ctrl+G) → background가 내려받은 파일을 서버로 전송 (로컬 서버 불필요)
@@ -114,6 +110,31 @@
     } else {
       console.error("[SaveTax] 급여 엑셀 업로드 실패:", res?.error);
     }
+  }
+
+  // 조회조건의 '지급일' 라벨 바로 뒤에 나오는 날짜를 읽는다 (입력칸 값·일반 글자 모두 대상)
+  function readPayDate() {
+    const toDate = (t) => {
+      const m = String(t || "").match(/(\d{4})\s*[.\-\/]\s*(\d{1,2})\s*[.\-\/]\s*(\d{1,2})/);
+      return m ? `${m[1]}.${m[2].padStart(2, "0")}.${m[3].padStart(2, "0")}` : "";
+    };
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    let afterLabel = false;
+    let firstInputDate = "";
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      let text = "";
+      if (node.nodeType === Node.TEXT_NODE) text = node.nodeValue;
+      else if (node.tagName === "INPUT" || node.tagName === "TEXTAREA") text = node.value;
+      else continue;
+      text = (text || "").trim();
+      if (!text) continue;
+      if (text.replace(/\s/g, "") === "지급일") { afterLabel = true; continue; }
+      const d = toDate(text);
+      if (!d) continue;
+      if (afterLabel) return d;
+      if (!firstInputDate && node.nodeType !== Node.TEXT_NODE) firstInputDate = d;
+    }
+    return firstInputDate;
   }
 
   function uploadSalary(since, payDate) {
