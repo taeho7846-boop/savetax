@@ -64,6 +64,11 @@ export default async function WithholdingPage({
         where: { yearMonth },
         select: { laborTypes: true, memo: true },
       },
+      // 위하고 마감상태·홈택스/위택스 제출 결과 (원천세 자동신고)
+      withholdingFilings: {
+        where: { yearMonth },
+        select: { kind: true, closed: true, amount: true, reportType: true, attribYm: true, status: true, receiptNo: true, checkedAt: true },
+      },
     },
     orderBy: [{ withholdingType: "asc" }, { name: "asc" }],
   });

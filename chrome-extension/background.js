@@ -407,6 +407,54 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // ===== 원천세 자동신고 (위하고 전자신고 화면) =====
+  // 위하고 마감상태 조회 결과 → 서버 반영 (로컬 서버 → 운영 서버 폴백, 사이트 로그인 쿠키 사용)
+  if (msg.type === "efile-close-check") {
+    (async () => {
+      const body = JSON.stringify({ kind: msg.kind, payYm: msg.payYm, rows: msg.rows || [] });
+      let result = null;
+      for (const base of ["http://localhost:3000", "https://app.savetaxnh.com"]) {
+        try {
+          const res = await fetch(base + "/api/withholding/filing/close-check", {
+            method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body,
+          });
+          if (res.status === 401) { console.log("SaveTax BG:", base, "401 → 다음 서버"); continue; }
+          result = await res.json();
+          console.log("SaveTax BG: 마감상태 반영 (" + base + "):", result);
+          break;
+        } catch (e) {
+          console.log("SaveTax BG:", base, "연결 실패:", e.message);
+        }
+      }
+      sendResponse(result || { ok: false, error: "로컬/운영 서버 모두 연결 실패 (사이트 로그인 상태 확인)" });
+    })();
+    return true;
+  }
+  // canvas 표 등 합성 이벤트를 무시하는 요소를 디버거로 실제 클릭 (CSS px 좌표, 보낸 탭 기준)
+  if (msg.type === "efile-real-click") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      try {
+        await chrome.debugger.attach({ tabId }, "1.3");
+      } catch (e) {
+        if (!/already attached/i.test(e.message)) { sendResponse({ ok: false, error: "디버거 연결 실패: " + e.message }); return; }
+      }
+      try {
+        const x = msg.x, y = msg.y;
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      } finally {
+        try { await chrome.debugger.detach({ tabId }); } catch (e) {}
+      }
+    })();
+    return true;
+  }
+
   // 신고서보기 팝업 뷰어 추적용 시그널 (content → background)
   if (msg.type === "viewer-frame-ready") {
     if (sender.tab?.id != null && sender.frameId != null) {

@@ -111,6 +111,7 @@ model Client {
   withholdingLaborOverrides WithholdingLaborOverride[]
   withholdingProcesses      WithholdingProcess[]
   withholdingRecords        WithholdingRecord[]
+  withholdingFilings        WithholdingFiling[]
   insuranceReports          InsuranceReport[]
   unpaidPostpone            UnpaidPostpone?
   alimtalkLogs              AlimtalkLog[]
@@ -284,6 +285,33 @@ model WithholdingRecord {
   client    Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, yearMonth, taskType])
+}
+
+// 원천세 자동신고: 위하고 전자신고 화면에서 읽어온 마감 상태 + 홈택스/위택스 제출 결과
+// kind: "income"(원천세·홈택스) | "local"(지방소득세·위택스), yearMonth: 위하고 지급월(원천세 탭 ym과 동일)
+model WithholdingFiling {
+  id           Int       @id @default(autoincrement())
+  clientId     Int
+  yearMonth    String
+  kind         String
+  closed       Boolean   @default(false) // 위하고 신고서 마감 여부
+  amount       Int?                      // 납부세액 (소득세 / 지방소득세)
+  reportType   String?                   // 매월 / 반기
+  attribYm     String?                   // 귀속년월 YYYYMM
+  wehagoKey    Int?                      // 위하고 key_close
+  status       String    @default("none") // none | produced(파일제작) | verified(검증) | submitted(접수) | error
+  fileName     String?
+  receiptNo    String?                   // 홈택스 접수번호 / 위택스 일괄신고ID
+  submittedAt  DateTime?
+  checkedAt    DateTime  @default(now())  // 마감 조회 시각
+  checkedById  Int?
+  errorMsg     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  client       Client    @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, yearMonth, kind])
+  @@index([yearMonth, kind])
 }
 
 model WithholdingProcess {

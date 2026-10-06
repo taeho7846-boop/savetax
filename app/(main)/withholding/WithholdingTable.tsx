@@ -70,6 +70,12 @@ type Client = {
   assignedUser?: { name: string } | null;
   withholdingRecords: WHRecord[];
   withholdingLaborOverrides: { laborTypes: string | null; memo: string | null }[];
+  // 위하고 마감상태·제출 결과 (원천세 자동신고) — kind: income(원천세) | local(지방소득세)
+  withholdingFilings?: WHFiling[];
+};
+type WHFiling = {
+  kind: string; closed: boolean; amount: number | null; reportType: string | null; attribYm: string | null;
+  status: string; receiptNo: string | null; checkedAt: string | Date;
 };
 
 function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: number, skipDailyWorkReport: boolean = false) {
@@ -356,6 +362,57 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     router.refresh();
   }
 
+  // ===== 원천세 자동신고: 위하고 마감상태 조회 =====
+  // 위하고 전자신고 화면(원천세 SWER0101 / 지방소득세 SWER0109)을 새 탭으로 열면 크롬 확장이
+  // 지급기간을 이번 달로 맞춰 전체 수임처를 조회하고 결과를 서버에 반영한 뒤 탭을 닫는다.
+  // 여기서는 두 종류의 조회 시각이 모두 갱신될 때까지 폴링하다가 새로고침.
+  const [closeCheck, setCloseCheck] = useState<{ startedAt: number; income: boolean; local: boolean; error?: string } | null>(null);
+  const closeCheckPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const filingOf = (c: Client, kind: "income" | "local") => c.withholdingFilings?.find(f => f.kind === kind) || null;
+  const filingStats = (() => {
+    const linked = clients.filter(c => c.wehagoCno && ["A", "B", "C"].includes(c.withholdingType || ""));
+    const income = linked.filter(c => filingOf(c, "income")?.closed).length;
+    const local = linked.filter(c => filingOf(c, "local")?.closed).length;
+    const incomeOnly = linked.filter(c => filingOf(c, "income")?.closed && !filingOf(c, "local")?.closed).length;
+    let latest: Date | null = null;
+    for (const c of clients) for (const f of c.withholdingFilings || []) { const d = new Date(f.checkedAt); if (!latest || d > latest) latest = d; }
+    return { linkedCount: linked.length, income, local, incomeOnly, latest };
+  })();
+  function startCloseCheck() {
+    const template = clients.find(c => c.wehagoCno && c.wehagoCdCom);
+    if (!template) { alert("위하고 연동된 거래처가 없어 전자신고 화면을 열 수 없습니다"); return; }
+    if (!wehagoCompanyId) { alert("설정에 위하고 아이디가 없습니다"); return; }
+    const params = buildWehagoParams(template) + `&stCloseCheck=${year}${String(month).padStart(2, "0")}`;
+    const base = "https://smarta.wehago.com/#/smarta/humanresource";
+    const w1 = window.open(`${base}/SWER0101?${params}`, "_blank");
+    if (!w1) { alert("팝업이 차단되었습니다. 이 사이트의 팝업을 허용해주세요."); return; }
+    setTimeout(() => window.open(`${base}/SWER0109?${params}`, "_blank"), 1500);
+    const startedAt = Date.now();
+    setCloseCheck({ startedAt, income: false, local: false });
+    if (closeCheckPollRef.current) clearInterval(closeCheckPollRef.current);
+    closeCheckPollRef.current = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/withholding/filing/close-check?ym=${yearMonth}`);
+        if (!r.ok) return;
+        const j = await r.json();
+        const income = !!j.income?.checkedAt && new Date(j.income.checkedAt).getTime() > startedAt - 5000;
+        const local = !!j.local?.checkedAt && new Date(j.local.checkedAt).getTime() > startedAt - 5000;
+        setCloseCheck(prev => prev ? { ...prev, income, local } : prev);
+        if (income && local) {
+          if (closeCheckPollRef.current) clearInterval(closeCheckPollRef.current);
+          closeCheckPollRef.current = null;
+          router.refresh();
+          setTimeout(() => setCloseCheck(null), 4000);
+        } else if (Date.now() - startedAt > 4 * 60 * 1000) {
+          if (closeCheckPollRef.current) clearInterval(closeCheckPollRef.current);
+          closeCheckPollRef.current = null;
+          setCloseCheck(prev => prev ? { ...prev, error: "4분 안에 끝나지 않았습니다. 위하고 탭의 안내문을 확인하세요." } : prev);
+          router.refresh();
+        }
+      } catch {}
+    }, 3000);
+  }
+
   // 거래처 드라이브의 1. 원천세/해당월 폴더 열기
   // 로컬 기준경로(savetax-drive-base-path) 설정 시 → 윈도우 탐색기(savetax-app://), 아니면 웹 드라이브
   const [folderOpening, setFolderOpening] = useState<number | null>(null);
@@ -639,6 +696,33 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               </button>
             );
           })()}
+          {/* 원천세 자동신고 1단계: 위하고 마감상태 조회 */}
+          <button
+            onClick={startCloseCheck}
+            disabled={!!closeCheck && !closeCheck.error && !(closeCheck.income && closeCheck.local)}
+            title="위하고 전자신고 화면을 열어 이번 달 마감된 거래처와 세액(원천세·지방소득세)을 읽어옵니다"
+            className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#A3CAFD] text-[#1B64DA] bg-[#F5F9FF] hover:bg-[#E8F3FF] disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {closeCheck && !closeCheck.error && !(closeCheck.income && closeCheck.local) ? (
+              <>
+                <span className="inline-block w-3 h-3 rounded-full border-2 border-[#1B64DA]/30 border-t-[#1B64DA] animate-spin" />
+                마감 조회 중 · 원천 {closeCheck.income ? "✓" : "…"} 지방 {closeCheck.local ? "✓" : "…"}
+              </>
+            ) : (
+              <>
+                마감상태 조회
+                {filingStats.latest && (
+                  <span className="text-[10px] text-[#6B7684] font-normal">
+                    원천 {filingStats.income} · 지방 {filingStats.local}
+                    {filingStats.incomeOnly > 0 && <span className="text-[#D97706] font-bold"> · 지방미마감 {filingStats.incomeOnly}</span>}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+          {closeCheck?.error && (
+            <span className="text-[11px] text-[#DC2626]">{closeCheck.error}</span>
+          )}
           {checkedIds.size > 0 && (
             <div className="flex items-center gap-2">
               <div className="text-sm text-[#3182F6] font-medium bg-[#F5F9FF] px-3 py-1 rounded-lg">
@@ -975,6 +1059,31 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                               );
                             })()}
                           </div>
+                          {/* 위하고 마감상태 (원천세 자동신고) — 조회된 적이 있는 거래처만 표시 */}
+                          {(() => {
+                            const fi = filingOf(client, "income");
+                            const fl = filingOf(client, "local");
+                            if (!fi && !fl) return null;
+                            const fmt = (n: number | null) => n == null ? "" : n.toLocaleString();
+                            const chip = (label: string, f: WHFiling | null) => {
+                              if (!f) return <span key={label} className="text-[9.5px] px-1.5 py-[1px] rounded-md bg-[#F2F4F6] text-[#B0B8C1]">{label} 미조회</span>;
+                              if (!f.closed) return <span key={label} className="text-[9.5px] px-1.5 py-[1px] rounded-md bg-[#F2F4F6] text-[#8B95A1]">{label} 미마감</span>;
+                              const half = f.reportType === "반기";
+                              return (
+                                <span key={label} title={`${half ? "반기 · " : ""}귀속 ${f.attribYm || ""}`} className={`text-[9.5px] px-1.5 py-[1px] rounded-md font-semibold ${half ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]" : "bg-[#F1FBF4] text-[#15803D] border border-[#BBF7D0]"}`}>
+                                  {label} {half ? "반기" : fmt(f.amount) || "0"}
+                                </span>
+                              );
+                            };
+                            const warn = fi?.closed && fl && !fl.closed && fi.reportType !== "반기";
+                            return (
+                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                {chip("원천", fi)}
+                                {chip("지방", fl)}
+                                {warn && <span title="원천세는 마감됐는데 지방소득세가 마감되지 않았습니다" className="text-[9.5px] px-1.5 py-[1px] rounded-md bg-[#FEF2F2] text-[#DC2626] font-bold">지방 미마감!</span>}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-1 py-2 text-center">
                           <div className="flex items-center justify-center gap-1.5">
