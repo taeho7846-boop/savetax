@@ -33,6 +33,33 @@
     return res;
   };
 
+  // ---- 1-b) 전자신고 파일 다운로드 가로채기 (stProduce 모드) ----
+  // 위하고는 FileSaver 방식(blob URL + <a download> 클릭)으로 파일을 내려준다. 자동 제작 중에는
+  // 저장 대화상자 대신 blob 내용을 읽어 content script로 넘기고 실제 다운로드는 막는다.
+  function interceptAnchor(a) {
+    try {
+      if (!/stProduce=/.test(location.hash || "")) return false;
+      const href = a.href || "";
+      const name = a.download || "";
+      if (!href.startsWith("blob:") || !/\.0?1$/i.test(name)) return false;
+      fetch(href).then(r => r.blob()).then(b => new Promise((res) => {
+        const fr = new FileReader();
+        fr.onloadend = () => res(String(fr.result || "").split(",")[1] || "");
+        fr.readAsDataURL(b);
+      })).then((base64) => {
+        window.postMessage({ source: "savetax-efile-file", name, base64 }, "*");
+      }).catch((e) => window.postMessage({ source: "savetax-efile-file", name, error: String(e && e.message) }, "*"));
+      return true;
+    } catch (e) { return false; }
+  }
+  const origClick = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () { if (interceptAnchor(this)) return; return origClick.apply(this, arguments); };
+  const origDispatch = HTMLAnchorElement.prototype.dispatchEvent;
+  HTMLAnchorElement.prototype.dispatchEvent = function (ev) {
+    if (ev && ev.type === "click" && interceptAnchor(this)) return true;
+    return origDispatch.apply(this, arguments);
+  };
+
   // ---- 2) RealGridJS 인스턴스 수집 ----
   const grids = [];     // 등록 순서 유지 (팝업 표는 나중에 만들어짐)
   const seen = new WeakSet();

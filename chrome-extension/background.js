@@ -430,6 +430,79 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
+  // 사이트 → 확장: 위하고 전자신고 화면을 최소화된 별도 창으로 열기 (사용자 화면에 안 뜸)
+  //   payload: { urls: [...] }
+  if (msg.type === "app-open-hidden") {
+    (async () => {
+      try {
+        const urls = (msg.payload && msg.payload.urls) || [];
+        if (!urls.length) { sendResponse({ ok: false, error: "열 주소가 없습니다" }); return; }
+        const win = await chrome.windows.create({ url: urls, state: "minimized", focused: false });
+        sendResponse({ ok: true, windowId: win.id });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
+  }
+  // 서버 API 호출 대행 (로컬 → 운영 폴백, 사이트 쿠키 사용): 확장 content script가 작업 상세/결과를 주고받을 때
+  if (msg.type === "efile-api") {
+    (async () => {
+      let result = null, lastErr = "";
+      for (const base of ["http://localhost:3000", "https://app.savetaxnh.com"]) {
+        try {
+          const res = await fetch(base + msg.path, {
+            method: msg.method || "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: msg.body ? JSON.stringify(msg.body) : undefined,
+          });
+          if (res.status === 401) { lastErr = base + " 401"; continue; }
+          result = await res.json();
+          break;
+        } catch (e) { lastErr = e.message; }
+      }
+      sendResponse(result || { ok: false, error: "서버 연결 실패 (사이트 로그인 상태 확인): " + lastErr });
+    })();
+    return true;
+  }
+  // 위하고 제작 파일이 후킹에 안 잡혔을 때: 클릭 이후 내려받힌 전자신고 파일을 다운로드 목록에서 찾아 읽기
+  if (msg.type === "efile-find-download") {
+    (async () => {
+      try {
+        const deadline = Date.now() + (msg.waitMs || 20000);
+        let item = null;
+        while (Date.now() < deadline) {
+          const found = await chrome.downloads.search({
+            filenameRegex: "\\d{8}[AC]103900\\.0?1$", orderBy: ["-startTime"], limit: 1, state: "complete",
+            startedAfter: new Date(msg.since).toISOString(),
+          });
+          if (found && found.length) { item = found[0]; break; }
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (!item) { sendResponse({ ok: false, error: "내려받힌 전자신고 파일을 찾지 못했습니다" }); return; }
+        const base64 = await fetchDownloadAsBase64(item, sender.tab.id);
+        if (!base64) { sendResponse({ ok: false, error: "내려받힌 파일을 읽을 수 없습니다" }); return; }
+        sendResponse({ ok: true, fileName: item.filename.split(/[\\/]/).pop(), fileBase64: base64 });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+    })();
+    return true;
+  }
+  // 디버거로 글자 입력 (커스텀 입력칸이 합성 이벤트를 무시할 때) — 보낸 탭의 현재 포커스 요소에 입력
+  if (msg.type === "efile-insert-text") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      try { await chrome.debugger.attach({ tabId }, "1.3"); }
+      catch (e) { if (!/already attached/i.test(e.message)) { sendResponse({ ok: false, error: "디버거 연결 실패: " + e.message }); return; } }
+      try {
+        await chrome.debugger.sendCommand({ tabId }, "Input.insertText", { text: String(msg.text || "") });
+        sendResponse({ ok: true });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+      finally { try { await chrome.debugger.detach({ tabId }); } catch (e) {} }
+    })();
+    return true;
+  }
   // canvas 표 등 합성 이벤트를 무시하는 요소를 디버거로 실제 클릭 (CSS px 좌표, 보낸 탭 기준)
   if (msg.type === "efile-real-click") {
     (async () => {

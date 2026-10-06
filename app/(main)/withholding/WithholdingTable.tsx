@@ -75,7 +75,7 @@ type Client = {
 };
 type WHFiling = {
   kind: string; closed: boolean; amount: number | null; reportType: string | null; attribYm: string | null;
-  status: string; receiptNo: string | null; checkedAt: string | Date;
+  status: string; receiptNo: string | null; fileName?: string | null; checkedAt: string | Date;
 };
 
 function getRequiredTasks(laborTypes: string[], halfYearTax: boolean, month: number, skipDailyWorkReport: boolean = false) {
@@ -378,17 +378,46 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     for (const c of clients) for (const f of c.withholdingFilings || []) { const d = new Date(f.checkedAt); if (!latest || d > latest) latest = d; }
     return { linkedCount: linked.length, income, local, incomeOnly, latest };
   })();
-  function startCloseCheck() {
+  // 확장 프로그램 다리: content-savetax-app.js 가 window.postMessage 로 응답 (없으면 null)
+  function extCall<T = { ok: boolean; error?: string }>(type: string, payload?: Record<string, unknown>, timeoutMs = 4000): Promise<T | null> {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined") { resolve(null); return; }
+      const id = `app${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+      const onMsg = (ev: MessageEvent) => {
+        const d = ev.data;
+        if (!d || d.source !== "savetax-ext" || d.id !== id) return;
+        window.removeEventListener("message", onMsg); clearTimeout(t);
+        resolve(d as T);
+      };
+      const t = setTimeout(() => { window.removeEventListener("message", onMsg); resolve(null); }, timeoutMs);
+      window.addEventListener("message", onMsg);
+      window.postMessage({ source: "savetax-app", id, type, payload: payload || {} }, "*");
+    });
+  }
+  function efileUrls(extra: string): string[] | null {
     const template = clients.find(c => c.wehagoCno && c.wehagoCdCom);
-    if (!template) { alert("위하고 연동된 거래처가 없어 전자신고 화면을 열 수 없습니다"); return; }
-    if (!wehagoCompanyId) { alert("설정에 위하고 아이디가 없습니다"); return; }
-    const params = buildWehagoParams(template) + `&stCloseCheck=${year}${String(month).padStart(2, "0")}`;
+    if (!template || !wehagoCompanyId) return null;
+    const params = buildWehagoParams(template) + extra;
     const base = "https://smarta.wehago.com/#/smarta/humanresource";
-    const w1 = window.open(`${base}/SWER0101?${params}`, "_blank");
-    if (!w1) { alert("팝업이 차단되었습니다. 이 사이트의 팝업을 허용해주세요."); return; }
-    setTimeout(() => window.open(`${base}/SWER0109?${params}`, "_blank"), 1500);
+    return [`${base}/SWER0101?${params}`, `${base}/SWER0109?${params}`];
+  }
+  // 위하고 창 열기: 확장이 있으면 최소화된 별도 창(화면에 안 뜸), 없으면 새 탭
+  async function openEfileWindows(urls: string[]): Promise<{ ok: boolean; hidden: boolean; error?: string }> {
+    const res = await extCall("open-hidden", { urls });
+    if (res?.ok) return { ok: true, hidden: true };
+    const w1 = window.open(urls[0], "_blank");
+    if (!w1) return { ok: false, hidden: false, error: "팝업이 차단되었습니다. 이 사이트의 팝업을 허용해주세요." };
+    urls.slice(1).forEach((u, i) => setTimeout(() => window.open(u, "_blank"), 1500 * (i + 1)));
+    return { ok: true, hidden: false };
+  }
+  async function startCloseCheck(silent = false) {
+    if (closeCheck && !closeCheck.error && !(closeCheck.income && closeCheck.local)) return;
+    const urls = efileUrls(`&stCloseCheck=${year}${String(month).padStart(2, "0")}`);
+    if (!urls) { if (!silent) alert("위하고 연동된 거래처가 없거나 설정에 위하고 아이디가 없습니다"); return; }
     const startedAt = Date.now();
     setCloseCheck({ startedAt, income: false, local: false });
+    const opened = await openEfileWindows(urls);
+    if (!opened.ok) { setCloseCheck({ startedAt, income: false, local: false, error: opened.error }); return; }
     if (closeCheckPollRef.current) clearInterval(closeCheckPollRef.current);
     closeCheckPollRef.current = setInterval(async () => {
       try {
@@ -406,11 +435,80 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         } else if (Date.now() - startedAt > 4 * 60 * 1000) {
           if (closeCheckPollRef.current) clearInterval(closeCheckPollRef.current);
           closeCheckPollRef.current = null;
-          setCloseCheck(prev => prev ? { ...prev, error: "4분 안에 끝나지 않았습니다. 위하고 탭의 안내문을 확인하세요." } : prev);
+          setCloseCheck(prev => prev ? { ...prev, error: opened.hidden ? "4분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인하고 다시 눌러주세요." : "4분 안에 끝나지 않았습니다. 위하고 탭의 안내문을 확인하세요." } : prev);
           router.refresh();
         }
       } catch {}
     }, 3000);
+  }
+  // 자동 조회: 확장이 설치돼 있고, 최근 2개월 페이지이며, 마지막 조회가 30분 넘었으면 조용히 갱신
+  React.useEffect(() => {
+    const now = new Date();
+    const monthsAgo = (now.getFullYear() - Number(year)) * 12 + (now.getMonth() + 1 - month);
+    if (monthsAgo < 0 || monthsAgo > 2) return;
+    if (filingStats.latest && Date.now() - filingStats.latest.getTime() < 30 * 60 * 1000) return;
+    const guardKey = `savetax-closecheck-${yearMonth}`;
+    const last = Number(sessionStorage.getItem(guardKey) || 0);
+    if (Date.now() - last < 30 * 60 * 1000) return;
+    const t = setTimeout(async () => {
+      const ping = await extCall("ping", {}, 1500);
+      if (!ping?.ok) return; // 확장 없으면 자동 실행 안 함
+      sessionStorage.setItem(guardKey, String(Date.now()));
+      startCloseCheck(true);
+    }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearMonth]);
+
+  // ===== 원천세 자동신고 2단계: 체크한 거래처 전자신고 파일 제작 (위하고) =====
+  type EfileJobView = {
+    jobId: string; kinds: string[]; targets: { clientId: number; name: string; cno: string }[];
+    progress: Record<string, { state: string; message?: string; fileName?: string; produced?: string[]; skipped?: string[] }>;
+    done: boolean; skippedAtStart?: { name: string; reason: string }[]; error?: string;
+  };
+  const [efileJob, setEfileJob] = useState<EfileJobView | null>(null);
+  const efilePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  async function startProduce() {
+    if (efileJob && !efileJob.done && !efileJob.error) return;
+    const ids = [...checkedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`체크한 ${ids.length}개 거래처의 전자신고 파일(원천세·지방소득세)을 위하고에서 제작합니다.\n마감된 거래처만 포함되며, 홈택스·위택스 제출은 아직 하지 않습니다.\n\n시작할까요?`)) return;
+    const res = await fetch("/api/withholding/filing/job", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yearMonth, clientIds: ids }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      const skippedMsg = data?.skipped?.length ? `\n\n${data.skipped.map((s: { name: string; reason: string }) => `· ${s.name}: ${s.reason}`).join("\n")}` : "";
+      alert((data?.error || "작업 생성 실패") + skippedMsg);
+      return;
+    }
+    const urls = efileUrls(`&stProduce=${data.jobId}`);
+    if (!urls) { alert("위하고 연동된 거래처가 없거나 설정에 위하고 아이디가 없습니다"); return; }
+    setEfileJob({ jobId: data.jobId, kinds: data.kinds, targets: data.targets, progress: {}, done: false, skippedAtStart: data.skipped });
+    const opened = await openEfileWindows(urls);
+    if (!opened.ok) { setEfileJob(prev => prev ? { ...prev, error: opened.error } : prev); return; }
+    const startedAt = Date.now();
+    if (efilePollRef.current) clearInterval(efilePollRef.current);
+    efilePollRef.current = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/withholding/filing/job?id=${data.jobId}`);
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j?.ok) return;
+        setEfileJob(prev => prev ? { ...prev, progress: j.progress, done: j.done } : prev);
+        if (j.done || Date.now() - startedAt > 6 * 60 * 1000) {
+          if (efilePollRef.current) clearInterval(efilePollRef.current);
+          efilePollRef.current = null;
+          if (!j.done) setEfileJob(prev => prev ? { ...prev, error: "6분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인해주세요." } : prev);
+          router.refresh();
+        }
+      } catch {}
+    }, 2500);
+  }
+  function closeEfileModal() {
+    if (efilePollRef.current) { clearInterval(efilePollRef.current); efilePollRef.current = null; }
+    setEfileJob(null);
+    router.refresh();
   }
 
   // 거래처 드라이브의 1. 원천세/해당월 폴더 열기
@@ -698,7 +796,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           })()}
           {/* 원천세 자동신고 1단계: 위하고 마감상태 조회 */}
           <button
-            onClick={startCloseCheck}
+            onClick={() => startCloseCheck(false)}
             disabled={!!closeCheck && !closeCheck.error && !(closeCheck.income && closeCheck.local)}
             title="위하고 전자신고 화면을 열어 이번 달 마감된 거래처와 세액(원천세·지방소득세)을 읽어옵니다"
             className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#A3CAFD] text-[#1B64DA] bg-[#F5F9FF] hover:bg-[#E8F3FF] disabled:opacity-50 flex items-center gap-1.5"
@@ -733,6 +831,14 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#3182F6] text-white hover:bg-[#1B64DA]"
               >
                 일괄 위멤버스
+              </button>
+              <button
+                onClick={startProduce}
+                disabled={!!efileJob && !efileJob.done && !efileJob.error}
+                title="체크한 거래처의 원천세·지방소득세 전자신고 파일을 위하고에서 제작합니다 (마감된 거래처만)"
+                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#15803D] text-white hover:bg-[#166534] disabled:opacity-50"
+              >
+                자동신고 · 파일 제작
               </button>
             </div>
           )}
@@ -1069,9 +1175,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                               if (!f) return <span key={label} className="text-[9.5px] px-1.5 py-[1px] rounded-md bg-[#F2F4F6] text-[#B0B8C1]">{label} 미조회</span>;
                               if (!f.closed) return <span key={label} className="text-[9.5px] px-1.5 py-[1px] rounded-md bg-[#F2F4F6] text-[#8B95A1]">{label} 미마감</span>;
                               const half = f.reportType === "반기";
+                              const stepLabel = f.status === "submitted" ? "접수" : f.status === "verified" ? "검증" : f.status === "produced" ? "파일" : "";
                               return (
-                                <span key={label} title={`${half ? "반기 · " : ""}귀속 ${f.attribYm || ""}`} className={`text-[9.5px] px-1.5 py-[1px] rounded-md font-semibold ${half ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]" : "bg-[#F1FBF4] text-[#15803D] border border-[#BBF7D0]"}`}>
-                                  {label} {half ? "반기" : fmt(f.amount) || "0"}
+                                <span key={label} title={`${half ? "반기 · " : ""}귀속 ${f.attribYm || ""}${f.fileName ? ` · ${f.fileName}` : ""}${f.receiptNo ? ` · 접수 ${f.receiptNo}` : ""}`} className={`text-[9.5px] px-1.5 py-[1px] rounded-md font-semibold ${half ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]" : "bg-[#F1FBF4] text-[#15803D] border border-[#BBF7D0]"}`}>
+                                  {label} {half ? "반기" : fmt(f.amount) || "0"}{stepLabel && <span className="ml-1 text-[#1B64DA]">· {stepLabel}</span>}
                                 </span>
                               );
                             };
@@ -1286,6 +1393,57 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           </tbody>
         </table>
       </div>
+
+      {/* 원천세 자동신고: 파일 제작 진행 모달 */}
+      {efileJob && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => (efileJob.done || efileJob.error) && closeEfileModal()}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-[#191F28]">자동신고 · 전자신고 파일 제작</h3>
+                <div className="text-[11.5px] text-[#6B7684] mt-0.5">{year}년 {month}월 지급분 · 대상 {efileJob.targets.length}곳 · 위하고 창은 화면에 뜨지 않고 뒤에서 돌아갑니다</div>
+              </div>
+              {(efileJob.done || efileJob.error) && <button onClick={closeEfileModal} className="text-[#8B95A1] hover:text-[#191F28] text-lg">✕</button>}
+            </div>
+            <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              {efileJob.kinds.map(k => {
+                const p = efileJob.progress[k];
+                const lab = k === "income" ? "원천세 (홈택스용)" : "지방소득세 (위택스용)";
+                const st = p?.state || "wait";
+                const color = st === "done" ? "text-[#15803D]" : st === "error" ? "text-[#DC2626]" : st === "running" ? "text-[#1B64DA]" : "text-[#8B95A1]";
+                return (
+                  <div key={k} className="rounded-xl border border-[#F2F4F6] p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-bold text-[#191F28]">{lab}</span>
+                      <span className={`text-[12px] font-semibold ${color} flex items-center gap-1.5`}>
+                        {st === "running" && <span className="inline-block w-3 h-3 rounded-full border-2 border-[#1B64DA]/30 border-t-[#1B64DA] animate-spin" />}
+                        {st === "wait" ? "대기" : st === "running" ? "진행 중" : st === "done" ? "완료" : st === "error" ? "오류" : st}
+                      </span>
+                    </div>
+                    {p?.message && <div className={`text-[11.5px] mt-1 ${st === "error" ? "text-[#DC2626]" : "text-[#6B7684]"}`}>{p.message}</div>}
+                    {p?.produced && p.produced.length > 0 && <div className="text-[11px] text-[#4E5968] mt-1">제작: {p.produced.join(", ")}</div>}
+                    {p?.skipped && p.skipped.length > 0 && <div className="text-[11px] text-[#B45309] mt-1">건너뜀: {p.skipped.join(" / ")}</div>}
+                  </div>
+                );
+              })}
+              {efileJob.skippedAtStart && efileJob.skippedAtStart.length > 0 && (
+                <div className="text-[11px] text-[#B45309] bg-[#FFFBEB] rounded-lg px-3 py-2">
+                  대상에서 제외: {efileJob.skippedAtStart.map(s => `${s.name}(${s.reason})`).join(", ")}
+                </div>
+              )}
+              {efileJob.error && <div className="text-[12px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-3 py-2">{efileJob.error}</div>}
+              {efileJob.done && !efileJob.error && (
+                <div className="text-[12px] text-[#15803D] bg-[#F1FBF4] rounded-lg px-3 py-2">
+                  파일 제작이 끝났습니다. 다음 단계(홈택스·위택스 검증·제출)는 준비 중입니다 — 지금은 홈택스 파일변환신고에서 직접 올려 주세요.
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-[#F2F4F6] flex justify-end">
+              <button onClick={closeEfileModal} disabled={!efileJob.done && !efileJob.error} className="text-xs px-4 py-2 rounded-lg font-medium bg-[#191F28] text-white disabled:opacity-40">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 위하고 연동 수집 모달 */}
       {collectJob && (

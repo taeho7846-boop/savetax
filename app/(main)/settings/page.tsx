@@ -157,6 +157,10 @@ export default async function SettingsPage() {
                 <label className="block text-xs text-[#6B7684] mb-1">위하고 PW</label>
                 <input name="wehagoPw" type="password" defaultValue={settings?.wehagoPw ?? ""} placeholder="비밀번호" className={inputClass} />
               </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-[#6B7684] mb-1">전자신고 파일 비밀번호 <span className="text-[#8B95A1]">(원천세 자동신고 · 영문/숫자 8~16자)</span></label>
+                <input name="efilePassword" type="password" defaultValue={settings?.efilePassword ?? ""} placeholder="위하고 파일 제작과 홈택스·위택스 검증에 같은 비밀번호를 사용합니다" className={inputClass} autoComplete="new-password" />
+              </div>
             </div>
           </section>
 

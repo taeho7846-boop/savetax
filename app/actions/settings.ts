@@ -24,6 +24,7 @@ export async function saveSettings(formData: FormData) {
     wehagoPw:          (formData.get("wehagoPw")          as string) || null,
     wemembersId:       (formData.get("wemembersId")       as string) || null,
     wemembersPw:       (formData.get("wemembersPw")       as string) || null,
+    efilePassword:     (formData.get("efilePassword")     as string) || null,
     alimtalkHappyCallIndiv: (formData.get("alimtalkHappyCallIndiv") as string) || null,
     alimtalkHappyCallCorp:  (formData.get("alimtalkHappyCallCorp")  as string) || null,
     alimtalkDocRemind:      (formData.get("alimtalkDocRemind")      as string) || null,

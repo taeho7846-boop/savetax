@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "4.36",
+  "version": "4.37",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": [
     "contentSettings",
@@ -82,6 +82,17 @@
         "content-wemembers.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://app.savetaxnh.com/*",
+        "http://app.savetaxnh.com/*",
+        "http://localhost:3000/*"
+      ],
+      "js": [
+        "content-savetax-app.js"
+      ],
+      "run_at": "document_start"
     }
   ]
 }

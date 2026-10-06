@@ -1,19 +1,23 @@
 // 위하고 전자신고 화면 자동 조작 (원천세 자동신고)
 //  - SWER0101 원천징수 전자신고(홈택스용) / SWER0109 지방소득세특별징수전자신고(위택스용)
-//  - URL 해시에 stCloseCheck=YYYYMM 이 있으면: 지급기간 월 설정 → 수임처 전체 선택 → 조회
-//    → 응답(wehago-main-hook.js가 postMessage) 수집 → 서버 /api/withholding/filing/close-check 전송 → 탭 닫기
-//  화면 구조(2026-10 실측): 지급기간 월 콤보 2개(WSC_LUXButton 22x26), 수임처 선택 아이콘(WSC_LUXButton 27x20)
-//  → "회사 코드도움" 팝업(표가 canvas라 체크 상태는 픽셀로 판단, 클릭은 background의 디버거 실클릭 필요)
+//  - 해시 stCloseCheck=YYYYMM : 지급기간 월 설정 → 수임처 전체 선택 → 조회 → 마감 목록을 서버에 반영 → 탭 닫기
+//  - 해시 stProduce=<jobId>  : 위 조회 후 작업(job)의 대상 거래처 행만 체크 → 제작(F4) → 비밀번호 → 파일 제작
+//                              → 내려받는 파일을 가로채 서버에 저장 → 탭 닫기
+//  화면 구조(2026-10 실측): 지급기간 월 콤보 2개(WSC_LUXButton 22x26), 수임처 선택 아이콘(WSC_LUXButton 27x20),
+//  표는 RealGridJS canvas → wehago-main-hook.js(MAIN world)의 브리지로 rows/check/checkAll 처리
 (function () {
   const hash = location.hash || "";
   const chk = hash.match(/stCloseCheck=(\d{6})/);
-  if (!chk) return;
-  const payYm = chk[1];
+  const prod = hash.match(/stProduce=([A-Za-z0-9]+)/);
+  if (!chk && !prod) return;
   const menu = (hash.match(/\/(SWER01\d\d)\?/) || [])[1];
   const kind = menu === "SWER0101" ? "income" : menu === "SWER0109" ? "local" : null;
   if (!kind) return;
   const label = kind === "income" ? "원천세" : "지방소득세";
-  const month = payYm.slice(4, 6);
+  const mode = prod ? "produce" : "check";
+  const jobId = prod ? prod[1] : null;
+  let payYm = chk ? chk[1] : "";
+  let month = payYm.slice(4, 6);
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const log = (...a) => console.log("[SaveTax 전자신고]", ...a);
@@ -26,11 +30,13 @@
       el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 }));
     }
   }
-  function realClick(x, y) {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: "efile-real-click", x: Math.round(x), y: Math.round(y) }, (res) => resolve(res));
-    });
-  }
+  const bg = (msg) => new Promise((resolve) => {
+    try { chrome.runtime.sendMessage(msg, (res) => resolve(chrome.runtime.lastError ? { ok: false, error: chrome.runtime.lastError.message } : res)); }
+    catch (e) { resolve({ ok: false, error: e.message }); }
+  });
+  const realClick = (x, y) => bg({ type: "efile-real-click", x: Math.round(x), y: Math.round(y) });
+  const api = (method, path, body) => bg({ type: "efile-api", method, path, body });
+
   // MAIN world(wehago-main-hook.js)의 RealGrid 브리지 호출
   let bridgeSeq = 0;
   function bridge(cmd, args = {}, timeoutMs = 5000) {
@@ -50,41 +56,47 @@
   async function waitFor(fn, timeoutMs = 20000, step = 300) {
     const end = Date.now() + timeoutMs;
     while (Date.now() < end) {
-      try { const v = fn(); if (v) return v; } catch {}
+      try { const v = await fn(); if (v) return v; } catch {}
       await sleep(step);
     }
     return null;
   }
-  // 화면 위 상태 배너
+  // 화면 위 상태 배너 (+ 제작 모드에서는 서버 작업 상태도 갱신)
   let banner;
-  function status(msg, color = "#1B64DA") {
+  function status(msg, color = "#1B64DA", state) {
     if (!banner) {
       banner = document.createElement("div");
       banner.style.cssText = "position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#191F28;color:#fff;font:600 13px/1.4 sans-serif;padding:8px 14px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:70vw";
       document.documentElement.appendChild(banner);
     }
     banner.style.background = color;
-    banner.textContent = `SaveTax ${label} 마감조회 · ${msg}`;
+    banner.textContent = `SaveTax ${label} ${mode === "produce" ? "파일 제작" : "마감조회"} · ${msg}`;
     log(msg);
+    if (mode === "produce" && jobId) api("PATCH", "/api/withholding/filing/job", { jobId, kind, state: state || "running", message: msg });
   }
 
   // ---- 응답 수집 (MAIN world 후킹 → postMessage) ----
   const rows = [];
   let responses = 0, lastResponseAt = 0;
+  let capturedFile = null; // { name, base64 } | { error }
   window.addEventListener("message", (ev) => {
     const d = ev.data;
-    if (!d || d.source !== "savetax-efile" || d.menu !== menu) return;
-    responses++; lastResponseAt = Date.now();
-    try {
-      const j = JSON.parse(d.body);
-      for (const g of (j.group03 || [])) {
-        rows.push({
-          cno: g.cno || d.cno, ccode: g.ccode || d.ccode, name: g.nm_krcom,
-          reportType: g.won_singo_gu, attribYm: g.ym_rvrs, payYm: g.ym_pay,
-          amount: g.am_a99, keyClose: g.key_close, singo: g.singo_gubun || g.fg_declare,
-        });
-      }
-    } catch (e) { /* 빈 응답 등 */ }
+    if (!d) return;
+    if (d.source === "savetax-efile" && d.menu === menu) {
+      responses++; lastResponseAt = Date.now();
+      try {
+        const j = JSON.parse(d.body);
+        for (const g of (j.group03 || [])) {
+          rows.push({
+            cno: g.cno || d.cno, ccode: g.ccode || d.ccode, name: g.nm_krcom,
+            reportType: g.won_singo_gu, attribYm: g.ym_rvrs, payYm: g.ym_pay,
+            amount: g.am_a99, keyClose: g.key_close, singo: g.singo_gubun || g.fg_declare,
+          });
+        }
+      } catch (e) { /* 빈 응답 등 */ }
+    } else if (d.source === "savetax-efile-file") {
+      capturedFile = d;
+    }
   });
 
   // ---- 화면 요소 찾기 ----
@@ -109,11 +121,21 @@
   };
   const queryButton = () => [...document.querySelectorAll("button")].find(b => visible(b) && txt(b) === "조회" && rect(b).top < 400);
   const alertBox = () => [...document.querySelectorAll(".WSC_LUXAlert .dialog_alert, .dialog_alert")].find(visible);
+  const bottomBar = () => [...document.querySelectorAll("div,span")].find(e => visible(e) && /제작대상 선택한 회사/.test(txt(e)) && txt(e).length < 80);
 
   async function closeInfoPopup() {
     // "제출자등록 탭을 확인해주십시오" 안내 팝업 → 확인
     const btn = await waitFor(() => [...document.querySelectorAll("button")].find(b => visible(b) && txt(b) === "확인" && (b.closest("[class*=dialog]") || b.closest("[class*=Dialog]"))), 4000, 200);
     if (btn) { fire(btn); await sleep(500); }
+  }
+  async function dismissAlert() {
+    const ab = alertBox();
+    if (!ab) return "";
+    const t = txt(ab).replace(/\s+/g, " ");
+    const okb = [...ab.parentElement.querySelectorAll("button")].find(b => visible(b));
+    if (okb) fire(okb);
+    await sleep(300);
+    return t;
   }
 
   async function setMonth(idx, mm) {
@@ -147,7 +169,6 @@
 
     let done = false;
     try {
-      // 팝업 표 찾기: 새로 생겼거나(인덱스 ≥ 이전 개수) 아니면 마지막 살아있는 표
       const infos = await waitFor(async () => { const g = await bridge("grids"); return g.some(x => x.rowCount > 0 && x.index >= gridsBefore) ? g : null; }, 4000, 300) || await bridge("grids");
       const cand = infos.filter(x => x.alive && x.rowCount > 0);
       const popup = cand.find(x => x.index >= gridsBefore) || cand[cand.length - 1];
@@ -183,42 +204,28 @@
 
   async function waitForResults() {
     const start = Date.now();
-    // 조회 시작(첫 응답) 대기 — 최대 40초
     await waitFor(() => responses > 0 || alertBox(), 40000, 300);
     const ab = alertBox();
     if (ab && responses === 0) {
-      const t = txt(ab);
+      const t = await dismissAlert();
       // "조회할 데이터가 존재하지 않습니다" = 마감된 수임처가 하나도 없음 → 정상(0건)
-      if (!/존재하지 않습니다/.test(t)) throw new Error("위하고 안내: " + t.replace(/\s+/g, " "));
-      const okb = [...ab.parentElement.querySelectorAll("button")].find(b => visible(b));
-      if (okb) fire(okb);
+      if (!/존재하지 않습니다/.test(t)) throw new Error("위하고 안내: " + t);
       return;
     }
     if (responses === 0) throw new Error("조회 응답이 없습니다 (위하고 세션/화면 확인)");
-    // 마지막 응답 후 4초 조용하면 완료, 로딩 오버레이가 남아 있으면 더 기다림
     const loading = () => [...document.querySelectorAll("div,span,p")].some(e => visible(e) && /불러오고 있습니다/.test(txt(e)));
     while (Date.now() - start < 180000) {
       status(`조회 중… 응답 ${responses}건 / 마감 ${rows.length}곳`);
       await sleep(1000);
       if (Date.now() - lastResponseAt > 4000 && !loading()) break;
     }
-    // "조회할 데이터가 존재하지 않습니다" 알림이 떠 있으면 닫기
-    const ab2 = alertBox();
-    if (ab2) { const okb = [...ab2.parentElement.querySelectorAll("button")].find(b => visible(b)); if (okb) fire(okb); }
+    await dismissAlert();
   }
 
-  function sendToServer() {
-    // 조회월(payYm) 지급분만 보냄 (반기 업체는 지급월이 같고 귀속월만 다름 → 포함)
-    const payload = { kind, payYm, rows: rows.filter(r => !r.payYm || r.payYm === payYm) };
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: "efile-close-check", ...payload }, (res) => resolve(res));
-    });
-  }
-
-  async function run() {
+  async function queryClosedCompanies() {
     status("화면 준비 중…");
     const ready = await waitFor(() => queryButton() && monthToggleButtons().length >= 2, 30000, 400);
-    if (!ready) { status("화면이 열리지 않았습니다 (위하고 로그인 확인)", "#DC2626"); return; }
+    if (!ready) throw new Error("화면이 열리지 않았습니다 (위하고 로그인 확인)");
     await sleep(800);
     await closeInfoPopup();
     status(`지급기간 ${month}월 설정`);
@@ -226,17 +233,127 @@
     await setMonth(1, month);
     status("수임처 전체 선택");
     await selectAllCompanies(); // 확인(enter) 누르면 자동 조회 시작
-    // 자동 조회가 안 걸렸으면 조회 버튼
     await sleep(1500);
     if (responses === 0) { const qb = queryButton(); if (qb) fire(qb); }
     await waitForResults();
+  }
+
+  // ===== 마감상태 조회 모드 =====
+  async function runCheck() {
+    await queryClosedCompanies();
     status(`서버 전송 중… 마감 ${rows.length}곳`);
-    const res = await sendToServer();
-    if (!res || !res.ok) { status("서버 전송 실패: " + (res && res.error), "#DC2626"); return; }
+    const payload = { kind, payYm, rows: rows.filter(r => !r.payYm || r.payYm === payYm) };
+    const res = await bg({ type: "efile-close-check", ...payload });
+    if (!res || !res.ok) throw new Error("서버 전송 실패: " + (res && res.error));
     status(`완료 · 마감 ${res.matched}곳 반영${res.unmatched && res.unmatched.length ? ` (미등록 ${res.unmatched.length}곳)` : ""}`, "#15803D");
     await sleep(1500);
     window.close();
   }
 
-  run().catch(err => { status("오류: " + (err && err.message), "#DC2626"); console.error(err); });
+  // ===== 파일 제작 모드 =====
+  async function mainGrid() {
+    const infos = await bridge("grids");
+    const cand = infos.filter(x => x.alive && x.rowCount > 0 && x.fields.includes("am_a99"));
+    cand.sort((a, b) => b.rowCount - a.rowCount);
+    return cand[0] || null;
+  }
+  // 비밀번호 입력: 커스텀 입력칸(LSinput)에 네이티브 setter + input 이벤트 → 안 먹으면 디버거 insertText
+  async function typePassword(dlg, pw) {
+    const inp = await waitFor(() => dlg.querySelector("input"), 3000, 100);
+    if (!inp) throw new Error("비밀번호 입력칸을 찾지 못했습니다");
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    inp.focus();
+    setter.call(inp, pw);
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(400);
+    if (inp.value === pw) return;
+    log("setter 입력 미반영 → 디버거 insertText");
+    inp.focus(); setter.call(inp, "");
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    const r = await bg({ type: "efile-insert-text", text: pw });
+    if (!r || !r.ok) throw new Error("비밀번호 입력 실패: " + (r && r.error));
+    await sleep(400);
+    if (inp.value !== pw) throw new Error("비밀번호가 입력칸에 반영되지 않았습니다");
+  }
+
+  async function runProduce() {
+    const job = await api("GET", `/api/withholding/filing/job?id=${encodeURIComponent(jobId)}&detail=1`);
+    if (!job || !job.ok) throw new Error("작업 정보를 받지 못했습니다: " + (job && job.error));
+    payYm = job.payYm; month = payYm.slice(4, 6);
+    if (!job.password) throw new Error("설정에 전자신고 파일 비밀번호가 없습니다");
+    const targetCnos = new Set(job.targets.map(t => String(t.cno)));
+
+    await queryClosedCompanies();
+
+    const grid = await mainGrid();
+    if (!grid) throw new Error("마감 수임처 표를 찾지 못했습니다 (마감된 거래처 없음)");
+    const gridRows = await bridge("rows", { index: grid.index });
+    const idxs = [], produced = [], skipped = [];
+    gridRows.forEach((r, i) => {
+      if (!targetCnos.has(String(r.cno))) return;
+      if (String(r.yn_except || "").toUpperCase() === "Y") { skipped.push({ cno: r.cno, name: r.nm_krcom, reason: "제작제외 표시" }); return; }
+      if (r.ym_pay && r.ym_pay !== payYm) { skipped.push({ cno: r.cno, name: r.nm_krcom, reason: `지급월 ${r.ym_pay}` }); return; }
+      idxs.push(i); produced.push(String(r.cno));
+    });
+    for (const t of job.targets) {
+      if (!gridRows.some(r => String(r.cno) === String(t.cno))) skipped.push({ cno: t.cno, name: t.name, reason: `${label} 미마감` });
+    }
+    if (idxs.length === 0) {
+      await api("POST", "/api/withholding/filing/produce-result", { jobId, kind, error: `제작 대상 없음 (${skipped.map(s => s.name + ":" + s.reason).join(", ")})` });
+      status("제작할 거래처가 없습니다", "#DC2626", "error");
+      await sleep(2500); window.close(); return;
+    }
+
+    status(`대상 ${idxs.length}곳 선택`);
+    await bridge("check", { index: grid.index, rows: idxs, checked: true });
+    await sleep(600);
+    const bar = bottomBar();
+    const m = bar && txt(bar).match(/선택한 회사\s*:\s*(\d+)/);
+    if (!m || Number(m[1]) !== idxs.length) log("하단 선택 건수 불일치:", bar && txt(bar));
+
+    const mk = [...document.querySelectorAll("button")].find(b => visible(b) && /^제작\(F4\)$/.test(txt(b)));
+    if (!mk) throw new Error("제작(F4) 버튼을 찾지 못했습니다");
+    fire(mk);
+    const dlg = await waitFor(() => [...document.querySelectorAll("div")].find(d => visible(d) && txt(d).startsWith("전자신고 파일 제작") && rect(d).width > 300 && rect(d).width < 900), 8000, 200);
+    if (!dlg) { const t = await dismissAlert(); throw new Error("제작 창이 열리지 않았습니다" + (t ? " · " + t : "")); }
+    await sleep(500);
+    status("비밀번호 입력");
+    await typePassword(dlg, job.password);
+
+    const mkBtn = [...dlg.querySelectorAll("button")].find(b => visible(b) && /전자신고 파일 제작/.test(txt(b)));
+    if (!mkBtn) throw new Error("'전자신고 파일 제작' 버튼을 찾지 못했습니다");
+    status("파일 제작 중…");
+    const clickedAt = Date.now();
+    capturedFile = null;
+    fire(mkBtn);
+
+    // 파일 가로채기(MAIN 후킹) 대기 — 실패 시 다운로드 목록에서 찾기
+    await waitFor(() => capturedFile || alertBox(), 45000, 300);
+    if (!capturedFile) {
+      const t = await dismissAlert();
+      if (t && !/완료|제작/.test(t)) throw new Error("위하고 안내: " + t);
+      const found = await bg({ type: "efile-find-download", since: clickedAt, waitMs: 20000 });
+      if (!found || !found.ok) throw new Error("제작된 파일을 받지 못했습니다" + (t ? " · " + t : ""));
+      capturedFile = { name: found.fileName, base64: found.fileBase64 };
+    }
+    if (capturedFile.error) throw new Error("파일 읽기 실패: " + capturedFile.error);
+    await dismissAlert();
+
+    status(`서버 저장 중… ${capturedFile.name}`);
+    const res = await api("POST", "/api/withholding/filing/produce-result", {
+      jobId, kind, fileName: capturedFile.name, fileBase64: capturedFile.base64, produced, skipped,
+    });
+    if (!res || !res.ok) throw new Error("서버 저장 실패: " + (res && res.error));
+    status(`완료 · ${produced.length}곳 제작 (${capturedFile.name})`, "#15803D", "done");
+    await sleep(1500);
+    window.close();
+  }
+
+  (mode === "produce" ? runProduce() : runCheck()).catch(async (err) => {
+    const msg = (err && err.message) || String(err);
+    console.error(err);
+    if (mode === "produce" && jobId) await api("POST", "/api/withholding/filing/produce-result", { jobId, kind, error: msg });
+    status("오류: " + msg, "#DC2626", "error");
+  });
 })();

@@ -222,6 +222,7 @@ model Settings {
   slackEveningTime        String  @default("19:00")
   slackDistributionEnabled Boolean @default(true)
   driveBasePath           String?
+  efilePassword           String?  // 위하고 전자신고 파일(원천세·지방소득세) 변환파일 비밀번호 — 홈택스/위택스 검증 시 동일 입력
   user               User    @relation(fields: [userId], references: [id])
 }
 
@@ -311,6 +312,24 @@ model WithholdingFiling {
   client       Client    @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, yearMonth, kind])
+  @@index([yearMonth, kind])
+}
+
+// 위하고에서 제작된 전자신고 파일 (수 KB) — 홈택스/위택스 업로드용으로 보관
+model WithholdingFilingFile {
+  id          Int      @id @default(autoincrement())
+  yearMonth   String
+  kind        String   // income | local
+  fileName    String
+  data        Bytes
+  clientIds   String   // JSON 배열 — 이 파일에 포함된 거래처 id
+  status      String   @default("produced") // produced | verified | submitted | error
+  receiptNo   String?
+  resultJson  String?  // 검증/접수 결과 원문(JSON)
+  createdById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@index([yearMonth, kind])
 }
 
