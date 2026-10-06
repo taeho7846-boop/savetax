@@ -366,7 +366,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   // 위하고 전자신고 화면(원천세 SWER0101 / 지방소득세 SWER0109)을 새 탭으로 열면 크롬 확장이
   // 지급기간을 이번 달로 맞춰 전체 수임처를 조회하고 결과를 서버에 반영한 뒤 탭을 닫는다.
   // 여기서는 두 종류의 조회 시각이 모두 갱신될 때까지 폴링하다가 새로고침.
-  const [closeCheck, setCloseCheck] = useState<{ startedAt: number; income: boolean; local: boolean; error?: string } | null>(null);
+  type CloseProgress = { state: string; done: number; total: number; closed: number; message: string } | null;
+  const [closeCheck, setCloseCheck] = useState<{ startedAt: number; income: boolean; local: boolean; error?: string; progress?: Record<string, CloseProgress> } | null>(null);
   const closeCheckPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const filingOf = (c: Client, kind: "income" | "local") => c.withholdingFilings?.find(f => f.kind === kind) || null;
   const filingStats = (() => {
@@ -426,7 +427,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         const j = await r.json();
         const income = !!j.income?.checkedAt && new Date(j.income.checkedAt).getTime() > startedAt - 5000;
         const local = !!j.local?.checkedAt && new Date(j.local.checkedAt).getTime() > startedAt - 5000;
-        setCloseCheck(prev => prev ? { ...prev, income, local } : prev);
+        setCloseCheck(prev => prev ? { ...prev, income, local, progress: { income: j.income?.progress ?? null, local: j.local?.progress ?? null } } : prev);
         if (income && local) {
           if (closeCheckPollRef.current) clearInterval(closeCheckPollRef.current);
           closeCheckPollRef.current = null;
@@ -439,7 +440,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           router.refresh();
         }
       } catch {}
-    }, 3000);
+    }, 2000);
   }
   // 자동 조회: 확장이 설치돼 있고, 최근 2개월 페이지이며, 마지막 조회가 30분 넘었으면 조용히 갱신
   React.useEffect(() => {
@@ -804,7 +805,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             {closeCheck && !closeCheck.error && !(closeCheck.income && closeCheck.local) ? (
               <>
                 <span className="inline-block w-3 h-3 rounded-full border-2 border-[#1B64DA]/30 border-t-[#1B64DA] animate-spin" />
-                마감 조회 중 · 원천 {closeCheck.income ? "✓" : "…"} 지방 {closeCheck.local ? "✓" : "…"}
+                마감 조회 중
               </>
             ) : (
               <>
@@ -865,6 +866,34 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           </div>
         </div>
       </div>
+
+      {/* 원천세 자동신고: 마감상태 조회 진행 패널 */}
+      {closeCheck && !closeCheck.error && !(closeCheck.income && closeCheck.local) && (
+        <div className="glass rounded-2xl px-4 py-3 mb-3 flex items-center gap-4 flex-wrap">
+          <div className="text-[12px] font-bold text-[#191F28] flex items-center gap-2">
+            <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#1B64DA]/30 border-t-[#1B64DA] animate-spin" />
+            위하고 마감상태 조회 중
+            <span className="text-[10.5px] text-[#8B95A1] font-normal">창은 뒤에서 돌아갑니다 · 보통 1~2분</span>
+          </div>
+          {(["income", "local"] as const).map(k => {
+            const p = closeCheck.progress?.[k] || null;
+            const finished = k === "income" ? closeCheck.income : closeCheck.local;
+            const pct = finished ? 100 : p && p.total > 0 ? Math.min(99, Math.round(p.done / p.total * 100)) : 0;
+            const msg = finished ? `완료 · 마감 ${p?.closed ?? ""}곳` : p?.message || "창 여는 중…";
+            return (
+              <div key={k} className="flex items-center gap-2 min-w-[260px] flex-1">
+                <span className={`text-[11px] font-bold w-14 shrink-0 ${k === "income" ? "text-[#1B64DA]" : "text-[#B45309]"}`}>{k === "income" ? "원천세" : "지방소득세"}</span>
+                <div className="flex-1 h-2 bg-[#F2F4F6] rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${finished ? "bg-[#15803D]" : k === "income" ? "bg-[#3182F6]" : "bg-[#F59E0B]"}`} style={{ width: `${pct}%` }} />
+                </div>
+                <span className={`text-[10.5px] whitespace-nowrap ${finished ? "text-[#15803D] font-semibold" : "text-[#6B7684]"}`}>
+                  {p && p.total > 0 && !finished ? `${p.done}/${p.total} · ` : ""}{msg}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* 12개월 그리드 */}
       <div className="glass rounded-2xl p-3 mb-3">
@@ -1421,6 +1450,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                       </span>
                     </div>
                     {p?.message && <div className={`text-[11.5px] mt-1 ${st === "error" ? "text-[#DC2626]" : "text-[#6B7684]"}`}>{p.message}</div>}
+                    {st === "running" && (() => { const mm = (p?.message || "").match(/(\d+)\/(\d+)/); const pct = mm ? Math.min(99, Math.round(Number(mm[1]) / Math.max(1, Number(mm[2])) * 100)) : null; return (
+                      <div className="h-1.5 bg-[#F2F4F6] rounded-full overflow-hidden mt-2">
+                        <div className={`h-full bg-[#3182F6] rounded-full transition-all ${pct == null ? "animate-pulse w-1/3" : ""}`} style={pct != null ? { width: `${pct}%` } : undefined} />
+                      </div>
+                    ); })()}
                     {p?.produced && p.produced.length > 0 && <div className="text-[11px] text-[#4E5968] mt-1">제작: {p.produced.join(", ")}</div>}
                     {p?.skipped && p.skipped.length > 0 && <div className="text-[11px] text-[#B45309] mt-1">건너뜀: {p.skipped.join(" / ")}</div>}
                   </div>

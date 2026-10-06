@@ -19,6 +19,18 @@ export type EfileJob = {
 
 const jobs = new Map<string, EfileJob>();
 
+// 마감상태 조회 진행 상황 (사용자×월×종류) — 확장이 PATCH로 보고, 원천세 탭이 GET으로 읽음
+export type CloseCheckProgress = { state: "running" | "done" | "error"; done: number; total: number; closed: number; message: string; at: number };
+const closeCheckProgress = new Map<string, CloseCheckProgress>();
+export function setCloseCheckProgress(userId: number, yearMonth: string, kind: string, p: Omit<CloseCheckProgress, "at">) {
+  closeCheckProgress.set(`${userId}:${yearMonth}:${kind}`, { ...p, at: Date.now() });
+}
+export function getCloseCheckProgress(userId: number, yearMonth: string, kind: string): CloseCheckProgress | null {
+  const p = closeCheckProgress.get(`${userId}:${yearMonth}:${kind}`);
+  if (!p || Date.now() - p.at > 30 * 60 * 1000) return null;
+  return p;
+}
+
 export function createEfileJob(job: Omit<EfileJob, "progress" | "done">): EfileJob {
   const full: EfileJob = {
     ...job,

@@ -30,6 +30,9 @@
       el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 }));
     }
   }
+  const rows = [];
+  let responses = 0, lastResponseAt = 0;
+  let capturedFile = null; // { name, base64 } | { error }
   const bg = (msg) => new Promise((resolve) => {
     try { chrome.runtime.sendMessage(msg, (res) => resolve(chrome.runtime.lastError ? { ok: false, error: chrome.runtime.lastError.message } : res)); }
     catch (e) { resolve({ ok: false, error: e.message }); }
@@ -63,6 +66,7 @@
   }
   // 화면 위 상태 배너 (+ 제작 모드에서는 서버 작업 상태도 갱신)
   let banner;
+  let progressTotal = 0; // 조회 대상 수임처 수 (진행률 표시용)
   function status(msg, color = "#1B64DA", state) {
     if (!banner) {
       banner = document.createElement("div");
@@ -72,13 +76,12 @@
     banner.style.background = color;
     banner.textContent = `SaveTax ${label} ${mode === "produce" ? "파일 제작" : "마감조회"} · ${msg}`;
     log(msg);
-    if (mode === "produce" && jobId) api("PATCH", "/api/withholding/filing/job", { jobId, kind, state: state || "running", message: msg });
+    const st = state || "running";
+    if (mode === "produce" && jobId) api("PATCH", "/api/withholding/filing/job", { jobId, kind, state: st, message: msg });
+    else if (payYm) api("PATCH", "/api/withholding/filing/close-check", { kind, payYm, progress: { state: st, done: responses, total: progressTotal, closed: rows.length, message: msg } });
   }
 
   // ---- 응답 수집 (MAIN world 후킹 → postMessage) ----
-  const rows = [];
-  let responses = 0, lastResponseAt = 0;
-  let capturedFile = null; // { name, base64 } | { error }
   window.addEventListener("message", (ev) => {
     const d = ev.data;
     if (!d) return;
@@ -157,7 +160,7 @@
   // 회사 코드도움 팝업에서 전체 선택 후 확인
   //  1순위: RealGrid 브리지로 팝업 표 checkAll (팝업 표 = 가장 나중에 만들어진 살아있는 표)
   //  2순위: 표가 canvas라 체크 여부를 픽셀 색으로 보고 헤더 체크박스를 디버거 실클릭
-  async function selectAllCompanies() {
+  async function selectAllCompanies(scopeCnos) {
     const pb = pickerButton();
     if (!pb) throw new Error("수임처 선택 버튼을 찾지 못했습니다");
     await dismissAlert();
@@ -186,9 +189,25 @@
         await sleep(250);
       }
       if (popup) {
-        const checked = await bridge("checkAll", { index: popup.index, checked: true });
-        log("팝업 표 전체선택", popup.index, checked && checked.length, "/", popup.rowCount);
-        if (checked && checked.length >= popup.rowCount) done = true;
+        let picked = null;
+        if (scopeCnos && scopeCnos.length) {
+          // 관할 거래처(company_no = 위하고 cno)만 체크 → 조회 요청이 그 수만큼만 나감
+          const prow = await bridge("rows", { index: popup.index });
+          const want = new Set(scopeCnos.map(String));
+          const idxs = [];
+          prow.forEach((r, i) => { if (want.has(String(r.company_no))) idxs.push(i); });
+          if (idxs.length > 0) {
+            await bridge("checkAll", { index: popup.index, checked: false });
+            picked = await bridge("check", { index: popup.index, rows: idxs, checked: true });
+            log("팝업 표 범위선택", idxs.length, "/", popup.rowCount, "→ 체크", picked && picked.length);
+            if (picked && picked.length === idxs.length) { done = true; progressTotal = idxs.length; }
+          } else log("범위에 해당하는 회사가 팝업 표에 없음 → 전체 선택");
+        }
+        if (!done) {
+          const checked = await bridge("checkAll", { index: popup.index, checked: true });
+          log("팝업 표 전체선택", popup.index, checked && checked.length, "/", popup.rowCount);
+          if (checked && checked.length >= popup.rowCount) { done = true; progressTotal = popup.rowCount; }
+        }
       } else log("팝업 표 행 수가 안정되지 않음 (마지막", lastCount, "행)");
     } catch (e) { log("브리지 전체선택 실패, 픽셀 방식으로 폴백:", e.message); }
 
@@ -228,15 +247,15 @@
     if (responses === 0) throw new Error("조회 응답이 없습니다 (위하고 세션/화면 확인)");
     const loading = () => [...document.querySelectorAll("div,span,p")].some(e => visible(e) && /불러오고 있습니다/.test(txt(e)));
     while (Date.now() - start < 180000) {
-      status(`조회 중… 응답 ${responses}건 / 마감 ${rows.length}곳`);
-      await sleep(1000);
+      status(progressTotal ? `조회 중 ${responses}/${progressTotal} · 마감 ${rows.length}곳` : `조회 중… 응답 ${responses}건 / 마감 ${rows.length}곳`);
+      await sleep(1500);
       if (Date.now() - lastResponseAt > 4000 && !loading()) break;
     }
     await dismissAlert();
   }
 
-  async function queryClosedCompanies() {
-    status("화면 준비 중…");
+  async function queryClosedCompanies(scopeCnos) {
+    status("위하고 화면 여는 중…");
     const ready = await waitFor(() => queryButton() && monthToggleButtons().length >= 2, 30000, 400);
     if (!ready) throw new Error("화면이 열리지 않았습니다 (위하고 로그인 확인)");
     await sleep(800);
@@ -244,8 +263,8 @@
     status(`지급기간 ${month}월 설정`);
     await setMonth(0, month);
     await setMonth(1, month);
-    status("수임처 전체 선택");
-    await selectAllCompanies(); // 확인(enter) 누르면 자동 조회 시작
+    status(scopeCnos && scopeCnos.length ? `관할 거래처 ${scopeCnos.length}곳 선택 중…` : "수임처 전체 선택 중…");
+    await selectAllCompanies(scopeCnos); // 확인(enter) 누르면 자동 조회 시작
     await sleep(1500);
     if (responses === 0) { const qb = queryButton(); if (qb) fire(qb); }
     await waitForResults();
@@ -253,12 +272,17 @@
 
   // ===== 마감상태 조회 모드 =====
   async function runCheck() {
-    await queryClosedCompanies();
+    let scopeCnos = null;
+    try {
+      const sc = await api("GET", `/api/withholding/filing/close-check?ym=${payYm.slice(0, 4)}-${payYm.slice(4, 6)}&scope=1`);
+      if (sc && sc.ok && Array.isArray(sc.cnos) && sc.cnos.length) scopeCnos = sc.cnos;
+    } catch (e) { log("관할 목록 조회 실패 → 전체 조회", e.message); }
+    await queryClosedCompanies(scopeCnos);
     status(`서버 전송 중… 마감 ${rows.length}곳`);
-    const payload = { kind, payYm, rows: rows.filter(r => !r.payYm || r.payYm === payYm) };
+    const payload = { kind, payYm, rows: rows.filter(r => !r.payYm || r.payYm === payYm), scopeCnos: scopeCnos || undefined };
     const res = await bg({ type: "efile-close-check", ...payload });
     if (!res || !res.ok) throw new Error("서버 전송 실패: " + (res && res.error));
-    status(`완료 · 마감 ${res.matched}곳 반영${res.unmatched && res.unmatched.length ? ` (미등록 ${res.unmatched.length}곳)` : ""}`, "#15803D");
+    status(`완료 · 마감 ${res.matched}곳 반영${res.unmatched && res.unmatched.length ? ` (미등록 ${res.unmatched.length}곳)` : ""}`, "#15803D", "done");
     await sleep(1500);
     window.close();
   }
@@ -297,7 +321,7 @@
     if (!job.password) throw new Error("설정에 전자신고 파일 비밀번호가 없습니다");
     const targetCnos = new Set(job.targets.map(t => String(t.cno)));
 
-    await queryClosedCompanies();
+    await queryClosedCompanies([...targetCnos]);
 
     const grid = await mainGrid();
     if (!grid) throw new Error("마감 수임처 표를 찾지 못했습니다 (마감된 거래처 없음)");
