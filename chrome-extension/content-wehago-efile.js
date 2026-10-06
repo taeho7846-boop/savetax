@@ -160,8 +160,7 @@
   async function selectAllCompanies() {
     const pb = pickerButton();
     if (!pb) throw new Error("수임처 선택 버튼을 찾지 못했습니다");
-    let gridsBefore = 0;
-    try { gridsBefore = (await bridge("grids")).length; } catch {}
+    await dismissAlert();
     fire(pb);
     const dlg = await waitFor(() => [...document.querySelectorAll("div")].find(d => visible(d) && txt(d).startsWith("회사 코드도움") && rect(d).width > 400 && rect(d).width < 1200), 6000, 200);
     if (!dlg) throw new Error("회사 코드도움 팝업이 열리지 않았습니다");
@@ -169,14 +168,28 @@
 
     let done = false;
     try {
-      const infos = await waitFor(async () => { const g = await bridge("grids"); return g.some(x => x.rowCount > 0 && x.index >= gridsBefore) ? g : null; }, 4000, 300) || await bridge("grids");
-      const cand = infos.filter(x => x.alive && x.rowCount > 0);
-      const popup = cand.find(x => x.index >= gridsBefore) || cand[cand.length - 1];
+      // 팝업 표(회사 목록)는 필드로 구분: nm_krcom 있고 am_a99(세액) 없음. 등록 순서는 믿을 수 없음(메인 표보다 먼저 만들어지기도 함).
+      // 행이 비동기로 채워지므로(처음엔 0~1행) 행 수가 1초간 변하지 않을 때까지 대기
+      const pickPopup = (infos) => {
+        const cand = infos.filter(x => x.alive && x.rowCount > 1 && x.fields.includes("nm_krcom") && !x.fields.includes("am_a99"));
+        cand.sort((a, b) => b.rowCount - a.rowCount);
+        return cand[0] || null;
+      };
+      let popup = null, stableSince = 0, lastCount = -1;
+      const until = Date.now() + 15000;
+      while (Date.now() < until) {
+        const p = pickPopup(await bridge("grids"));
+        if (p && p.rowCount === lastCount) {
+          if (!stableSince) stableSince = Date.now();
+          if (Date.now() - stableSince >= 1000 && p.rowCount > 1) { popup = p; break; }
+        } else { stableSince = 0; lastCount = p ? p.rowCount : -1; }
+        await sleep(250);
+      }
       if (popup) {
         const checked = await bridge("checkAll", { index: popup.index, checked: true });
         log("팝업 표 전체선택", popup.index, checked && checked.length, "/", popup.rowCount);
         if (checked && checked.length >= popup.rowCount) done = true;
-      }
+      } else log("팝업 표 행 수가 안정되지 않음 (마지막", lastCount, "행)");
     } catch (e) { log("브리지 전체선택 실패, 픽셀 방식으로 폴백:", e.message); }
 
     if (!done) {
