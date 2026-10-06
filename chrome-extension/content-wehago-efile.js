@@ -31,6 +31,22 @@
       chrome.runtime.sendMessage({ type: "efile-real-click", x: Math.round(x), y: Math.round(y) }, (res) => resolve(res));
     });
   }
+  // MAIN world(wehago-main-hook.js)의 RealGrid 브리지 호출
+  let bridgeSeq = 0;
+  function bridge(cmd, args = {}, timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+      const id = "st" + (++bridgeSeq) + "_" + Date.now();
+      const onMsg = (ev) => {
+        const d = ev.data;
+        if (!d || d.source !== "savetax-efile-res" || d.id !== id) return;
+        window.removeEventListener("message", onMsg); clearTimeout(t);
+        d.error ? reject(new Error(d.error)) : resolve(d.result);
+      };
+      const t = setTimeout(() => { window.removeEventListener("message", onMsg); reject(new Error("브리지 응답 없음: " + cmd)); }, timeoutMs);
+      window.addEventListener("message", onMsg);
+      window.postMessage({ source: "savetax-efile-cmd", id, cmd, args }, "*");
+    });
+  }
   async function waitFor(fn, timeoutMs = 20000, step = 300) {
     const end = Date.now() + timeoutMs;
     while (Date.now() < end) {
@@ -72,7 +88,7 @@
   });
 
   // ---- 화면 요소 찾기 ----
-  const filterLabel = () => [...document.querySelectorAll("span,div,label")].find(e => visible(e) && e.childElementCount === 0 && txt(e) === "지급기간");
+  const filterLabel = () => [...document.querySelectorAll("strong,span,div,label")].find(e => visible(e) && e.childElementCount === 0 && txt(e) === "지급기간");
   function filterRowTop() { const l = filterLabel(); return l ? rect(l).top : null; }
   function monthToggleButtons() {
     const top = filterRowTop(); if (top == null) return [];
@@ -116,31 +132,49 @@
     throw new Error(`지급기간 ${idx === 0 ? "시작" : "종료"}월을 ${mm}로 설정하지 못했습니다`);
   }
 
-  // 회사 코드도움 팝업에서 전체 선택 후 확인 (표가 canvas → 체크 여부는 픽셀 색으로 판단)
+  // 회사 코드도움 팝업에서 전체 선택 후 확인
+  //  1순위: RealGrid 브리지로 팝업 표 checkAll (팝업 표 = 가장 나중에 만들어진 살아있는 표)
+  //  2순위: 표가 canvas라 체크 여부를 픽셀 색으로 보고 헤더 체크박스를 디버거 실클릭
   async function selectAllCompanies() {
     const pb = pickerButton();
     if (!pb) throw new Error("수임처 선택 버튼을 찾지 못했습니다");
+    let gridsBefore = 0;
+    try { gridsBefore = (await bridge("grids")).length; } catch {}
     fire(pb);
     const dlg = await waitFor(() => [...document.querySelectorAll("div")].find(d => visible(d) && txt(d).startsWith("회사 코드도움") && rect(d).width > 400 && rect(d).width < 1200), 6000, 200);
     if (!dlg) throw new Error("회사 코드도움 팝업이 열리지 않았습니다");
-    await sleep(600);
-    const cv = dlg.querySelector("canvas");
-    if (!cv) throw new Error("회사 목록(canvas)을 찾지 못했습니다");
-    const ctx = cv.getContext("2d");
-    const r = rect(cv);
-    const isBlue = (x, y) => {
-      const d = ctx.getImageData(Math.round(x * cv.width / r.width), Math.round(y * cv.height / r.height), 1, 1).data;
-      return d[2] > 180 && d[0] < 140; // 체크된 체크박스 파란색(73/149/255 계열)
-    };
-    // 첫 3행 체크박스(열 x≈10, 행 높이 21, 첫 행 y≈33) 모두 파란색이면 전체 선택 상태
-    const allChecked = () => [33, 54, 75].every(y => isBlue(10, y));
-    for (let attempt = 0; attempt < 4 && !allChecked(); attempt++) {
-      // 헤더 체크박스 실클릭 (디버거) — 합성 이벤트는 canvas가 무시함
-      const res = await realClick(r.left + 10, r.top + 12);
-      if (!res || !res.ok) throw new Error("실클릭 실패: " + (res && res.error));
-      await sleep(600);
+    await sleep(800);
+
+    let done = false;
+    try {
+      // 팝업 표 찾기: 새로 생겼거나(인덱스 ≥ 이전 개수) 아니면 마지막 살아있는 표
+      const infos = await waitFor(async () => { const g = await bridge("grids"); return g.some(x => x.rowCount > 0 && x.index >= gridsBefore) ? g : null; }, 4000, 300) || await bridge("grids");
+      const cand = infos.filter(x => x.alive && x.rowCount > 0);
+      const popup = cand.find(x => x.index >= gridsBefore) || cand[cand.length - 1];
+      if (popup) {
+        const checked = await bridge("checkAll", { index: popup.index, checked: true });
+        log("팝업 표 전체선택", popup.index, checked && checked.length, "/", popup.rowCount);
+        if (checked && checked.length >= popup.rowCount) done = true;
+      }
+    } catch (e) { log("브리지 전체선택 실패, 픽셀 방식으로 폴백:", e.message); }
+
+    if (!done) {
+      const cv = dlg.querySelector("canvas");
+      if (!cv) throw new Error("회사 목록(canvas)을 찾지 못했습니다");
+      const ctx = cv.getContext("2d");
+      const r = rect(cv);
+      const isBlue = (x, y) => {
+        const d = ctx.getImageData(Math.round(x * cv.width / r.width), Math.round(y * cv.height / r.height), 1, 1).data;
+        return d[2] > 180 && d[0] < 140; // 체크된 체크박스 파란색(73/149/255 계열)
+      };
+      const allChecked = () => [33, 54, 75].every(y => isBlue(10, y));
+      for (let attempt = 0; attempt < 4 && !allChecked(); attempt++) {
+        const res = await realClick(r.left + 10, r.top + 12); // 헤더 체크박스 (합성 이벤트는 canvas가 무시)
+        if (!res || !res.ok) throw new Error("실클릭 실패: " + (res && res.error));
+        await sleep(600);
+      }
+      if (!allChecked()) throw new Error("수임처 전체 선택이 되지 않았습니다");
     }
-    if (!allChecked()) throw new Error("수임처 전체 선택이 되지 않았습니다");
     const ok = [...dlg.querySelectorAll("button")].find(b => visible(b) && txt(b).startsWith("확인"));
     if (!ok) throw new Error("회사 코드도움 확인 버튼을 찾지 못했습니다");
     fire(ok);
