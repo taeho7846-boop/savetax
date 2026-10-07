@@ -444,10 +444,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         //  - 한 창에 탭 2개를 동시에 열면 뒤쪽 탭은 비활성이라 화면 갱신(rAF)이 멈춰 드롭다운 조작 실패
         //  - 창을 2개 만들면 크롬이 최소화 상태를 무시하고 화면에 띄움(2026-10 실측)
         //  → 첫 주소로 최소화 창을 만들고, content script가 efile-done을 보내면 같은 창에 다음 주소 탭을 열고 이전 탭을 닫는다
-        const win = await chrome.windows.create({ url: urls[0], state: "minimized", focused: false });
-        try { await chrome.windows.update(win.id, { state: "minimized", focused: false }); } catch (e) {}
-        hiddenQueues[win.id] = urls.slice(1);
-        sendResponse({ ok: true, windowId: win.id });
+        // 사용자 선택(2026-10): 화면에 떠도 되니 빠른 쪽 — 주소마다 창을 따로 열어 동시에 돌린다.
+        // (창 1개에 차례로 여는 방식은 hiddenQueues로 남겨둠: urls.slice(1)을 큐에 넣으면 순차 실행)
+        const ids = [];
+        for (const url of urls) {
+          const win = await chrome.windows.create({ url, state: "minimized", focused: false });
+          ids.push(win.id);
+          await new Promise(r => setTimeout(r, 800));
+        }
+        sendResponse({ ok: true, windowIds: ids });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });
       }
