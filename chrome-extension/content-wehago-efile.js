@@ -56,6 +56,49 @@
       window.postMessage({ source: "savetax-efile-cmd", id, cmd, args }, "*");
     });
   }
+  // 로컬 파일 읽기 (확장은 로컬 파일 접근 불가 → background가 디버거로 숨은 file input에 경로를 넣어 주면 FileReader로 읽음)
+  //   as: "text" | "base64". 파일이 없으면 null
+  async function readLocal(path, as = "text") {
+    let probe = document.getElementById("savetax-efile-probe");
+    if (!probe) {
+      probe = document.createElement("input");
+      probe.type = "file"; probe.id = "savetax-efile-probe"; probe.style.display = "none";
+      document.documentElement.appendChild(probe);
+    }
+    probe.value = "";
+    const r = await bg({ type: "efile-read-local", path, probeId: "savetax-efile-probe" });
+    if (!r || !r.ok) { log("readLocal 실패:", path, r && r.error); return null; }
+    const f = probe.files && probe.files[0];
+    if (!f) return null;
+    try {
+      if (as === "base64") {
+        const buf = await f.arrayBuffer();
+        let bin = ""; const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+        return btoa(bin);
+      }
+      return (await f.text()).replace(/^\uFEFF/, "");
+    } catch (e) { log("readLocal 읽기 오류(파일 없음?):", path, e.message); return null; }
+  }
+  // 로컬 도우미(savetax-app://efile-dialog)가 폴더 선택 창을 확인하고 C:\savetax-efile\latest.json 에 기록한 파일을 기다린다
+  async function waitLauncherFile(kindWanted, sinceMs, timeoutMs) {
+    const until = Date.now() + timeoutMs;
+    while (Date.now() < until) {
+      const t = await readLocal("C:\\savetax-efile\\latest.json", "text");
+      if (t) {
+        try {
+          let j = JSON.parse(t); if (!Array.isArray(j)) j = [j];
+          const e = j.find(x => x && x.kind === kindWanted && Number(x.at) >= sinceMs - 5000);
+          if (e && e.path) {
+            const b64 = await readLocal(e.path, "base64");
+            if (b64) return { name: e.name, base64: b64, localPath: e.path };
+          }
+        } catch (err) { log("latest.json 파싱 실패:", err.message); }
+      }
+      await sleep(1500);
+    }
+    return null;
+  }
   // 탭 작업 종료: 숨긴 창이면 background가 다음 주소를 이어서 열거나 창을 닫는다 (응답 없으면 직접 닫기)
   async function finish() {
     const r = await bg({ type: "efile-done" });
@@ -387,22 +430,23 @@
     capturedFile = null;
     { const mr = rect(mkBtn); await realClick(mr.left + mr.width / 2, mr.top + mr.height / 2); } // 사람이 누르는 것과 같은 실클릭
 
-    // 파일 가로채기(MAIN 후킹) 대기 — 실패 시 다운로드 목록에서 찾기
-    await waitFor(() => capturedFile || alertBox(), 45000, 300);
-    if (!capturedFile) {
+    // 위하고 필수 에이전트가 '폴더 선택' 창을 띄우고 선택한 폴더에 파일을 쓴다(브라우저 다운로드 아님, 2026-10 실측).
+    // 사이트가 미리 실행해 둔 로컬 도우미(savetax-app://efile-dialog)가 그 창을 확인하고 파일을 C:\savetax-efile\ 로 복사해 두므로
+    // 그 기록(latest.json)을 기다린다. 비밀번호 경고 등 알림이 먼저 뜨면 오류 처리.
+    await sleep(1500);
+    { const t = await dismissAlert(); if (/8~15자리|비밀번호/.test(t)) throw new Error("위하고가 비밀번호를 인식하지 못했습니다: " + t); }
+    status("폴더 선택 창 확인 대기 중… (로컬 도우미)");
+    let launched = await waitLauncherFile(kind, clickedAt, 90000);
+    if (!launched && capturedFile && !capturedFile.error) launched = { name: capturedFile.name, base64: capturedFile.base64, localPath: "" };
+    if (!launched) {
       const t = await dismissAlert();
-      if (/8~15자리|비밀번호/.test(t)) throw new Error("위하고가 비밀번호를 인식하지 못했습니다: " + t);
-      if (t && !/완료|제작/.test(t)) throw new Error("위하고 안내: " + t);
-      const found = await bg({ type: "efile-find-download", since: clickedAt, waitMs: 20000 });
-      if (!found || !found.ok) throw new Error("제작된 파일을 받지 못했습니다" + (t ? " · " + t : ""));
-      capturedFile = { name: found.fileName, base64: found.fileBase64 };
+      throw new Error("제작된 파일을 받지 못했습니다 — 로컬 도우미(savetax-app) 설치 여부와 '폴더 선택' 창을 확인하세요" + (t ? " · " + t : ""));
     }
-    if (capturedFile.error) throw new Error("파일 읽기 실패: " + capturedFile.error);
     await dismissAlert();
 
-    status(`서버 저장 중… ${capturedFile.name}`);
+    status(`서버 저장 중… ${launched.name}`);
     const res = await api("POST", "/api/withholding/filing/produce-result", {
-      jobId, kind, fileName: capturedFile.name, fileBase64: capturedFile.base64, produced, skipped,
+      jobId, kind, fileName: launched.name, fileBase64: launched.base64, localPath: launched.localPath, produced, skipped,
     });
     if (!res || !res.ok) throw new Error("서버 저장 실패: " + (res && res.error));
     status(`완료 · ${produced.length}곳 제작 (${capturedFile.name})`, "#15803D", "done");

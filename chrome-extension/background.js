@@ -527,6 +527,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
+  // 로컬 파일을 페이지의 숨은 <input type=file>에 넣어 준다 (확장은 로컬 파일을 직접 못 읽지만 디버거 DOM.setFileInputFiles는 가능)
+  //   msg: { path, probeId }  → content script가 input.files[0]을 FileReader로 읽는다
+  if (msg.type === "efile-read-local") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      try { await chrome.debugger.attach({ tabId }, "1.3"); }
+      catch (e) { if (!/already attached/i.test(e.message)) { sendResponse({ ok: false, error: "디버거 연결 실패: " + e.message }); return; } }
+      try {
+        const { root } = await chrome.debugger.sendCommand({ tabId }, "DOM.getDocument", { depth: 1 });
+        const { nodeId } = await chrome.debugger.sendCommand({ tabId }, "DOM.querySelector", { nodeId: root.nodeId, selector: "#" + msg.probeId });
+        if (!nodeId) { sendResponse({ ok: false, error: "probe input 없음" }); return; }
+        await chrome.debugger.sendCommand({ tabId }, "DOM.setFileInputFiles", { nodeId, files: [msg.path] });
+        sendResponse({ ok: true });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+      finally { try { await chrome.debugger.detach({ tabId }); } catch (e) {} }
+    })();
+    return true;
+  }
   // 디버거로 실제 키 입력(keyDown/keyUp, 글자별) — 키 이벤트로 상태를 갱신하는 커스텀 입력칸용. 현재 포커스 요소에 입력
   if (msg.type === "efile-type-keys") {
     (async () => {

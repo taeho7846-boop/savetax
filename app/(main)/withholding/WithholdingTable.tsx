@@ -499,6 +499,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     const urls = efileUrls(`&stProduce=${data.jobId}`);
     if (!urls) { alert("위하고 연동된 거래처가 없거나 설정에 위하고 아이디가 없습니다"); return; }
     setEfileJob({ jobId: data.jobId, kinds: data.kinds, targets: data.targets, progress: {}, done: false, skippedAtStart: data.skipped });
+    // 위하고 파일 제작 시 뜨는 '폴더 선택' 창(네이티브)을 로컬 도우미(savetax-app 프로토콜, scripts/launcher)가 대신 확인하고
+    // 파일을 C:\savetax-efile\ 로 복사하도록 먼저 실행해 둔다 (도우미 미설치 PC는 창이 그대로 떠서 사람이 확인해야 함)
+    try { window.location.href = `savetax-app://efile-dialog?count=${data.kinds.length}&timeout=240`; } catch {}
+    await new Promise(r => setTimeout(r, 800));
     const opened = await openEfileWindows(urls);
     if (!opened.ok) { setEfileJob(prev => prev ? { ...prev, error: opened.error } : prev); return; }
     const startedAt = Date.now();

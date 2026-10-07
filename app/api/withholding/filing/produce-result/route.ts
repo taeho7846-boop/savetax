@@ -28,11 +28,13 @@ export async function POST(req: NextRequest) {
   }
 
   const producedClientIds = job.targets.filter(t => produced.includes(t.cno)).map(t => t.clientId);
+  const localPath = typeof body?.localPath === "string" ? body.localPath : "";
   const file = await prisma.withholdingFilingFile.create({
     data: {
       yearMonth: job.yearMonth, kind, fileName,
       data: Buffer.from(fileBase64, "base64"),
       clientIds: JSON.stringify(producedClientIds),
+      resultJson: JSON.stringify({ localPath }), // 제작한 PC의 파일 경로 (홈택스/위택스 업로드 시 디버거로 바로 주입)
       createdById: session.id,
     },
   });
