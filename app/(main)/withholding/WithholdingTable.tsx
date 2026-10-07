@@ -559,7 +559,17 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   async function startSubmit() {
     if (submitJob && !submitJob.done && !submitJob.error) return;
     const ping = await extCall<{ ok: boolean; version?: string }>("ping", undefined, 2500);
-    if (!ping?.ok) { alert("크롬 확장 프로그램이 필요합니다.\n설정 > 크롬 확장에서 설치하거나, chrome://extensions 에서 새로고침해 주세요."); return; }
+    if (!ping?.ok) {
+      // 확장을 새로고침(업데이트)하면 이미 열려 있던 이 페이지와의 연결이 끊긴다 → 페이지를 새로고침하면 다시 붙는다.
+      // (페이지가 열릴 때 확장이 남긴 표시가 있는데 응답이 없으면 이 경우)
+      const hadExt = typeof document !== "undefined" && !!document.documentElement.dataset.savetaxExt;
+      if (hadExt) {
+        if (confirm("확장 프로그램을 새로고침한 뒤라 이 페이지와 연결이 끊겨 있습니다.\n페이지를 새로고침하면 다시 연결됩니다.\n\n지금 새로고침할까요? (새로고침 후 [검증 · 제출]을 다시 눌러 주세요)")) window.location.reload();
+      } else {
+        alert("크롬 확장 프로그램이 연결되어 있지 않습니다.\n· chrome://extensions 에서 SaveTax 확장이 켜져 있는지, 오류 표시가 없는지 확인해 주세요.\n· 확장을 방금 설치·새로고침했다면 이 페이지를 새로고침(F5)해 주세요.");
+      }
+      return;
+    }
     const res = await fetch("/api/withholding/filing/submit", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ yearMonth }),
