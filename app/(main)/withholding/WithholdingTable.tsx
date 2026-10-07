@@ -481,9 +481,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   };
   const [efileJob, setEfileJob] = useState<EfileJobView | null>(null);
   const efilePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // 이어서 진행: 파일 제작이 끝나면 홈택스·위택스 업로드·검증까지 자동으로 이어 간다 (제출은 검증 결과를 보고 [제출]을 눌러야 함). 선택은 브라우저에 기억
-  const [chainVerify, setChainVerify] = useState(false);
-  useEffect(() => { try { setChainVerify(localStorage.getItem("savetax-efile-chain") === "1"); } catch {} }, []);
+  // 이어서 진행: 파일 제작이 끝나면 홈택스·위택스 업로드·검증까지 자동으로 이어 간다 (제출은 검증 결과를 보고 [제출]을 눌러야 함).
+  // 기본은 켜짐 — 마감만 해 두면 제작부터 신고 직전까지 한 번에 가는 것이 원래 목적. 직접 끈 경우에만 꺼진다(브라우저에 기억)
+  const [chainVerify, setChainVerify] = useState(true);
+  useEffect(() => { try { setChainVerify(localStorage.getItem("savetax-efile-chain") !== "0"); } catch {} }, []);
   function toggleChainVerify(on: boolean) {
     setChainVerify(on);
     try { localStorage.setItem("savetax-efile-chain", on ? "1" : "0"); } catch {}
