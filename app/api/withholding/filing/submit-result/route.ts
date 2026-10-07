@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getEfileJob, updateEfileJob, type EfileKind } from "@/lib/efile-jobs";
@@ -58,11 +59,32 @@ export async function POST(req: NextRequest) {
       update: { status: "submitted", receiptNo, submittedAt: now, errorMsg: null },
     });
   }
+  // 원천세(홈택스)·지방소득세(위택스)가 모두 접수된 거래처는 원천세 탭의 '원천세신고'를 완료로 체크한다.
+  //  기준: 그 거래처의 마감된(closed) 신고가 전부 접수(submitted) 상태이고, 그 안에 원천세(income)가 들어 있을 때.
+  //  (지방소득세가 마감돼 있는데 아직 접수 전이면 체크하지 않는다 → 위택스 접수 결과가 들어올 때 체크된다)
+  const filings = await prisma.withholdingFiling.findMany({
+    where: { clientId: { in: f.clientIds }, yearMonth: job.yearMonth },
+    select: { clientId: true, kind: true, closed: true, status: true },
+  });
+  let checked = 0;
+  for (const c of clients) {
+    const mine = filings.filter(x => x.clientId === c.id && x.closed);
+    if (!mine.some(x => x.kind === "income") || !mine.every(x => x.status === "submitted")) continue;
+    await prisma.withholdingRecord.upsert({
+      where: { clientId_yearMonth_taskType: { clientId: c.id, yearMonth: job.yearMonth, taskType: "원천세신고" } },
+      update: { done: true },
+      create: { clientId: c.id, yearMonth: job.yearMonth, taskType: "원천세신고", done: true },
+    });
+    checked++;
+  }
+  if (checked > 0) { try { revalidatePath("/withholding"); } catch { /* 무시 */ } }
+
+  const base = receipts.length
+    ? `제출 완료 · 접수번호 ${receipts.length === 1 ? receipts[0] : receipts.length + "건"}`
+    : "제출 완료 (접수번호는 신고내역에서 확인)";
   updateEfileJob(job.id, kind, {
     state: "done", receipts,
-    message: receipts.length
-      ? `제출 완료 · 접수번호 ${receipts.length === 1 ? receipts[0] : receipts.length + "건"}`
-      : "제출 완료 (접수번호는 신고내역에서 확인)",
+    message: checked > 0 ? `${base} · 원천세신고 체크 ${checked}곳` : base,
   });
-  return NextResponse.json({ ok: true, submitted: clients.length });
+  return NextResponse.json({ ok: true, submitted: clients.length, checked });
 }

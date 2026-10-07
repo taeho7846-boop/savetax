@@ -64,6 +64,41 @@
     return closed;
   }
   const openWindows = () => [...document.querySelectorAll('[class*="w2window"],[class*="w2popup"]')].filter(reallyVisible).map(e => (e.id || "").slice(-40)).filter(Boolean).slice(0, 6);
+  // 화면 안 알림창 찾기: 실제로 보이는 [확인] 버튼이 있고, 그 창에 "알림" 제목이 있는 것.
+  // 비밀번호 입력 창(UTERNAAZ65)과 접수증(UTERNAAZ02)은 대상이 아니다. 반환: { ok: 확인 버튼, text: 안내 문구 } | null
+  function layerAlert() {
+    for (const b of document.querySelectorAll("input[type=button],button,a")) {
+      if (txt(b) !== "확인" || !reallyVisible(b)) continue;
+      let box = b.closest('[class*="w2window"],[class*="w2popup"],[class*="popup"],[class*="alert"],[class*="layer"],[role="dialog"],[role="alertdialog"]');
+      if (!box || !/알림/.test(txt(box))) {
+        box = b;
+        for (let i = 0; i < 6 && box.parentElement; i++) { box = box.parentElement; if (/알림/.test(txt(box))) break; }
+      }
+      const t = txt(box);
+      if (!/알림/.test(t) || t.length > 400) continue;
+      if (/UTERNAAZ65|UTERNAAZ02/.test(box.id || "") || box.querySelector('[id*="UTERNAAZ65"],[id*="UTERNAAZ02"]')) continue;
+      return { ok: b, text: t.replace(/^알림\s*/, "").replace(/\s*확인$/, "").trim() };
+    }
+    return null;
+  }
+  // 알림 문구를 기록(사이트 진행 창의 '사이트 안내'에 표시)하고 [확인]을 누른다
+  function pushNote(kind, text) {
+    try {
+      const a = JSON.parse(sessionStorage.getItem("savetax_efile_alerts") || "[]");
+      a.push({ k: kind, m: String(text).slice(0, 300), t: Date.now() });
+      sessionStorage.setItem("savetax_efile_alerts", JSON.stringify(a.slice(-30)));
+    } catch (e) {}
+  }
+  async function okLayerAlert() {
+    const al = layerAlert();
+    if (!al) return null;
+    console.log("[SaveTax 제출] 홈택스 알림:", al.text);
+    pushNote("alert", al.text);
+    await sleep(500);
+    al.ok.click();
+    await sleep(800);
+    return al.text;
+  }
   const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; };
   const receiptsOnPage = () => [...new Set(((document.body && document.body.innerText) || "").match(RECEIPT_RE) || [])];
   const startedAt = Date.now();
@@ -211,6 +246,7 @@
     const until = Date.now() + 240000;
     while (Date.now() < until) {
       await sleep(1000);
+      await okLayerAlert();
       const cur = read();
       const sig = JSON.stringify(cur);
       if (sig !== last) { last = sig; stableSince = Date.now(); }
@@ -286,6 +322,9 @@
     while (Date.now() < until) {
       receipts = receiptsOnPage().filter(x => !before.has(x));
       if (clicked && receipts.length) break;
+      // 화면 안 알림창(예: "정상 변환된 신고서를 제출합니다.")은 [확인]을 눌러 넘긴다.
+      // 이 함수는 사람이 사이트에서 [홈택스에 제출]을 누른 뒤에만 실행된다.
+      if (await okLayerAlert()) { await S.report("submitting", "전자파일 제출 중… (홈택스 알림 확인)"); continue; }
       if (!clicked) {
         const sb = findSubmit();
         if (sb) {
