@@ -62,7 +62,7 @@ function Invoke-EfileDialog([int]$count, [int]$timeoutSec) {
         }
         $startedAt = Get-Date
         if ($okBtn -ne [IntPtr]::Zero) {
-            [void][SaveTax.Win32]::SendMessageW($okBtn, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)   # BM_CLICK
+            [void][SaveTax.Win32]::PostMessageW($okBtn, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)   # BM_CLICK (Post: 뒤이어 뜨는 안내 창에 막히지 않게)
         } else {
             [void][SaveTax.Win32]::SetForegroundWindow($h)
             [void][SaveTax.Win32]::PostMessageW($h, 0x0100, [IntPtr]13, [IntPtr]::Zero)          # WM_KEYDOWN Enter
@@ -71,9 +71,31 @@ function Invoke-EfileDialog([int]$count, [int]$timeoutSec) {
         $seen[[string]$h] = $true
         $handled++
         Write-Log "  확인 클릭 ($handled/$count)"
-        # 새 파일 대기 (최대 20초) → 복사 + 기록
+        # 저장 후 뜨는 "안내 — 지정한 경로에 저장되었습니다. C:\...\파일명" 창 → 경로 읽고 확인 클릭 (최대 25초)
+        $savedPath = ''
+        $untilA = (Get-Date).AddSeconds(25)
+        while ((Get-Date) -lt $untilA -and -not $savedPath) {
+            Start-Sleep -Milliseconds 400
+            $a = [SaveTax.Win32]::FindWindowW([IntPtr]::Zero, '안내')
+            if ($a -eq [IntPtr]::Zero -or -not [SaveTax.Win32]::IsWindowVisible($a)) { continue }
+            $aOk = [IntPtr]::Zero; $aText = ''
+            foreach ($c in (Get-ChildWindows $a)) {
+                $cls = Get-WinClass $c; $txt = Get-WinText $c
+                if ($cls -match 'static' -and $txt) { $aText += ' ' + $txt }
+                if ($cls -match 'button' -and $txt -eq '확인') { $aOk = $c }
+            }
+            if ($aText -match '([A-Za-z]:\\[^\r\n"]*?\d{8}[AC]103900\.0?1)') { $savedPath = $Matches[1] }
+            if ($aText -match '저장') {
+                Write-Log "  안내 창: $($aText.Trim())"
+                if ($aOk -ne [IntPtr]::Zero) { [void][SaveTax.Win32]::PostMessageW($aOk, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) }
+                else { [void][SaveTax.Win32]::PostMessageW($a, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) }  # WM_CLOSE
+                if (-not $savedPath) { break }
+            }
+        }
+        # 저장된 파일 찾기: 안내 창의 경로 → 없으면 폴더에 새로 생긴 파일 (최대 20초)
+        $found = $null
+        if ($savedPath -and (Test-Path -LiteralPath $savedPath)) { $found = Get-Item -LiteralPath $savedPath; $folder = Split-Path -Parent $savedPath }
         if ($folder) {
-            $found = $null
             $until = (Get-Date).AddSeconds(20)
             while ((Get-Date) -lt $until -and -not $found) {
                 Start-Sleep -Milliseconds 500

@@ -160,9 +160,12 @@
     }).sort((a, b) => rect(a).left - rect(b).left);
   }
   function pickerButton() {
-    const top = filterRowTop(); if (top == null) return null;
+    // '수임처' 라벨과 같은 줄, 라벨 오른쪽의 작은 아이콘 버튼 (창이 좁아 조건줄이 접히면 지급기간과 다른 줄이 됨)
+    const lab = [...document.querySelectorAll("strong,span,div,label")].find(e => visible(e) && e.childElementCount === 0 && txt(e) === "수임처");
+    const top = lab ? rect(lab).top : filterRowTop(); if (top == null) return null;
+    const left = lab ? rect(lab).left : 0;
     return [...document.querySelectorAll("button.WSC_LUXButton")].filter(b => {
-      const r = rect(b); return visible(b) && Math.abs(r.top - top) < 30 && r.width >= 24 && r.width <= 32 && r.height >= 16 && r.height <= 24;
+      const r = rect(b); return visible(b) && Math.abs(r.top - top) < 30 && r.left > left && r.width >= 24 && r.width <= 32 && r.height >= 16 && r.height <= 24;
     }).sort((a, b) => rect(a).left - rect(b).left)[0] || null;
   }
   const monthValueOf = (toggle) => {
