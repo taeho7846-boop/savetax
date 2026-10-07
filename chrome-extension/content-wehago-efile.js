@@ -32,6 +32,8 @@
   }
   const rows = [];
   let responses = 0, lastResponseAt = 0;
+  let respBase = 0;   // 수임처 선택 '확인'을 누른 시점의 응답 수 — 그 전에 화면이 스스로 한 조회(현재 회사 기본 조회 등)는 세지 않는다
+  let lastAlert = ""; // 조회 중 위하고가 띄운 안내 문구 (오류 원인 표시용)
   let capturedFile = null; // { name, base64 } | { error }
   const bg = (msg) => new Promise((resolve) => {
     try { chrome.runtime.sendMessage(msg, (res) => resolve(chrome.runtime.lastError ? { ok: false, error: chrome.runtime.lastError.message } : res)); }
@@ -254,7 +256,11 @@
             await bridge("checkAll", { index: popup.index, checked: false });
             picked = await bridge("check", { index: popup.index, rows: idxs, checked: true });
             log("팝업 표 범위선택", idxs.length, "/", popup.rowCount, "→ 체크", picked && picked.length);
-            if (picked && picked.length === idxs.length) { done = true; progressTotal = idxs.length; }
+            // 체크된 행(데이터 행 번호)이 정말 원하는 회사인지 확인 — 표가 정렬돼 번호가 어긋나면 엉뚱한 회사가 조회됨
+            const pickOk = Array.isArray(picked) && picked.length === idxs.length
+              && picked.every(i => typeof i !== "number" || (prow[i] && want.has(String(prow[i].company_no))));
+            if (pickOk) { done = true; progressTotal = idxs.length; }
+            else log("범위선택 결과가 대상과 다름 → 전체 선택으로 진행", picked);
           } else log("범위에 해당하는 회사가 팝업 표에 없음 → 전체 선택");
         }
         if (!done) {
@@ -284,28 +290,32 @@
     }
     const ok = [...dlg.querySelectorAll("button")].find(b => visible(b) && txt(b).startsWith("확인"));
     if (!ok) throw new Error("회사 코드도움 확인 버튼을 찾지 못했습니다");
+    respBase = responses; lastAlert = "";
     fire(ok);
     await sleep(800);
   }
 
   async function waitForResults() {
     const start = Date.now();
-    await waitFor(() => responses > 0 || alertBox(), 40000, 300);
+    await waitFor(() => responses > respBase || alertBox(), 40000, 300);
     const ab = alertBox();
-    if (ab && responses === 0) {
+    if (ab && responses === respBase) {
       const t = await dismissAlert();
+      lastAlert = t;
       // "조회할 데이터가 존재하지 않습니다" = 마감된 수임처가 하나도 없음 → 정상(0건)
       if (!/존재하지 않습니다/.test(t)) throw new Error("위하고 안내: " + t);
       return;
     }
-    if (responses === 0) throw new Error("조회 응답이 없습니다 (위하고 세션/화면 확인)");
+    if (responses === respBase) throw new Error("조회 응답이 없습니다 (위하고 세션/화면 확인)");
     const loading = () => [...document.querySelectorAll("div,span,p")].some(e => visible(e) && /불러오고 있습니다/.test(txt(e)));
     while (Date.now() - start < 180000) {
-      status(progressTotal ? `조회 중 ${responses}/${progressTotal} · 마감 ${rows.length}곳` : `조회 중… 응답 ${responses}건 / 마감 ${rows.length}곳`);
+      const got = responses - respBase;
+      status(progressTotal ? `조회 중 ${Math.min(got, progressTotal)}/${progressTotal} · 마감 ${rows.length}곳` : `조회 중… 응답 ${got}건 / 마감 ${rows.length}곳`);
       await sleep(1500);
       if (Date.now() - lastResponseAt > 4000 && !loading()) break;
     }
-    await dismissAlert();
+    const t = await dismissAlert();
+    if (t) lastAlert = t;
   }
 
   async function queryClosedCompanies(scopeCnos) {
@@ -320,7 +330,7 @@
     status(scopeCnos && scopeCnos.length ? `관할 거래처 ${scopeCnos.length}곳 선택 중…` : "수임처 전체 선택 중…");
     await selectAllCompanies(scopeCnos); // 확인(enter) 누르면 자동 조회 시작
     await sleep(1500);
-    if (responses === 0) { const qb = queryButton(); if (qb) fire(qb); }
+    if (responses === respBase) { const qb = queryButton(); if (qb) fire(qb); }
     await waitForResults();
   }
 
@@ -344,9 +354,33 @@
   // ===== 파일 제작 모드 =====
   async function mainGrid() {
     const infos = await bridge("grids");
-    const cand = infos.filter(x => x.alive && x.rowCount > 0 && x.fields.includes("am_a99"));
+    // 메인 표 = 세액(am_a99) 또는 지급년월(ym_pay)+회사번호(cno) 필드가 있는 표 (회사 코드도움 팝업 표는 company_no만 있음)
+    const cand = infos.filter(x => x.alive && x.rowCount > 0 && (x.fields.includes("am_a99") || (x.fields.includes("ym_pay") && x.fields.includes("cno"))));
     cand.sort((a, b) => b.rowCount - a.rowCount);
     return cand[0] || null;
+  }
+  // 조회 결과가 표에 채워지기까지 시간이 걸릴 수 있어(숨긴 창은 타이머가 느림) 대상 거래처 행이 보일 때까지 기다린다
+  async function waitMainGrid(targetCnos, timeoutMs) {
+    const until = Date.now() + timeoutMs;
+    let grid = null, gridRows = [];
+    while (Date.now() < until) {
+      try {
+        grid = await mainGrid();
+        if (grid) {
+          gridRows = await bridge("rows", { index: grid.index });
+          if (gridRows.some(r => targetCnos.has(String(r.cno)))) break;
+        }
+      } catch (e) { log("표 읽기 재시도:", e.message); }
+      await sleep(500);
+    }
+    return { grid, gridRows };
+  }
+  // 오류 원인 표시용: 지금 화면에 있는 표들의 행 수·필드 요약
+  async function gridSummary() {
+    try {
+      const infos = (await bridge("grids")).filter(x => x.alive);
+      return infos.length ? infos.map(x => `${x.rowCount}행[${x.fields.slice(0, 4).join(",")}]`).join(" / ") : "없음";
+    } catch (e) { return "읽기 실패(" + e.message + ")"; }
   }
   // 비밀번호 입력: 위하고 LSinput은 DOM value만 바꾸면 화면엔 보여도 내부 상태가 비어 "최소 8~15자리" 경고가 남
   // (2026-10 실측) → 입력칸을 실클릭해 포커스를 준 뒤 디버거로 실제 키 입력(글자별 keyDown/keyUp)
@@ -391,9 +425,25 @@
 
     await queryClosedCompanies([...targetCnos]);
 
-    const grid = await mainGrid();
-    if (!grid) throw new Error("마감 수임처 표를 찾지 못했습니다 (마감된 거래처 없음)");
-    const gridRows = await bridge("rows", { index: grid.index });
+    const hasTarget = (rs) => rs.some(r => targetCnos.has(String(r.cno)));
+    let { grid, gridRows } = await waitMainGrid(targetCnos, 10000);
+    if (!hasTarget(gridRows)) {
+      // 표가 비었거나 대상이 안 보임 → 조회를 한 번 더 눌러 다시 확인
+      status("조회 결과 다시 확인 중…");
+      const qb = queryButton();
+      if (qb) {
+        respBase = responses; lastAlert = "";
+        fire(qb);
+        try { await waitForResults(); } catch (e) { log("재조회:", e.message); }
+        ({ grid, gridRows } = await waitMainGrid(targetCnos, 10000));
+      }
+    }
+    if (!grid) {
+      const why = /존재하지 않습니다/.test(lastAlert)
+        ? `위하고가 "${lastAlert}"라고 답했습니다 (${month}월 지급분 ${label} 마감 자료 없음)`
+        : `조회 결과 표를 읽지 못했습니다 · 응답 ${responses - respBase}건${lastAlert ? " · 위하고 안내: " + lastAlert : ""} · 화면 표: ${await gridSummary()}`;
+      throw new Error(why);
+    }
     const idxs = [], produced = [], skipped = [];
     gridRows.forEach((r, i) => {
       if (!targetCnos.has(String(r.cno))) return;
