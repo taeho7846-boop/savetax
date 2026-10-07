@@ -406,6 +406,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   });
 });
 
+// 원천세 자동신고 숨긴 창의 대기 주소 (windowId → [url, ...])
+const hiddenQueues = {};
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // ===== 원천세 자동신고 (위하고 전자신고 화면) =====
   // 위하고 마감상태 조회 결과 → 서버 반영 (로컬 서버 → 운영 서버 폴백, 사이트 로그인 쿠키 사용)
@@ -437,18 +440,42 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const urls = (msg.payload && msg.payload.urls) || [];
         if (!urls.length) { sendResponse({ ok: false, error: "열 주소가 없습니다" }); return; }
-        // 주소마다 창을 따로 연다 — 한 창에 탭 2개를 열면 뒤쪽 탭은 비활성 상태라 화면 갱신(rAF)이 멈춰
-        // 드롭다운 등 UI 조작이 실패함(2026-10 실측: 지방소득세 탭 월 설정 실패)
-        const ids = [];
-        for (const url of urls) {
-          const win = await chrome.windows.create({ url, state: "minimized", focused: false });
-          ids.push(win.id);
-          await new Promise(r => setTimeout(r, 800));
-        }
-        sendResponse({ ok: true, windowIds: ids });
+        // 최소화 창 하나에서 주소를 "차례로" 연다.
+        //  - 한 창에 탭 2개를 동시에 열면 뒤쪽 탭은 비활성이라 화면 갱신(rAF)이 멈춰 드롭다운 조작 실패
+        //  - 창을 2개 만들면 크롬이 최소화 상태를 무시하고 화면에 띄움(2026-10 실측)
+        //  → 첫 주소로 최소화 창을 만들고, content script가 efile-done을 보내면 같은 창에 다음 주소 탭을 열고 이전 탭을 닫는다
+        const win = await chrome.windows.create({ url: urls[0], state: "minimized", focused: false });
+        try { await chrome.windows.update(win.id, { state: "minimized", focused: false }); } catch (e) {}
+        hiddenQueues[win.id] = urls.slice(1);
+        sendResponse({ ok: true, windowId: win.id });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });
       }
+    })();
+    return true;
+  }
+  // 위하고 전자신고 탭 작업 종료 보고 → 같은 숨긴 창에 다음 주소가 있으면 이어서 열고, 없으면 창 닫기
+  if (msg.type === "efile-done") {
+    (async () => {
+      const tab = sender.tab;
+      if (!tab) { sendResponse({ ok: false }); return; }
+      const queue = hiddenQueues[tab.windowId] || [];
+      const next = queue.shift();
+      try {
+        if (next) {
+          await chrome.tabs.create({ windowId: tab.windowId, url: next, active: true });
+          try { await chrome.windows.update(tab.windowId, { state: "minimized", focused: false }); } catch (e) {}
+          await chrome.tabs.remove(tab.id);
+          sendResponse({ ok: true, next: true });
+        } else {
+          delete hiddenQueues[tab.windowId];
+          // 숨긴 창(우리가 만든 창)이면 창째로, 아니면 탭만 닫기
+          const w = await chrome.windows.get(tab.windowId, { populate: true });
+          if (w.tabs && w.tabs.length <= 1 && w.state === "minimized") await chrome.windows.remove(tab.windowId);
+          else await chrome.tabs.remove(tab.id);
+          sendResponse({ ok: true, next: false });
+        }
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
     })();
     return true;
   }

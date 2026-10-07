@@ -56,6 +56,11 @@
       window.postMessage({ source: "savetax-efile-cmd", id, cmd, args }, "*");
     });
   }
+  // 탭 작업 종료: 숨긴 창이면 background가 다음 주소를 이어서 열거나 창을 닫는다 (응답 없으면 직접 닫기)
+  async function finish() {
+    const r = await bg({ type: "efile-done" });
+    if (!r || !r.ok) { try { window.close(); } catch (e) {} }
+  }
   async function waitFor(fn, timeoutMs = 20000, step = 300) {
     const end = Date.now() + timeoutMs;
     while (Date.now() < end) {
@@ -287,7 +292,7 @@
     if (!res || !res.ok) throw new Error("서버 전송 실패: " + (res && res.error));
     status(`완료 · 마감 ${res.matched}곳 반영${res.unmatched && res.unmatched.length ? ` (미등록 ${res.unmatched.length}곳)` : ""}`, "#15803D", "done");
     await sleep(1500);
-    window.close();
+    await finish();
   }
 
   // ===== 파일 제작 모드 =====
@@ -342,7 +347,7 @@
     if (idxs.length === 0) {
       await api("POST", "/api/withholding/filing/produce-result", { jobId, kind, error: `제작 대상 없음 (${skipped.map(s => s.name + ":" + s.reason).join(", ")})` });
       status("제작할 거래처가 없습니다", "#DC2626", "error");
-      await sleep(2500); window.close(); return;
+      await sleep(2500); await finish(); return;
     }
 
     status(`대상 ${idxs.length}곳 선택`);
@@ -387,7 +392,7 @@
     if (!res || !res.ok) throw new Error("서버 저장 실패: " + (res && res.error));
     status(`완료 · ${produced.length}곳 제작 (${capturedFile.name})`, "#15803D", "done");
     await sleep(1500);
-    window.close();
+    await finish();
   }
 
   (mode === "produce" ? runProduce() : runCheck()).catch(async (err) => {
@@ -395,5 +400,7 @@
     console.error(err);
     if (mode === "produce" && jobId) await api("POST", "/api/withholding/filing/produce-result", { jobId, kind, error: msg });
     status("오류: " + msg, "#DC2626", "error");
+    await sleep(4000);
+    await finish();
   });
 })();
