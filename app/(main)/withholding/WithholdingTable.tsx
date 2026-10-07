@@ -511,7 +511,19 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       try {
         const r = await fetch(`/api/withholding/filing/job?id=${data.jobId}`);
         const j = await r.json().catch(() => null);
-        if (!r.ok || !j?.ok) return;
+        if (!r.ok || !j?.ok) {
+          // 작업 정보를 못 받는 상태(서버 재시작으로 작업이 사라짐 등)가 이어지면 '진행 중'에 멈춰 있지 않고 알려 준다
+          const gone = r.status === 404;
+          if (gone || Date.now() - startedAt > 6 * 60 * 1000) {
+            if (efilePollRef.current) clearInterval(efilePollRef.current);
+            efilePollRef.current = null;
+            setEfileJob(prev => prev ? { ...prev, error: gone
+              ? "서버가 재시작되어 진행 상황을 더 받을 수 없습니다. 제작된 파일은 C:\\savetax-efile 폴더에 있습니다 — 잠시 후 다시 제작해 주세요."
+              : "6분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인해주세요." } : prev);
+            router.refresh();
+          }
+          return;
+        }
         setEfileJob(prev => prev ? { ...prev, progress: j.progress, done: j.done } : prev);
         if (j.done || Date.now() - startedAt > 6 * 60 * 1000) {
           if (efilePollRef.current) clearInterval(efilePollRef.current);
