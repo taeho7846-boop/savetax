@@ -379,7 +379,13 @@
   async function gridSummary() {
     try {
       const infos = (await bridge("grids")).filter(x => x.alive);
-      return infos.length ? infos.map(x => `${x.rowCount}행[${x.fields.slice(0, 4).join(",")}]`).join(" / ") : "없음";
+      // 표 수집 상태(전역 라이브러리 유무·패치 수·등록된 표·화면에서 직접 찾은 표·canvas 수)도 같이 남긴다
+      let hook = "";
+      try {
+        const d = await bridge("diag");
+        hook = ` (수집: 전역 ${d.rgjs || d.rg2 ? "있음" : "없음"}, 패치 ${d.patched}, 등록 ${d.grids}, 직접찾음 ${d.discovered}, 캔버스 ${d.canvases})`;
+      } catch (e) { hook = " (수집 상태 확인 불가 — 확장을 새로고침했는지 확인)"; }
+      return (infos.length ? infos.map(x => `${x.rowCount}행[${x.fields.slice(0, 4).join(",")}]`).join(" / ") : "없음") + hook;
     } catch (e) { return "읽기 실패(" + e.message + ")"; }
   }
   // 비밀번호 입력: 위하고 LSinput은 DOM value만 바꾸면 화면엔 보여도 내부 상태가 비어 "최소 8~15자리" 경고가 남
