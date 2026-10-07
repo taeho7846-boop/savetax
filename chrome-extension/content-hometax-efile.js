@@ -37,6 +37,33 @@
   const loginShown = () => headerButtons().some(e => txt(e) === "로그인" && reallyVisible(e));
   // 로그인 화면(아이디 입력칸 등)이 떠 있는지 — 로그인된 줄 알고 메뉴로 갔다가 여기로 튕긴 경우를 잡는다
   const loginFormShown = () => !!q("iptUserId") || [...document.querySelectorAll("a,button,span,li")].some(e => txt(e) === "아이디 로그인" && reallyVisible(e));
+  // 화면 위에 떠 있는 창(파일검증 뒤 뜨는 결과·안내 창 등)의 X(닫기)를 눌러 닫는다.
+  //  - 팝업 안에 있는 닫기 버튼만 대상 (class/id/title/글자로 판별)
+  //  - 파일변환신고 화면 자체(파일선택·검증·제출하러 가기 버튼이 들어 있는 영역)와 접수증은 닫지 않는다
+  // 반환: 닫은 창의 id 목록
+  function closePopups() {
+    const keep = [q("_btn_rigSts"), q("_btn_selFileB"), q("_btn_cenSts")].filter(Boolean);
+    const isClose = (e) => {
+      const cls = typeof e.className === "string" ? e.className : (e.getAttribute("class") || "");
+      const title = e.getAttribute("title") || e.getAttribute("alt") || "";
+      return /w2window_close|popup_close|layer_close|btn_close|(^|[\s_-])close($|[\s_-])/i.test(cls)
+        || /_close$/i.test(e.id || "") || /닫기/.test(title) || /^(x|×|✕|닫기|창닫기)$/i.test(txt(e));
+    };
+    const done = new Set(), closed = [];
+    for (const e of document.querySelectorAll("a,button,input[type=button],span,img")) {
+      if (!isClose(e) || !reallyVisible(e)) continue;
+      const box = e.closest('[class*="w2window"],[class*="w2popup"],[class*="popup"],[class*="layer"],[role="dialog"]');
+      if (!box || done.has(box)) continue;
+      if (keep.some(k => box.contains(k))) continue;
+      if (/UTERNAAZ02/.test(box.id || "") || box.querySelector('[id*="UTERNAAZ02"]')) continue; // 접수증
+      done.add(box);
+      closed.push((box.id || "(id 없음)").slice(-48));
+      e.click();
+    }
+    if (closed.length) console.log("[SaveTax 제출] 닫은 창:", closed.join(", "));
+    return closed;
+  }
+  const openWindows = () => [...document.querySelectorAll('[class*="w2window"],[class*="w2popup"]')].filter(reallyVisible).map(e => (e.id || "").slice(-40)).filter(Boolean).slice(0, 6);
   const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; };
   const receiptsOnPage = () => [...new Set(((document.body && document.body.innerText) || "").match(RECEIPT_RE) || [])];
   const startedAt = Date.now();
@@ -189,6 +216,14 @@
     }
     if (!v) { await S.fail("검증 결과를 읽지 못했습니다", { since: beforeVerify, diag: true }); return; }
     v.notes = S.notes(beforeVerify);
+    // 화면에는 "20261007C103900.01 ( 5,697 Byte )"처럼 크기가 붙어 나온다 → 파일 이름 부분만 꺼내 비교
+    v.fileName = (v.fileName.match(/\d{8}[A-Za-z]\d{6}\.\d+/) || [v.fileName.replace(/\s*\(.*$/, "").trim()])[0];
+    // 파일검증이 끝나면 화면 위에 창이 떠 있어, X(닫기)를 눌러야 제출하러 갈 수 있다 → 닫는다
+    await sleep(800);
+    const wins = openWindows();
+    const closedNow = closePopups();
+    if (closedNow.length) { v.notes.push("닫은 창: " + closedNow.join(", ")); await sleep(600); }
+    else if (wins.length) v.notes.push("떠 있는 창: " + wins.join(", "));
     if (d.fileName && v.fileName && v.fileName !== d.fileName) {
       await S.fail(`홈택스가 검증한 파일(${v.fileName})이 올린 파일(${d.fileName})과 다릅니다`, { verify: v }); return;
     }
@@ -251,7 +286,10 @@
           sb.click();
         } else if (!wentTo) {
           const go = q("_btn_rigSts");
-          if (go) { wentTo = true; go.click(); }
+          if (go) {
+            if (closePopups().length) await sleep(700); // 위에 떠 있는 창이 있으면 닫고 나서
+            wentTo = true; go.click();
+          }
         }
       }
       await sleep(700);
