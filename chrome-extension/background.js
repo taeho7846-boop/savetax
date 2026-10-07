@@ -613,6 +613,37 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
+  // 보낸 탭의 창을 화면에 보이게 한다 (최소화 해제). focus=true면 맨 앞으로.
+  // 숨은 창은 화면을 그리지 않아 실클릭 좌표가 빗나가므로, 정확한 클릭이 필요한 순간에만 잠깐 보이게 한다.
+  if (msg.type === "efile-show-window") {
+    (async () => {
+      try {
+        const wid = sender.tab && sender.tab.windowId;
+        if (wid == null) { sendResponse({ ok: false, error: "창 없음" }); return; }
+        await chrome.windows.update(wid, { state: "normal", focused: !!msg.focus });
+        if (sender.tab && sender.tab.id != null) { try { await chrome.tabs.update(sender.tab.id, { active: true }); } catch (e) {} }
+        sendResponse({ ok: true });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+    })();
+    return true;
+  }
+  // 디버거로 Enter 키 입력 (보낸 탭의 현재 포커스 요소) — 버튼 좌표와 무관하게 '제작(Enter)'을 실행시킬 때
+  if (msg.type === "efile-press-enter") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      try { await chrome.debugger.attach({ tabId }, "1.3"); }
+      catch (e) { if (!/already attached/i.test(e.message)) { sendResponse({ ok: false, error: "디버거 연결 실패: " + e.message }); return; } }
+      try {
+        const k = { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 };
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "keyDown", text: "\r", unmodifiedText: "\r", ...k });
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "keyUp", ...k });
+        sendResponse({ ok: true });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+      finally { try { await chrome.debugger.detach({ tabId }); } catch (e) {} }
+    })();
+    return true;
+  }
   // canvas 표 등 합성 이벤트를 무시하는 요소를 디버거로 실제 클릭 (CSS px 좌표, 보낸 탭 기준)
   if (msg.type === "efile-real-click") {
     (async () => {

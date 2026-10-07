@@ -73,11 +73,23 @@ function Invoke-EfileDialog([int]$count, [int]$timeoutSec) {
     $deadline = (Get-Date).AddSeconds($timeoutSec)
     $handled = 0
     $seen = @{}
+    # 도우미 상태 파일: 확장이 "도우미가 돌고 있는지 / 폴더 선택 창을 봤는지"를 알 수 있게 남긴다.
+    #   제작 버튼 클릭이 빗나가 저장 창이 안 뜬 경우(= seenAt이 클릭 시각보다 이전)에만 확장이 버튼을 다시 누른다.
+    $helperPath = Join-Path $outDir 'helper.json'
+    $epoch = [datetime]'1970-01-01'
+    $startedMs = [int64]((Get-Date).ToUniversalTime() - $epoch).TotalMilliseconds
+    $untilMs = $startedMs + [int64]$timeoutSec * 1000
+    $saveHelper = {
+        param([int64]$seenAt)
+        try { ([pscustomobject]@{ startedAt = $startedMs; until = $untilMs; seenAt = $seenAt } | ConvertTo-Json -Compress) | Set-Content -LiteralPath $helperPath -Encoding UTF8 } catch {}
+    }
+    & $saveHelper 0
     while ($handled -lt $count -and (Get-Date) -lt $deadline) {
         if (Confirm-OverwriteDialog $false) { continue }
         $h = [SaveTax.Win32]::FindWindowW([IntPtr]::Zero, '폴더 선택')
         if ($h -eq [IntPtr]::Zero -or -not [SaveTax.Win32]::IsWindowVisible($h) -or $seen.ContainsKey([string]$h)) { Start-Sleep -Milliseconds 400; continue }
         Write-Log "폴더 선택 창 발견: $h"
+        & $saveHelper ([int64]((Get-Date).ToUniversalTime() - $epoch).TotalMilliseconds)
         # 선택된 폴더 경로 (Static 컨트롤 중 드라이브 경로 형태)
         $folder = ''
         $okBtn = [IntPtr]::Zero

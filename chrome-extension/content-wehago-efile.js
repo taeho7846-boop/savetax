@@ -102,6 +102,29 @@
     }
     return null;
   }
+  // 로컬 도우미가 남기는 상태(C:\savetax-efile\helper.json): { startedAt, until, seenAt(폴더 선택 창을 마지막으로 본 시각) }
+  // 새 도우미만 남긴다. 없거나 오래됐으면 null
+  async function helperState() {
+    const t = await readLocal("C:\\savetax-efile\\helper.json", "text");
+    if (!t) return null;
+    try { const h = JSON.parse(t); return h && h.startedAt && Date.now() < Number(h.until || 0) + 5000 ? h : null; } catch (e) { return null; }
+  }
+  // 이 창을 화면에 보이게 한다. 숨은(최소화·가려진) 창은 화면을 그리지 않아, 방금 뜬 창의 버튼 좌표로 보낸 실클릭이 빗나간다.
+  // 먼저 포커스 없이 꺼내 보고, 그래도 숨김 상태면(다른 창에 완전히 가려짐) 맨 앞으로 가져온다.
+  async function ensureVisibleWindow(forceFront) {
+    for (const focus of forceFront ? [true] : [false, true]) {
+      if (!document.hidden && !forceFront) break;
+      await bg({ type: "efile-show-window", focus });
+      const t0 = Date.now();
+      while (document.hidden && Date.now() - t0 < 2500) await sleep(150);
+      if (!document.hidden) break;
+    }
+    // 화면이 실제로 한 번 그려질 때까지 (숨김이면 rAF가 돌지 않으므로 시간 제한)
+    await Promise.race([new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))), sleep(1500)]);
+    await sleep(300);
+    log("창 보이기:", document.hidden ? "여전히 숨김" : "보임");
+    return !document.hidden;
+  }
   // 탭 작업 종료: 숨긴 창이면 background가 다음 주소를 이어서 열거나 창을 닫는다 (응답 없으면 직접 닫기)
   async function finish() {
     const r = await bg({ type: "efile-done" });
@@ -480,15 +503,19 @@
     const dlg = await waitFor(() => [...document.querySelectorAll("div")].find(d => visible(d) && txt(d).startsWith("전자신고 파일 제작") && rect(d).width > 300 && rect(d).width < 900), 8000, 200);
     if (!dlg) { const t = await dismissAlert(); throw new Error("제작 창이 열리지 않았습니다" + (t ? " · " + t : "")); }
     await sleep(500);
+    // 비밀번호 입력칸·제작 버튼은 좌표로 실클릭하므로, 그 전에 창을 보이게 해 화면이 그려진 상태로 만든다
+    await ensureVisibleWindow(false);
     status("비밀번호 입력");
     await typePassword(dlg, job.password);
 
-    const mkBtn = [...dlg.querySelectorAll("button")].find(b => visible(b) && /전자신고 파일 제작/.test(txt(b)));
+    const findMkBtn = () => [...dlg.querySelectorAll("button")].find(b => visible(b) && /전자신고 파일 제작/.test(txt(b)));
+    const mkBtn = findMkBtn();
     if (!mkBtn) throw new Error("'전자신고 파일 제작' 버튼을 찾지 못했습니다");
     status("파일 제작 중…");
     const clickedAt = Date.now();
     capturedFile = null;
-    { const mr = rect(mkBtn); await realClick(mr.left + mr.width / 2, mr.top + mr.height / 2); } // 사람이 누르는 것과 같은 실클릭
+    const clickMake = async () => { const b = findMkBtn(); if (!b) return false; const mr = rect(b); await realClick(mr.left + mr.width / 2, mr.top + mr.height / 2); return true; };
+    await clickMake(); // 사람이 누르는 것과 같은 실클릭
 
     // 위하고 필수 에이전트가 '폴더 선택' 창을 띄우고 선택한 폴더에 파일을 쓴다(브라우저 다운로드 아님, 2026-10 실측).
     // 사이트가 미리 실행해 둔 로컬 도우미(savetax-app://efile-dialog)가 그 창을 확인하고 파일을 C:\savetax-efile\ 로 복사해 두므로
@@ -496,7 +523,22 @@
     await sleep(1500);
     { const t = await dismissAlert(); if (/8~15자리|비밀번호/.test(t)) throw new Error("위하고가 비밀번호를 인식하지 못했습니다: " + t); }
     status("폴더 선택 창 확인 대기 중… (로컬 도우미)");
-    let launched = await waitLauncherFile(kind, clickedAt, 90000);
+    let launched = await waitLauncherFile(kind, clickedAt, 12000);
+    // 버튼이 안 눌린 경우 다시 누른다. 조건: 제작 창이 그대로 떠 있고 + 도우미가 클릭 이후 저장 창(폴더 선택)을 본 적이 없음.
+    //  (도우미가 창을 봤다면 저장이 진행 중이므로 다시 누르면 두 번 제작된다 → 누르지 않는다. 도우미 상태를 알 수 없어도 누르지 않는다)
+    for (let attempt = 1; !launched && attempt <= 2; attempt++) {
+      if (!document.contains(dlg) || !visible(dlg) || !findMkBtn()) break;
+      const h = await helperState();
+      if (!h || Number(h.seenAt || 0) >= clickedAt - 2000) break;
+      status(`제작 버튼이 눌리지 않아 다시 누르는 중… (${attempt}차)`);
+      await ensureVisibleWindow(true);
+      if (attempt === 1) await clickMake();
+      else { const inp = dlg.querySelector("input"); if (inp) inp.focus(); await sleep(200); await bg({ type: "efile-press-enter" }); } // 버튼 이름이 '…제작(Enter)'
+      await sleep(1500);
+      { const t = await dismissAlert(); if (/8~15자리|비밀번호/.test(t)) throw new Error("위하고가 비밀번호를 인식하지 못했습니다: " + t); }
+      launched = await waitLauncherFile(kind, clickedAt, 20000);
+    }
+    if (!launched) launched = await waitLauncherFile(kind, clickedAt, 40000);
     if (!launched && capturedFile && !capturedFile.error) launched = { name: capturedFile.name, base64: capturedFile.base64, localPath: "" };
     if (!launched) {
       const t = await dismissAlert();

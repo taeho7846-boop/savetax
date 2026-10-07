@@ -1617,7 +1617,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-[#191F28]">자동신고 · 전자신고 파일 제작</h3>
-                <div className="text-[11.5px] text-[#6B7684] mt-0.5">{year}년 {month}월 지급분 · 대상 {efileJob.targets.length}곳 · 원천세 → 지방소득세 순서로 진행 · 위하고 창은 화면에 뜨지 않고 뒤에서 돌아갑니다</div>
+                <div className="text-[11.5px] text-[#6B7684] mt-0.5">{year}년 {month}월 지급분 · 대상 {efileJob.targets.length}곳 · 원천세 → 지방소득세 순서로 진행 · 제작 버튼을 누르는 순간에만 위하고 창이 잠깐 화면에 뜹니다</div>
               </div>
               {(efileJob.done || efileJob.error) && <button onClick={closeEfileModal} className="text-[#8B95A1] hover:text-[#191F28] text-lg">✕</button>}
             </div>
