@@ -1764,7 +1764,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               )}
               {submitJob.error && <div className="text-[12px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-3 py-2">{submitJob.error}</div>}
               <div className="text-[11px] text-[#8B95A1] leading-relaxed">
-                홈택스는 로그인되어 있지 않으면 설정의 세무대리인 계정으로 자동 로그인합니다. 위택스는 열린 탭에서 공동인증서로 로그인하면 이어서 진행됩니다. 홈택스·위택스 탭은 닫지 말고 그대로 두세요.
+                홈택스는 로그인되어 있으면 바로 원천세 신고로 가고, 아니면 설정의 세무대리인 계정으로 로그인부터 합니다. 위택스는 미리 로그인해 두세요 (안 되어 있으면 열린 탭에서 로그인하면 이어서 진행). 홈택스·위택스 탭은 닫지 말고 그대로 두세요.
               </div>
             </div>
             <div className="px-5 py-3 border-t border-[#F2F4F6] flex justify-end">

@@ -20,7 +20,23 @@
   const all = (suffix) => [...document.querySelectorAll(`[id$="${suffix}"]`)];
   const q = (suffix) => all(suffix).find(visible) || null;
   const val = (suffix) => { const el = all(suffix)[0]; return el ? txt(el) : ""; };
-  const loggedIn = () => [...document.querySelectorAll("a,button,span,input")].some(e => visible(e) && txt(e).length <= 8 && txt(e).includes("로그아웃"));
+  // 실제로 화면에 보이는지: 숨김 스타일·크기 0·화면 밖·다른 것에 가려진 요소는 제외 (DOM에만 있는 숨은 버튼에 속지 않기 위함)
+  const reallyVisible = (el) => {
+    if (!visible(el)) return false;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) === 0) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return false;
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return false;
+    const hit = document.elementFromPoint(x, y);
+    return !!hit && (hit === el || el.contains(hit));
+  };
+  const headerButtons = () => [...document.querySelectorAll("a,button,span,input")].filter(e => txt(e).length <= 8);
+  const logoutShown = () => headerButtons().some(e => txt(e).includes("로그아웃") && reallyVisible(e));
+  const loginShown = () => headerButtons().some(e => txt(e) === "로그인" && reallyVisible(e));
+  // 로그인 화면(아이디 입력칸 등)이 떠 있는지 — 로그인된 줄 알고 메뉴로 갔다가 여기로 튕긴 경우를 잡는다
+  const loginFormShown = () => !!q("iptUserId") || [...document.querySelectorAll("a,button,span,li")].some(e => txt(e) === "아이디 로그인" && reallyVisible(e));
   const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; };
   const receiptsOnPage = () => [...new Set(((document.body && document.body.innerText) || "").match(RECEIPT_RE) || [])];
   const startedAt = Date.now();
@@ -38,39 +54,46 @@
     if (me.phase === "login") {
       // 자동 로그인 진행 중 — 기존 로그인 자동화(content-hometax.js)가 이 탭에서 아이디·인증서 로그인을 한다.
       // 끝나면 background가 이 탭을 닫고 새 탭을 열어 작업을 넘겨준다(hometax-reopen). 여기서는 기다리기만 한다.
-      S.showBanner("홈택스 자동 로그인 중… (인증서 창이 떠도 그대로 두세요)");
+      S.showBanner("홈택스 세무대리인 로그인 중… (인증서 창이 떠도 그대로 두세요)");
       await sleep(150000);
       await S.fail("홈택스 자동 로그인이 끝나지 않았습니다. 홈택스 탭의 로그인 화면을 확인한 뒤 다시 눌러 주세요", { diag: true });
       return;
     }
     await S.report("running", "홈택스 여는 중…");
-    const loggedOut = () => [...document.querySelectorAll("a,button,span")].some(e => visible(e) && txt(e) === "로그인");
-    let seen = await waitFor(() => (loggedIn() ? "in" : loggedOut() ? "out" : null), 20000, 500);
-    if (seen === "out") {
-      // 화면이 먼저 '로그인'으로 그려졌다가 세션 확인 뒤 '로그아웃'으로 바뀌는 경우가 있어 조금 더 본다
-      if (await waitFor(loggedIn, 4000, 400)) seen = "in";
-    }
     const d = await S.detail();
     if (!d || !d.ok) { await S.fail("작업 정보를 받지 못했습니다: " + (d && d.error)); return; }
     if (d.cancelled) { await S.setPhase(null); return; }
-    if (seen !== "in") {
-      if (me.loginTried) {
-        await S.fail("자동 로그인을 했는데도 홈택스가 로그인 상태가 아닙니다. 홈택스 탭에서 직접 로그인한 뒤 다시 눌러 주세요", { diag: true });
-        return;
-      }
-      if (!d.hometaxLogin) {
-        await S.fail("홈택스에 로그인되어 있지 않고, 설정에 세무대리인 홈택스 ID/PW도 없습니다. 설정에 저장하거나 직접 로그인한 뒤 다시 눌러 주세요");
-        return;
-      }
-      // 세무대리인 계정으로 자동 로그인 (사이트의 '세무대리인 홈택스 로그인' 버튼과 같은 방식: #savetax= 해시)
+    // 세무대리인 로그인 — 사이트의 '세무대리인 홈택스 로그인' 버튼과 똑같은 과정(#savetax= 해시)을 그대로 탄다.
+    // 끝나면 그 과정이 이 탭을 닫고 새 탭을 열며, 새 탭이 이 작업을 이어받는다(loginTried 표시).
+    // 반환: true = 로그인으로 넘어감(이 스크립트는 여기서 끝), false = 넘어갈 수 없음(이미 시도했거나 설정에 계정 없음)
+    const goLogin = async () => {
+      if (me.loginTried || !d.hometaxLogin) return false;
       await S.setPhase({ phase: "login", loginTried: true });
-      await S.report("running", "홈택스 자동 로그인 중…");
+      await S.report("running", "홈택스 세무대리인 로그인 중…");
       const enc = btoa(unescape(encodeURIComponent(JSON.stringify(d.hometaxLogin)))).replace(/=/g, "");
       try { sessionStorage.removeItem("savetax_creds"); } catch (e) {}
       location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=" + enc;
       location.reload();
-      return;
+      return true;
+    };
+    const noLoginWhy = () => (me.loginTried
+      ? "세무대리인 로그인을 했는데도 홈택스가 로그인 상태가 아닙니다. 홈택스 탭의 화면을 확인한 뒤 다시 눌러 주세요"
+      : "홈택스에 로그인되어 있지 않고, 설정에 세무대리인 홈택스 ID/PW도 없습니다. 설정에 저장하거나 직접 로그인한 뒤 다시 눌러 주세요");
+    // 로그인 여부: 로그아웃 버튼이 실제로 보이고 로그인 버튼은 안 보일 때만 "로그인됨".
+    //  - 로그인됨 → 바로 원천세 신고 화면으로
+    //  - 로그인 안 됨 / 판단이 애매함 → 세무대리인 로그인부터 (잘못 로그인으로 가도 그 과정이 알아서 다시 로그인하므로 안전)
+    let seen = await waitFor(() => (logoutShown() && !loginShown() ? "in" : loginShown() ? "out" : null), 20000, 500);
+    if (seen === "out") {
+      // 화면이 먼저 '로그인'으로 그려졌다가 세션 확인 뒤 '로그아웃'으로 바뀌는 경우가 있어 조금 더 본다
+      if (await waitFor(() => logoutShown() && !loginShown(), 4000, 400)) seen = "in";
     }
+    console.log("[SaveTax 제출] 홈택스 로그인 상태:", seen || "판단 불가", me.loginTried ? "(로그인 직후)" : "");
+    if (seen !== "in") {
+      if (await goLogin()) return;
+      // 로그인을 이미 한 뒤인데 버튼으로 판단이 안 되는 경우(화면 구성이 다름)는 그대로 진행해 본다. 분명히 '로그인' 버튼이 보이면 중단
+      if (!(me.loginTried && seen !== "out")) { await S.fail(noLoginWhy(), { diag: true }); return; }
+    }
+    await sleep(1000);
     S.clearNotes();
     S.setMode("verify");
 
@@ -79,11 +102,19 @@
     if (!q("_btn_selFileB")) {
       if (!q("btn_cbcMediRtn")) {
         const menu = document.getElementById("menuAtag_4106010000");
-        if (!menu) { await S.fail("홈택스 메뉴(원천세 일반신고)를 찾지 못했습니다", { since: startedAt, diag: true }); return; }
+        if (!menu) {
+          if (await goLogin()) return;
+          await S.fail("홈택스 메뉴(원천세 일반신고)를 찾지 못했습니다", { since: startedAt, diag: true }); return;
+        }
         menu.click();
       }
-      const conv = await waitFor(() => q("btn_cbcMediRtn") || q("_btn_selFileB"), 25000, 400);
-      if (!conv) { await S.fail("원천세 일반신고 화면이 열리지 않았습니다", { since: startedAt, diag: true }); return; }
+      const conv = await waitFor(() => q("btn_cbcMediRtn") || q("_btn_selFileB") || (loginFormShown() ? "login" : null), 25000, 400);
+      if (!conv || conv === "login") {
+        // 로그인된 줄 알았는데 로그인 화면이 나옴(세션 만료 등) → 세무대리인 로그인부터 다시
+        if (await goLogin()) return;
+        await S.fail(conv === "login" ? noLoginWhy() : "원천세 일반신고 화면이 열리지 않았습니다", { since: startedAt, diag: true });
+        return;
+      }
       if (!q("_btn_selFileB")) { await sleep(600); conv.click(); }
     }
     const selBtn = await waitFor(() => q("_btn_selFileB"), 25000, 400);
