@@ -527,6 +527,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
+  // 디버거로 실제 키 입력(keyDown/keyUp, 글자별) — 키 이벤트로 상태를 갱신하는 커스텀 입력칸용. 현재 포커스 요소에 입력
+  if (msg.type === "efile-type-keys") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      try { await chrome.debugger.attach({ tabId }, "1.3"); }
+      catch (e) { if (!/already attached/i.test(e.message)) { sendResponse({ ok: false, error: "디버거 연결 실패: " + e.message }); return; } }
+      try {
+        for (const ch of String(msg.text || "")) {
+          const code = /[a-z]/i.test(ch) ? "Key" + ch.toUpperCase() : /[0-9]/.test(ch) ? "Digit" + ch : undefined;
+          await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "keyDown", key: ch, code, text: ch, unmodifiedText: ch });
+          await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "keyUp", key: ch, code });
+          await new Promise(r => setTimeout(r, 40));
+        }
+        sendResponse({ ok: true });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+      finally { try { await chrome.debugger.detach({ tabId }); } catch (e) {} }
+    })();
+    return true;
+  }
   // 디버거로 글자 입력 (커스텀 입력칸이 합성 이벤트를 무시할 때) — 보낸 탭의 현재 포커스 요소에 입력
   if (msg.type === "efile-insert-text") {
     (async () => {

@@ -302,24 +302,38 @@
     cand.sort((a, b) => b.rowCount - a.rowCount);
     return cand[0] || null;
   }
-  // 비밀번호 입력: 커스텀 입력칸(LSinput)에 네이티브 setter + input 이벤트 → 안 먹으면 디버거 insertText
+  // 비밀번호 입력: 위하고 LSinput은 DOM value만 바꾸면 화면엔 보여도 내부 상태가 비어 "최소 8~15자리" 경고가 남
+  // (2026-10 실측) → 입력칸을 실클릭해 포커스를 준 뒤 디버거로 실제 키 입력(글자별 keyDown/keyUp)
   async function typePassword(dlg, pw) {
     const inp = await waitFor(() => dlg.querySelector("input"), 3000, 100);
     if (!inp) throw new Error("비밀번호 입력칸을 찾지 못했습니다");
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-    inp.focus();
-    setter.call(inp, pw);
-    inp.dispatchEvent(new Event("input", { bubbles: true }));
-    inp.dispatchEvent(new Event("change", { bubbles: true }));
-    await sleep(400);
-    if (inp.value === pw) return;
-    log("setter 입력 미반영 → 디버거 insertText");
-    inp.focus(); setter.call(inp, "");
-    inp.dispatchEvent(new Event("input", { bubbles: true }));
-    const r = await bg({ type: "efile-insert-text", text: pw });
-    if (!r || !r.ok) throw new Error("비밀번호 입력 실패: " + (r && r.error));
-    await sleep(400);
-    if (inp.value !== pw) throw new Error("비밀번호가 입력칸에 반영되지 않았습니다");
+    // 보이는 입력 상자 = 0x0 숨은 input의 부모(없으면 input 위치 기준)
+    let box = inp.parentElement;
+    for (let i = 0; i < 3 && box && rect(box).width < 20; i++) box = box.parentElement;
+    const br = box && rect(box).width >= 20 ? rect(box) : { left: rect(inp).left, top: rect(inp).top, width: 120, height: 24 };
+    await realClick(br.left + Math.min(40, br.width / 2), br.top + br.height / 2);
+    await sleep(300);
+    if (document.activeElement !== inp) { inp.focus(); await sleep(150); }
+    // 남아있는 값 비우기
+    if (inp.value) {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(inp, ""); inp.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    const r = await bg({ type: "efile-type-keys", text: pw });
+    if (!r || !r.ok) throw new Error("비밀번호 키 입력 실패: " + (r && r.error));
+    await sleep(500);
+    if (inp.value !== pw) {
+      log("키 입력 후 값 불일치(" + inp.value.length + "자) → setter 보정");
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(inp, pw);
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
+      inp.dispatchEvent(new Event("change", { bubbles: true }));
+      await sleep(300);
+    }
+    // 포커스를 빼서 change/blur 처리까지 끝나게
+    inp.dispatchEvent(new Event("blur", { bubbles: true }));
+    inp.blur();
+    await sleep(300);
   }
 
   async function runProduce() {
@@ -371,12 +385,13 @@
     status("파일 제작 중…");
     const clickedAt = Date.now();
     capturedFile = null;
-    fire(mkBtn);
+    { const mr = rect(mkBtn); await realClick(mr.left + mr.width / 2, mr.top + mr.height / 2); } // 사람이 누르는 것과 같은 실클릭
 
     // 파일 가로채기(MAIN 후킹) 대기 — 실패 시 다운로드 목록에서 찾기
     await waitFor(() => capturedFile || alertBox(), 45000, 300);
     if (!capturedFile) {
       const t = await dismissAlert();
+      if (/8~15자리|비밀번호/.test(t)) throw new Error("위하고가 비밀번호를 인식하지 못했습니다: " + t);
       if (t && !/완료|제작/.test(t)) throw new Error("위하고 안내: " + t);
       const found = await bg({ type: "efile-find-download", since: clickedAt, waitMs: 20000 });
       if (!found || !found.ok) throw new Error("제작된 파일을 받지 못했습니다" + (t ? " · " + t : ""));
