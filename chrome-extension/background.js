@@ -444,15 +444,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         //  - 한 창에 탭 2개를 동시에 열면 뒤쪽 탭은 비활성이라 화면 갱신(rAF)이 멈춰 드롭다운 조작 실패
         //  - 창을 2개 만들면 크롬이 최소화 상태를 무시하고 화면에 띄움(2026-10 실측)
         //  → 첫 주소로 최소화 창을 만들고, content script가 efile-done을 보내면 같은 창에 다음 주소 탭을 열고 이전 탭을 닫는다
-        // 사용자 선택(2026-10): 화면에 떠도 되니 빠른 쪽 — 주소마다 창을 따로 열어 동시에 돌린다.
-        // (창 1개에 차례로 여는 방식은 hiddenQueues로 남겨둠: urls.slice(1)을 큐에 넣으면 순차 실행)
+        // 사용자 선택(2026-10): 화면에 떠도 되니 빠른 쪽 — 주소마다 창을 따로 열어 동시에 돌린다. (마감상태 조회)
+        // 단, 파일 제작(stProduce)은 반드시 차례로: 위하고 저장 에이전트(폴더 선택 창)가 한 번에 하나만 처리해서
+        // 원천세·지방소득세를 동시에 제작하면 한쪽 요청이 버려진다(2026-10-07 실측: 폴더 선택 창이 하나만 뜸).
+        // → 첫 주소만 최소화 창으로 열고 나머지는 큐에 넣는다. content script가 efile-done을 보내면 같은 창에서 다음 주소를 연다.
+        const sequential = urls.some(u => /stProduce=/.test(u)) || !!(msg.payload && msg.payload.sequential);
         const ids = [];
-        for (const url of urls) {
-          const win = await chrome.windows.create({ url, state: "minimized", focused: false });
+        if (sequential) {
+          const win = await chrome.windows.create({ url: urls[0], state: "minimized", focused: false });
           ids.push(win.id);
-          await new Promise(r => setTimeout(r, 800));
+          if (urls.length > 1) {
+            hiddenQueues[win.id] = urls.slice(1);
+            // 서비스 워커가 잠들었다 깨어나도 이어갈 수 있게 저장소에도 남긴다
+            await chrome.storage.local.set({ ["hiddenQueue:" + win.id]: urls.slice(1) });
+          }
+        } else {
+          for (const url of urls) {
+            const win = await chrome.windows.create({ url, state: "minimized", focused: false });
+            ids.push(win.id);
+            await new Promise(r => setTimeout(r, 800));
+          }
         }
-        sendResponse({ ok: true, windowIds: ids });
+        sendResponse({ ok: true, windowIds: ids, sequential });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });
       }
@@ -464,8 +477,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       const tab = sender.tab;
       if (!tab) { sendResponse({ ok: false }); return; }
-      const queue = hiddenQueues[tab.windowId] || [];
+      const qKey = "hiddenQueue:" + tab.windowId;
+      let queue = hiddenQueues[tab.windowId];
+      if (!queue) { try { queue = (await chrome.storage.local.get(qKey))[qKey] || []; } catch (e) { queue = []; } }
       const next = queue.shift();
+      hiddenQueues[tab.windowId] = queue;
+      try {
+        if (queue.length) await chrome.storage.local.set({ [qKey]: queue }); else await chrome.storage.local.remove(qKey);
+      } catch (e) {}
       try {
         if (next) {
           await chrome.tabs.create({ windowId: tab.windowId, url: next, active: true });

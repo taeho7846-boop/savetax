@@ -512,7 +512,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     setEfileJob({ jobId: data.jobId, kinds: data.kinds, targets: data.targets, progress: {}, done: false, skippedAtStart: data.skipped });
     // 위하고 파일 제작 시 뜨는 '폴더 선택' 창(네이티브)을 로컬 도우미(savetax-app 프로토콜, scripts/launcher)가 대신 확인하고
     // 파일을 C:\savetax-efile\ 로 복사하도록 먼저 실행해 둔다 (도우미 미설치 PC는 창이 그대로 떠서 사람이 확인해야 함)
-    try { window.location.href = `savetax-app://efile-dialog?count=${data.kinds.length}&timeout=240`; } catch {}
+    try { window.location.href = `savetax-app://efile-dialog?count=${data.kinds.length}&timeout=600`; } catch {}
     await new Promise(r => setTimeout(r, 800));
     const opened = await openEfileWindows(urls);
     if (!opened.ok) { setEfileJob(prev => prev ? { ...prev, error: opened.error } : prev); return; }
@@ -525,21 +525,21 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         if (!r.ok || !j?.ok) {
           // 작업 정보를 못 받는 상태(서버 재시작으로 작업이 사라짐 등)가 이어지면 '진행 중'에 멈춰 있지 않고 알려 준다
           const gone = r.status === 404;
-          if (gone || Date.now() - startedAt > 6 * 60 * 1000) {
+          if (gone || Date.now() - startedAt > 12 * 60 * 1000) {
             if (efilePollRef.current) clearInterval(efilePollRef.current);
             efilePollRef.current = null;
             setEfileJob(prev => prev ? { ...prev, error: gone
               ? "서버가 재시작되어 진행 상황을 더 받을 수 없습니다. 제작된 파일은 C:\\savetax-efile 폴더에 있습니다 — 잠시 후 다시 제작해 주세요."
-              : "6분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인해주세요." } : prev);
+              : "12분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인해주세요." } : prev);
             router.refresh();
           }
           return;
         }
         setEfileJob(prev => prev ? { ...prev, progress: j.progress, done: j.done } : prev);
-        if (j.done || Date.now() - startedAt > 6 * 60 * 1000) {
+        if (j.done || Date.now() - startedAt > 12 * 60 * 1000) {
           if (efilePollRef.current) clearInterval(efilePollRef.current);
           efilePollRef.current = null;
-          if (!j.done) setEfileJob(prev => prev ? { ...prev, error: "6분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인해주세요." } : prev);
+          if (!j.done) setEfileJob(prev => prev ? { ...prev, error: "12분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인해주세요." } : prev);
           router.refresh();
           if (j.done && chain) {
             // 이어서 진행: 원천세·지방소득세가 모두 제작 완료일 때만 검증 단계로 (하나라도 실패했으면 멈추고 제작 창을 그대로 둔다)
@@ -1615,7 +1615,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-[#191F28]">자동신고 · 전자신고 파일 제작</h3>
-                <div className="text-[11.5px] text-[#6B7684] mt-0.5">{year}년 {month}월 지급분 · 대상 {efileJob.targets.length}곳 · 위하고 창은 화면에 뜨지 않고 뒤에서 돌아갑니다</div>
+                <div className="text-[11.5px] text-[#6B7684] mt-0.5">{year}년 {month}월 지급분 · 대상 {efileJob.targets.length}곳 · 원천세 → 지방소득세 순서로 진행 · 위하고 창은 화면에 뜨지 않고 뒤에서 돌아갑니다</div>
               </div>
               {(efileJob.done || efileJob.error) && <button onClick={closeEfileModal} className="text-[#8B95A1] hover:text-[#191F28] text-lg">✕</button>}
             </div>
