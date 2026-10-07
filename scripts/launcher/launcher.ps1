@@ -30,6 +30,36 @@ function Get-ChildWindows($parent) {
     return $list
 }
 
+# 같은 이름의 파일이 이미 있으면(같은 날 다시 제작) 위하고 에이전트가
+#   "질의 — 이미 기록된 파일이 있습니다. 덮어쓰시겠습니까?  [예(Y)] [아니요(N)]" 창을 띄운다 → 예(Y)를 눌러 준다.
+# '질의'라는 제목은 흔하므로 본문에 '덮어쓰'가 있을 때만 누른다. 본문을 못 읽은 경우에는
+# 방금 폴더 선택 창에서 확인을 누른 직후($recent)이고 예/아니요 버튼이 둘 다 있을 때만 누른다.
+function Confirm-OverwriteDialog([bool]$recent) {
+    $q = [SaveTax.Win32]::FindWindowW([IntPtr]::Zero, '질의')
+    if ($q -eq [IntPtr]::Zero -or -not [SaveTax.Win32]::IsWindowVisible($q)) { return $false }
+    $yes = [IntPtr]::Zero; $no = [IntPtr]::Zero; $qText = ''
+    foreach ($c in (Get-ChildWindows $q)) {
+        $cls = Get-WinClass $c; $txt = Get-WinText $c
+        if ($cls -match 'static' -and $txt) { $qText += ' ' + $txt }
+        if ($cls -match 'button' -and $txt -match '^예') { $yes = $c }
+        if ($cls -match 'button' -and $txt -match '^아니') { $no = $c }
+    }
+    $qText = $qText.Trim()
+    $isOverwrite = ($qText -match '덮어쓰') -or (-not $qText -and $recent -and $yes -ne [IntPtr]::Zero -and $no -ne [IntPtr]::Zero)
+    if (-not $isOverwrite) { return $false }
+    Write-Log "  질의 창(덮어쓰기): '$qText' -> 예"
+    if ($yes -ne [IntPtr]::Zero) { [void][SaveTax.Win32]::PostMessageW($yes, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) }   # BM_CLICK
+    else { [void][SaveTax.Win32]::PostMessageW($q, 0x0111, [IntPtr]6, [IntPtr]::Zero) }                                  # WM_COMMAND IDYES
+    Start-Sleep -Milliseconds 500
+    if ([SaveTax.Win32]::IsWindowVisible($q)) {
+        # 버튼 클릭이 안 먹었으면 창에 직접 '예' 명령
+        [void][SaveTax.Win32]::PostMessageW($q, 0x0111, [IntPtr]6, [IntPtr]::Zero)
+        Start-Sleep -Milliseconds 400
+        if ([SaveTax.Win32]::IsWindowVisible($q)) { Write-Log "  질의 창이 닫히지 않음" }
+    }
+    return $true
+}
+
 # 위하고 전자신고 "폴더 선택" 창을 기다렸다가 확인을 눌러 주고, 선택된 폴더에 생긴 전자신고 파일을
 # C:\savetax-efile\ 로 복사한 뒤 latest.json 에 기록 (크롬 확장이 이 고정 경로를 읽어 서버에 올리고 홈택스에 넣음)
 function Invoke-EfileDialog([int]$count, [int]$timeoutSec) {
@@ -44,6 +74,7 @@ function Invoke-EfileDialog([int]$count, [int]$timeoutSec) {
     $handled = 0
     $seen = @{}
     while ($handled -lt $count -and (Get-Date) -lt $deadline) {
+        if (Confirm-OverwriteDialog $false) { continue }
         $h = [SaveTax.Win32]::FindWindowW([IntPtr]::Zero, '폴더 선택')
         if ($h -eq [IntPtr]::Zero -or -not [SaveTax.Win32]::IsWindowVisible($h) -or $seen.ContainsKey([string]$h)) { Start-Sleep -Milliseconds 400; continue }
         Write-Log "폴더 선택 창 발견: $h"
@@ -76,6 +107,8 @@ function Invoke-EfileDialog([int]$count, [int]$timeoutSec) {
         $untilA = (Get-Date).AddSeconds(25)
         while ((Get-Date) -lt $untilA -and -not $savedPath) {
             Start-Sleep -Milliseconds 400
+            # 이미 제작한 파일이 있으면 덮어쓰기 질의가 먼저 뜬다 → 예 누르고 안내 창을 다시 기다림
+            if (Confirm-OverwriteDialog $true) { $untilA = (Get-Date).AddSeconds(25); continue }
             $a = [SaveTax.Win32]::FindWindowW([IntPtr]::Zero, '안내')
             if ($a -eq [IntPtr]::Zero -or -not [SaveTax.Win32]::IsWindowVisible($a)) { continue }
             $aOk = [IntPtr]::Zero; $aText = ''
@@ -99,6 +132,7 @@ function Invoke-EfileDialog([int]$count, [int]$timeoutSec) {
             $until = (Get-Date).AddSeconds(20)
             while ((Get-Date) -lt $until -and -not $found) {
                 Start-Sleep -Milliseconds 500
+                if (Confirm-OverwriteDialog $true) { $until = (Get-Date).AddSeconds(20) }
                 $cands = Get-ChildItem -LiteralPath $folder -File -ErrorAction SilentlyContinue | Where-Object {
                     $_.Name -match '^\d{8}[AC]103900\.0?1$' -and (-not $before.ContainsKey($_.Name) -or $_.LastWriteTimeUtc -gt $before[$_.Name])
                 } | Sort-Object LastWriteTimeUtc -Descending
