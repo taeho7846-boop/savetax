@@ -540,6 +540,107 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     router.refresh();
   }
 
+  // ===== 원천세 자동신고 3·4단계: 제작된 파일을 홈택스(원천세)·위택스(지방소득세)에서 검증 → 사람 확인 → 제출 =====
+  // 확장이 홈택스/위택스 탭에서 파일 업로드·검증까지만 하고 멈춘다. 여기서 [제출]을 눌러야 실제 제출 버튼을 누른다.
+  type SubmitFileView = { fileId: number; fileName: string; names: string[]; expectCount: number; expectAmount: number | null; alreadySubmitted: string[] };
+  type SubmitVerify = {
+    fileName?: string; target?: number | null; formatErr?: number | null; contentErr?: number | null;
+    normal?: number | null; taxTotal?: number | null; rows?: string[]; notes?: string[];
+  };
+  type SubmitProgress = { state: string; message?: string; confirmed?: boolean; receipts?: string[]; verify?: SubmitVerify };
+  type SubmitJobView = {
+    jobId: string; kinds: string[]; files: Record<string, SubmitFileView>; progress: Record<string, SubmitProgress>;
+    done: boolean; skipped?: { kind: string; reason: string }[]; error?: string;
+  };
+  const [submitJob, setSubmitJob] = useState<SubmitJobView | null>(null);
+  const [submitBusy, setSubmitBusy] = useState<string | null>(null);
+  const submitPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const submitKindLabel = (k: string) => (k === "income" ? "원천세 · 홈택스" : "지방소득세 · 위택스");
+  async function startSubmit() {
+    if (submitJob && !submitJob.done && !submitJob.error) return;
+    const ping = await extCall<{ ok: boolean; version?: string }>("ping", undefined, 2500);
+    if (!ping?.ok) { alert("크롬 확장 프로그램이 필요합니다.\n설정 > 크롬 확장에서 설치하거나, chrome://extensions 에서 새로고침해 주세요."); return; }
+    const res = await fetch("/api/withholding/filing/submit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yearMonth }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      const why = data?.skipped?.length ? `\n\n${data.skipped.map((s: { reason: string }) => `· ${s.reason}`).join("\n")}` : "";
+      alert((data?.error || "작업 생성 실패") + why);
+      return;
+    }
+    setSubmitJob({ jobId: data.jobId, kinds: data.kinds, files: data.files, progress: {}, done: false, skipped: data.skipped });
+    const opened = await extCall("efile-submit-open", { jobId: data.jobId, kinds: data.kinds }, 15000);
+    if (!opened?.ok) {
+      setSubmitJob(prev => prev ? { ...prev, error: `확장 프로그램이 홈택스·위택스 탭을 열지 못했습니다 (${opened?.error || "응답 없음"}). 확장을 새로고침해 버전 4.49 이상인지 확인해 주세요. 현재 ${ping.version || "?"}` } : prev);
+      return;
+    }
+    const startedAt = Date.now();
+    if (submitPollRef.current) clearInterval(submitPollRef.current);
+    submitPollRef.current = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/withholding/filing/submit?id=${data.jobId}`);
+        const j = await r.json().catch(() => null);
+        const stop = (error?: string) => {
+          if (submitPollRef.current) clearInterval(submitPollRef.current);
+          submitPollRef.current = null;
+          if (error) setSubmitJob(prev => prev ? { ...prev, error } : prev);
+          router.refresh();
+        };
+        if (!r.ok || !j?.ok) {
+          if (r.status === 404) stop("서버에서 작업 정보를 찾을 수 없습니다. 홈택스·위택스 탭에서 진행 상태를 직접 확인해 주세요.");
+          return;
+        }
+        setSubmitJob(prev => prev ? { ...prev, progress: j.progress, done: j.done } : prev);
+        if (j.done) stop();
+        else if (Date.now() - startedAt > 60 * 60 * 1000) stop("1시간 안에 끝나지 않아 진행 표시를 멈췄습니다. 홈택스·위택스 탭에서 상태를 확인해 주세요.");
+      } catch {}
+    }, 2000);
+  }
+  // [제출] / [취소] — 검증 결과를 본 사람이 누른다
+  async function decideSubmit(kind: string, action: "confirm" | "cancel") {
+    if (!submitJob) return;
+    const f = submitJob.files[kind];
+    const v = submitJob.progress[kind]?.verify;
+    if (action === "confirm") {
+      const site = kind === "income" ? "홈택스" : "위택스";
+      const warn: string[] = [];
+      if (v?.normal != null && f && v.normal !== f.expectCount) warn.push(`⚠ 검증된 건수(${v.normal})가 제작한 거래처 수(${f.expectCount})와 다릅니다`);
+      if (v?.taxTotal != null && f?.expectAmount != null && v.taxTotal !== f.expectAmount) warn.push(`⚠ 세액 합계(${v.taxTotal.toLocaleString()}원)가 위하고 금액(${f.expectAmount.toLocaleString()}원)과 다릅니다`);
+      if (f?.alreadySubmitted?.length) warn.push(`⚠ 이미 접수 처리된 거래처 포함: ${f.alreadySubmitted.join(", ")}`);
+      const msg = `${site}에 ${submitKindLabel(kind).split(" · ")[0]} ${v?.normal ?? f?.expectCount ?? ""}건을 실제로 제출합니다.\n제출한 뒤에는 되돌릴 수 없습니다 (고치려면 수정신고).\n${warn.length ? "\n" + warn.join("\n") + "\n" : ""}\n제출할까요?`;
+      if (!confirm(msg)) return;
+    }
+    setSubmitBusy(kind);
+    try {
+      const r = await fetch("/api/withholding/filing/submit", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: submitJob.jobId, kind, [action]: true }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) alert(j?.error || "처리하지 못했습니다");
+    } finally { setSubmitBusy(null); }
+  }
+  async function closeSubmitModal() {
+    if (!submitJob) return;
+    const states = submitJob.kinds.map(k => submitJob.progress[k]?.state || "wait");
+    if (!submitJob.error && states.includes("submitting")) { alert("제출이 진행 중입니다. 끝난 뒤에 닫아 주세요."); return; }
+    const pending = submitJob.kinds.filter(k => ["wait", "running", "verified"].includes(submitJob.progress[k]?.state || "wait"));
+    if (pending.length && !submitJob.error) {
+      if (!confirm("아직 제출하지 않은 항목이 있습니다. 닫으면 그 항목은 취소됩니다 (제출되지 않음).\n\n닫을까요?")) return;
+    }
+    for (const k of pending) {
+      await fetch("/api/withholding/filing/submit", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: submitJob.jobId, kind: k, cancel: true }),
+      }).catch(() => null);
+    }
+    if (submitPollRef.current) { clearInterval(submitPollRef.current); submitPollRef.current = null; }
+    setSubmitJob(null);
+    router.refresh();
+  }
+
   // 거래처 드라이브의 1. 원천세/해당월 폴더 열기
   // 로컬 기준경로(savetax-drive-base-path) 설정 시 → 윈도우 탐색기(savetax-app://), 아니면 웹 드라이브
   const [folderOpening, setFolderOpening] = useState<number | null>(null);
@@ -851,6 +952,15 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           {closeCheck?.error && (
             <span className="text-[11px] text-[#DC2626]">{closeCheck.error}</span>
           )}
+          {/* 원천세 자동신고 3·4단계: 제작된 파일을 홈택스·위택스에서 검증하고 제출 */}
+          <button
+            onClick={startSubmit}
+            disabled={!!submitJob && !submitJob.done && !submitJob.error}
+            title="이번 달에 제작한 전자신고 파일을 홈택스(원천세)·위택스(지방소득세)에 올려 검증합니다. 검증 결과를 확인한 뒤 [제출]을 눌러야 제출됩니다"
+            className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#86EFAC] text-[#15803D] bg-[#F1FBF4] hover:bg-[#DCFCE7] disabled:opacity-50"
+          >
+            검증 · 제출
+          </button>
           {checkedIds.size > 0 && (
             <div className="flex items-center gap-2">
               <div className="text-sm text-[#3182F6] font-medium bg-[#F5F9FF] px-3 py-1 rounded-lg">
@@ -1497,13 +1607,122 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               )}
               {efileJob.error && <div className="text-[12px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-3 py-2">{efileJob.error}</div>}
               {efileJob.done && !efileJob.error && (
-                <div className="text-[12px] text-[#15803D] bg-[#F1FBF4] rounded-lg px-3 py-2">
-                  파일 제작이 끝났습니다. 다음 단계(홈택스·위택스 검증·제출)는 준비 중입니다 — 지금은 홈택스 파일변환신고에서 직접 올려 주세요.
+                <div className="text-[12px] text-[#15803D] bg-[#F1FBF4] rounded-lg px-3 py-2 flex items-center justify-between gap-3">
+                  <span>파일 제작이 끝났습니다. 이어서 홈택스·위택스에서 검증하고 제출할 수 있습니다.</span>
+                  {Object.values(efileJob.progress).some(p => p.state === "done") && (
+                    <button onClick={() => { closeEfileModal(); startSubmit(); }}
+                      className="shrink-0 text-xs px-3 py-1.5 rounded-lg font-bold bg-[#15803D] text-white hover:bg-[#166534]">검증 · 제출로</button>
+                  )}
                 </div>
               )}
             </div>
             <div className="px-5 py-3 border-t border-[#F2F4F6] flex justify-end">
               <button onClick={closeEfileModal} disabled={!efileJob.done && !efileJob.error} className="text-xs px-4 py-2 rounded-lg font-medium bg-[#191F28] text-white disabled:opacity-40">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 원천세 자동신고: 홈택스·위택스 검증·제출 진행 모달 */}
+      {submitJob && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-[#191F28]">자동신고 · 홈택스·위택스 검증·제출</h3>
+                <div className="text-[11.5px] text-[#6B7684] mt-0.5">{year}년 {month}월 지급분 · 검증 결과를 확인하고 [제출]을 눌러야 실제로 제출됩니다</div>
+              </div>
+              <button onClick={closeSubmitModal} className="text-[#8B95A1] hover:text-[#191F28] text-lg">✕</button>
+            </div>
+            <div className="px-5 py-4 space-y-3 max-h-[68vh] overflow-y-auto">
+              {submitJob.kinds.map(k => {
+                const p = submitJob.progress[k];
+                const f = submitJob.files[k];
+                const v = p?.verify;
+                const st = p?.state || "wait";
+                const stLabel = st === "wait" ? "대기" : st === "running" ? "진행 중" : st === "verified" ? "제출 확인 대기" : st === "submitting" ? "제출 중" : st === "done" ? "제출 완료" : st === "error" ? "오류" : st === "skip" ? "취소됨" : st;
+                const color = st === "done" ? "text-[#15803D]" : st === "error" ? "text-[#DC2626]" : st === "verified" ? "text-[#B45309]" : st === "running" || st === "submitting" ? "text-[#1B64DA]" : "text-[#8B95A1]";
+                const countMismatch = v?.normal != null && f && v.normal !== f.expectCount;
+                const amountMismatch = v?.taxTotal != null && f?.expectAmount != null && v.taxTotal !== f.expectAmount;
+                return (
+                  <div key={k} className={`rounded-xl border p-3.5 ${st === "verified" ? "border-[#FCD34D] bg-[#FFFBEB]" : "border-[#F2F4F6]"}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-bold text-[#191F28]">{submitKindLabel(k)}</span>
+                      <span className={`text-[12px] font-semibold ${color} flex items-center gap-1.5`}>
+                        {(st === "running" || st === "submitting") && <span className="inline-block w-3 h-3 rounded-full border-2 border-[#1B64DA]/30 border-t-[#1B64DA] animate-spin" />}
+                        {stLabel}
+                      </span>
+                    </div>
+                    {f && (
+                      <div className="text-[11px] text-[#6B7684] mt-1">
+                        파일 {f.fileName} · {f.expectCount}곳{f.expectAmount != null ? ` · 위하고 세액 ${f.expectAmount.toLocaleString()}원` : ""}
+                        <div className="text-[#8B95A1] truncate" title={f.names.join(", ")}>{f.names.slice(0, 6).join(", ")}{f.names.length > 6 ? ` 외 ${f.names.length - 6}곳` : ""}</div>
+                      </div>
+                    )}
+                    {p?.message && <div className={`text-[11.5px] mt-1.5 ${st === "error" ? "text-[#DC2626]" : "text-[#4E5968]"}`}>{p.message}</div>}
+                    {v && (
+                      <div className="mt-2 grid grid-cols-4 gap-1.5 text-center">
+                        {([
+                          ["정상", v.normal, false],
+                          ["형식 오류", v.formatErr, true],
+                          ["내용 오류", v.contentErr, true],
+                          [k === "income" ? "대상" : "세액 합계", k === "income" ? v.target : v.taxTotal, false],
+                        ] as [string, number | null | undefined, boolean][]).map(([lab, n, bad]) => (
+                          <div key={lab} className="rounded-lg bg-white border border-[#F2F4F6] py-1.5">
+                            <div className={`text-[13px] font-bold ${bad && (n || 0) > 0 ? "text-[#DC2626]" : "text-[#191F28]"}`}>{n == null ? "–" : n.toLocaleString()}</div>
+                            <div className="text-[10px] text-[#8B95A1]">{lab}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(countMismatch || amountMismatch) && (
+                      <div className="text-[11px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-2.5 py-1.5 mt-2">
+                        {countMismatch && <div>검증된 건수({v?.normal})가 제작한 거래처 수({f.expectCount})와 다릅니다.</div>}
+                        {amountMismatch && <div>세액 합계({v?.taxTotal?.toLocaleString()}원)가 위하고 금액({f.expectAmount?.toLocaleString()}원)과 다릅니다.</div>}
+                      </div>
+                    )}
+                    {f?.alreadySubmitted?.length > 0 && st !== "done" && (
+                      <div className="text-[11px] text-[#B45309] bg-[#FFFBEB] rounded-lg px-2.5 py-1.5 mt-2">이미 접수 처리된 거래처가 들어 있습니다: {f.alreadySubmitted.join(", ")}</div>
+                    )}
+                    {v?.rows && v.rows.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-[11px] text-[#6B7684] cursor-pointer">검증 화면의 신고 내역 {v.rows.length}건 보기</summary>
+                        <div className="mt-1 max-h-32 overflow-y-auto text-[10.5px] text-[#4E5968] space-y-0.5">
+                          {v.rows.map((r, i) => <div key={i} className="truncate" title={r}>{r}</div>)}
+                        </div>
+                      </details>
+                    )}
+                    {v?.notes && v.notes.length > 0 && (
+                      <div className="text-[10.5px] text-[#8B95A1] mt-1.5">사이트 안내: {v.notes.slice(-3).join(" / ")}</div>
+                    )}
+                    {p?.receipts && p.receipts.length > 0 && (
+                      <div className="text-[11.5px] text-[#15803D] font-semibold mt-1.5 break-all">{k === "income" ? "접수번호" : "일괄신고ID"} {p.receipts.join(", ")}</div>
+                    )}
+                    {st === "verified" && (
+                      <div className="flex justify-end gap-2 mt-3">
+                        <button onClick={() => decideSubmit(k, "cancel")} disabled={submitBusy === k || !!p?.confirmed}
+                          className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F9FAFB] disabled:opacity-40">취소</button>
+                        <button onClick={() => decideSubmit(k, "confirm")} disabled={submitBusy === k || !!p?.confirmed}
+                          className="text-xs px-4 py-1.5 rounded-lg font-bold bg-[#15803D] text-white hover:bg-[#166534] disabled:opacity-40">
+                          {p?.confirmed ? "제출 진행 중…" : `${k === "income" ? "홈택스" : "위택스"}에 제출`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {submitJob.skipped && submitJob.skipped.length > 0 && (
+                <div className="text-[11px] text-[#B45309] bg-[#FFFBEB] rounded-lg px-3 py-2">
+                  제외: {submitJob.skipped.map(s => s.reason).join(" / ")}
+                </div>
+              )}
+              {submitJob.error && <div className="text-[12px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-3 py-2">{submitJob.error}</div>}
+              <div className="text-[11px] text-[#8B95A1] leading-relaxed">
+                홈택스는 세무대리인으로 로그인된 상태여야 하고, 위택스는 열린 탭에서 공동인증서로 로그인하면 이어서 진행됩니다. 홈택스·위택스 탭은 닫지 말고 그대로 두세요.
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-[#F2F4F6] flex justify-end">
+              <button onClick={closeSubmitModal} className="text-xs px-4 py-2 rounded-lg font-medium bg-[#191F28] text-white">닫기</button>
             </div>
           </div>
         </div>

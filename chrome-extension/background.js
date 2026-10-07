@@ -606,6 +606,180 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // ===== 원천세 자동신고 3·4단계: 홈택스(원천세)·위택스(지방소득세) 파일 검증·제출 =====
+  // 사이트 → 확장: 제출 작업의 탭을 연다. 탭마다 { jobId, kind, phase } 를 기억해 두고,
+  // 그 탭의 content script(content-hometax-efile.js / content-wetax-efile.js)가 "나는 무슨 작업이지?" 하고 물어본다.
+  // (주소 해시는 로그인 리다이렉트·페이지 이동에서 사라질 수 있어 탭 번호로 기억한다)
+  if (msg.type === "app-efile-submit-open") {
+    (async () => {
+      try {
+        const p = msg.payload || {};
+        const kinds = Array.isArray(p.kinds) ? p.kinds : [];
+        if (!p.jobId || !kinds.length) { sendResponse({ ok: false, error: "jobId, kinds 필요" }); return; }
+        const URLS = {
+          income: "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3",
+          local: "https://www.wetax.go.kr/etr/lit/b0701/B070101M31.do",
+        };
+        const opened = [];
+        let first = true;
+        for (const kind of kinds) {
+          if (!URLS[kind]) continue;
+          const tab = await chrome.tabs.create({ url: URLS[kind], active: first });
+          first = false;
+          await chrome.storage.local.set({ ["efileSubmit:" + tab.id]: { jobId: p.jobId, kind, phase: "start", at: Date.now() } });
+          opened.push({ kind, tabId: tab.id });
+        }
+        // 오래된 기록 정리 (3시간)
+        const all = await chrome.storage.local.get(null);
+        const stale = Object.keys(all).filter(k => k.startsWith("efileSubmit:") && Date.now() - ((all[k] && all[k].at) || 0) > 3 * 60 * 60 * 1000);
+        if (stale.length) await chrome.storage.local.remove(stale);
+        sendResponse({ ok: true, opened });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+    })();
+    return true;
+  }
+  if (msg.type === "efile-submit-whoami") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse(null); return; }
+      const key = "efileSubmit:" + tabId;
+      const got = await chrome.storage.local.get(key);
+      sendResponse(got[key] || null);
+    })();
+    return true;
+  }
+  // 단계 기록 갱신 (페이지가 바뀌어도 이어서 진행하기 위함). patch가 null이면 기록 삭제(작업 종료)
+  if (msg.type === "efile-submit-phase") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false }); return; }
+      const key = "efileSubmit:" + tabId;
+      if (msg.patch === null) { await chrome.storage.local.remove(key); sendResponse({ ok: true }); return; }
+      const got = await chrome.storage.local.get(key);
+      if (!got[key]) { sendResponse({ ok: false, error: "기록 없음" }); return; }
+      const next = { ...got[key], ...(msg.patch || {}), at: Date.now() };
+      await chrome.storage.local.set({ [key]: next });
+      sendResponse({ ok: true, entry: next });
+    })();
+    return true;
+  }
+  // 탭의 모든 프레임에서 input[type=file]을 찾아 파일을 넣는다 (대화상자 없이).
+  // 홈택스 파일선택은 업로드 컴포넌트(raonkuploader) iframe 안의 숨은 input이라 프레임을 가리지 않고 찾는다.
+  if (msg.type === "efile-submit-set-file") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          args: [String(msg.fileName || ""), String(msg.base64 || ""), String(msg.selector || "")],
+          func: (fileName, base64, selector) => {
+            try {
+              let inputs = [...document.querySelectorAll(selector || "input[type=file]")].filter(i => i.type === "file" && !i.disabled);
+              if (!inputs.length) return { n: 0 };
+              // 업로드 컴포넌트의 입력칸(file_o_…)이 있으면 그것만
+              const pref = inputs.filter(i => /^file_o_/.test(i.id || ""));
+              if (pref.length) inputs = pref;
+              const bin = atob(base64);
+              const bytes = new Uint8Array(bin.length);
+              for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+              const set = [];
+              for (const inp of inputs.slice(0, 2)) {
+                const dt = new DataTransfer();
+                dt.items.add(new File([bytes], fileName, { type: "application/octet-stream" }));
+                inp.files = dt.files;
+                inp.dispatchEvent(new Event("input", { bubbles: true }));
+                inp.dispatchEvent(new Event("change", { bubbles: true }));
+                set.push({ id: inp.id || "", name: inp.name || "", files: inp.files ? inp.files.length : 0 });
+              }
+              return { n: set.length, set, href: location.href.slice(0, 120) };
+            } catch (e) { return { n: 0, error: String(e && e.message) }; }
+          },
+        });
+        const hits = results.map(r => r.result).filter(r => r && r.n > 0);
+        sendResponse({ ok: hits.length > 0, hits, frames: results.length, errors: results.map(r => r.result && r.result.error).filter(Boolean) });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+    })();
+    return true;
+  }
+  // 탭의 어느 프레임에든 이 글자가 보이는지 (업로드 목록에 파일 이름이 올라갔는지 확인용)
+  if (msg.type === "efile-submit-frames-text") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          args: [String(msg.needle || "")],
+          func: (needle) => {
+            try {
+              const inValue = [...document.querySelectorAll("input")].some(i => (i.value || "").includes(needle));
+              const inFiles = [...document.querySelectorAll("input[type=file]")].some(i => [...(i.files || [])].some(f => f.name === needle));
+              const inText = !!(document.body && (document.body.innerText || "").includes(needle));
+              return { inText, inValue, inFiles, top: window === window.top };
+            } catch (e) { return null; }
+          },
+        });
+        const rs = results.map(r => r.result).filter(Boolean);
+        // 숨은 input.files에만 있는 것은 "화면에 등록됨"으로 치지 않는다 (우리가 넣은 것일 뿐)
+        sendResponse({ ok: true, shown: rs.some(r => r.inText || r.inValue), inFiles: rs.some(r => r.inFiles), frames: rs.length });
+      } catch (e) { sendResponse({ ok: false, error: e.message }); }
+    })();
+    return true;
+  }
+  // 파일선택 버튼을 실제로 누르고, 뜨려는 파일 대화상자를 가로채 파일 경로를 넣어 준다 (사람이 고르는 것과 같은 경로).
+  //   msg: { x, y, fileName, base64 }  — 파일은 먼저 다운로드 폴더(savetax-efile/)에 저장해 경로를 얻는다
+  if (msg.type === "efile-submit-choose-file") {
+    (async () => {
+      const tabId = sender.tab && sender.tab.id;
+      if (tabId == null) { sendResponse({ ok: false, error: "탭 없음" }); return; }
+      let path = "";
+      try {
+        const dlId = await chrome.downloads.download({
+          url: "data:application/octet-stream;base64," + String(msg.base64 || ""),
+          filename: "savetax-efile/" + String(msg.fileName || "efile.01"),
+          conflictAction: "overwrite", saveAs: false,
+        });
+        const until = Date.now() + 15000;
+        while (Date.now() < until) {
+          const [it] = await chrome.downloads.search({ id: dlId });
+          if (it && it.state === "complete") { path = it.filename; break; }
+          if (it && it.state === "interrupted") throw new Error("파일 저장 실패: " + (it.error || ""));
+          await new Promise(r => setTimeout(r, 300));
+        }
+        if (!path) throw new Error("파일을 디스크에 저장하지 못했습니다");
+      } catch (e) { sendResponse({ ok: false, error: e.message }); return; }
+
+      let listener = null;
+      try { await chrome.debugger.attach({ tabId }, "1.3"); }
+      catch (e) { if (!/already attached/i.test(e.message)) { sendResponse({ ok: false, error: "디버거 연결 실패: " + e.message, path }); return; } }
+      try {
+        await chrome.debugger.sendCommand({ tabId }, "Page.enable");
+        await chrome.debugger.sendCommand({ tabId }, "Page.setInterceptFileChooserDialog", { enabled: true });
+        const opened = new Promise((resolve) => {
+          listener = (source, method, params) => { if (source.tabId === tabId && method === "Page.fileChooserOpened") resolve(params); };
+          chrome.debugger.onEvent.addListener(listener);
+          setTimeout(() => resolve(null), 7000);
+        });
+        const x = msg.x, y = msg.y;
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+        const ev = await opened;
+        if (!ev) { sendResponse({ ok: false, error: "파일 대화상자가 열리지 않았습니다", path }); return; }
+        await chrome.debugger.sendCommand({ tabId }, "DOM.setFileInputFiles", { files: [path], backendNodeId: ev.backendNodeId });
+        sendResponse({ ok: true, path });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message, path });
+      } finally {
+        if (listener) chrome.debugger.onEvent.removeListener(listener);
+        try { await chrome.debugger.sendCommand({ tabId }, "Page.setInterceptFileChooserDialog", { enabled: false }); } catch (e) {}
+        try { await chrome.debugger.detach({ tabId }); } catch (e) {}
+      }
+    })();
+    return true;
+  }
+
   // 신고서보기 팝업 뷰어 추적용 시그널 (content → background)
   if (msg.type === "viewer-frame-ready") {
     if (sender.tab?.id != null && sender.frameId != null) {

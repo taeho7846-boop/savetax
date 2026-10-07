@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "4.48",
+  "version": "4.49",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": [
     "contentSettings",
@@ -20,6 +20,7 @@
     "https://hometax.go.kr/*",
     "https://*.hometax.go.kr/*",
     "https://sesw.hometax.go.kr/*",
+    "https://www.wetax.go.kr/*",
     "https://smarta.wehago.com/*",
     "https://www.wemembers.net/*",
     "https://tax.appplay.co.kr/*",
@@ -50,6 +51,29 @@
         "content-hometax.js"
       ],
       "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://hometax.go.kr/*",
+        "https://*.hometax.go.kr/*"
+      ],
+      "js": [
+        "efile-alert-hook.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://hometax.go.kr/*",
+        "https://*.hometax.go.kr/*"
+      ],
+      "js": [
+        "efile-submit-common.js",
+        "content-hometax-efile.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -93,6 +117,27 @@
         "content-savetax-app.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.wetax.go.kr/*"
+      ],
+      "js": [
+        "efile-alert-hook.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://www.wetax.go.kr/*"
+      ],
+      "js": [
+        "efile-submit-common.js",
+        "content-wetax-efile.js"
+      ],
+      "run_at": "document_idle"
     }
   ]
 }
