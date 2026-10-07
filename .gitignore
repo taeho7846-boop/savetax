@@ -51,3 +51,6 @@ next-env.d.ts
 # uploads (신분증, 개인정보 파일)
 /public/uploads/
 google-credentials.json
+
+# 로컬 도우미 배포본 (scripts/launcher/ 원본에서 predev·prebuild가 자동 복사)
+/public/launcher/

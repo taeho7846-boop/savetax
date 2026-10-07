@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync:launcher": "node scripts/launcher/sync-public.mjs",
+    "predev": "npm run sync:launcher",
     "dev": "next dev --webpack",
+    "prebuild": "npm run sync:launcher",
     "build": "next build --webpack",
     "postinstall": "prisma generate",
     "start": "next start",

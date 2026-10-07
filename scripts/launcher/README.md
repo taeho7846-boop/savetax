@@ -10,6 +10,13 @@ savetax 웹페이지에서 데스크톱 앱 실행 / 파일탐색기 열기 기�
 
 설치 후 `%USERPROFILE%\savetax-launcher\launcher.ps1` 위치에 복사되며, 레지스트리에 `savetax-app://` 프로토콜이 등록됩니다 (HKCU, 관리자권한 불필요).
 
+## 사이트 배포 (자동)
+
+이 폴더가 **유일한 원본**입니다. 설정 > 내 PC 연동의 다운로드 링크(`/launcher/...`)는
+`npm run dev` / `npm run build` 직전에 `sync-public.mjs`가 이 폴더의 세 파일을
+`public/launcher/`로 그대로 복사한 것을 내려줍니다 (`public/launcher/`는 git에 올리지 않음).
+`launcher.ps1`을 고치면 `app/(main)/settings/LocalPCSettings.tsx`의 다운로드 링크 `?v=` 숫자도 하나 올리세요.
+
 ## 사용법
 
 웹페이지에서 다음 URL을 열면 동작합니다:
