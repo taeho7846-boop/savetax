@@ -50,15 +50,16 @@ export async function POST(req: NextRequest) {
     where: { isDeleted: false, wehagoCno: { not: null } },
     select: { id: true, name: true, wehagoCno: true },
   });
-  const byCno = new Map<string, typeof clients[number]>();
-  for (const c of clients) if (c.wehagoCno) byCno.set(c.wehagoCno, c);
+  // 같은 위하고 회사(cno)를 거래처 여러 건이 공유할 수 있음(중복 등록 등) → 전부 반영 (한 건만 반영하면 나머지가 미마감으로 보임)
+  const byCno = new Map<string, typeof clients>();
+  for (const c of clients) if (c.wehagoCno) byCno.set(c.wehagoCno, [...(byCno.get(c.wehagoCno) || []), c]);
 
   const closedClientIds = new Set<number>();
   const unmatched: string[] = [];
   let matched = 0;
   for (const r of rows) {
-    const client = byCno.get(String(r.cno || ""));
-    if (!client) { unmatched.push(String(r.name || r.cno)); continue; }
+    const list = byCno.get(String(r.cno || "")) || [];
+    if (list.length === 0) { unmatched.push(String(r.name || r.cno)); continue; }
     const amountNum = r.amount == null || r.amount === "" ? null : Math.round(Number(r.amount));
     const data = {
       closed: true,
@@ -68,12 +69,14 @@ export async function POST(req: NextRequest) {
       wehagoKey: r.keyClose ?? null,
       checkedAt: now, checkedById: session.id,
     };
-    await prisma.withholdingFiling.upsert({
-      where: { clientId_yearMonth_kind: { clientId: client.id, yearMonth, kind } },
-      create: { clientId: client.id, yearMonth, kind, ...data },
-      update: data,
-    });
-    closedClientIds.add(client.id);
+    for (const client of list) {
+      await prisma.withholdingFiling.upsert({
+        where: { clientId_yearMonth_kind: { clientId: client.id, yearMonth, kind } },
+        create: { clientId: client.id, yearMonth, kind, ...data },
+        update: data,
+      });
+      closedClientIds.add(client.id);
+    }
     matched++;
   }
 
