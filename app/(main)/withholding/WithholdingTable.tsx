@@ -367,6 +367,18 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   // 지급기간을 이번 달로 맞춰 전체 수임처를 조회하고 결과를 서버에 반영한 뒤 탭을 닫는다.
   // 여기서는 두 종류의 조회 시각이 모두 갱신될 때까지 폴링하다가 새로고침.
   type CloseProgress = { state: string; done: number; total: number; closed: number; message: string } | null;
+  // 상단 고정 헤더 높이 (표 머리글의 sticky top 계산용)
+  const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [stickyHeaderH, setStickyHeaderH] = useState(0);
+  React.useEffect(() => {
+    const el = stickyHeaderRef.current;
+    if (!el) return;
+    const update = () => setStickyHeaderH(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [closeCheck, setCloseCheck] = useState<{ startedAt: number; income: boolean; local: boolean; error?: string; progress?: Record<string, CloseProgress> } | null>(null);
   const closeCheckPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const filingOf = (c: Client, kind: "income" | "local") => c.withholdingFilings?.find(f => f.kind === kind) || null;
@@ -754,8 +766,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
   return (
     <>
-      {/* 헤더 */}
-      <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
+      {/* 헤더 — 스크롤해도 상단에 고정 (아래쪽 거래처 체크 후 바로 버튼을 누를 수 있게). 표 머리글은 이 높이만큼 아래에 고정 */}
+      <div ref={stickyHeaderRef} className="sticky top-0 z-30 -mx-6 px-6 pt-4 pb-1 mb-2 bg-[#F9FAFB]/85 backdrop-blur-md">
+      <div className="flex items-end justify-between mb-2 gap-4 flex-wrap">
         <div>
           <div className="text-[12.5px] text-[#86868b] font-medium">월별 원천징수</div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">원천세 · {year}년 {parseInt(mon)}월</h1>
@@ -865,6 +878,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
             <button onClick={() => handleMonthChange(1)} className="w-7 h-7 rounded-lg text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm flex items-center justify-center">▶</button>
           </div>
         </div>
+      </div>
       </div>
 
       {/* 원천세 자동신고: 마감상태 조회 진행 패널 */}
@@ -987,7 +1001,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       {/* 통합 테이블 */}
       <div className="glass rounded-2xl">
         <table className="w-full text-[12.5px]">
-          <thead className="bg-white/60 backdrop-blur sticky top-0 z-10">
+          <thead className="bg-white/60 backdrop-blur sticky z-10" style={{ top: stickyHeaderH }}>
             <tr className="border-b border-white/40">
               <th className="px-2 py-2.5 w-9"></th>
               <th className="text-left px-4 py-2.5 text-[10.5px] font-bold text-[#333D4B] uppercase tracking-wider whitespace-nowrap">고객사명</th>
