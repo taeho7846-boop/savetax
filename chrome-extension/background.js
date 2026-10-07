@@ -656,7 +656,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let first = true;
         for (const kind of kinds) {
           if (!URLS[kind]) continue;
-          const tab = await chrome.tabs.create({ url: URLS[kind], active: first });
+          // 요청한 사이트 탭과 같은 창에 연다. 창을 지정하지 않으면 '마지막으로 포커스된 창'에 열리는데,
+          // 파일 제작 직후에는 그게 방금 쓴 최소화 창이거나 다른 창일 수 있어 탭이 안 보이는 곳에 열린다.
+          const createProps = { url: URLS[kind], active: first };
+          if (sender.tab && sender.tab.windowId != null) { createProps.windowId = sender.tab.windowId; createProps.index = sender.tab.index + 1 + opened.length; }
+          const tab = await chrome.tabs.create(createProps);
           first = false;
           await chrome.storage.local.set({ ["efileSubmit:" + tab.id]: { jobId: p.jobId, kind, phase: "start", at: Date.now() } });
           opened.push({ kind, tabId: tab.id });
@@ -769,8 +773,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const dlId = await chrome.downloads.download({
           url: "data:application/octet-stream;base64," + String(msg.base64 || ""),
-          filename: "savetax-efile/" + String(msg.fileName || "efile.01"),
-          conflictAction: "overwrite", saveAs: false,
+          // 매번 새 폴더에 저장한다. 같은 폴더에 같은 이름이 있으면 크롬이 "이름 (1).01"로 바꿔 저장해
+          // 홈택스에 번호가 붙은 이름으로 올라간다(2026-10-07 실측: "20261007C103900 (3).01")
+          filename: "savetax-efile/" + Date.now().toString(36) + "/" + String(msg.fileName || "efile.01"),
+          conflictAction: "uniquify", saveAs: false,
         });
         const until = Date.now() + 15000;
         while (Date.now() < until) {

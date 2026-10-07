@@ -181,13 +181,14 @@
     const pwInput = await waitFor(() => q("UTERNAAZ65_wframe_input1") || [...document.querySelectorAll('[id*="UTERNAAZ65"] input[type=password]')].find(visible), 20000, 300);
     if (!pwInput) { await S.fail("비밀번호 입력 창이 열리지 않았습니다 (파일이 등록되지 않았을 수 있음)", { since: beforeVerify, diag: true }); return; }
     await sleep(500);
-    // 크롬 자동완성이 다른 비밀번호를 채워 넣는 경우가 있어 반드시 비우고 입력
+    // 크롬 자동완성이 다른 비밀번호를 채워 넣는 경우가 있어 반드시 비우고 입력.
+    // 값은 입력칸에 직접 넣는다. 키 입력(디버거) 방식은 쓰지 않는다 — 포커스가 입력칸이 아닌 곳(상단 검색창)에 있으면
+    // 글자가 거기로 들어가 검색 화면이 열려 버린다(2026-10-07 실측: 검색창에 비밀번호가 찍히고 화면 위에 X가 뜸).
     S.setInput(pwInput, "");
-    pwInput.focus();
-    const typed = await S.bg({ type: "efile-type-keys", text: d.password });
-    await sleep(300);
-    if (!typed || !typed.ok || pwInput.value !== d.password) S.setInput(pwInput, d.password);
-    await sleep(300);
+    await sleep(200);
+    S.setInput(pwInput, d.password);
+    await sleep(500);
+    if (pwInput.value !== d.password) { await S.fail("비밀번호 입력칸에 값을 넣지 못했습니다", { since: beforeVerify, diag: true }); return; }
     const pwOk = q("UTERNAAZ65_wframe_trigger12") || [...document.querySelectorAll('[id*="UTERNAAZ65"] input[type=button],[id*="UTERNAAZ65"] button,[id*="UTERNAAZ65"] a')].find(e => visible(e) && /^확인$/.test(txt(e)));
     if (!pwOk) { await S.fail("비밀번호 창의 [확인] 버튼을 찾지 못했습니다", { since: beforeVerify, diag: true }); return; }
     pwOk.click();
@@ -201,23 +202,34 @@
       contentErr: S.num(val("_tbx_tbcntnVrfErrScnt")),
       normal: S.num(val("_tbx_tbcntnVrfNrmlScnt")),
     });
-    let v = null, stable = 0, last = "";
-    const until = Date.now() + 120000;
+    // 검증은 형식검증 → 내용검증 순서로 진행되고, 도중에는 값이 중간 상태(예: 오류 1 · 정상 0)로 보인다.
+    // 끝나면 "[내용검증하기]가 완료 되었습니다. [전자파일제출하기]버튼을 눌러…" 안내가 뜬다 → 그 안내를 기다린다.
+    // 안내가 끝내 안 보이면(오류로 끝난 경우 등) 값이 45초 동안 그대로일 때 그 값으로 판단한다.
+    const doneMsgShown = () => [...document.querySelectorAll("span,div,p,strong,em,li,td,dd,label")]
+      .some(e => e.childElementCount === 0 && /내용검증하기.{0,4}완료/.test(txt(e)) && visible(e));
+    let v = null, last = "", stableSince = Date.now(), sawDone = false;
+    const until = Date.now() + 240000;
     while (Date.now() < until) {
       await sleep(1000);
       const cur = read();
-      const has = cur.fileName && (cur.normal !== null || cur.formatErr !== null || cur.contentErr !== null);
       const sig = JSON.stringify(cur);
-      if (has && sig === last) { if (++stable >= 2) { v = cur; break; } } else stable = 0;
-      last = sig;
-      // 비밀번호 오류 등 안내가 떴으면 바로 중단
+      if (sig !== last) { last = sig; stableSince = Date.now(); }
+      const stableFor = Date.now() - stableSince;
+      if (doneMsgShown()) {
+        sawDone = true;
+        if (cur.fileName && cur.normal !== null && stableFor >= 2000) { v = cur; break; }
+      } else if (cur.fileName && (cur.formatErr !== null || cur.normal !== null) && stableFor >= 45000) { v = cur; break; }
+      // 비밀번호 오류 등 안내가 떴는데 검증이 시작되지 않았으면 바로 중단
       const n = S.notes(beforeVerify);
-      if (n.some(m => /비밀번호|일치하지|오류|올바르지|실패/.test(m)) && !has) break;
+      if (n.some(m => /비밀번호|일치하지|오류|올바르지|실패/.test(m)) && !cur.fileName) break;
     }
     if (!v) { await S.fail("검증 결과를 읽지 못했습니다", { since: beforeVerify, diag: true }); return; }
     v.notes = S.notes(beforeVerify);
     // 화면에는 "20261007C103900.01 ( 5,697 Byte )"처럼 크기가 붙어 나온다 → 파일 이름 부분만 꺼내 비교
-    v.fileName = (v.fileName.match(/\d{8}[A-Za-z]\d{6}\.\d+/) || [v.fileName.replace(/\s*\(.*$/, "").trim()])[0];
+    //  (같은 이름을 여러 번 내려받아 "…C103900 (3).01"처럼 번호가 붙은 경우도 번호를 떼고 비교)
+    { const raw = v.fileName.replace(/\s*\(\d+\)(?=\.)/, "");
+      v.fileName = (raw.match(/\d{8}[A-Za-z]\d{6}\.\d+/) || [raw.replace(/\s*\(.*$/, "").trim()])[0]; }
+    if (!sawDone) v.notes.push("검증 완료 안내를 확인하지 못해 화면 값이 멈춘 상태로 판단했습니다");
     // 파일검증이 끝나면 화면 위에 창이 떠 있어, X(닫기)를 눌러야 제출하러 갈 수 있다 → 닫는다
     await sleep(800);
     const wins = openWindows();

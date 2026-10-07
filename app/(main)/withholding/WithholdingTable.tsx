@@ -551,7 +551,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               const fileIds: Record<string, number> = {};
               for (const k of kindsDone) fileIds[k] = prog[k].fileId as number;
               setEfileJob(null);
-              startSubmit({ fileIds });
+              // 이어서 검증 단계 시작 — 실패하면 조용히 멈추지 않고 알린다
+              startSubmit({ fileIds }).catch(e => alert("검증 단계로 넘어가지 못했습니다: " + (e instanceof Error ? e.message : String(e)) + " — [검증 · 제출] 버튼을 눌러 주세요."));
             } else {
               setEfileJob(prev => prev ? { ...prev, error: "제작에 실패한 항목이 있어 검증 단계로 넘어가지 않았습니다. 원인을 확인한 뒤 다시 실행해 주세요." } : prev);
             }
