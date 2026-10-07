@@ -146,12 +146,15 @@
       const toggles = monthToggleButtons();
       if (toggles.length < 2) throw new Error("지급기간 월 선택 버튼을 찾지 못했습니다");
       if (monthValueOf(toggles[idx]) === mm) return;
-      fire(toggles[idx]);
-      const tTop = rect(toggles[idx]).bottom;
-      const opt = await waitFor(() => [...document.querySelectorAll("div,li")].find(e => visible(e) && e.childElementCount === 0 && txt(e) === mm && rect(e).top > tTop && rect(e).top < tTop + 400), 2500, 100);
-      if (!opt) { await sleep(500); continue; }
-      fire(opt);
-      await sleep(600);
+      const tr = rect(toggles[idx]);
+      // 1·2회차는 합성 클릭, 3회차는 디버거 실클릭(비활성 탭 등에서 합성 이벤트가 안 먹을 때)
+      if (attempt < 2) fire(toggles[idx]); else await realClick(tr.left + tr.width / 2, tr.top + tr.height / 2);
+      const tTop = tr.bottom;
+      const findOpt = () => [...document.querySelectorAll("div,li")].find(e => visible(e) && e.childElementCount === 0 && txt(e) === mm && rect(e).top > tTop && rect(e).top < tTop + 400);
+      const opt = await waitFor(findOpt, 2500, 100);
+      if (!opt) { await sleep(700); continue; }
+      if (attempt < 2) fire(opt); else { const orr = rect(opt); await realClick(orr.left + orr.width / 2, orr.top + orr.height / 2); }
+      await sleep(700);
       if (monthValueOf(monthToggleButtons()[idx]) === mm) return;
     }
     throw new Error(`지급기간 ${idx === 0 ? "시작" : "종료"}월을 ${mm}로 설정하지 못했습니다`);

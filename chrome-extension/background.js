@@ -437,8 +437,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const urls = (msg.payload && msg.payload.urls) || [];
         if (!urls.length) { sendResponse({ ok: false, error: "열 주소가 없습니다" }); return; }
-        const win = await chrome.windows.create({ url: urls, state: "minimized", focused: false });
-        sendResponse({ ok: true, windowId: win.id });
+        // 주소마다 창을 따로 연다 — 한 창에 탭 2개를 열면 뒤쪽 탭은 비활성 상태라 화면 갱신(rAF)이 멈춰
+        // 드롭다운 등 UI 조작이 실패함(2026-10 실측: 지방소득세 탭 월 설정 실패)
+        const ids = [];
+        for (const url of urls) {
+          const win = await chrome.windows.create({ url, state: "minimized", focused: false });
+          ids.push(win.id);
+          await new Promise(r => setTimeout(r, 800));
+        }
+        sendResponse({ ok: true, windowIds: ids });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });
       }
