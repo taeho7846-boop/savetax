@@ -35,15 +35,42 @@
     if (me.phase === "submit") { await submitPhase(); return; }
 
     // ---------- 1) 로그인 확인 ----------
-    await S.report("running", "홈택스 여는 중…");
-    const ok = await waitFor(loggedIn, 20000, 500);
-    if (!ok) {
-      await S.fail("홈택스에 세무대리인으로 로그인되어 있지 않습니다. 사이트의 홈택스 로그인 버튼으로 로그인한 뒤 [검증 · 제출]을 다시 눌러 주세요");
+    if (me.phase === "login") {
+      // 자동 로그인 진행 중 — 기존 로그인 자동화(content-hometax.js)가 이 탭에서 아이디·인증서 로그인을 한다.
+      // 끝나면 background가 이 탭을 닫고 새 탭을 열어 작업을 넘겨준다(hometax-reopen). 여기서는 기다리기만 한다.
+      S.showBanner("홈택스 자동 로그인 중… (인증서 창이 떠도 그대로 두세요)");
+      await sleep(150000);
+      await S.fail("홈택스 자동 로그인이 끝나지 않았습니다. 홈택스 탭의 로그인 화면을 확인한 뒤 다시 눌러 주세요", { diag: true });
       return;
+    }
+    await S.report("running", "홈택스 여는 중…");
+    const loggedOut = () => [...document.querySelectorAll("a,button,span")].some(e => visible(e) && txt(e) === "로그인");
+    let seen = await waitFor(() => (loggedIn() ? "in" : loggedOut() ? "out" : null), 20000, 500);
+    if (seen === "out") {
+      // 화면이 먼저 '로그인'으로 그려졌다가 세션 확인 뒤 '로그아웃'으로 바뀌는 경우가 있어 조금 더 본다
+      if (await waitFor(loggedIn, 4000, 400)) seen = "in";
     }
     const d = await S.detail();
     if (!d || !d.ok) { await S.fail("작업 정보를 받지 못했습니다: " + (d && d.error)); return; }
     if (d.cancelled) { await S.setPhase(null); return; }
+    if (seen !== "in") {
+      if (me.loginTried) {
+        await S.fail("자동 로그인을 했는데도 홈택스가 로그인 상태가 아닙니다. 홈택스 탭에서 직접 로그인한 뒤 다시 눌러 주세요", { diag: true });
+        return;
+      }
+      if (!d.hometaxLogin) {
+        await S.fail("홈택스에 로그인되어 있지 않고, 설정에 세무대리인 홈택스 ID/PW도 없습니다. 설정에 저장하거나 직접 로그인한 뒤 다시 눌러 주세요");
+        return;
+      }
+      // 세무대리인 계정으로 자동 로그인 (사이트의 '세무대리인 홈택스 로그인' 버튼과 같은 방식: #savetax= 해시)
+      await S.setPhase({ phase: "login", loginTried: true });
+      await S.report("running", "홈택스 자동 로그인 중…");
+      const enc = btoa(unescape(encodeURIComponent(JSON.stringify(d.hometaxLogin)))).replace(/=/g, "");
+      try { sessionStorage.removeItem("savetax_creds"); } catch (e) {}
+      location.href = "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=" + enc;
+      location.reload();
+      return;
+    }
     S.clearNotes();
     S.setMode("verify");
 

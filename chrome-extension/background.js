@@ -1510,12 +1510,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "hometax-reopen") {
     (async () => {
       try {
+        // 자동신고 검증·제출 작업 중에 한 자동 로그인이면, 새 탭이 그 작업을 이어받는다
+        const oldKey = sender.tab?.id != null ? "efileSubmit:" + sender.tab.id : null;
+        const carried = oldKey ? (await chrome.storage.local.get(oldKey))[oldKey] : null;
         // 현재 홈택스 탭 닫기
         if (sender.tab?.id) {
           await chrome.tabs.remove(sender.tab.id);
         }
         // 새 탭으로 홈택스 열기
-        await chrome.tabs.create({ url: "https://hometax.go.kr" });
+        const nt = await chrome.tabs.create({
+          url: carried ? "https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3" : "https://hometax.go.kr",
+        });
+        if (carried) {
+          await chrome.storage.local.set({ ["efileSubmit:" + nt.id]: { ...carried, phase: "start", loginTried: true, at: Date.now() } });
+          await chrome.storage.local.remove(oldKey);
+        }
         sendResponse({ ok: true });
       } catch (e) {
         sendResponse({ ok: false, error: e.message });

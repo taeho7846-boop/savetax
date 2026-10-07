@@ -9,7 +9,9 @@ import { createEfileJob, getEfileJob, updateEfileJob, type EfileKind, type Efile
 //       → 사람이 사이트에서 [제출] 클릭(confirm) → 확장이 제출 버튼을 누르고 접수번호를 보고 (submit-result)
 //       사람이 확인하기 전에는 어떤 제출 버튼도 누르지 않는다.
 //
-// POST  /api/withholding/filing/submit  { yearMonth, kinds? }        → 이번 달 내가 제작한 최신 파일(kind별)로 작업 생성
+// POST  /api/withholding/filing/submit  { yearMonth, kinds?, fileIds? }
+//        → 이번 달 내가 제작한 최신 파일(kind별)로 작업 생성. fileIds({income: id, local: id})를 주면 그 파일로
+//          (제작 직후 이어서 검증할 때: 방금 제작한 파일만 대상으로)
 // GET   /api/withholding/filing/submit?id=…                          → 진행 상황 (사이트 폴링)
 // GET   /api/withholding/filing/submit?id=…&kind=…&detail=1          → 확장용: 파일 내용(base64)·비밀번호·확인 여부
 // GET   /api/withholding/filing/submit?id=…&kind=…&detail=1&poll=1   → 확장용: 확인 여부만 (가벼운 폴링)
@@ -20,12 +22,13 @@ import { createEfileJob, getEfileJob, updateEfileJob, type EfileKind, type Efile
 const KIND_LABEL: Record<string, string> = { income: "원천세(홈택스)", local: "지방소득세(위택스)" };
 
 // 이번 달·종류별로 "내가 제작한" 가장 최근 파일 (이미 제출된 파일이면 건너뜀)
-async function latestFiles(userId: number, yearMonth: string, kinds: EfileKind[]) {
+async function latestFiles(userId: number, yearMonth: string, kinds: EfileKind[], fileIds?: Record<string, number>) {
   const out: Record<string, EfileSubmitFile> = {};
   const skipped: { kind: string; reason: string }[] = [];
   for (const kind of kinds) {
+    const wantId = fileIds && Number.isFinite(Number(fileIds[kind])) ? Number(fileIds[kind]) : null;
     const file = await prisma.withholdingFilingFile.findFirst({
-      where: { yearMonth, kind, createdById: userId },
+      where: { yearMonth, kind, createdById: userId, ...(wantId ? { id: wantId } : {}) },
       orderBy: { createdAt: "desc" },
       select: { id: true, fileName: true, clientIds: true, status: true },
     });
@@ -64,8 +67,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "설정 > 위하고 계정에 전자신고 파일 비밀번호를 먼저 저장해주세요" }, { status: 400 });
   }
 
-  const { files, skipped } = await latestFiles(session.id, yearMonth, kinds);
-  const useKinds = kinds.filter(k => files[k]);
+  const fileIds = body?.fileIds && typeof body.fileIds === "object" ? (body.fileIds as Record<string, number>) : undefined;
+  // fileIds를 줬으면 그 안에 있는 종류만 (방금 제작에 성공한 종류만 검증)
+  const wantKinds = fileIds ? kinds.filter(k => fileIds[k] != null) : kinds;
+  const { files, skipped } = await latestFiles(session.id, yearMonth, wantKinds, fileIds);
+  const useKinds = wantKinds.filter(k => files[k]);
   if (useKinds.length === 0) {
     return NextResponse.json({ ok: false, error: "제출할 파일이 없습니다. 먼저 [자동신고 · 파일 제작]을 해주세요", skipped }, { status: 400 });
   }
@@ -106,11 +112,18 @@ export async function GET(req: NextRequest) {
     }
     const file = await prisma.withholdingFilingFile.findUnique({ where: { id: f.fileId }, select: { data: true, fileName: true, createdById: true } });
     if (!file || file.createdById !== session.id) return NextResponse.json({ ok: false, error: "파일을 찾을 수 없습니다" }, { status: 404 });
-    const settings = await prisma.settings.findUnique({ where: { userId: session.id }, select: { efilePassword: true } });
+    const settings = await prisma.settings.findUnique({
+      where: { userId: session.id },
+      select: { efilePassword: true, agentHometaxId: true, agentHometaxPw: true, certName: true, certPassword: true },
+    });
+    // 홈택스에 로그인되어 있지 않을 때 확장이 세무대리인 계정으로 자동 로그인할 수 있게 (설정 > 세무대리인 홈택스 로그인과 같은 값)
+    const hometaxLogin = kind === "income" && settings?.agentHometaxId && settings?.agentHometaxPw
+      ? { id: settings.agentHometaxId, pw: settings.agentHometaxPw, certName: settings.certName || "", certPw: settings.certPassword || "" }
+      : null;
     return NextResponse.json({
       ok: true, jobId: job.id, kind, yearMonth: job.yearMonth,
       fileName: file.fileName, fileBase64: Buffer.from(file.data).toString("base64"),
-      password: settings?.efilePassword || "",
+      password: settings?.efilePassword || "", hometaxLogin,
       expectCount: f.expectCount, expectAmount: f.expectAmount, names: f.names,
       confirmed: !!p?.confirmed, cancelled: !!p?.cancelled, state: p?.state,
     });

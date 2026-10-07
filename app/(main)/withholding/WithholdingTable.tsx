@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { toggleWithholdingTask, markWithholdingDone, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
 import { PinIcon } from "@/components/icons";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
@@ -476,16 +476,27 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   // ===== 원천세 자동신고 2단계: 체크한 거래처 전자신고 파일 제작 (위하고) =====
   type EfileJobView = {
     jobId: string; kinds: string[]; targets: { clientId: number; name: string; cno: string }[];
-    progress: Record<string, { state: string; message?: string; fileName?: string; produced?: string[]; skipped?: string[] }>;
+    progress: Record<string, { state: string; message?: string; fileId?: number; fileName?: string; produced?: string[]; skipped?: string[] }>;
     done: boolean; skippedAtStart?: { name: string; reason: string }[]; error?: string;
   };
   const [efileJob, setEfileJob] = useState<EfileJobView | null>(null);
   const efilePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 이어서 진행: 파일 제작이 끝나면 홈택스·위택스 업로드·검증까지 자동으로 이어 간다 (제출은 검증 결과를 보고 [제출]을 눌러야 함). 선택은 브라우저에 기억
+  const [chainVerify, setChainVerify] = useState(false);
+  useEffect(() => { try { setChainVerify(localStorage.getItem("savetax-efile-chain") === "1"); } catch {} }, []);
+  function toggleChainVerify(on: boolean) {
+    setChainVerify(on);
+    try { localStorage.setItem("savetax-efile-chain", on ? "1" : "0"); } catch {}
+  }
   async function startProduce() {
     if (efileJob && !efileJob.done && !efileJob.error) return;
     const ids = [...checkedIds];
     if (ids.length === 0) return;
-    if (!confirm(`체크한 ${ids.length}개 거래처의 전자신고 파일(원천세·지방소득세)을 위하고에서 제작합니다.\n마감된 거래처만 포함되며, 홈택스·위택스 제출은 아직 하지 않습니다.\n\n시작할까요?`)) return;
+    const chain = chainVerify; // 이번 실행에서 검증까지 이어갈지 (시작 시점의 선택으로 고정)
+    if (chain && !(await ensureExtConnected())) return;
+    if (!confirm(chain
+      ? `체크한 ${ids.length}개 거래처의 전자신고 파일(원천세·지방소득세)을 위하고에서 제작하고, 이어서 홈택스·위택스에 올려 검증까지 진행합니다.\n마감된 거래처만 포함됩니다. 제출은 검증 결과를 확인하고 [제출]을 눌러야 됩니다.\n\n시작할까요?`
+      : `체크한 ${ids.length}개 거래처의 전자신고 파일(원천세·지방소득세)을 위하고에서 제작합니다.\n마감된 거래처만 포함되며, 홈택스·위택스 제출은 아직 하지 않습니다.\n\n시작할까요?`)) return;
     const res = await fetch("/api/withholding/filing/job", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ yearMonth, clientIds: ids }),
@@ -530,6 +541,20 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           efilePollRef.current = null;
           if (!j.done) setEfileJob(prev => prev ? { ...prev, error: "6분 안에 끝나지 않았습니다. 위하고 로그인 상태를 확인해주세요." } : prev);
           router.refresh();
+          if (j.done && chain) {
+            // 이어서 진행: 원천세·지방소득세가 모두 제작 완료일 때만 검증 단계로 (하나라도 실패했으면 멈추고 제작 창을 그대로 둔다)
+            const prog = j.progress as Record<string, { state: string; fileId?: number }>;
+            const kindsAll = data.kinds as string[];
+            const kindsDone = kindsAll.filter(k => prog[k]?.state === "done" && prog[k]?.fileId);
+            if (kindsDone.length === kindsAll.length) {
+              const fileIds: Record<string, number> = {};
+              for (const k of kindsDone) fileIds[k] = prog[k].fileId as number;
+              setEfileJob(null);
+              startSubmit({ fileIds });
+            } else {
+              setEfileJob(prev => prev ? { ...prev, error: "제작에 실패한 항목이 있어 검증 단계로 넘어가지 않았습니다. 원인을 확인한 뒤 다시 실행해 주세요." } : prev);
+            }
+          }
         }
       } catch {}
     }, 2500);
@@ -556,23 +581,26 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const [submitBusy, setSubmitBusy] = useState<string | null>(null);
   const submitPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const submitKindLabel = (k: string) => (k === "income" ? "원천세 · 홈택스" : "지방소득세 · 위택스");
-  async function startSubmit() {
-    if (submitJob && !submitJob.done && !submitJob.error) return;
+  // 확장 프로그램과 이 페이지가 연결돼 있는지 확인 (확장을 새로고침하면 이미 열려 있던 페이지와의 연결이 끊긴다)
+  async function ensureExtConnected(): Promise<string | null> {
     const ping = await extCall<{ ok: boolean; version?: string }>("ping", undefined, 2500);
-    if (!ping?.ok) {
-      // 확장을 새로고침(업데이트)하면 이미 열려 있던 이 페이지와의 연결이 끊긴다 → 페이지를 새로고침하면 다시 붙는다.
-      // (페이지가 열릴 때 확장이 남긴 표시가 있는데 응답이 없으면 이 경우)
-      const hadExt = typeof document !== "undefined" && !!document.documentElement.dataset.savetaxExt;
-      if (hadExt) {
-        if (confirm("확장 프로그램을 새로고침한 뒤라 이 페이지와 연결이 끊겨 있습니다.\n페이지를 새로고침하면 다시 연결됩니다.\n\n지금 새로고침할까요? (새로고침 후 [검증 · 제출]을 다시 눌러 주세요)")) window.location.reload();
-      } else {
-        alert("크롬 확장 프로그램이 연결되어 있지 않습니다.\n· chrome://extensions 에서 SaveTax 확장이 켜져 있는지, 오류 표시가 없는지 확인해 주세요.\n· 확장을 방금 설치·새로고침했다면 이 페이지를 새로고침(F5)해 주세요.");
-      }
-      return;
+    if (ping?.ok) return ping.version || "?";
+    // 페이지가 열릴 때 확장이 남긴 표시가 있는데 응답이 없으면 = 확장이 새로고침되어 연결이 끊긴 경우
+    const hadExt = typeof document !== "undefined" && !!document.documentElement.dataset.savetaxExt;
+    if (hadExt) {
+      if (confirm("확장 프로그램을 새로고침한 뒤라 이 페이지와 연결이 끊겨 있습니다.\n페이지를 새로고침하면 다시 연결됩니다.\n\n지금 새로고침할까요? (새로고침 후 다시 눌러 주세요)")) window.location.reload();
+    } else {
+      alert("크롬 확장 프로그램이 연결되어 있지 않습니다.\n· chrome://extensions 에서 SaveTax 확장이 켜져 있는지, 오류 표시가 없는지 확인해 주세요.\n· 확장을 방금 설치·새로고침했다면 이 페이지를 새로고침(F5)해 주세요.");
     }
+    return null;
+  }
+  async function startSubmit(opts?: { fileIds?: Record<string, number> }) {
+    if (submitJob && !submitJob.done && !submitJob.error) return;
+    const extVersion = await ensureExtConnected();
+    if (!extVersion) return;
     const res = await fetch("/api/withholding/filing/submit", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ yearMonth }),
+      body: JSON.stringify({ yearMonth, fileIds: opts?.fileIds }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) {
@@ -583,7 +611,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     setSubmitJob({ jobId: data.jobId, kinds: data.kinds, files: data.files, progress: {}, done: false, skipped: data.skipped });
     const opened = await extCall("efile-submit-open", { jobId: data.jobId, kinds: data.kinds }, 15000);
     if (!opened?.ok) {
-      setSubmitJob(prev => prev ? { ...prev, error: `확장 프로그램이 홈택스·위택스 탭을 열지 못했습니다 (${opened?.error || "응답 없음"}). 확장을 새로고침해 버전 4.49 이상인지 확인해 주세요. 현재 ${ping.version || "?"}` } : prev);
+      setSubmitJob(prev => prev ? { ...prev, error: `확장 프로그램이 홈택스·위택스 탭을 열지 못했습니다 (${opened?.error || "응답 없음"}). 확장을 새로고침해 버전 4.50 이상인지 확인해 주세요. 현재 ${extVersion}` } : prev);
       return;
     }
     const startedAt = Date.now();
@@ -964,7 +992,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           )}
           {/* 원천세 자동신고 3·4단계: 제작된 파일을 홈택스·위택스에서 검증하고 제출 */}
           <button
-            onClick={startSubmit}
+            onClick={() => startSubmit()}
             disabled={!!submitJob && !submitJob.done && !submitJob.error}
             title="이번 달에 제작한 전자신고 파일을 홈택스(원천세)·위택스(지방소득세)에 올려 검증합니다. 검증 결과를 확인한 뒤 [제출]을 눌러야 제출됩니다"
             className="text-xs px-3 py-1.5 rounded-lg font-medium border border-[#86EFAC] text-[#15803D] bg-[#F1FBF4] hover:bg-[#DCFCE7] disabled:opacity-50"
@@ -988,8 +1016,15 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                 title="체크한 거래처의 원천세·지방소득세 전자신고 파일을 위하고에서 제작합니다 (마감된 거래처만)"
                 className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#15803D] text-white hover:bg-[#166534] disabled:opacity-50"
               >
-                자동신고 · 파일 제작
+                {chainVerify ? "자동신고 · 제작 → 검증" : "자동신고 · 파일 제작"}
               </button>
+              <label
+                className="flex items-center gap-1.5 text-[11.5px] text-[#4E5968] cursor-pointer select-none"
+                title="켜면 파일 제작이 끝난 뒤 홈택스·위택스에 올려 검증까지 이어서 합니다. 제출은 검증 결과를 확인하고 [제출]을 눌러야 됩니다"
+              >
+                <input type="checkbox" checked={chainVerify} onChange={e => toggleChainVerify(e.target.checked)} className="w-3.5 h-3.5 accent-[#15803D]" />
+                검증까지 이어서
+              </label>
             </div>
           )}
           <div className="flex items-center gap-3">
@@ -1728,7 +1763,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               )}
               {submitJob.error && <div className="text-[12px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-3 py-2">{submitJob.error}</div>}
               <div className="text-[11px] text-[#8B95A1] leading-relaxed">
-                홈택스는 세무대리인으로 로그인된 상태여야 하고, 위택스는 열린 탭에서 공동인증서로 로그인하면 이어서 진행됩니다. 홈택스·위택스 탭은 닫지 말고 그대로 두세요.
+                홈택스는 로그인되어 있지 않으면 설정의 세무대리인 계정으로 자동 로그인합니다. 위택스는 열린 탭에서 공동인증서로 로그인하면 이어서 진행됩니다. 홈택스·위택스 탭은 닫지 말고 그대로 두세요.
               </div>
             </div>
             <div className="px-5 py-3 border-t border-[#F2F4F6] flex justify-end">
