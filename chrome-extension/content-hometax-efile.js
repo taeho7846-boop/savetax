@@ -115,11 +115,13 @@
         await S.fail(conv === "login" ? noLoginWhy() : "원천세 일반신고 화면이 열리지 않았습니다", { since: startedAt, diag: true });
         return;
       }
-      if (!q("_btn_selFileB")) { await sleep(600); conv.click(); }
+      if (!q("_btn_selFileB")) { await sleep(1500); conv.click(); }
     }
     const selBtn = await waitFor(() => q("_btn_selFileB"), 25000, 400);
     if (!selBtn) { await S.fail("파일변환신고 화면(파일선택 버튼)을 찾지 못했습니다", { since: startedAt, diag: true }); return; }
-    await sleep(1500); // 업로드 컴포넌트 iframe 로드 여유
+    // 파일변환신고 화면이 뜬 직후에는 업로드 컴포넌트(iframe)가 아직 준비 중이라 바로 파일을 넣으면 안 먹는다 → 여유를 둔다
+    await S.report("running", "파일변환신고 화면 준비 대기 중…");
+    await sleep(4000);
 
     // ---------- 3) 파일 넣기 ----------
     await S.report("running", `파일 넣는 중… ${d.fileName}`);
@@ -141,6 +143,7 @@
       return;
     }
     console.log("[SaveTax 제출] 파일 넣기:", how);
+    await sleep(2000); // 파일이 목록에 올라간 뒤 검증 버튼을 누르기까지 여유
 
     // ---------- 4) 파일검증하기 → 비밀번호 ----------
     const cen = await waitFor(() => q("_btn_cenSts"), 10000, 300);

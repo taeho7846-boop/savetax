@@ -487,10 +487,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } catch (e) {}
       try {
         if (next) {
-          await chrome.tabs.create({ windowId: tab.windowId, url: next, active: true });
-          try { await chrome.windows.update(tab.windowId, { state: "minimized", focused: false }); } catch (e) {}
-          await chrome.tabs.remove(tab.id);
+          // 다음 화면은 "새 최소화 창"으로 연다. 같은 창에 새 탭으로 이어 열었더니 두 번째 화면(지방소득세)에서
+          // 제작 버튼을 눌러도 위하고 저장 창(폴더 선택)이 뜨지 않았다(2026-10-07 13:36 실측). 화면마다 새 창이던 때는 정상이었음.
+          // 창 2개가 동시에 있으면 크롬이 최소화를 무시하고 띄우므로, 이전 창을 먼저 닫고 잠시 뒤에 새 창을 만든다.
+          delete hiddenQueues[tab.windowId];
+          try { await chrome.storage.local.remove(qKey); } catch (e) {}
           sendResponse({ ok: true, next: true });
+          try {
+            const w = await chrome.windows.get(tab.windowId, { populate: true });
+            if (w.tabs && w.tabs.length <= 1) await chrome.windows.remove(tab.windowId);
+            else await chrome.tabs.remove(tab.id);
+          } catch (e) {}
+          await new Promise(r => setTimeout(r, 2500)); // 위하고 저장 에이전트가 앞 작업을 마무리할 시간
+          const nw = await chrome.windows.create({ url: next, state: "minimized", focused: false });
+          if (queue.length) {
+            hiddenQueues[nw.id] = queue;
+            try { await chrome.storage.local.set({ ["hiddenQueue:" + nw.id]: queue }); } catch (e) {}
+          }
         } else {
           delete hiddenQueues[tab.windowId];
           // 숨긴 창(우리가 만든 창)이면 창째로, 아니면 탭만 닫기

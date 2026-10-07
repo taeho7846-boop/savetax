@@ -500,7 +500,11 @@
     if (!launched && capturedFile && !capturedFile.error) launched = { name: capturedFile.name, base64: capturedFile.base64, localPath: "" };
     if (!launched) {
       const t = await dismissAlert();
-      throw new Error("제작된 파일을 받지 못했습니다 — 로컬 도우미(savetax-app) 설치 여부와 '폴더 선택' 창을 확인하세요" + (t ? " · " + t : ""));
+      // 원인 파악용: 제작 창이 아직 떠 있는지(= 버튼이 안 눌렸거나 위하고가 반응하지 않음), 화면 크기·숨김 상태
+      const stillOpen = visible(dlg) && document.contains(dlg);
+      const btnThere = stillOpen && [...dlg.querySelectorAll("button")].some(b => visible(b) && /전자신고 파일 제작/.test(txt(b)));
+      const diag = ` · 제작 창 ${stillOpen ? (btnThere ? "그대로 떠 있음" : "떠 있음(버튼 없음)") : "닫힘"} · 화면 ${window.innerWidth}x${window.innerHeight}${document.hidden ? " 숨김" : ""}`;
+      throw new Error("제작된 파일을 받지 못했습니다 — 위하고 저장 창(폴더 선택)이 뜨지 않았거나 로컬 도우미(savetax-app)가 없습니다" + (t ? " · " + t : "") + diag);
     }
     await dismissAlert();
 
