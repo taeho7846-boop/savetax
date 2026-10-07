@@ -35,6 +35,7 @@
   let respBase = 0;   // 수임처 선택 '확인'을 누른 시점의 응답 수 — 그 전에 화면이 스스로 한 조회(현재 회사 기본 조회 등)는 세지 않는다
   let lastAlert = ""; // 조회 중 위하고가 띄운 안내 문구 (오류 원인 표시용)
   let capturedFile = null; // { name, base64 } | { error }
+  let savedToServer = false; // 제작 파일이 서버에 저장됐는지
   const bg = (msg) => new Promise((resolve) => {
     try { chrome.runtime.sendMessage(msg, (res) => resolve(chrome.runtime.lastError ? { ok: false, error: chrome.runtime.lastError.message } : res)); }
     catch (e) { resolve({ ok: false, error: e.message }); }
@@ -508,7 +509,8 @@
       jobId, kind, fileName: launched.name, fileBase64: launched.base64, localPath: launched.localPath, produced, skipped,
     });
     if (!res || !res.ok) throw new Error("서버 저장 실패: " + (res && res.error));
-    status(`완료 · ${produced.length}곳 제작 (${capturedFile.name})`, "#15803D", "done");
+    savedToServer = true; // 여기부터는 무슨 일이 있어도 '오류'로 뒤집지 않는다 (파일은 이미 서버에 저장됨)
+    status(`완료 · ${produced.length}곳 제작 (${launched.name})`, "#15803D", "done");
     await sleep(1500);
     await finish();
   }
@@ -516,6 +518,7 @@
   (mode === "produce" ? runProduce() : runCheck()).catch(async (err) => {
     const msg = (err && err.message) || String(err);
     console.error(err);
+    if (savedToServer) { log("저장 이후 오류(무시):", msg); await sleep(1500); await finish(); return; }
     if (mode === "produce" && jobId) await api("POST", "/api/withholding/filing/produce-result", { jobId, kind, error: msg });
     status("오류: " + msg, "#DC2626", "error");
     await sleep(4000);
