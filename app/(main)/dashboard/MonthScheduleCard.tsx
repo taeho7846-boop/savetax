@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CalendarIcon } from "@/components/icons";
 import { fromKey, WEEKDAY_KO, visibleRange } from "@/lib/diary-dates";
+import { chunkWeeks, layoutWeek, type LaneInput } from "@/lib/calendar-lanes";
 
 type Item = {
   key: string;
@@ -51,6 +52,9 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
   const ym = today.slice(0, 7);
   const m = Number(ym.slice(5, 7));
   const { days } = visibleRange("month", today);
+  const weeks = chunkWeeks(days);
+  const ORDER: Record<Item["kind"], number> = { tax: 0, office: 1, personal: 2, task: 3 };
+  const laneItems: (LaneInput & Item)[] = items.map(i => ({ ...i, order: ORDER[i.kind] }));
 
   // 접힌 상태 요약: 오늘 이후 가까운 일정 3건
   const upcoming = items
@@ -59,9 +63,6 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 3);
 
-  function itemsOn(date: string) {
-    return items.filter(i => (i.endDate ? date >= i.date && date <= i.endDate : i.date === date));
-  }
 
   return (
     <div className="glass rounded-3xl p-5">
@@ -99,36 +100,50 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1">
-            {days.map(date => {
-              const d = fromKey(date);
-              const inMonth = date.slice(0, 7) === ym;
-              const isToday = date === today;
-              const dayItems = itemsOn(date);
-              const dow = d.getDay();
-              return (
-                <Link
-                  key={date}
-                  href={`/diary?view=month&d=${date}`}
-                  className={`rounded-lg border border-[#F2F4F6] p-1.5 min-h-[112px] flex flex-col gap-0.5 hover:bg-white transition-colors ${
-                    inMonth ? "bg-white/60" : "bg-white/20 opacity-40"
-                  }`}
-                >
-                  <span className={`text-[10.5px] font-bold w-5 h-5 flex items-center justify-center rounded-full ${
-                    isToday ? "bg-[#3182F6] text-white" : dow === 0 ? "text-[#E02E2E]" : dow === 6 ? "text-[#3182F6]" : "text-[#4E5968]"
-                  }`}>
-                    {d.getDate()}
-                  </span>
-                  {dayItems.slice(0, 4).map(i => (
-                    <span key={i.key} className={`text-[11px] px-1.5 py-[2px] rounded truncate leading-[1.4] ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`} title={`${i.who ? i.who + ": " : ""}${i.title}`}>
-                      {i.title}
-                    </span>
-                  ))}
-                  {dayItems.length > 4 && <span className="text-[10px] text-[#8B95A1] pl-0.5">+{dayItems.length - 4}</span>}
-                </Link>
-              );
-            })}
-          </div>
+          {weeks.map((week, wi) => {
+            const { segs, lanes } = layoutWeek(week, laneItems);
+            const minHeight = Math.max(112, 32 + lanes * 21 + 8);
+            return (
+              <div key={wi} className="relative grid grid-cols-7 gap-1 mb-1" style={{ minHeight }}>
+                {week.map(date => {
+                  const d = fromKey(date);
+                  const inMonth = date.slice(0, 7) === ym;
+                  const isToday = date === today;
+                  const dow = d.getDay();
+                  return (
+                    <Link
+                      key={date}
+                      href={`/diary?view=month&d=${date}`}
+                      className={`rounded-lg border border-[#F2F4F6] p-1.5 hover:bg-white transition-colors ${inMonth ? "bg-white/60" : "bg-white/20 opacity-40"}`}
+                    >
+                      <span className={`text-[10.5px] font-bold w-5 h-5 flex items-center justify-center rounded-full ${
+                        isToday ? "bg-[#3182F6] text-white" : dow === 0 ? "text-[#E02E2E]" : dow === 6 ? "text-[#3182F6]" : "text-[#4E5968]"
+                      }`}>
+                        {d.getDate()}
+                      </span>
+                    </Link>
+                  );
+                })}
+                <div className="absolute inset-x-0 grid grid-cols-7 gap-x-1 pointer-events-none" style={{ top: 32, gridAutoRows: "18px", rowGap: "3px" }}>
+                  {segs.map(seg => {
+                    const i = seg.item;
+                    const span = seg.end - seg.start + 1;
+                    const edge = `${seg.isStart ? "ml-1.5 rounded-l" : "ml-0 rounded-l-none"} ${seg.isEnd ? "mr-1.5 rounded-r" : "mr-0 rounded-r-none"}`;
+                    return (
+                      <span
+                        key={i.key}
+                        style={{ gridColumn: `${seg.start + 1} / span ${span}`, gridRow: seg.lane + 1 }}
+                        className={`${edge} text-[11px] px-1.5 leading-[18px] truncate ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`}
+                        title={`${i.who ? i.who + ": " : ""}${i.title}`}
+                      >
+                        {seg.isStart ? i.title : `← ${i.title}`}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
           <div className="flex items-center justify-between mt-3">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EEEDFE] text-[#3C3489]">사무실</span>

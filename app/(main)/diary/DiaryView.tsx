@@ -13,9 +13,22 @@ import {
   type DiaryView as ViewMode,
 } from "@/lib/diary-dates";
 import { ScheduleModal, type Schedule, SCHEDULE_COLORS } from "./ScheduleModal";
+import { chunkWeeks, layoutWeek, type LaneInput } from "@/lib/calendar-lanes";
 import { TaskEditModal } from "@/components/TaskEditModal";
 
 type TaxEvent = { date: string; title: string; desc: string };
+type LaneItem = LaneInput & (
+  | { kind: "tax"; tax: TaxEvent }
+  | { kind: "schedule"; schedule: Schedule }
+  | { kind: "task"; task: DiaryTask }
+);
+
+// 레인 배치 치수 (px): 날짜 숫자 줄 아래부터 막대 시작
+const LANE_TOP = 36;
+const LANE_H = 22;
+const LANE_GAP = 3;
+const LANE_STEP = LANE_H + LANE_GAP;
+const PILL = "text-[11.5px] px-2 leading-[22px] truncate";
 type Me = { id: number; name: string; canOffice: boolean };
 type Filter = "all" | "mine" | number;
 
@@ -111,15 +124,17 @@ export function DiaryView({
     return t.assignedUserId === filter;
   }), [tasks, filter, me.id]);
 
-  function schedulesOn(date: string) {
-    return visibleSchedules.filter(s => s.endDate ? date >= s.date && date <= s.endDate : s.date === date);
-  }
   function tasksOn(date: string) {
     return visibleTasks.filter(t => t.dueDate === date);
   }
-  function taxOn(date: string) {
-    return taxEvents.filter(e => e.date === date);
-  }
+
+  // 캘린더 레인 입력 (주 단위로 막대 배치)
+  const laneItems: LaneItem[] = useMemo(() => [
+    ...taxEvents.map((e, i) => ({ kind: "tax" as const, key: `tax-${e.date}-${i}`, date: e.date, order: 0, tax: e })),
+    ...visibleSchedules.map(s => ({ kind: "schedule" as const, key: `s-${s.id}`, date: s.date, endDate: s.endDate, order: s.scope === "office" ? 1 : 2, schedule: s })),
+    ...visibleTasks.filter(t => t.dueDate).map(t => ({ kind: "task" as const, key: `t-${t.id}`, date: t.dueDate!, order: 3, task: t })),
+  ], [taxEvents, visibleSchedules, visibleTasks]);
+  const weeks = useMemo(() => chunkWeeks(days), [days]);
 
   // 이월(지연) · 날짜 없음 — 오늘 패널에만
   const overdueTasks = visibleTasks.filter(t => t.dueDate && t.dueDate < today && t.status !== "done");
@@ -263,88 +278,104 @@ export function DiaryView({
             </div>
           ))}
         </div>
-        <div className={`grid grid-cols-7 gap-1.5 select-none ${drag ? "cursor-crosshair" : ""}`}>
-          {days.map(date => {
-            const d = fromKey(date);
-            const dow = d.getDay();
-            const isToday = date === today;
-            const isSelected = date === selectedDate;
-            const dragRange = drag ? [drag.start, drag.end].sort() : null;
-            const inDrag = !!dragRange && date >= dragRange[0] && date <= dragRange[1];
-            const inMonth = view === "week" || date.slice(0, 7) === anchor.slice(0, 7);
-            const items: React.ReactNode[] = [];
-
-            taxOn(date).forEach((e, i) => items.push(
-              <Pill key={`tax-${i}`} className="bg-[#FEF2F2] text-[#B91C1C]" title={`${e.title} · ${e.desc}`}>{e.title}</Pill>
-            ));
-            schedulesOn(date).forEach(s => {
-              const office = s.scope === "office";
-              const c = office ? null : (SCHEDULE_COLORS[s.color] ?? SCHEDULE_COLORS.blue);
-              const isStart = s.date === date || dow === 1;
-              items.push(
-                <Pill
-                  key={`s-${s.id}`}
-                  className={office ? "bg-[#EEEDFE] text-[#3C3489]" : `${c!.bg} ${c!.text}`}
-                  title={`${office ? "사무실" : s.user.name}: ${s.client ? s.client.name + " · " : ""}${s.title}${s.endDate ? ` (${s.date} ~ ${s.endDate})` : ""}`}
-                  onClick={e => { e.stopPropagation(); setModal({ mode: "edit", schedule: s }); }}
-                  onMouseDown={e => e.stopPropagation()}
-                >
-                  {s.endDate && !isStart ? "\u00A0" : `${s.startTime ? s.startTime + " " : ""}${s.client ? s.client.name + " · " : ""}${s.title}`}
-                </Pill>
-              );
-            });
-            tasksOn(date).forEach(t => {
-              const done = t.status === "done";
-              items.push(
-                <Pill
-                  key={`t-${t.id}`}
-                  className={done ? "bg-[#F2F4F6] text-[#8B95A1] line-through" : "bg-[#FEF3C7] text-[#92400E]"}
-                  title={`${t.assignedUserName ?? ""} ${t.clientName ? "· " + t.clientName : ""} ${t.title}`}
-                  onClick={e => { e.stopPropagation(); setEditTask(t); }}
-                  onMouseDown={e => e.stopPropagation()}
-                >
-                  {t.title}
-                </Pill>
-              );
-            });
-
-            const limit = view === "week" ? 10 : 5;
-            const overflow = items.length - limit;
-
-            return (
-              <div
-                key={date}
-                onClick={() => setSelectedDate(date)}
-                onMouseDown={e => { if (e.button === 0) setDrag({ start: date, end: date }); }}
-                onMouseEnter={() => { if (drag) setDrag(prev => prev && prev.end !== date ? { ...prev, end: date } : prev); }}
-                title="끌어서 여러 날 일정 추가"
-                className={`rounded-xl border p-1.5 cursor-pointer transition-colors relative group flex flex-col gap-0.5 ${
-                  view === "week" ? "min-h-[240px]" : "min-h-[140px]"
-                } ${inDrag ? "border-[#3182F6] bg-[#E8F3FF]" : isSelected ? "border-[#3182F6] ring-2 ring-[#3182F6]/25 bg-white" : "border-[#F2F4F6] bg-white/60 hover:bg-white"} ${
-                  !inMonth ? "opacity-45" : ""
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className={`text-[11.5px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${
-                    isToday ? "bg-[#3182F6] text-white" : dow === 0 ? "text-[#E02E2E]" : dow === 6 ? "text-[#3182F6]" : "text-[#333D4B]"
-                  }`}>
-                    {d.getDate()}
-                  </span>
-                  <button
-                    onClick={e => { e.stopPropagation(); setModal({ mode: "create", date }); }}
-                    onMouseDown={e => e.stopPropagation()}
-                    className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-md text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#191F28] text-sm leading-none"
-                    aria-label="일정 추가"
+        {weeks.map((week, wi) => {
+          const { segs, lanes } = layoutWeek(week, laneItems);
+          const baseMin = view === "week" ? 240 : 140;
+          const minHeight = Math.max(baseMin, LANE_TOP + lanes * LANE_STEP + 10);
+          return (
+            <div key={wi} className={`relative grid grid-cols-7 gap-1.5 mb-1.5 select-none ${drag ? "cursor-crosshair" : ""}`} style={{ minHeight }}>
+              {week.map(date => {
+                const d = fromKey(date);
+                const dow = d.getDay();
+                const isToday = date === today;
+                const isSelected = date === selectedDate;
+                const dragRange = drag ? [drag.start, drag.end].sort() : null;
+                const inDrag = !!dragRange && date >= dragRange[0] && date <= dragRange[1];
+                const inMonth = view === "week" || date.slice(0, 7) === anchor.slice(0, 7);
+                return (
+                  <div
+                    key={date}
+                    onClick={() => setSelectedDate(date)}
+                    onMouseDown={e => { if (e.button === 0) setDrag({ start: date, end: date }); }}
+                    onMouseEnter={() => { if (drag) setDrag(prev => prev && prev.end !== date ? { ...prev, end: date } : prev); }}
+                    title="끌어서 여러 날 일정 추가"
+                    className={`rounded-xl border p-1.5 cursor-pointer transition-colors group ${
+                      inDrag ? "border-[#3182F6] bg-[#E8F3FF]" : isSelected ? "border-[#3182F6] ring-2 ring-[#3182F6]/25 bg-white" : "border-[#F2F4F6] bg-white/60 hover:bg-white"
+                    } ${!inMonth ? "opacity-45" : ""}`}
                   >
-                    +
-                  </button>
-                </div>
-                {items.slice(0, limit)}
-                {overflow > 0 && <div className="text-[10px] text-[#8B95A1] pl-1">+{overflow}</div>}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[11.5px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${
+                        isToday ? "bg-[#3182F6] text-white" : dow === 0 ? "text-[#E02E2E]" : dow === 6 ? "text-[#3182F6]" : "text-[#333D4B]"
+                      }`}>
+                        {d.getDate()}
+                      </span>
+                      <button
+                        onClick={e => { e.stopPropagation(); setModal({ mode: "create", date }); }}
+                        onMouseDown={e => e.stopPropagation()}
+                        className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-md text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#191F28] text-sm leading-none"
+                        aria-label="일정 추가"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* 항목 레이어: 여러 날 일정은 열을 가로지르는 하나의 막대 */}
+              <div
+                className={`absolute inset-x-0 grid grid-cols-7 gap-x-1.5 ${drag ? "pointer-events-none" : ""}`}
+                style={{ top: LANE_TOP, gridAutoRows: `${LANE_H}px`, rowGap: `${LANE_GAP}px`, pointerEvents: "none" }}
+              >
+                {segs.map(seg => {
+                  const it = seg.item;
+                  const span = seg.end - seg.start + 1;
+                  const edge = `${seg.isStart ? "ml-1.5 rounded-l-md" : "ml-0 rounded-l-none"} ${seg.isEnd ? "mr-1.5 rounded-r-md" : "mr-0 rounded-r-none"}`;
+                  const style = { gridColumn: `${seg.start + 1} / span ${span}`, gridRow: seg.lane + 1, pointerEvents: drag ? "none" as const : "auto" as const };
+                  if (it.kind === "tax") {
+                    return (
+                      <div key={it.key} style={style} className={`${edge} ${PILL} bg-[#FEF2F2] text-[#B91C1C]`} title={`${it.tax.title} · ${it.tax.desc}`}>
+                        {it.tax.title}
+                      </div>
+                    );
+                  }
+                  if (it.kind === "schedule") {
+                    const s = it.schedule;
+                    const office = s.scope === "office";
+                    const c = office ? null : (SCHEDULE_COLORS[s.color] ?? SCHEDULE_COLORS.blue);
+                    const label = `${s.startTime ? s.startTime + " " : ""}${s.client ? s.client.name + " · " : ""}${s.title}`;
+                    return (
+                      <div
+                        key={it.key}
+                        style={style}
+                        className={`${edge} ${PILL} cursor-pointer hover:opacity-80 ${office ? "bg-[#EEEDFE] text-[#3C3489]" : `${c!.bg} ${c!.text}`}`}
+                        title={`${office ? "사무실" : s.user.name}: ${label}${s.endDate ? ` (${s.date} ~ ${s.endDate})` : ""}`}
+                        onClick={e => { e.stopPropagation(); setModal({ mode: "edit", schedule: s }); }}
+                        onMouseDown={e => e.stopPropagation()}
+                      >
+                        {seg.isStart ? label : `← ${label}`}
+                      </div>
+                    );
+                  }
+                  const t = it.task;
+                  const done = t.status === "done";
+                  return (
+                    <div
+                      key={it.key}
+                      style={style}
+                      className={`${edge} ${PILL} cursor-pointer hover:opacity-80 ${done ? "bg-[#F2F4F6] text-[#8B95A1] line-through" : "bg-[#FEF3C7] text-[#92400E]"}`}
+                      title={`${t.assignedUserName ?? ""} ${t.clientName ? "· " + t.clientName : ""} ${t.title}`}
+                      onClick={e => { e.stopPropagation(); setEditTask(t); }}
+                      onMouseDown={e => e.stopPropagation()}
+                    >
+                      {t.clientName ? `${t.clientName} · ` : ""}{t.title}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* 하단 패널: 할 일 + 메모 */}
@@ -482,19 +513,6 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 
 function Legend({ className, children }: { className: string; children: React.ReactNode }) {
   return <span className={`text-[10.5px] px-2 py-0.5 rounded-md font-medium ${className}`}>{children}</span>;
-}
-
-function Pill({ className, title, onClick, onMouseDown, children }: { className: string; title?: string; onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; children: React.ReactNode }) {
-  return (
-    <div
-      className={`text-[11.5px] px-2 py-[3px] rounded-md truncate leading-[1.4] ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${className}`}
-      title={title}
-      onClick={onClick}
-      onMouseDown={onMouseDown}
-    >
-      {children}
-    </div>
-  );
 }
 
 function TaskRow({ task, today, run, overdue, onEdit }: { task: DiaryTask; today: string; run: (fn: () => Promise<unknown>) => void; overdue?: boolean; onEdit: () => void }) {
