@@ -16,6 +16,8 @@ type CmsClient = {
   affiliation: string | null;
   cmsAffiliation: string | null;
   paymentMethod: string;
+  contractStatus: string;
+  terminationMonth: string | null;
 };
 
 const PAYMENT_METHODS = [
@@ -280,7 +282,11 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
   const affOptions = [...new Set(clients.map(c => c.affiliation).filter(Boolean))] as string[];
   const cmsAffOptions = [...new Set(clients.map(c => c.cmsAffiliation).filter(Boolean))] as string[];
 
-  let rows = [...clients];
+  // 해지 거래처: 해지월(마지막 청구월)이 T/I 발행월과 같거나 이후면 표시 — 그 달 기장료 세금계산서를 발행해야 하므로.
+  // 해지월이 비어 있으면 일단 표시. 그 이전에 해지된 거래처는 숨김.
+  const isTerminated = (c: CmsClient) => c.contractStatus !== "active";
+  const visibleForTi = (c: CmsClient) => !isTerminated(c) || !c.terminationMonth || c.terminationMonth >= tiMonth;
+  let rows = clients.filter(visibleForTi);
   if (monthFilter.length > 0) {
     rows = rows.filter((c) => c.firstWithdrawalMonth && monthFilter.includes(c.firstWithdrawalMonth));
   }
@@ -388,12 +394,20 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
   async function handleBulkRegister() {
     if (checkedIds.size === 0) return;
+    // 해지 거래처는 CMS 신규 등록 대상이 아님 — T/I 발행만 가능
+    const activeIds = [...checkedIds].filter(id => clients.find(c => c.id === id && !isTerminated(c)));
+    const skipped = checkedIds.size - activeIds.length;
+    if (activeIds.length === 0) {
+      alert("해지 거래처는 CMS 신규 등록 대상이 아니에요. T/I 발행만 가능합니다.");
+      return;
+    }
+    if (skipped > 0 && !confirm(`해지 거래처 ${skipped}곳은 CMS 등록에서 제외하고 ${activeIds.length}곳만 진행할까요?`)) return;
     startTransition(async () => {
       try {
         const res = await fetch("/api/cms/bulk-download", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientIds: [...checkedIds] }),
+          body: JSON.stringify({ clientIds: activeIds }),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -1190,7 +1204,17 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                     className="accent-[#3182F6] w-4 h-4 cursor-pointer"
                   />
                 </td>
-                <td className="px-4 py-3 text-center text-[#191F28] font-medium">{client.name}</td>
+                <td className="px-4 py-3 text-center text-[#191F28] font-medium">
+                  {client.name}
+                  {isTerminated(client) && (
+                    <span
+                      className="ml-1.5 inline-block align-middle text-[10px] px-1.5 py-0.5 rounded bg-[#F2F4F6] text-[#6B7684] font-medium"
+                      title={client.terminationMonth ? `해지 · 마지막 청구월 ${client.terminationMonth}` : "해지 (해지월 미설정)"}
+                    >
+                      해지{client.terminationMonth ? ` ${client.terminationMonth.slice(2).replace("-", ".")}` : ""}
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-center text-[#191F28]">{client.ceoName || <span className="text-[#8B95A1]">-</span>}</td>
                 <td className="px-4 py-3 text-center text-[#191F28]">
                   {client.monthlyFee != null ? `${client.monthlyFee.toLocaleString()}원` : <span className="text-[#8B95A1]">-</span>}

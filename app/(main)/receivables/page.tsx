@@ -243,10 +243,11 @@ async function CmsTab({ sessionId, role }: { sessionId: number; role: string }) 
     assignedFilter = { assignedUserId: { in: [sessionId, ...employees.map(e => e.id)] } };
   }
 
+  // 해지 거래처도 가져온다 — 해지월까지는 기장료를 받고 세금계산서를 발행해야 하므로.
+  // 실제 표시 여부는 CmsTable에서 T/I 발행월과 해지월을 비교해 결정 (CMS 신규 일괄등록 대상에서는 제외)
   const cmsClients = await prisma.client.findMany({
     where: {
       isDeleted: false,
-      contractStatus: "active",
       ...assignedFilter,
       OR: [
         { taxTypes: null },
@@ -265,6 +266,8 @@ async function CmsTab({ sessionId, role }: { sessionId: number; role: string }) 
       affiliation: true,
       cmsAffiliation: true,
       paymentMethod: true,
+      contractStatus: true,
+      terminationMonth: true,
     },
     orderBy: { name: "asc" },
   });
