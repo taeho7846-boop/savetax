@@ -106,25 +106,39 @@ export function ScheduleModal({
         {error && <div className="text-xs text-[#E02E2E] mb-3">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* 사무실 / 개인 */}
-          <div className="inline-flex gap-0.5 p-1 bg-[#F2F4F6] rounded-[12px]">
-            {([["personal", "개인 일정"], ["office", "사무실 일정"]] as const).map(([k, label]) => {
-              const disabled = k === "office" && !me.canOffice;
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  disabled={disabled || !canEdit}
-                  onClick={() => setScope(k)}
-                  title={disabled ? "사무실 일정은 다이어리 공유 멤버·관리자만 등록할 수 있어요" : undefined}
-                  className={`px-3.5 py-1.5 text-[12.5px] rounded-[10px] transition-all ${
-                    scope === k ? "bg-white text-[#191F28] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.04)]" : "text-[#6B7684] font-[500]"
-                  } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  {label}
-                </button>
-              );
-            })}
+          {/* 사무실 / 개인 — 누르면 선택되는 카드 */}
+          <div>
+            <label className="block text-xs text-[#6B7684] mb-1">어떤 일정인가요?</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ["personal", "개인 일정", "내 일정. 같은 다이어리를 쓰는 사람에게 내 이름으로 보여요", "bg-[#E7F7EE] text-[#15803D] border-[#1AB266]"],
+                ["office", "사무실 공통 일정", "회의·급여일·행사처럼 전 직원에게 보이는 일정 (보라색)", "bg-[#EEEDFE] text-[#3C3489] border-[#7F77DD]"],
+              ] as const).map(([k, label, desc, onCls]) => {
+                const disabled = k === "office" && !me.canOffice;
+                const on = scope === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    disabled={disabled || !canEdit}
+                    onClick={() => setScope(k)}
+                    title={disabled ? "사무실 일정은 다이어리 공유 멤버·관리자만 등록할 수 있어요" : undefined}
+                    className={`text-left rounded-xl border-2 px-3 py-2.5 transition-all ${
+                      on ? onCls : "bg-white border-[#F2F4F6] text-[#6B7684] hover:border-[#D1D6DB]"
+                    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  >
+                    <div className="flex items-center gap-1.5 text-[13px] font-bold">
+                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${on ? "border-current" : "border-[#D1D6DB]"}`}>
+                        {on && <span className="w-2 h-2 rounded-full bg-current" />}
+                      </span>
+                      {label}
+                    </div>
+                    <div className={`text-[11px] mt-1 leading-snug ${on ? "opacity-80" : "text-[#8B95A1]"}`}>{desc}</div>
+                    {disabled && <div className="text-[10.5px] mt-1 text-[#8B95A1]">권한이 없어 선택할 수 없어요</div>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div>
@@ -159,12 +173,17 @@ export function ScheduleModal({
           </div>
           {scope === "personal" && (
             <div>
-              <label className="block text-xs text-[#6B7684] mb-1">색상</label>
-              <div className="flex gap-2">
+              <label className="block text-xs text-[#6B7684] mb-1">
+                캘린더 표시 색 <span className="text-[#B0B8C1]">(의미는 없고 내 일정 구분용이에요)</span>
+              </label>
+              <div className="flex gap-1.5 flex-wrap">
                 {Object.entries(SCHEDULE_COLORS).map(([key, c]) => (
-                  <label key={key} className="cursor-pointer" title={c.label}>
+                  <label key={key} className="cursor-pointer">
                     <input type="radio" name="color" value={key} disabled={!canEdit} defaultChecked={(schedule?.color ?? "blue") === key} className="sr-only peer" />
-                    <div className={`w-6 h-6 rounded-full ${c.dot} peer-checked:ring-2 peer-checked:ring-offset-1 peer-checked:ring-gray-400`} />
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium ${c.bg} ${c.text} border-transparent peer-checked:border-current peer-checked:ring-2 peer-checked:ring-current/20`}>
+                      <span className={`w-2.5 h-2.5 rounded-full ${c.dot}`} />
+                      {c.label}
+                    </span>
                   </label>
                 ))}
               </div>

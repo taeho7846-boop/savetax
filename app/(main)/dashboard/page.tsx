@@ -461,7 +461,7 @@ export default async function DashboardPage({
   const todayKey = todaySeoul();
   const [monthSchedules, diaryTasks] = await Promise.all([
     getSchedulesInRange(monthStart(todayKey), monthEnd(todayKey)),
-    getDiaryTasks(todayKey, todayKey), // 오늘 + 이월 + 날짜 없음
+    getDiaryTasks(monthStart(todayKey), monthEnd(todayKey)), // 이달 전체 + 이월 + 날짜 없음 (오늘 카드는 자체 필터)
   ]);
   const monthNum = Number(todayKey.slice(5, 7));
   const monthScheduleItems = [
@@ -481,6 +481,16 @@ export default async function DashboardPage({
         date: `${todayKey.slice(0, 7)}-${String(e.day).padStart(2, "0")}`,
         title: e.title,
         kind: "tax" as const,
+      })),
+    ...diaryTasks
+      .filter(t => t.dueDate && t.dueDate.slice(0, 7) === todayKey.slice(0, 7))
+      .map(t => ({
+        key: `task-${t.id}`,
+        date: t.dueDate!,
+        title: t.title,
+        kind: "task" as const,
+        who: t.assignedUserName,
+        done: t.status === "done",
       })),
   ];
 

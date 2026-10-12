@@ -10,16 +10,19 @@ type Item = {
   date: string;
   endDate?: string | null;
   title: string;
-  kind: "office" | "personal" | "tax";
+  kind: "office" | "personal" | "tax" | "task";
   who?: string | null;
   time?: string | null;
+  done?: boolean;
 };
 
 const KIND_CLS: Record<Item["kind"], string> = {
   office: "bg-[#EEEDFE] text-[#3C3489]",
   personal: "bg-[#E7F7EE] text-[#15803D]",
   tax: "bg-[#FEF2F2] text-[#B91C1C]",
+  task: "bg-[#FEF3C7] text-[#92400E]",
 };
+const DONE_CLS = "bg-[#F2F4F6] text-[#8B95A1] line-through";
 
 const STORAGE_KEY = "savetax-month-schedule-open";
 const CHANGE_EVENT = "savetax-month-schedule-toggle";
@@ -51,6 +54,7 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
 
   // 접힌 상태 요약: 오늘 이후 가까운 일정 3건
   const upcoming = items
+    .filter(i => !i.done)
     .filter(i => i.date >= today || (i.endDate && i.endDate >= today))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 3);
@@ -67,14 +71,14 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-[16px] font-bold tracking-tight text-[#191F28]">{m}월 사무실 일정</h2>
+            <h2 className="text-[16px] font-bold tracking-tight text-[#191F28]">{m}월 일정 · 할 일</h2>
             <span className="text-[11px] text-[#8B95A1] font-medium">{items.length}건</span>
           </div>
           {!open && (
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               {upcoming.length === 0 && <span className="text-[11.5px] text-[#8B95A1]">이달 남은 일정이 없어요</span>}
               {upcoming.map(i => (
-                <span key={i.key} className={`text-[10.5px] px-2 py-0.5 rounded-md font-medium truncate max-w-[220px] ${KIND_CLS[i.kind]}`}>
+                <span key={i.key} className={`text-[10.5px] px-2 py-0.5 rounded-md font-medium truncate max-w-[220px] ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`}>
                   {i.date.slice(8)}일 · {i.title}
                 </span>
               ))}
@@ -116,7 +120,7 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
                     {d.getDate()}
                   </span>
                   {dayItems.slice(0, 2).map(i => (
-                    <span key={i.key} className={`text-[9.5px] px-1 py-px rounded truncate leading-[1.4] ${KIND_CLS[i.kind]}`} title={`${i.who ? i.who + ": " : ""}${i.title}`}>
+                    <span key={i.key} className={`text-[9.5px] px-1 py-px rounded truncate leading-[1.4] ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`} title={`${i.who ? i.who + ": " : ""}${i.title}`}>
                       {i.title}
                     </span>
                   ))}
@@ -130,6 +134,7 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EEEDFE] text-[#3C3489]">사무실</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#E7F7EE] text-[#15803D]">개인</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF2F2] text-[#B91C1C]">세무 마감</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">할 일</span>
             </div>
             <Link href={`/diary?view=month&d=${today}`} className="text-[11.5px] text-[#3182F6] font-semibold hover:underline">
               다이어리에서 보기 →
