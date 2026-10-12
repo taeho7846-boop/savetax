@@ -46,24 +46,41 @@ export function todaySeoul(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
-// 다이어리 공유 범위
-// - 직원관리에서 "다이어리 공유"를 켠 사람끼리는 팀 구분 없이 서로의 일정·할 일을 본다
-// - 공유를 안 켠 사람은 기존 팀(관리자+소속 직원) 범위
-export async function getDiaryScope(sessionId: number, role: string): Promise<{ userIds: number[]; shared: boolean }> {
-  const me = await prisma.user.findUnique({ where: { id: sessionId }, select: { diaryShared: true } });
-  if (me?.diaryShared) {
-    const users = await prisma.user.findMany({
-      where: { diaryShared: true, isActive: true },
-      select: { id: true },
-    });
-    return { userIds: [...new Set([sessionId, ...users.map(u => u.id)])], shared: true };
-  }
-  return { userIds: await getTeamUserIds(sessionId, role), shared: false };
+// 다이어리 공유 범위 = 같은 세무사 사무실
+// - 사무실 = 직원관리의 "사업체명 2"(예: 세무회계태호). 직원은 본인 값이 없으면 소속 세무사의 사무실을 따른다
+// - 같은 사무실명을 가진 활성 계정끼리 서로의 일정·할 일을 본다 (세무사 사무실마다 다이어리가 따로)
+// - 사무실명이 없으면 기존 팀(관리자+소속 직원) 범위로만 공유
+type OfficeUser = { id: number; bizName2: string | null; managerId: number | null; manager: { bizName2: string | null } | null };
+
+function effectiveOffice(u: OfficeUser): string | null {
+  const own = u.bizName2?.trim();
+  if (own) return own;
+  const mgr = u.manager?.bizName2?.trim();
+  return mgr || null;
 }
 
-// 사무실 공통 일정 등록·수정 권한: 관리자 역할이거나 다이어리 공유 멤버
-export async function canManageOfficeSchedule(sessionId: number, role: string): Promise<boolean> {
-  if (isManagerRole(role)) return true;
-  const me = await prisma.user.findUnique({ where: { id: sessionId }, select: { diaryShared: true } });
-  return !!me?.diaryShared;
+export async function getDiaryOffice(sessionId: number): Promise<string | null> {
+  const me = await prisma.user.findUnique({
+    where: { id: sessionId },
+    select: { id: true, bizName2: true, managerId: true, manager: { select: { bizName2: true } } },
+  });
+  return me ? effectiveOffice(me) : null;
+}
+
+export async function getDiaryScope(sessionId: number, role: string): Promise<{ userIds: number[]; shared: boolean; office: string | null }> {
+  const office = await getDiaryOffice(sessionId);
+  if (office) {
+    const users = await prisma.user.findMany({
+      where: { isActive: true, role: { not: "readonly" } },
+      select: { id: true, bizName2: true, managerId: true, manager: { select: { bizName2: true } } },
+    });
+    const ids = users.filter(u => effectiveOffice(u) === office).map(u => u.id);
+    return { userIds: [...new Set([sessionId, ...ids])], shared: true, office };
+  }
+  return { userIds: await getTeamUserIds(sessionId, role), shared: false, office: null };
+}
+
+// 사무실 공통 일정 등록·수정 권한: 같은 사무실 멤버면 누구나 (사무실 일정은 그 사무실 안에서만 보임)
+export async function canManageOfficeSchedule(_sessionId: number, _role: string): Promise<boolean> {
+  return true;
 }

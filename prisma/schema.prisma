@@ -22,7 +22,7 @@ model User {
   allowedMenus       String?
   googleEmail        String?
   googleCalendarId   String?
-  diaryShared        Boolean            @default(false)
+  diaryShared        Boolean            @default(false) // 미사용 (다이어리 그룹은 bizName2 기준으로 변경, 2026-10-12)
   clients            Client[]
   distributions      Distribution[]     @relation("distributions")
   distributionPasses DistributionPass[] @relation("distributionPasses")

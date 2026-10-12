@@ -29,10 +29,8 @@ export async function getSchedulesInRange(from: string, to: string) {
 
   return prisma.schedule.findMany({
     where: {
-      OR: [
-        { userId: { in: userIds } },
-        { scope: "office" },
-      ],
+      // 사무실 공통 일정도 같은 사무실 사람이 만든 것만 보인다 (사무실마다 다이어리가 따로)
+      userId: { in: userIds },
       AND: [
         { date: { lte: to } },
         {

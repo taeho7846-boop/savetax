@@ -16,7 +16,6 @@ interface Staff {
   allowedMenus: string | null;
   googleEmail: string | null;
   googleCalendarId: string | null;
-  diaryShared: boolean;
   createdAt: Date;
 }
 
@@ -147,7 +146,6 @@ export default function StaffTable({
         <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${roleColors[person.role] || "bg-[#F2F4F6] text-[#4E5968]"}`}>
           {roleLabels[person.role] || person.role}
         </span>
-        {person.diaryShared && <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-[#EEEDFE] text-[#3C3489]">다이어리 공유</span>}
         {!person.isActive && <span className="text-xs text-[#E02E2E]">비활성</span>}
         <div className="flex gap-2">
           <button onClick={() => setEditId(person.id)} className="text-xs text-[#191F28] hover:underline">수정</button>
@@ -381,8 +379,8 @@ function EditRow({
             <input name="bizName1" defaultValue={staff.bizName1 ?? ""} placeholder="예) 세이브택스" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-32 block" />
           </div>
           <div>
-            <label className="text-xs text-[#6B7684]">사업체명 2</label>
-            <input name="bizName2" defaultValue={staff.bizName2 ?? ""} placeholder="예) 세무회계태호" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-32 block" />
+            <label className="text-xs text-[#6B7684]">사업체명 2 <span className="text-[#B0B8C1]">= 다이어리 그룹</span></label>
+            <input name="bizName2" defaultValue={staff.bizName2 ?? ""} placeholder="예) 세무회계태호" title="같은 사무실명끼리 다이어리(일정·할 일)를 함께 봐요. 직원은 비워두면 소속 세무사의 사무실명을 따릅니다" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-32 block" />
           </div>
           <div>
             <label className="text-xs text-[#6B7684]">구글 이메일</label>
@@ -391,13 +389,6 @@ function EditRow({
           <div>
             <label className="text-xs text-[#6B7684]">구글 캘린더 ID</label>
             <input name="googleCalendarId" defaultValue={staff.googleCalendarId ?? ""} placeholder="kim@gmail.com" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-40 block" />
-          </div>
-          <div>
-            <label className="text-xs text-[#6B7684]">다이어리 공유</label>
-            <select name="diaryShared" defaultValue={String(staff.diaryShared)} className="border border-[#D1D6DB] rounded px-2 py-1 text-sm block" title="켜면 공유를 켠 사람끼리 팀 구분 없이 일정·할 일을 함께 보고, 사무실 일정도 등록·수정할 수 있어요">
-              <option value="false">안 함</option>
-              <option value="true">함께 씀</option>
-            </select>
           </div>
           <div>
             <label className="text-xs text-[#6B7684]">상태</label>
