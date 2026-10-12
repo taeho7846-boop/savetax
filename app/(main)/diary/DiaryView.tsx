@@ -15,7 +15,7 @@ import {
 import { ScheduleModal, type Schedule, SCHEDULE_COLORS } from "./ScheduleModal";
 
 type TaxEvent = { date: string; title: string; desc: string };
-type Me = { id: number; name: string; isManager: boolean };
+type Me = { id: number; name: string; canOffice: boolean };
 type Filter = "all" | "mine" | number;
 
 const AVATAR_PALETTE = [

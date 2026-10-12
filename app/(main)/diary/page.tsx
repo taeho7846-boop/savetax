@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSchedulesInRange } from "@/app/actions/schedule";
 import { getDiaryTasks, getDiaryMemos, getDiaryMembers } from "@/app/actions/diary";
 import { getTaxEventsForMonth } from "@/lib/tax-calendar";
-import { todaySeoul, isManagerRole } from "@/lib/team";
+import { todaySeoul, canManageOfficeSchedule } from "@/lib/team";
 import { visibleRange, type DiaryView as ViewMode } from "@/lib/diary-dates";
 import { DiaryView } from "./DiaryView";
 
@@ -21,11 +21,12 @@ export default async function DiaryPage({
   const anchor = params.d && /^\d{4}-\d{2}-\d{2}$/.test(params.d) ? params.d : today;
   const { from, to, days } = visibleRange(view, anchor);
 
-  const [schedules, tasks, memos, members] = await Promise.all([
+  const [schedules, tasks, memos, members, canOffice] = await Promise.all([
     getSchedulesInRange(from, to),
     getDiaryTasks(from, to),
     getDiaryMemos(30),
     getDiaryMembers(),
+    canManageOfficeSchedule(session.id, session.role),
   ]);
 
   // 범위에 걸친 달의 세무 일정 (core만 캘린더에 표시)
@@ -49,7 +50,7 @@ export default async function DiaryPage({
         memos={memos}
         members={members}
         taxEvents={taxEvents}
-        me={{ id: session.id, name: session.name, isManager: isManagerRole(session.role) }}
+        me={{ id: session.id, name: session.name, canOffice }}
       />
     </div>
   );

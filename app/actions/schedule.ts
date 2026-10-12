@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
 
-import { getTeamUserIds, MANAGER_ROLES } from "@/lib/team";
+import { getDiaryScope, canManageOfficeSchedule } from "@/lib/team";
 
 // 사용자의 구글 캘린더 ID 가져오기
 async function getUserCalendarId(userId: number): Promise<string | null> {
@@ -25,12 +25,12 @@ function revalidateScheduleViews() {
 // 기간(YYYY-MM-DD ~ YYYY-MM-DD) 안의 일정: 팀 개인 일정 + 사무실 공통 일정
 export async function getSchedulesInRange(from: string, to: string) {
   const session = await requireAuth();
-  const teamIds = await getTeamUserIds(session.id, session.role);
+  const { userIds } = await getDiaryScope(session.id, session.role);
 
   return prisma.schedule.findMany({
     where: {
       OR: [
-        { userId: { in: teamIds } },
+        { userId: { in: userIds } },
         { scope: "office" },
       ],
       AND: [
@@ -57,7 +57,7 @@ export async function getSchedules(yearMonth: string) {
   return getSchedulesInRange(`${yearMonth}-01`, `${yearMonth}-${String(lastDay).padStart(2, "0")}`);
 }
 
-function readScheduleForm(formData: FormData, role: string) {
+function readScheduleForm(formData: FormData, canOffice: boolean) {
   const title = (formData.get("title") as string)?.trim();
   const date = formData.get("date") as string;
   const endDateRaw = (formData.get("endDate") as string) || "";
@@ -67,21 +67,22 @@ function readScheduleForm(formData: FormData, role: string) {
   const color = (formData.get("color") as string) || "blue";
   const notes = (formData.get("notes") as string)?.trim() || null;
   const wantsOffice = formData.get("scope") === "office";
-  const scope = wantsOffice && MANAGER_ROLES.includes(role) ? "office" : "personal";
+  const scope = wantsOffice && canOffice ? "office" : "personal";
 
   if (!title || !date) throw new Error("제목과 날짜를 입력하세요.");
   return { title, date, endDate, startTime, endTime, color, notes, scope };
 }
 
-function canEdit(schedule: { userId: number; scope: string }, session: { id: number; role: string }) {
+async function canEdit(schedule: { userId: number; scope: string }, session: { id: number; role: string }) {
   if (schedule.userId === session.id) return true;
-  if (schedule.scope === "office" && MANAGER_ROLES.includes(session.role)) return true;
+  if (schedule.scope === "office") return canManageOfficeSchedule(session.id, session.role);
   return false;
 }
 
 export async function createSchedule(formData: FormData) {
   const session = await requireAuth();
-  const data = readScheduleForm(formData, session.role);
+  const canOffice = await canManageOfficeSchedule(session.id, session.role);
+  const data = readScheduleForm(formData, canOffice);
 
   const schedule = await prisma.schedule.create({
     data: { userId: session.id, ...data },
@@ -108,13 +109,14 @@ export async function updateSchedule(id: number, formData: FormData) {
   const session = await requireAuth();
 
   const schedule = await prisma.schedule.findUnique({ where: { id } });
-  if (!schedule || !canEdit(schedule, session)) {
-    throw new Error("본인의 일정(또는 사무실 일정은 관리자)만 수정할 수 있습니다.");
+  if (!schedule || !(await canEdit(schedule, session))) {
+    throw new Error("본인의 일정(또는 사무실 일정은 공유 멤버·관리자)만 수정할 수 있습니다.");
   }
 
-  const data = readScheduleForm(formData, session.role);
-  // 사무실 일정을 직원이 수정하는 경우 scope는 유지
-  if (schedule.scope === "office" && !MANAGER_ROLES.includes(session.role)) data.scope = "office";
+  const canOffice = await canManageOfficeSchedule(session.id, session.role);
+  const data = readScheduleForm(formData, canOffice);
+  // 사무실 일정은 권한 없는 사람이 수정해도 scope 유지
+  if (schedule.scope === "office" && !canOffice) data.scope = "office";
 
   await prisma.schedule.update({ where: { id }, data });
 
@@ -139,8 +141,8 @@ export async function deleteSchedule(id: number) {
   const session = await requireAuth();
 
   const schedule = await prisma.schedule.findUnique({ where: { id } });
-  if (!schedule || !canEdit(schedule, session)) {
-    throw new Error("본인의 일정(또는 사무실 일정은 관리자)만 삭제할 수 있습니다.");
+  if (!schedule || !(await canEdit(schedule, session))) {
+    throw new Error("본인의 일정(또는 사무실 일정은 공유 멤버·관리자)만 삭제할 수 있습니다.");
   }
 
   if (schedule.userId === session.id) {

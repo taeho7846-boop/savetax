@@ -43,7 +43,7 @@ export function ScheduleModal({
   date?: string;
   endDate?: string;
   schedule?: Schedule;
-  me: { id: number; isManager: boolean };
+  me: { id: number; canOffice: boolean };
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -57,7 +57,7 @@ export function ScheduleModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const canEdit = !schedule || schedule.userId === me.id || (schedule.scope === "office" && me.isManager);
+  const canEdit = !schedule || schedule.userId === me.id || (schedule.scope === "office" && me.canOffice);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -109,14 +109,14 @@ export function ScheduleModal({
           {/* 사무실 / 개인 */}
           <div className="inline-flex gap-0.5 p-1 bg-[#F2F4F6] rounded-[12px]">
             {([["personal", "개인 일정"], ["office", "사무실 일정"]] as const).map(([k, label]) => {
-              const disabled = k === "office" && !me.isManager;
+              const disabled = k === "office" && !me.canOffice;
               return (
                 <button
                   key={k}
                   type="button"
                   disabled={disabled || !canEdit}
                   onClick={() => setScope(k)}
-                  title={disabled ? "사무실 일정은 관리자만 등록할 수 있어요" : undefined}
+                  title={disabled ? "사무실 일정은 다이어리 공유 멤버·관리자만 등록할 수 있어요" : undefined}
                   className={`px-3.5 py-1.5 text-[12.5px] rounded-[10px] transition-all ${
                     scope === k ? "bg-white text-[#191F28] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.04)]" : "text-[#6B7684] font-[500]"
                   } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}

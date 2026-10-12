@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { getTeamUserIds, isManagerRole, todaySeoul } from "@/lib/team";
+import { getDiaryScope, isManagerRole, todaySeoul } from "@/lib/team";
 
 export type DiaryTask = {
   id: number;
@@ -49,8 +49,9 @@ function dueKey(d: Date | null): string | null {
 }
 
 async function taskVisibilityFilter(session: { id: number; role: string }) {
-  const teamIds = await getTeamUserIds(session.id, session.role);
-  if (isManagerRole(session.role)) {
+  const { userIds: teamIds, shared } = await getDiaryScope(session.id, session.role);
+  // 다이어리 공유 멤버이거나 관리자면 범위 안 사람들의 할 일을 전부 본다
+  if (shared || isManagerRole(session.role)) {
     return {
       teamIds,
       filter: [
@@ -141,7 +142,7 @@ export async function getDiaryMemos(limit = 30): Promise<DiaryMemo[]> {
 
 export async function getDiaryMembers(): Promise<DiaryMember[]> {
   const session = await requireAuth();
-  const teamIds = await getTeamUserIds(session.id, session.role);
+  const { userIds: teamIds } = await getDiaryScope(session.id, session.role);
   const users = await prisma.user.findMany({
     where: { id: { in: teamIds }, isActive: true },
     select: { id: true, name: true },
@@ -266,7 +267,7 @@ export async function deleteDiaryMemo(id: number) {
 // 빠른입력용 거래처 목록 (본인 담당 + 관리자는 팀 담당까지)
 export async function getQuickCaptureClients() {
   const session = await requireAuth();
-  const teamIds = await getTeamUserIds(session.id, session.role);
+  const { userIds: teamIds } = await getDiaryScope(session.id, session.role);
   const clients = await prisma.client.findMany({
     where: { isDeleted: false, contractStatus: "active", assignedUserId: { in: teamIds } },
     select: { id: true, name: true },
