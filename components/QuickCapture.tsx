@@ -92,7 +92,7 @@ export function QuickCapture() {
 
   if (!open) return null;
 
-  const filteredClients = (clients ?? []).filter(c => !clientQuery || c.name.toLowerCase().includes(clientQuery.toLowerCase())).slice(0, 8);
+  const filteredClients = (clients ?? []).filter(c => !clientQuery || c.name.toLowerCase().includes(clientQuery.toLowerCase()));
 
   return (
     <div
@@ -145,7 +145,7 @@ export function QuickCapture() {
               />
             )}
             {showClientList && !client && (
-              <div className="absolute top-full left-0 mt-1 w-[280px] bg-white border border-[#F2F4F6] rounded-xl shadow-xl z-10 max-h-64 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-1 w-[280px] bg-white border border-[#F2F4F6] rounded-xl shadow-2xl z-10 max-h-[70vh] overflow-y-auto">
                 {clients === null && <div className="px-3 py-2.5 text-[13px] text-[#8B95A1]">불러오는 중...</div>}
                 {clients !== null && filteredClients.length === 0 && <div className="px-3 py-2.5 text-[13px] text-[#8B95A1]">검색 결과 없음</div>}
                 {filteredClients.map(c => (
