@@ -13,6 +13,7 @@ import {
   type DiaryView as ViewMode,
 } from "@/lib/diary-dates";
 import { ScheduleModal, type Schedule, SCHEDULE_COLORS } from "./ScheduleModal";
+import { TaskEditModal } from "@/components/TaskEditModal";
 
 type TaxEvent = { date: string; title: string; desc: string };
 type Me = { id: number; name: string; canOffice: boolean };
@@ -53,6 +54,7 @@ export function DiaryView({
   const [drag, setDrag] = useState<{ start: string; end: string } | null>(null);
   const [quickTitle, setQuickTitle] = useState("");
   const [memoText, setMemoText] = useState("");
+  const [editTask, setEditTask] = useState<DiaryTask | null>(null);
   const [error, setError] = useState("");
 
   // 범위가 바뀌면 선택일을 범위 안으로
@@ -298,6 +300,8 @@ export function DiaryView({
                   key={`t-${t.id}`}
                   className={done ? "bg-[#F2F4F6] text-[#8B95A1] line-through" : "bg-[#FEF3C7] text-[#92400E]"}
                   title={`${t.assignedUserName ?? ""} ${t.clientName ? "· " + t.clientName : ""} ${t.title}`}
+                  onClick={e => { e.stopPropagation(); setEditTask(t); }}
+                  onMouseDown={e => e.stopPropagation()}
                 >
                   {t.title}
                 </Pill>
@@ -373,14 +377,14 @@ export function DiaryView({
           )}
 
           <div className="divide-y divide-[#F2F4F6]">
-            {dayTasks.map(t => <TaskRow key={t.id} task={t} today={today} run={run} />)}
+            {dayTasks.map(t => <TaskRow key={t.id} task={t} today={today} run={run} onEdit={() => setEditTask(t)} />)}
           </div>
 
           {isSelectedToday && overdueTasks.length > 0 && (
             <>
               <div className="mt-4 mb-1 text-[11px] font-bold text-[#DC2626] uppercase tracking-wide">이월 · {overdueTasks.length}건</div>
               <div className="divide-y divide-[#F2F4F6]">
-                {overdueTasks.map(t => <TaskRow key={t.id} task={t} today={today} run={run} overdue />)}
+                {overdueTasks.map(t => <TaskRow key={t.id} task={t} today={today} run={run} overdue onEdit={() => setEditTask(t)} />)}
               </div>
             </>
           )}
@@ -389,7 +393,7 @@ export function DiaryView({
             <>
               <div className="mt-4 mb-1 text-[11px] font-bold text-[#8B95A1] uppercase tracking-wide">날짜 없음 · {undatedTasks.length}건</div>
               <div className="divide-y divide-[#F2F4F6]">
-                {undatedTasks.map(t => <TaskRow key={t.id} task={t} today={today} run={run} />)}
+                {undatedTasks.map(t => <TaskRow key={t.id} task={t} today={today} run={run} onEdit={() => setEditTask(t)} />)}
               </div>
             </>
           )}
@@ -444,6 +448,10 @@ export function DiaryView({
         </div>
       </div>
 
+      {editTask && (
+        <TaskEditModal task={editTask} onClose={() => setEditTask(null)} onSaved={() => { setEditTask(null); router.refresh(); }} />
+      )}
+
       {modal && (
         <ScheduleModal
           mode={modal.mode}
@@ -489,7 +497,7 @@ function Pill({ className, title, onClick, onMouseDown, children }: { className:
   );
 }
 
-function TaskRow({ task, today, run, overdue }: { task: DiaryTask; today: string; run: (fn: () => Promise<unknown>) => void; overdue?: boolean }) {
+function TaskRow({ task, today, run, overdue, onEdit }: { task: DiaryTask; today: string; run: (fn: () => Promise<unknown>) => void; overdue?: boolean; onEdit: () => void }) {
   const done = task.status === "done";
   const delay = task.dueDate && task.dueDate < today && !done ? daysBetween(task.dueDate, today) : 0;
   const initial = task.assignedUserName?.slice(0, 1) ?? "?";
@@ -505,7 +513,7 @@ function TaskRow({ task, today, run, overdue }: { task: DiaryTask; today: string
         {done && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M20 6L9 17l-5-5" /></svg>}
       </button>
       <div className="flex-1 min-w-0">
-        <div className={`text-[13px] break-words ${done ? "text-[#8B95A1] line-through" : "text-[#191F28]"}`}>{task.title}</div>
+        <button onClick={onEdit} className={`text-left text-[13px] break-words hover:text-[#3182F6] hover:underline decoration-[#3182F6]/40 ${done ? "text-[#8B95A1] line-through" : "text-[#191F28]"}`} title="클릭해서 수정">{task.title}</button>
         <div className="flex items-center gap-1.5 mt-0.5 text-[10.5px] text-[#8B95A1] flex-wrap">
           {task.clientName && (
             <Link href={`/clients/${task.clientId}`} className="text-[#1B64DA] font-medium hover:underline">{task.clientName}</Link>

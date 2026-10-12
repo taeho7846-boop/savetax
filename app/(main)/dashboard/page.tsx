@@ -17,6 +17,8 @@ import { UnpaidCard } from "./UnpaidCard";
 import { lastBillableMonth, dueDayOfMonth, unpaidBucket, type UnpaidBucket } from "@/lib/withdrawal";
 import { InsuranceCard } from "./InsuranceCard";
 import { MonthScheduleCard } from "./MonthScheduleCard";
+import { TodayDiaryCard } from "./TodayDiaryCard";
+import { getDiaryTasks } from "@/app/actions/diary";
 import { getSchedulesInRange } from "@/app/actions/schedule";
 import { getTaxEventsForMonth } from "@/lib/tax-calendar";
 import { todaySeoul } from "@/lib/team";
@@ -457,7 +459,10 @@ export default async function DashboardPage({
 
   // === 이달의 일정 (토글 카드) ===
   const todayKey = todaySeoul();
-  const monthSchedules = await getSchedulesInRange(monthStart(todayKey), monthEnd(todayKey));
+  const [monthSchedules, diaryTasks] = await Promise.all([
+    getSchedulesInRange(monthStart(todayKey), monthEnd(todayKey)),
+    getDiaryTasks(todayKey, todayKey), // 오늘 + 이월 + 날짜 없음
+  ]);
   const monthNum = Number(todayKey.slice(5, 7));
   const monthScheduleItems = [
     ...monthSchedules.map(s => ({
@@ -581,8 +586,11 @@ export default async function DashboardPage({
               <UnpaidCard clients={unpaidClients} />
             </div>
 
-            {/* 이달의 일정 — 접힘/펼침 토글 */}
-            <MonthScheduleCard items={monthScheduleItems} today={todayKey} />
+            {/* 오늘 할 일(다이어리) + 이달의 일정(접힘/펼침) */}
+            <div className="grid grid-cols-2 gap-4 items-start">
+              <TodayDiaryCard tasks={diaryTasks} today={todayKey} />
+              <MonthScheduleCard items={monthScheduleItems} today={todayKey} />
+            </div>
 
             {/* 프로세스 카드 4-col */}
             <div className="grid grid-cols-4 gap-4">

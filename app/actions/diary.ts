@@ -222,6 +222,39 @@ export async function moveTaskDueDate(id: number, dueDate: string | null) {
   revalidateDiary(task?.clientId);
 }
 
+// 할 일 수정 (제목·메모·날짜·거래처·상태) — 본인 것 또는 관리자
+export async function updateDiaryTask(id: number, input: {
+  title: string;
+  notes?: string | null;
+  dueDate?: string | null;
+  clientId?: number | null;
+  status?: string;
+}) {
+  const session = await requireAuth();
+  const task = await prisma.task.findUnique({ where: { id }, select: { clientId: true, createdByUserId: true, assignedUserId: true, status: true } });
+  if (!task) throw new Error("할 일을 찾을 수 없습니다.");
+  if (task.createdByUserId !== session.id && task.assignedUserId !== session.id && !isManagerRole(session.role)) {
+    throw new Error("본인 할 일만 수정할 수 있습니다.");
+  }
+  const title = input.title.trim();
+  if (!title) throw new Error("제목을 입력하세요.");
+  const status = input.status ?? task.status;
+
+  await prisma.task.update({
+    where: { id },
+    data: {
+      title,
+      notes: input.notes?.trim() || null,
+      dueDate: input.dueDate ? new Date(input.dueDate) : null,
+      clientId: input.clientId ?? null,
+      status,
+      completedAt: status === "done" ? (task.status === "done" ? undefined : new Date()) : null,
+    },
+  });
+  revalidateDiary(task.clientId);
+  if (input.clientId && input.clientId !== task.clientId) revalidatePath(`/clients/${input.clientId}`);
+}
+
 export async function deleteDiaryTask(id: number) {
   const session = await requireAuth();
   const task = await prisma.task.findUnique({ where: { id }, select: { clientId: true, createdByUserId: true, assignedUserId: true } });
