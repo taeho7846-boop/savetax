@@ -48,7 +48,9 @@ export function DiaryView({
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedDate, setSelectedDate] = useState<string>(days.includes(today) ? today : days[0]);
-  const [modal, setModal] = useState<{ mode: "create"; date: string } | { mode: "edit"; schedule: Schedule } | null>(null);
+  const [modal, setModal] = useState<{ mode: "create"; date: string; endDate?: string } | { mode: "edit"; schedule: Schedule } | null>(null);
+  // 드래그로 날짜 범위 선택 → 여러 날 일정 추가
+  const [drag, setDrag] = useState<{ start: string; end: string } | null>(null);
   const [quickTitle, setQuickTitle] = useState("");
   const [memoText, setMemoText] = useState("");
   const [error, setError] = useState("");
@@ -58,6 +60,21 @@ export function DiaryView({
     if (!days.includes(selectedDate)) setSelectedDate(days.includes(today) ? today : days[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchor, view]);
+
+  useEffect(() => {
+    if (!drag) return;
+    const current = drag;
+    function onUp() {
+      if (current.start !== current.end) {
+        const [a, b] = [current.start, current.end].sort();
+        setSelectedDate(a);
+        setModal({ mode: "create", date: a, endDate: b });
+      }
+      setDrag(null);
+    }
+    document.addEventListener("mouseup", onUp);
+    return () => document.removeEventListener("mouseup", onUp);
+  }, [drag]);
 
   // 구글 캘린더 동기화 (범위에 걸친 달마다)
   useEffect(() => {
@@ -230,6 +247,7 @@ export function DiaryView({
         <Legend className="bg-[#E7F7EE] text-[#15803D]">개인 일정</Legend>
         <Legend className="bg-[#FEF2F2] text-[#B91C1C]">세무 마감</Legend>
         <Legend className="bg-[#FEF3C7] text-[#92400E]">할 일</Legend>
+        <span className="text-[10.5px] text-[#8B95A1] ml-1">날짜를 끌면 여러 날 일정</span>
       </div>
 
       {error && <div className="text-xs text-[#E02E2E] mb-2">{error}</div>}
@@ -243,12 +261,14 @@ export function DiaryView({
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className={`grid grid-cols-7 gap-1.5 select-none ${drag ? "cursor-crosshair" : ""}`}>
           {days.map(date => {
             const d = fromKey(date);
             const dow = d.getDay();
             const isToday = date === today;
             const isSelected = date === selectedDate;
+            const dragRange = drag ? [drag.start, drag.end].sort() : null;
+            const inDrag = !!dragRange && date >= dragRange[0] && date <= dragRange[1];
             const inMonth = view === "week" || date.slice(0, 7) === anchor.slice(0, 7);
             const items: React.ReactNode[] = [];
 
@@ -265,6 +285,7 @@ export function DiaryView({
                   className={office ? "bg-[#EEEDFE] text-[#3C3489]" : `${c!.bg} ${c!.text}`}
                   title={`${office ? "사무실" : s.user.name}: ${s.title}${s.endDate ? ` (${s.date} ~ ${s.endDate})` : ""}`}
                   onClick={e => { e.stopPropagation(); setModal({ mode: "edit", schedule: s }); }}
+                  onMouseDown={e => e.stopPropagation()}
                 >
                   {s.endDate && !isStart ? " " : `${s.startTime ? s.startTime + " " : ""}${s.title}`}
                 </Pill>
@@ -290,9 +311,12 @@ export function DiaryView({
               <div
                 key={date}
                 onClick={() => setSelectedDate(date)}
+                onMouseDown={e => { if (e.button === 0) setDrag({ start: date, end: date }); }}
+                onMouseEnter={() => { if (drag) setDrag(prev => prev && prev.end !== date ? { ...prev, end: date } : prev); }}
+                title="끌어서 여러 날 일정 추가"
                 className={`rounded-xl border p-1.5 cursor-pointer transition-colors relative group flex flex-col gap-0.5 ${
                   view === "week" ? "min-h-[150px]" : "min-h-[92px]"
-                } ${isSelected ? "border-[#3182F6] ring-2 ring-[#3182F6]/25 bg-white" : "border-[#F2F4F6] bg-white/60 hover:bg-white"} ${
+                } ${inDrag ? "border-[#3182F6] bg-[#E8F3FF]" : isSelected ? "border-[#3182F6] ring-2 ring-[#3182F6]/25 bg-white" : "border-[#F2F4F6] bg-white/60 hover:bg-white"} ${
                   !inMonth ? "opacity-45" : ""
                 }`}
               >
@@ -304,6 +328,7 @@ export function DiaryView({
                   </span>
                   <button
                     onClick={e => { e.stopPropagation(); setModal({ mode: "create", date }); }}
+                    onMouseDown={e => e.stopPropagation()}
                     className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-md text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#191F28] text-sm leading-none"
                     aria-label="일정 추가"
                   >
@@ -423,6 +448,7 @@ export function DiaryView({
         <ScheduleModal
           mode={modal.mode}
           date={modal.mode === "create" ? modal.date : undefined}
+          endDate={modal.mode === "create" ? modal.endDate : undefined}
           schedule={modal.mode === "edit" ? modal.schedule : undefined}
           me={me}
           onClose={() => setModal(null)}
@@ -450,12 +476,13 @@ function Legend({ className, children }: { className: string; children: React.Re
   return <span className={`text-[10.5px] px-2 py-0.5 rounded-md font-medium ${className}`}>{children}</span>;
 }
 
-function Pill({ className, title, onClick, children }: { className: string; title?: string; onClick?: (e: React.MouseEvent) => void; children: React.ReactNode }) {
+function Pill({ className, title, onClick, onMouseDown, children }: { className: string; title?: string; onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; children: React.ReactNode }) {
   return (
     <div
       className={`text-[10.5px] px-1.5 py-0.5 rounded-md truncate leading-[1.4] ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${className}`}
       title={title}
       onClick={onClick}
+      onMouseDown={onMouseDown}
     >
       {children}
     </div>

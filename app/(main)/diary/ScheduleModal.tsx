@@ -37,10 +37,11 @@ const TIME_OPTIONS = (() => {
 const inputCls = "w-full border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]";
 
 export function ScheduleModal({
-  mode, date, schedule, me, onClose, onSaved,
+  mode, date, endDate, schedule, me, onClose, onSaved,
 }: {
   mode: "create" | "edit";
   date?: string;
+  endDate?: string;
   schedule?: Schedule;
   me: { id: number; isManager: boolean };
   onClose: () => void;
@@ -137,7 +138,7 @@ export function ScheduleModal({
             </div>
             <div>
               <label className="block text-xs text-[#6B7684] mb-1">종료일 <span className="text-[#B0B8C1]">(여러 날이면)</span></label>
-              <input name="endDate" type="date" readOnly={!canEdit} defaultValue={schedule?.endDate ?? ""} className={inputCls} />
+              <input name="endDate" type="date" readOnly={!canEdit} defaultValue={schedule?.endDate ?? endDate ?? ""} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
