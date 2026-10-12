@@ -96,18 +96,19 @@ export function QuickCapture() {
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/25 backdrop-blur-[2px] flex items-start justify-center pt-[12vh] p-4"
+      className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] flex items-start justify-center pt-[10vh] p-4"
       onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}
     >
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl">
+        {/* 상단: 유형 · 마감 · 거래처 */}
+        <div className="flex items-center gap-2 px-6 pt-5 pb-3 flex-wrap border-b border-[#F2F4F6]">
           <div className="inline-flex gap-0.5 p-1 bg-[#F2F4F6] rounded-[12px]">
             {([["task", "할 일"], ["memo", "메모"]] as const).map(([k, label]) => (
               <button
                 key={k}
                 type="button"
                 onClick={() => setMode(k)}
-                className={`px-3.5 py-1.5 text-[12.5px] rounded-[10px] transition-all ${
+                className={`px-4 py-2 text-[14px] rounded-[10px] transition-all ${
                   mode === k ? "bg-white text-[#191F28] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.04)]" : "text-[#6B7684] font-[500]"
                 }`}
               >
@@ -115,30 +116,11 @@ export function QuickCapture() {
               </button>
             ))}
           </div>
-          <span className="flex-1" />
-          <span className="text-[10.5px] text-[#8B95A1]">Enter 저장 · Shift+Enter 줄바꿈 · Esc 닫기</span>
-        </div>
 
-        <div className="px-4">
-          <textarea
-            ref={textRef}
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
-            }}
-            rows={3}
-            placeholder={mode === "task" ? "예: ○○상사 부가세 자료 요청 전화" : "예: □□식당 대표님 금요일 다시 연락"}
-            className="w-full text-[15px] text-[#191F28] placeholder:text-[#B0B8C1] resize-none focus:outline-none py-2"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 px-4 pb-4 pt-1 flex-wrap">
           {mode === "task" && (
-            <label className="flex items-center gap-1.5 text-[11.5px] text-[#6B7684] bg-[#F9FAFB] border border-[#F2F4F6] rounded-full px-2.5 py-1">
+            <label className="flex items-center gap-1.5 text-[13px] text-[#6B7684] bg-[#F9FAFB] border border-[#F2F4F6] rounded-xl px-3 h-10">
               <span>마감</span>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="bg-transparent text-[#191F28] text-[11.5px] focus:outline-none" />
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="bg-transparent text-[#191F28] text-[13px] focus:outline-none" />
             </label>
           )}
 
@@ -147,7 +129,7 @@ export function QuickCapture() {
               <button
                 type="button"
                 onClick={() => setClient(null)}
-                className="text-[11.5px] bg-[#E8F3FF] text-[#1B64DA] rounded-full px-2.5 py-1 font-medium hover:bg-[#DCEBFF]"
+                className="text-[13px] bg-[#E8F3FF] text-[#1B64DA] rounded-xl px-3 h-10 font-medium hover:bg-[#DCEBFF]"
                 title="클릭하면 해제"
               >
                 {client.name} ✕
@@ -159,20 +141,20 @@ export function QuickCapture() {
                 onFocus={() => setShowClientList(true)}
                 onBlur={() => setTimeout(() => setShowClientList(false), 120)}
                 placeholder="거래처 (선택)"
-                className="text-[11.5px] bg-[#F9FAFB] border border-[#F2F4F6] rounded-full px-2.5 py-1 w-[150px] focus:outline-none focus:border-[#3182F6]"
+                className="text-[13px] bg-[#F9FAFB] border border-[#F2F4F6] rounded-xl px-3 h-10 w-[190px] focus:outline-none focus:border-[#3182F6]"
               />
             )}
             {showClientList && !client && (
-              <div className="absolute top-full left-0 mt-1 w-[240px] bg-white border border-[#F2F4F6] rounded-xl shadow-lg z-10 max-h-56 overflow-y-auto">
-                {clients === null && <div className="px-3 py-2 text-[12px] text-[#8B95A1]">불러오는 중...</div>}
-                {clients !== null && filteredClients.length === 0 && <div className="px-3 py-2 text-[12px] text-[#8B95A1]">검색 결과 없음</div>}
+              <div className="absolute top-full left-0 mt-1 w-[280px] bg-white border border-[#F2F4F6] rounded-xl shadow-xl z-10 max-h-64 overflow-y-auto">
+                {clients === null && <div className="px-3 py-2.5 text-[13px] text-[#8B95A1]">불러오는 중...</div>}
+                {clients !== null && filteredClients.length === 0 && <div className="px-3 py-2.5 text-[13px] text-[#8B95A1]">검색 결과 없음</div>}
                 {filteredClients.map(c => (
                   <button
                     key={c.id}
                     type="button"
                     onMouseDown={e => e.preventDefault()}
                     onClick={() => { setClient(c); setShowClientList(false); setClientQuery(""); textRef.current?.focus(); }}
-                    className="w-full text-left px-3 py-2 text-[12.5px] text-[#191F28] hover:bg-[#F5F9FF]"
+                    className="w-full text-left px-3 py-2.5 text-[13.5px] text-[#191F28] hover:bg-[#F5F9FF]"
                   >
                     {c.name}
                   </button>
@@ -182,13 +164,36 @@ export function QuickCapture() {
           </div>
 
           <span className="flex-1" />
-          {error && <span className="text-[11.5px] text-[#E02E2E]">{error}</span>}
-          {savedMsg && <span className="text-[11.5px] text-[#15803D] font-medium">{savedMsg}</span>}
+          <button type="button" onClick={() => setOpen(false)} className="text-[#8B95A1] hover:text-[#4E5968] text-xl leading-none px-1" aria-label="닫기">✕</button>
+        </div>
+
+        {/* 본문 */}
+        <div className="px-6 pt-4">
+          <textarea
+            ref={textRef}
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
+            }}
+            rows={7}
+            placeholder={mode === "task" ? "예: ○○상사 부가세 자료 요청 전화" : "예: □□식당 대표님 금요일 다시 연락"}
+            className="w-full min-h-[200px] text-[17px] leading-[1.6] text-[#191F28] placeholder:text-[#B0B8C1] resize-none focus:outline-none"
+          />
+        </div>
+
+        {/* 하단 */}
+        <div className="flex items-center gap-3 px-6 pb-5 pt-2">
+          <span className="text-[12px] text-[#8B95A1]">Enter 저장 · Shift+Enter 줄바꿈 · Esc 닫기 · 어디서든 Ctrl+Q</span>
+          <span className="flex-1" />
+          {error && <span className="text-[13px] text-[#E02E2E]">{error}</span>}
+          {savedMsg && <span className="text-[13px] text-[#15803D] font-medium">{savedMsg}</span>}
           <button
             type="button"
             onClick={submit}
             disabled={isPending}
-            className="bg-[#191F28] text-white text-[12.5px] font-bold px-4 py-2 rounded-xl hover:bg-black disabled:opacity-50"
+            className="bg-[#191F28] text-white text-[14px] font-bold px-6 h-11 rounded-xl hover:bg-black disabled:opacity-50"
           >
             {mode === "task" ? "할 일 저장" : "메모 저장"}
           </button>
