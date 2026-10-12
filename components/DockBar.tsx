@@ -13,6 +13,7 @@ type DockItem = {
   href?: string;
   external?: boolean;
   popup?: { width: number; height: number };
+  event?: string;
   badge?: number;
 };
 
@@ -79,8 +80,8 @@ const ITEMS: (DockItem | "divider")[] = [
   "divider",
   {
     key: "memos",
-    label: "빠른메모",
-    title: "빠른 메모",
+    label: "빠른입력",
+    title: "할 일·메모 빠른입력 (Ctrl+Q)",
     gradient: "from-[#FBBF24] to-[#F59E0B]",
     shadow: "shadow-[#F59E0B]/30",
     icon: (
@@ -89,7 +90,7 @@ const ITEMS: (DockItem | "divider")[] = [
         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
       </svg>
     ),
-    href: "/memos",
+    event: "savetax-open-quick-capture",
   },
   {
     key: "phone",
@@ -146,6 +147,13 @@ function DockButton({ item }: { item: DockItem }) {
       <div className="dock-label">{item.label}</div>
     </div>
   );
+  if (item.event) {
+    return (
+      <button type="button" title={item.title} onClick={() => window.dispatchEvent(new CustomEvent(item.event!, { detail: {} }))}>
+        {innerNode}
+      </button>
+    );
+  }
   if (!item.href) {
     return <button title={item.title}>{innerNode}</button>;
   }

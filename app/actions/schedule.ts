@@ -5,6 +5,8 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
 
+import { getTeamUserIds, MANAGER_ROLES } from "@/lib/team";
+
 // 사용자의 구글 캘린더 ID 가져오기
 async function getUserCalendarId(userId: number): Promise<string | null> {
   const user = await prisma.user.findUnique({
@@ -14,74 +16,83 @@ async function getUserCalendarId(userId: number): Promise<string | null> {
   return user?.googleCalendarId || null;
 }
 
-export async function getSchedules(yearMonth: string) {
+function revalidateScheduleViews() {
+  revalidatePath("/diary");
+  revalidatePath("/schedule");
+  revalidatePath("/dashboard");
+}
+
+// 기간(YYYY-MM-DD ~ YYYY-MM-DD) 안의 일정: 팀 개인 일정 + 사무실 공통 일정
+export async function getSchedulesInRange(from: string, to: string) {
   const session = await requireAuth();
+  const teamIds = await getTeamUserIds(session.id, session.role);
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.id },
-    select: { managerId: true },
-  });
-
-  let userIds: number[] = [session.id];
-
-  if (session.role === "owner" || session.role === "admin" || session.role === "accountant") {
-    const employees = await prisma.user.findMany({
-      where: { managerId: session.id, isActive: true },
-      select: { id: true },
-    });
-    userIds.push(...employees.map(e => e.id));
-  }
-
-  if (session.role === "employee" && user?.managerId) {
-    const teammates = await prisma.user.findMany({
-      where: {
-        OR: [
-          { id: user.managerId },
-          { managerId: user.managerId, isActive: true },
-        ],
-      },
-      select: { id: true },
-    });
-    userIds.push(...teammates.map(t => t.id));
-  }
-
-  const uniqueIds = [...new Set(userIds)];
-
-  const schedules = await prisma.schedule.findMany({
+  return prisma.schedule.findMany({
     where: {
-      userId: { in: uniqueIds },
-      date: { startsWith: yearMonth },
+      OR: [
+        { userId: { in: teamIds } },
+        { scope: "office" },
+      ],
+      AND: [
+        { date: { lte: to } },
+        {
+          OR: [
+            { endDate: null, date: { gte: from } },
+            { endDate: { gte: from } },
+          ],
+        },
+      ],
     },
     include: {
       user: { select: { id: true, name: true } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
-
-  return schedules;
 }
 
-export async function createSchedule(formData: FormData) {
-  const session = await requireAuth();
+// 월 단위 조회 (하위호환)
+export async function getSchedules(yearMonth: string) {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return getSchedulesInRange(`${yearMonth}-01`, `${yearMonth}-${String(lastDay).padStart(2, "0")}`);
+}
 
+function readScheduleForm(formData: FormData, role: string) {
   const title = (formData.get("title") as string)?.trim();
   const date = formData.get("date") as string;
+  const endDateRaw = (formData.get("endDate") as string) || "";
+  const endDate = endDateRaw && endDateRaw > date ? endDateRaw : null;
   const startTime = (formData.get("startTime") as string) || null;
   const endTime = (formData.get("endTime") as string) || null;
   const color = (formData.get("color") as string) || "blue";
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const wantsOffice = formData.get("scope") === "office";
+  const scope = wantsOffice && MANAGER_ROLES.includes(role) ? "office" : "personal";
 
   if (!title || !date) throw new Error("제목과 날짜를 입력하세요.");
+  return { title, date, endDate, startTime, endTime, color, notes, scope };
+}
 
-  // DB에 저장
+function canEdit(schedule: { userId: number; scope: string }, session: { id: number; role: string }) {
+  if (schedule.userId === session.id) return true;
+  if (schedule.scope === "office" && MANAGER_ROLES.includes(session.role)) return true;
+  return false;
+}
+
+export async function createSchedule(formData: FormData) {
+  const session = await requireAuth();
+  const data = readScheduleForm(formData, session.role);
+
   const schedule = await prisma.schedule.create({
-    data: { userId: session.id, title, date, startTime, endTime, color, notes },
+    data: { userId: session.id, ...data },
   });
 
   // 구글 캘린더에 동기화
   const calendarId = await getUserCalendarId(session.id);
   if (calendarId) {
-    const googleEventId = await createCalendarEvent(calendarId, { title, date, startTime, endTime, notes, color });
+    const googleEventId = await createCalendarEvent(calendarId, {
+      title: data.title, date: data.date, startTime: data.startTime, endTime: data.endTime, notes: data.notes, color: data.color,
+    });
     if (googleEventId) {
       await prisma.schedule.update({
         where: { id: schedule.id },
@@ -90,58 +101,55 @@ export async function createSchedule(formData: FormData) {
     }
   }
 
-  revalidatePath("/schedule");
+  revalidateScheduleViews();
 }
 
 export async function updateSchedule(id: number, formData: FormData) {
   const session = await requireAuth();
 
   const schedule = await prisma.schedule.findUnique({ where: { id } });
-  if (!schedule || schedule.userId !== session.id) {
-    throw new Error("본인의 일정만 수정할 수 있습니다.");
+  if (!schedule || !canEdit(schedule, session)) {
+    throw new Error("본인의 일정(또는 사무실 일정은 관리자)만 수정할 수 있습니다.");
   }
 
-  const title = (formData.get("title") as string)?.trim();
-  const date = formData.get("date") as string;
-  const startTime = (formData.get("startTime") as string) || null;
-  const endTime = (formData.get("endTime") as string) || null;
-  const color = (formData.get("color") as string) || "blue";
-  const notes = (formData.get("notes") as string)?.trim() || null;
+  const data = readScheduleForm(formData, session.role);
+  // 사무실 일정을 직원이 수정하는 경우 scope는 유지
+  if (schedule.scope === "office" && !MANAGER_ROLES.includes(session.role)) data.scope = "office";
 
-  await prisma.schedule.update({
-    where: { id },
-    data: { title, date, startTime, endTime, color, notes },
-  });
+  await prisma.schedule.update({ where: { id }, data });
 
-  // 구글 캘린더 동기화
-  const calendarId = await getUserCalendarId(session.id);
-  if (calendarId && schedule.googleEventId) {
-    await updateCalendarEvent(calendarId, schedule.googleEventId, { title, date, startTime, endTime, notes, color });
-  } else if (calendarId && !schedule.googleEventId) {
-    // 기존에 동기화 안 된 일정이면 새로 생성
-    const googleEventId = await createCalendarEvent(calendarId, { title, date, startTime, endTime, notes, color });
-    if (googleEventId) {
-      await prisma.schedule.update({ where: { id }, data: { googleEventId } });
+  // 구글 캘린더 동기화 (작성자 본인 캘린더만)
+  if (schedule.userId === session.id) {
+    const calendarId = await getUserCalendarId(session.id);
+    const payload = { title: data.title, date: data.date, startTime: data.startTime, endTime: data.endTime, notes: data.notes, color: data.color };
+    if (calendarId && schedule.googleEventId) {
+      await updateCalendarEvent(calendarId, schedule.googleEventId, payload);
+    } else if (calendarId && !schedule.googleEventId) {
+      const googleEventId = await createCalendarEvent(calendarId, payload);
+      if (googleEventId) {
+        await prisma.schedule.update({ where: { id }, data: { googleEventId } });
+      }
     }
   }
 
-  revalidatePath("/schedule");
+  revalidateScheduleViews();
 }
 
 export async function deleteSchedule(id: number) {
   const session = await requireAuth();
 
   const schedule = await prisma.schedule.findUnique({ where: { id } });
-  if (!schedule || schedule.userId !== session.id) {
-    throw new Error("본인의 일정만 삭제할 수 있습니다.");
+  if (!schedule || !canEdit(schedule, session)) {
+    throw new Error("본인의 일정(또는 사무실 일정은 관리자)만 삭제할 수 있습니다.");
   }
 
-  // 구글 캘린더에서도 삭제
-  const calendarId = await getUserCalendarId(session.id);
-  if (calendarId && schedule.googleEventId) {
-    await deleteCalendarEvent(calendarId, schedule.googleEventId);
+  if (schedule.userId === session.id) {
+    const calendarId = await getUserCalendarId(session.id);
+    if (calendarId && schedule.googleEventId) {
+      await deleteCalendarEvent(calendarId, schedule.googleEventId);
+    }
   }
 
   await prisma.schedule.delete({ where: { id } });
-  revalidatePath("/schedule");
+  revalidateScheduleViews();
 }

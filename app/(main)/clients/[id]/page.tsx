@@ -7,6 +7,7 @@ import { deleteClient } from "@/app/actions/clients";
 import { ClientDeleteButton } from "./ClientDeleteButton";
 import { MemoContent } from "./MemoContent";
 import { TaskEditableSection } from "./TaskEditableSection";
+import { QuickTaskButton } from "./QuickTaskButton";
 
 export default async function ClientDetailPage({
   params,
@@ -69,6 +70,7 @@ export default async function ClientDetailPage({
           </span>
         </div>
         <div className="flex gap-2">
+          <QuickTaskButton clientId={client.id} clientName={client.name} />
           <Link
             href={`/clients/${client.id}/edit`}
             className="border border-[#D1D6DB] text-[#4E5968] text-sm px-4 py-2 rounded-lg hover:bg-[#F9FAFB]"

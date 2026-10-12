@@ -33,8 +33,7 @@ const ALL_MENUS = [
   { key: "settlement", label: "Savetax 정산" },
   { key: "distribution-taeho", label: "세무회계태호 배분" },
   { key: "revenue", label: "수익추이" },
-  { key: "schedule", label: "스케쥴" },
-  { key: "tasks", label: "업무/메모" },
+  { key: "diary", label: "다이어리" },
 ];
 
 const roleLabels: Record<string, string> = {

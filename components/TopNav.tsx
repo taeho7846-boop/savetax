@@ -84,8 +84,7 @@ const CATEGORIES: Category[] = [
     label: "운영",
     icon: <SettingsIcon width={14} height={14} />,
     subs: [
-      { href: "/schedule", label: "스케쥴" },
-      { href: "/tasks", label: "업무/메모" },
+      { href: "/diary", label: "다이어리" },
       { href: "/savetax-receivables", label: "세이브택스 채권관리" },
       { href: "/staff", label: "직원관리" },
       { href: "/settings", label: "설정" },
@@ -122,7 +121,7 @@ export default function TopNav({
     const subs = cat.subs.filter((s) => {
       if (s.href === "/staff" && !(user.role === "owner" || user.role === "admin")) return false;
       if (s.href === "/savetax-receivables" && !(user.role === "owner" || user.role === "accountant")) return false;
-      if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/settings" && s.href !== "/freelancer-calc" && s.href !== "/savetax-receivables") return false;
+      if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/diary" && s.href !== "/settings" && s.href !== "/freelancer-calc" && s.href !== "/savetax-receivables") return false;
       return true;
     });
     return { ...cat, subs };

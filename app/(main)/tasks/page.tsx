@@ -124,9 +124,9 @@ export default async function TasksPage({
         <div>
           <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
             <span className="live-dot" />
-            팀 업무 보드 · 실시간
+            <Link href="/diary" className="hover:text-[#191F28]">← 다이어리</Link> · 전체 목록
           </div>
-          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">업무 / 메모</h1>
+          <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">업무 목록</h1>
         </div>
         <UnifiedCreateButton />
       </div>

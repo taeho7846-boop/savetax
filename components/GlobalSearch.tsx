@@ -80,8 +80,8 @@ const MENUS = [
   { name: "Savetax 정산", keywords: "정산, settlement", icon: "💵", path: "/settlement" },
   { name: "세무회계태호 배분", keywords: "태호, 배분, taeho", icon: "📊", path: "/distribution-taeho" },
   { name: "수익추이", keywords: "수익, 추이, revenue", icon: "📈", path: "/revenue" },
-  { name: "스케줄", keywords: "스케줄, 일정, schedule", icon: "📅", path: "/schedule" },
-  { name: "업무/메모", keywords: "업무, 메모, tasks", icon: "🗓️", path: "/tasks" },
+  { name: "다이어리", keywords: "다이어리, 스케줄, 일정, 업무, 메모, 할일, diary, schedule, tasks", icon: "📅", path: "/diary" },
+  { name: "업무 목록", keywords: "업무, 메모, 목록, tasks", icon: "🗓️", path: "/tasks" },
   { name: "직원관리", keywords: "직원, 스탭, staff", icon: "👥", path: "/staff" },
   { name: "설정", keywords: "설정, settings", icon: "⚙️", path: "/settings" },
 ];

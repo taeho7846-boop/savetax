@@ -203,8 +203,8 @@ const NAV_ITEMS: NavItem[] = [
   { name: "Savetax 정산", keywords: "정산 settlement", path: "/settlement" },
   { name: "세무회계태호 배분", keywords: "태호 배분 taeho", path: "/distribution-taeho" },
   { name: "수익추이", keywords: "수익 추이 revenue", path: "/revenue" },
-  { name: "스케쥴", keywords: "스케쥴 일정 schedule", path: "/schedule" },
-  { name: "업무/메모", keywords: "업무 메모 tasks", path: "/tasks" },
+  { name: "다이어리", keywords: "다이어리 스케쥴 일정 업무 메모 diary schedule", path: "/diary" },
+  { name: "업무 목록", keywords: "업무 메모 목록 tasks", path: "/tasks" },
   { name: "직원관리", keywords: "직원 스탭 staff", path: "/staff" },
   { name: "설정", keywords: "설정 settings", path: "/settings" },
 ];
@@ -1514,7 +1514,7 @@ function PhoneScheduleView({ onHome }: { onHome: () => void }) {
           <div className="text-[13.5px] font-bold text-[#191F28]">스케쥴</div>
         </div>
         <Link
-          href="/schedule"
+          href="/diary"
           className="text-[11.5px] text-[#3182F6] font-bold px-2 py-1 rounded-[6px] hover:bg-[#E8F3FF]"
           title="전체 스케쥴 페이지"
         >

@@ -16,6 +16,11 @@ import type { TransferItem } from "./ProcessCards";
 import { UnpaidCard } from "./UnpaidCard";
 import { lastBillableMonth, dueDayOfMonth, unpaidBucket, type UnpaidBucket } from "@/lib/withdrawal";
 import { InsuranceCard } from "./InsuranceCard";
+import { MonthScheduleCard } from "./MonthScheduleCard";
+import { getSchedulesInRange } from "@/app/actions/schedule";
+import { getTaxEventsForMonth } from "@/lib/tax-calendar";
+import { todaySeoul } from "@/lib/team";
+import { monthStart, monthEnd } from "@/lib/diary-dates";
 import { BuildingIcon, ClockIcon, CalendarIcon, BellIcon } from "@/components/icons";
 
 export default async function DashboardPage({
@@ -450,6 +455,30 @@ export default async function DashboardPage({
       ? "고생 많으셨어요"
       : "늦게까지 수고하세요";
 
+  // === 이달의 일정 (토글 카드) ===
+  const todayKey = todaySeoul();
+  const monthSchedules = await getSchedulesInRange(monthStart(todayKey), monthEnd(todayKey));
+  const monthNum = Number(todayKey.slice(5, 7));
+  const monthScheduleItems = [
+    ...monthSchedules.map(s => ({
+      key: `s-${s.id}`,
+      date: s.date,
+      endDate: s.endDate,
+      title: s.title,
+      kind: (s.scope === "office" ? "office" : "personal") as "office" | "personal",
+      who: s.scope === "office" ? null : s.user.name,
+      time: s.startTime,
+    })),
+    ...getTaxEventsForMonth(monthNum)
+      .filter(e => e.priority === "core")
+      .map((e, i) => ({
+        key: `tax-${i}`,
+        date: `${todayKey.slice(0, 7)}-${String(e.day).padStart(2, "0")}`,
+        title: e.title,
+        kind: "tax" as const,
+      })),
+  ];
+
   return (
     <div>
       {/* 히어로: 모든 탭 동일한 두 줄 헤더 (인사말 + 오늘의 업무 N건 + 폰 팝업 버튼) */}
@@ -507,7 +536,7 @@ export default async function DashboardPage({
               )}
             </Link>
 
-            <Link href="/tasks" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
+            <Link href="/diary" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-9 h-9 rounded-xl gradient-purple flex items-center justify-center text-white">
                   <ClockIcon width={18} height={18} strokeWidth={2.2} />
@@ -551,6 +580,9 @@ export default async function DashboardPage({
               <TodayTasksCard items={todayTasks} />
               <UnpaidCard clients={unpaidClients} />
             </div>
+
+            {/* 이달의 일정 — 접힘/펼침 토글 */}
+            <MonthScheduleCard items={monthScheduleItems} today={todayKey} />
 
             {/* 프로세스 카드 4-col */}
             <div className="grid grid-cols-4 gap-4">

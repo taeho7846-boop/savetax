@@ -8,6 +8,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { GlobalClientEditModal } from "@/components/GlobalClientEditModal";
 import { DriveBasePathSync } from "@/components/DriveBasePathSync";
 import { ChatBot } from "@/components/ChatBot";
+import { QuickCapture } from "@/components/QuickCapture";
 
 export default async function MainLayout({
   children,
@@ -71,6 +72,7 @@ export default async function MainLayout({
       <main className="flex-1 px-6 pb-[100px] overflow-y-auto text-[#4E5968]">{children}</main>
       <DockBar />
       <GlobalSearch />
+      <QuickCapture />
       <GlobalClientEditModal />
       <ChatBot />
       <DriveBasePathSync value={settings?.driveBasePath ?? null} />
