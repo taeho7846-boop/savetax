@@ -195,7 +195,7 @@ export function DiaryView({
             오늘
           </button>
           <div className="inline-flex gap-0.5 p-1 bg-[#F2F4F6] rounded-[12px] h-10 items-center">
-            {([["week", "주간"], ["month", "월간"]] as const).map(([k, label]) => (
+            {([["month", "월간"], ["week", "주간"]] as const).map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => go(k, anchor)}
@@ -285,11 +285,11 @@ export function DiaryView({
                 <Pill
                   key={`s-${s.id}`}
                   className={office ? "bg-[#EEEDFE] text-[#3C3489]" : `${c!.bg} ${c!.text}`}
-                  title={`${office ? "사무실" : s.user.name}: ${s.title}${s.endDate ? ` (${s.date} ~ ${s.endDate})` : ""}`}
+                  title={`${office ? "사무실" : s.user.name}: ${s.client ? s.client.name + " · " : ""}${s.title}${s.endDate ? ` (${s.date} ~ ${s.endDate})` : ""}`}
                   onClick={e => { e.stopPropagation(); setModal({ mode: "edit", schedule: s }); }}
                   onMouseDown={e => e.stopPropagation()}
                 >
-                  {s.endDate && !isStart ? " " : `${s.startTime ? s.startTime + " " : ""}${s.title}`}
+                  {s.endDate && !isStart ? "\u00A0" : `${s.startTime ? s.startTime + " " : ""}${s.client ? s.client.name + " · " : ""}${s.title}`}
                 </Pill>
               );
             });
@@ -308,7 +308,7 @@ export function DiaryView({
               );
             });
 
-            const limit = view === "week" ? 8 : 3;
+            const limit = view === "week" ? 10 : 5;
             const overflow = items.length - limit;
 
             return (
@@ -319,7 +319,7 @@ export function DiaryView({
                 onMouseEnter={() => { if (drag) setDrag(prev => prev && prev.end !== date ? { ...prev, end: date } : prev); }}
                 title="끌어서 여러 날 일정 추가"
                 className={`rounded-xl border p-1.5 cursor-pointer transition-colors relative group flex flex-col gap-0.5 ${
-                  view === "week" ? "min-h-[150px]" : "min-h-[92px]"
+                  view === "week" ? "min-h-[240px]" : "min-h-[140px]"
                 } ${inDrag ? "border-[#3182F6] bg-[#E8F3FF]" : isSelected ? "border-[#3182F6] ring-2 ring-[#3182F6]/25 bg-white" : "border-[#F2F4F6] bg-white/60 hover:bg-white"} ${
                   !inMonth ? "opacity-45" : ""
                 }`}
@@ -487,7 +487,7 @@ function Legend({ className, children }: { className: string; children: React.Re
 function Pill({ className, title, onClick, onMouseDown, children }: { className: string; title?: string; onClick?: (e: React.MouseEvent) => void; onMouseDown?: (e: React.MouseEvent) => void; children: React.ReactNode }) {
   return (
     <div
-      className={`text-[10.5px] px-1.5 py-0.5 rounded-md truncate leading-[1.4] ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${className}`}
+      className={`text-[11.5px] px-2 py-[3px] rounded-md truncate leading-[1.4] ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${className}`}
       title={title}
       onClick={onClick}
       onMouseDown={onMouseDown}

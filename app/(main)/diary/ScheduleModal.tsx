@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { createSchedule, updateSchedule, deleteSchedule } from "@/app/actions/schedule";
+import { getQuickCaptureClients } from "@/app/actions/diary";
+
+type ClientOpt = { id: number; name: string };
 
 export type Schedule = {
   id: number;
@@ -14,6 +17,8 @@ export type Schedule = {
   color: string;
   notes: string | null;
   scope: string;
+  clientId?: number | null;
+  client?: { id: number; name: string } | null;
   user: { id: number; name: string };
 };
 
@@ -50,6 +55,15 @@ export function ScheduleModal({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [scope, setScope] = useState<"personal" | "office">((schedule?.scope as "personal" | "office") ?? "personal");
+  const [client, setClient] = useState<ClientOpt | null>(schedule?.client ?? null);
+  const [clients, setClients] = useState<ClientOpt[] | null>(null);
+  const [clientQuery, setClientQuery] = useState("");
+  const [showClientList, setShowClientList] = useState(false);
+
+  useEffect(() => {
+    getQuickCaptureClients().then(setClients).catch(() => setClients([]));
+  }, []);
+  const filteredClients = (clients ?? []).filter(c => !clientQuery || c.name.toLowerCase().includes(clientQuery.toLowerCase()));
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -63,6 +77,7 @@ export function ScheduleModal({
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     fd.set("scope", scope);
+    fd.set("clientId", client ? String(client.id) : "");
     setError("");
     startTransition(async () => {
       try {
@@ -143,7 +158,43 @@ export function ScheduleModal({
 
           <div>
             <label className="block text-xs text-[#6B7684] mb-1">제목</label>
-            <input name="title" required readOnly={!canEdit} defaultValue={schedule?.title ?? ""} placeholder={scope === "office" ? "예: 주간회의, 급여 지급일" : "일정 제목"} className={inputCls} autoFocus />
+            <input name="title" required readOnly={!canEdit} defaultValue={schedule?.title ?? ""} placeholder={scope === "office" ? "예: 주간회의, 급여 지급일" : "예: ○○상사 방문, 자료 수령"} className={inputCls} autoFocus />
+          </div>
+          <div className="relative">
+            <label className="block text-xs text-[#6B7684] mb-1">거래처 <span className="text-[#B0B8C1]">(선택)</span></label>
+            {client ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] bg-[#E8F3FF] text-[#1B64DA] rounded-lg px-3 py-1.5 font-medium">{client.name}</span>
+                {canEdit && <button type="button" onClick={() => setClient(null)} className="text-[12px] text-[#8B95A1] hover:text-[#DC2626]">해제</button>}
+              </div>
+            ) : (
+              <input
+                value={clientQuery}
+                readOnly={!canEdit}
+                onChange={e => { setClientQuery(e.target.value); setShowClientList(true); }}
+                onFocus={() => setShowClientList(true)}
+                onBlur={() => setTimeout(() => setShowClientList(false), 120)}
+                placeholder="거래처 검색"
+                className={inputCls}
+              />
+            )}
+            {showClientList && !client && canEdit && (
+              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-[#F2F4F6] rounded-xl shadow-2xl z-10 max-h-[40vh] overflow-y-auto">
+                {clients === null && <div className="px-3 py-2.5 text-[13px] text-[#8B95A1]">불러오는 중...</div>}
+                {clients !== null && filteredClients.length === 0 && <div className="px-3 py-2.5 text-[13px] text-[#8B95A1]">검색 결과 없음</div>}
+                {filteredClients.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { setClient(c); setShowClientList(false); setClientQuery(""); }}
+                    className="w-full text-left px-3 py-2.5 text-[13.5px] text-[#191F28] hover:bg-[#F5F9FF]"
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>

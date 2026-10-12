@@ -16,6 +16,13 @@ async function getUserCalendarId(userId: number): Promise<string | null> {
   return user?.googleCalendarId || null;
 }
 
+// 구글 캘린더에 보낼 제목: 거래처가 걸려 있으면 "[거래처명] 제목"
+async function calendarTitle(title: string, clientId: number | null) {
+  if (!clientId) return title;
+  const c = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
+  return c ? `[${c.name}] ${title}` : title;
+}
+
 function revalidateScheduleViews() {
   revalidatePath("/diary");
   revalidatePath("/schedule");
@@ -43,6 +50,7 @@ export async function getSchedulesInRange(from: string, to: string) {
     },
     include: {
       user: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
@@ -66,9 +74,11 @@ function readScheduleForm(formData: FormData, canOffice: boolean) {
   const notes = (formData.get("notes") as string)?.trim() || null;
   const wantsOffice = formData.get("scope") === "office";
   const scope = wantsOffice && canOffice ? "office" : "personal";
+  const clientIdRaw = (formData.get("clientId") as string) || "";
+  const clientId = clientIdRaw && /^\d+$/.test(clientIdRaw) ? parseInt(clientIdRaw) : null;
 
   if (!title || !date) throw new Error("제목과 날짜를 입력하세요.");
-  return { title, date, endDate, startTime, endTime, color, notes, scope };
+  return { title, date, endDate, startTime, endTime, color, notes, scope, clientId };
 }
 
 async function canEdit(schedule: { userId: number; scope: string }, session: { id: number; role: string }) {
@@ -90,7 +100,7 @@ export async function createSchedule(formData: FormData) {
   const calendarId = await getUserCalendarId(session.id);
   if (calendarId) {
     const googleEventId = await createCalendarEvent(calendarId, {
-      title: data.title, date: data.date, startTime: data.startTime, endTime: data.endTime, notes: data.notes, color: data.color,
+      title: await calendarTitle(data.title, data.clientId), date: data.date, startTime: data.startTime, endTime: data.endTime, notes: data.notes, color: data.color,
     });
     if (googleEventId) {
       await prisma.schedule.update({
@@ -121,7 +131,7 @@ export async function updateSchedule(id: number, formData: FormData) {
   // 구글 캘린더 동기화 (작성자 본인 캘린더만)
   if (schedule.userId === session.id) {
     const calendarId = await getUserCalendarId(session.id);
-    const payload = { title: data.title, date: data.date, startTime: data.startTime, endTime: data.endTime, notes: data.notes, color: data.color };
+    const payload = { title: await calendarTitle(data.title, data.clientId), date: data.date, startTime: data.startTime, endTime: data.endTime, notes: data.notes, color: data.color };
     if (calendarId && schedule.googleEventId) {
       await updateCalendarEvent(calendarId, schedule.googleEventId, payload);
     } else if (calendarId && !schedule.googleEventId) {

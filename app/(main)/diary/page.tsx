@@ -17,7 +17,7 @@ export default async function DiaryPage({
 
   const params = await searchParams;
   const today = todaySeoul();
-  const view: ViewMode = params.view === "month" ? "month" : "week";
+  const view: ViewMode = params.view === "week" ? "week" : "month"; // 월간이 기본
   const anchor = params.d && /^\d{4}-\d{2}-\d{2}$/.test(params.d) ? params.d : today;
   const { from, to, days } = visibleRange(view, anchor);
 

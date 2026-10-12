@@ -597,7 +597,7 @@ export default async function DashboardPage({
             </div>
 
             {/* 오늘 할 일(다이어리) + 이달의 일정(접힘/펼침) */}
-            <div className="grid grid-cols-2 gap-4 items-start">
+            <div className="grid grid-cols-[1fr_2fr] gap-4 items-start">
               <TodayDiaryCard tasks={diaryTasks} today={todayKey} />
               <MonthScheduleCard items={monthScheduleItems} today={todayKey} />
             </div>

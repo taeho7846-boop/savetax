@@ -109,8 +109,8 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
               return (
                 <Link
                   key={date}
-                  href={`/diary?view=week&d=${date}`}
-                  className={`rounded-lg border border-[#F2F4F6] p-1 min-h-[64px] flex flex-col gap-0.5 hover:bg-white transition-colors ${
+                  href={`/diary?view=month&d=${date}`}
+                  className={`rounded-lg border border-[#F2F4F6] p-1.5 min-h-[112px] flex flex-col gap-0.5 hover:bg-white transition-colors ${
                     inMonth ? "bg-white/60" : "bg-white/20 opacity-40"
                   }`}
                 >
@@ -119,12 +119,12 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
                   }`}>
                     {d.getDate()}
                   </span>
-                  {dayItems.slice(0, 2).map(i => (
-                    <span key={i.key} className={`text-[9.5px] px-1 py-px rounded truncate leading-[1.4] ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`} title={`${i.who ? i.who + ": " : ""}${i.title}`}>
+                  {dayItems.slice(0, 4).map(i => (
+                    <span key={i.key} className={`text-[11px] px-1.5 py-[2px] rounded truncate leading-[1.4] ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`} title={`${i.who ? i.who + ": " : ""}${i.title}`}>
                       {i.title}
                     </span>
                   ))}
-                  {dayItems.length > 2 && <span className="text-[9.5px] text-[#8B95A1] pl-0.5">+{dayItems.length - 2}</span>}
+                  {dayItems.length > 4 && <span className="text-[10px] text-[#8B95A1] pl-0.5">+{dayItems.length - 4}</span>}
                 </Link>
               );
             })}
