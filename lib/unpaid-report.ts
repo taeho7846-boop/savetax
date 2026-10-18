@@ -13,7 +13,6 @@ export type UnpaidReportRow = {
   unpaidMonths: string[]; // "YYYY-MM" 오름차순
   unpaidAmount: number;
   terminated: boolean;
-  lastAction: string | null; // "보류 ~10/31 · 메모", "상환약속 10/25", "부재중 10/12" 등
 };
 
 export type UnpaidReportInput = {
@@ -77,18 +76,17 @@ export async function buildUnpaidReportPdf(input: UnpaidReportInput): Promise<Ui
   doc.setTitle(input.title ?? "미수금 현황 보고");
   doc.setAuthor(input.author);
 
-  // 컬럼: No | 거래처명 | 소속 | 담당 | 월 기장료 | 개월 | 미수 월 | 미수금액 | 최근 조치 | 비고(수기)
+  // 컬럼: No | 거래처명 | 소속 | 담당 | 월 기장료 | 개월 | 미수 월 | 미수금액 | 비고(수기)  — 합 786 = W - 2M
   const cols = [
     { key: "no", label: "No", w: 24, align: "center" as const },
-    { key: "name", label: "거래처명", w: 150, align: "left" as const },
+    { key: "name", label: "거래처명", w: 170, align: "left" as const },
     { key: "aff", label: "소속", w: 62, align: "center" as const },
     { key: "user", label: "담당", w: 50, align: "center" as const },
-    { key: "fee", label: "월 기장료", w: 62, align: "right" as const },
-    { key: "cnt", label: "개월", w: 36, align: "center" as const },
-    { key: "months", label: "미수 월", w: 100, align: "left" as const },
-    { key: "amt", label: "미수금액", w: 76, align: "right" as const },
-    { key: "act", label: "최근 조치", w: 134, align: "left" as const },
-    { key: "memo", label: "비고 (회의 메모)", w: 92, align: "left" as const },
+    { key: "fee", label: "월 기장료", w: 70, align: "right" as const },
+    { key: "cnt", label: "개월", w: 40, align: "center" as const },
+    { key: "months", label: "미수 월", w: 120, align: "left" as const },
+    { key: "amt", label: "미수금액", w: 90, align: "right" as const },
+    { key: "memo", label: "비고 (회의 메모)", w: 160, align: "left" as const },
   ];
   const colX: number[] = [];
   let acc = M;
@@ -219,11 +217,10 @@ export async function buildUnpaidReportPdf(input: UnpaidReportInput): Promise<Ui
     cell(5, `${r.unpaidMonths.length}`, ty, 8.5);
     cell(6, formatMonthRanges(r.unpaidMonths), ty, 8, SUB);
     cell(7, won(r.unpaidAmount), ty, 9.5, RED);
-    cell(8, r.lastAction ?? "", ty, 8, SUB);
     // 비고 칸은 비워둔다 (수기 메모용)
     hline(y - ROW_H, LINE, 0.4);
     // 세로 구분선: 비고 칸 앞
-    page.drawLine({ start: { x: colX[9], y }, end: { x: colX[9], y: y - ROW_H }, thickness: 0.4, color: LINE });
+    page.drawLine({ start: { x: colX[8], y }, end: { x: colX[8], y: y - ROW_H }, thickness: 0.4, color: LINE });
     y -= ROW_H;
   };
 

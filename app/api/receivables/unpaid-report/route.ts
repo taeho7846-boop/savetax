@@ -21,11 +21,6 @@ function getAllMonths(from: string, to: string): string[] {
   return months;
 }
 
-const CONTACT_LABEL: Record<string, string> = { promise: "상환약속", absent: "부재중", bluff: "공수표", other: "연락" };
-const md = (d: string | Date) => {
-  const s = typeof d === "string" ? d : d.toISOString().slice(0, 10);
-  return `${parseInt(s.slice(5, 7))}/${parseInt(s.slice(8, 10))}`;
-};
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -62,8 +57,6 @@ export async function GET(req: NextRequest) {
       id: true, name: true, monthlyFee: true, firstWithdrawalMonth: true, affiliation: true, cmsAffiliation: true,
       withdrawalDay: true, billingTiming: true, contractStatus: true, terminationMonth: true,
       feeRecords: { select: { yearMonth: true, status: true } },
-      unpaidPostpone: { select: { postponedUntil: true, note: true } },
-      collectionContacts: { orderBy: { contactedAt: "desc" }, take: 1, select: { result: true, promiseDate: true, contactedAt: true, memo: true } },
       assignedUser: { select: { name: true, role: true, manager: { select: { name: true } } } },
     },
     orderBy: { name: "asc" },
@@ -86,19 +79,8 @@ export async function GET(req: NextRequest) {
       : billableEnd;
     const settled = new Set(c.feeRecords.filter(r => r.status === "paid" || r.status === "exempt").map(r => r.yearMonth));
     const unpaidMonths = getAllMonths(c.firstWithdrawalMonth!, endMonth).filter(m => !settled.has(m));
-    if (unpaidMonths.length === 0) continue;
-
-    let lastAction: string | null = null;
-    const pp = c.unpaidPostpone;
-    if (pp && pp.postponedUntil > today) {
-      lastAction = `보류 ~${md(pp.postponedUntil)}${pp.note ? ` · ${pp.note}` : ""}`;
-    } else if (c.collectionContacts[0]) {
-      const ct = c.collectionContacts[0];
-      const label = CONTACT_LABEL[ct.result] ?? ct.result;
-      lastAction = ct.result === "promise" && ct.promiseDate
-        ? `${label} ${md(ct.promiseDate)} (${md(ct.contactedAt)} 연락)`
-        : `${label} ${md(ct.contactedAt)}${ct.memo ? ` · ${ct.memo}` : ""}`;
-    }
+    // 기장료가 0원이거나 미수 달이 없으면 보고서에서 제외
+    if (unpaidMonths.length === 0 || (c.monthlyFee ?? 0) <= 0) continue;
 
     rows.push({
       name: c.name,
@@ -108,7 +90,6 @@ export async function GET(req: NextRequest) {
       unpaidMonths,
       unpaidAmount: (c.monthlyFee ?? 0) * unpaidMonths.length,
       terminated: isTerminated,
-      lastAction,
     });
   }
 
