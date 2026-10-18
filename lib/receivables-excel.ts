@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 
-type CellState = "paid" | "unpaid" | "pending" | "na";
+type CellState = "paid" | "unpaid" | "pending" | "exempt" | "na";
 
 export type ExportRow = {
   name: string;
@@ -140,7 +140,7 @@ export async function buildReceivablesWorkbook(body: ReceivablesExportBody): Pro
       r.cmsAffiliation || "-",
       r.assignedUserName || "-",
       r.monthlyFee ?? null,
-      ...r.cells.map((s) => (s === "paid" ? "○" : s === "unpaid" ? "✕" : s === "pending" ? "△" : "·")),
+      ...r.cells.map((s) => (s === "paid" ? "○" : s === "unpaid" ? "✕" : s === "pending" ? "△" : s === "exempt" ? "제외" : "·")),
       r.cumulativeExpected,
       r.cumulativePaid,
       r.cumulativeUnpaid,

@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { toggleFeeRecord } from "@/app/actions/feeRecords";
+import { toggleFeeRecord, setFeeRecordExempt } from "@/app/actions/feeRecords";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 
 interface ClientRow {
@@ -47,7 +47,7 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string | nu
   return <span className="ml-1 text-[#191F28]">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-type CellState = "paid" | "unpaid" | "pending" | "na";
+type CellState = "paid" | "unpaid" | "pending" | "exempt" | "na";
 
 /**
  * 월 셀 상태 (표 렌더링·정렬·엑셀 공통)
@@ -56,6 +56,7 @@ type CellState = "paid" | "unpaid" | "pending" | "na";
 function cellState(client: ClientRow, month: string, currentYM: string): CellState {
   const isBeforeStart = !!client.firstWithdrawalMonth && month < client.firstWithdrawalMonth;
   const isAfterTermination = !!client.terminationMonth && month > client.terminationMonth;
+  if (client.yearRecords[month] === "exempt") return "exempt"; // 청구 제외 (우클릭)
   const isPaid = client.yearRecords[month] === "paid";
   if (isPaid) return "paid";
   if (isBeforeStart || isAfterTermination) return "na";
@@ -226,6 +227,11 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
 
   function toggle(clientId: number, yearMonth: string) {
     startTransition(() => toggleFeeRecord(clientId, yearMonth));
+  }
+
+  // 우클릭: 청구 제외 설정 / 제외 셀 클릭: 해제
+  function setExempt(clientId: number, yearMonth: string, exempt: boolean) {
+    startTransition(() => setFeeRecordExempt(clientId, yearMonth, exempt));
   }
 
   function handleSort(col: string) {
@@ -616,6 +622,9 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
         <span className="text-[12px] text-[#6B7684]">
           ✅ 확인 대기 <b className="text-[#191F28]">{checkedCount}곳</b>
           <span className="text-[#B0B8C1]"> / 전체 {filtered.length}곳</span>
+          <span className="text-[11px] text-[#8B95A1] ml-3" title="해지 후 재수임 사이 공백, 무료 기장 등 청구하지 않는 달은 우클릭으로 '제외' 처리하면 미수에서 빠집니다">
+            월 칸 우클릭 → <b className="text-[#6B7684]">청구 제외</b>
+          </span>
         </span>
         <div className="flex items-center gap-3">
           <button
@@ -849,14 +858,29 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                   const state = cellState(client, m, currentYM);
                   const isAfterTermination = !!client.terminationMonth && m > client.terminationMonth;
 
+                  if (state === "exempt") {
+                    return (
+                      <td key={m} className="px-3 py-3 text-center">
+                        <button
+                          onClick={() => setExempt(client.id, m, false)}
+                          className="w-8 h-8 rounded-full text-[10px] font-bold bg-[#F2F4F6] text-[#8B95A1] border border-dashed border-[#C4CCD4] hover:bg-[#E5E8EB] transition-colors"
+                          title="청구 제외 (계약 공백·무료 등 — 미수 아님) · 클릭: 제외 해제"
+                        >
+                          제외
+                        </button>
+                      </td>
+                    );
+                  }
+
                   // 출금일 미도래 — 미수 아님. 클릭하면 선수납 처리는 가능.
                   if (state === "pending") {
                     return (
                       <td key={m} className="px-3 py-3 text-center">
                         <button
                           onClick={() => toggle(client.id, m)}
+                          onContextMenu={(e) => { e.preventDefault(); setExempt(client.id, m, true); }}
                           className="w-8 h-8 rounded-full text-[10px] font-bold bg-[#EEF2FF] text-[#6366F1] hover:bg-[#E0E7FF] transition-colors"
-                          title={`출금 예정 (${client.billing === "arrears" ? "다음달 " : ""}${client.dueDay}일 · ${client.billing === "arrears" ? "후불" : "당월"}수납)${client.isDefaultDay ? " · 소속 기본값" : ""} — 아직 미수 아님 (클릭: 수납 처리)`}
+                          title={`출금 예정 (${client.billing === "arrears" ? "다음달 " : ""}${client.dueDay}일 · ${client.billing === "arrears" ? "후불" : "당월"}수납)${client.isDefaultDay ? " · 소속 기본값" : ""} — 아직 미수 아님 (클릭: 수납 처리 · 우클릭: 청구 제외)`}
                         >
                           {client.dueDay}
                         </button>
@@ -877,12 +901,13 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                     <td key={m} className="px-3 py-3 text-center">
                       <button
                         onClick={() => toggle(client.id, m)}
+                        onContextMenu={(e) => { e.preventDefault(); setExempt(client.id, m, true); }}
                         className={`w-8 h-8 rounded-full text-xs font-bold transition-colors ${
                           isPaid
                             ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
                             : "bg-[#FEF2F2] text-[#F87171] hover:bg-[#FEE2E2]"
                         }`}
-                        title={isPaid ? "수납 완료 (클릭: 취소)" : `미수 (출금일 ${client.dueDay}일 경과 · 클릭: 수납 처리)`}
+                        title={isPaid ? "수납 완료 (클릭: 취소 · 우클릭: 청구 제외)" : `미수 (출금일 ${client.dueDay}일 경과 · 클릭: 수납 처리 · 우클릭: 청구 제외)`}
                       >
                         {isPaid ? "✓" : "✕"}
                       </button>

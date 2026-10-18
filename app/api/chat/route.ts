@@ -631,7 +631,7 @@ async function executeTool(name: string, input: Record<string, unknown>, session
         months.push(`${y}-${String(m).padStart(2, "0")}`);
         m++; if (m > 12) { m = 1; y++; }
       }
-      const paidCount = c.feeRecords.filter(r => r.status === "paid" && months.includes(r.yearMonth)).length;
+      const paidCount = c.feeRecords.filter(r => (r.status === "paid" || r.status === "exempt") && months.includes(r.yearMonth)).length; // exempt = 청구 제외
       const unpaid = (c.monthlyFee ?? 0) * (months.length - paidCount);
       if (unpaid > 0) {
         totalUnpaid += unpaid;

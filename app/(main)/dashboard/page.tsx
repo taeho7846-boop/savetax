@@ -223,7 +223,7 @@ export default async function DashboardPage({
     select: {
       id: true, name: true, phone: true, monthlyFee: true, firstWithdrawalMonth: true, affiliation: true, cmsStatus: true, paymentMethod: true,
       cmsAffiliation: true, withdrawalDay: true, billingTiming: true,
-      feeRecords: { where: { status: "paid" } },
+      feeRecords: { where: { status: { in: ["paid", "exempt"] } } }, // exempt = 청구 제외 (미수 아님)
       unpaidPostpone: true,
       assignedUser: { select: { name: true, role: true, manager: { select: { name: true } } } },
     },

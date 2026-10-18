@@ -90,7 +90,10 @@ export default async function ReceivablesPage({
       : billableEnd;
 
     const allMonths = getAllMonths(c.firstWithdrawalMonth!, endMonth);
-    const expected = (c.monthlyFee ?? 0) * allMonths.length;
+    // 청구 제외(exempt) 달은 청구 예정에서 뺀다 (해지 후 재수임 사이 공백 등)
+    const exemptSet = new Set(c.feeRecords.filter((r) => r.status === "exempt").map((r) => r.yearMonth));
+    const billableMonths = allMonths.filter((m) => !exemptSet.has(m));
+    const expected = (c.monthlyFee ?? 0) * billableMonths.length;
     const paidCount = c.feeRecords.filter(
       (r) => r.status === "paid" && r.yearMonth >= c.firstWithdrawalMonth! && r.yearMonth <= endMonth
     ).length;
