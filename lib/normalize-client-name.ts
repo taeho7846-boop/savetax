@@ -10,3 +10,12 @@ export function normalizeClientName(raw: string): string {
   // 이름 전체가 법인 표기뿐이면 공백만 제거한 원본으로 fallback
   return stripped || raw.replace(/\s+/g, "").toLowerCase();
 }
+
+// 느슨한 매칭 키 — 괄호 안 내용(영문 상호·지점 표기 등)과 특수문자까지 제거
+// 예: "주식회사 위커밋(WECOMMIT Co., Ltd.)" ↔ NICE 회원명 "주식회사위커밋" → 둘 다 "위커밋"
+export function looseClientNameKey(raw: string): string {
+  const base = normalizeClientName(raw)
+    .replace(/[(（\[【][^)）\]】]*[)）\]】]/g, "")
+    .replace(/[^0-9a-z가-힣]/g, "");
+  return base || normalizeClientName(raw);
+}

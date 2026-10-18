@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import { normalizeClientName } from "@/lib/normalize-client-name";
+import { normalizeClientName, looseClientNameKey } from "@/lib/normalize-client-name";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -71,11 +71,16 @@ export async function POST(req: NextRequest) {
 
   // 엑셀 이름 → Map (정규화된 이름을 키로 사용, 같은 이름 여러 건이면 첫 번째 사용)
   const excelMap = new Map<string, ExcelEntry>();
+  // 느슨한 키(괄호·특수문자 제거) → 엔트리. 같은 키가 여러 건이면 모호하므로 매칭에 쓰지 않는다
+  const excelLooseMap = new Map<string, ExcelEntry | null>();
   for (const entry of excelEntries) {
     const key = normalizeName(entry.name);
     if (!excelMap.has(key)) {
       excelMap.set(key, entry);
     }
+    const loose = looseClientNameKey(entry.name);
+    if (!excelLooseMap.has(loose)) excelLooseMap.set(loose, entry);
+    else if (excelLooseMap.get(loose) !== entry && normalizeName(excelLooseMap.get(loose)!.name) !== key) excelLooseMap.set(loose, null);
   }
 
   // DB에서 내 거래처 조회 (채권 탭과 동일 조건)
@@ -138,8 +143,10 @@ export async function POST(req: NextRequest) {
     // 최초출금월 이전이면 스킵
     if (client.firstWithdrawalMonth && targetMonth < client.firstWithdrawalMonth) continue;
 
-    // 1차: 거래처명으로 매칭 → 없으면 대표자명(회원명 칸에 대표자명이 적힌 경우)으로 매칭
-    const byName = excelMap.get(normalizeName(client.name));
+    // 1차: 거래처명으로 매칭 → 2차: 괄호(영문 상호·지점)·특수문자를 뺀 느슨한 키 → 3차: 대표자명(회원명 칸에 대표자명이 적힌 경우)
+    const byName = excelMap.get(normalizeName(client.name))
+      || excelLooseMap.get(looseClientNameKey(client.name))
+      || undefined;
     const excel = byName
       || (client.ceoName ? excelMap.get(normalizeName(client.ceoName)) : undefined);
     const matchedBy: "name" | "ceoName" = byName ? "name" : "ceoName";
