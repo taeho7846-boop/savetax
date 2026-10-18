@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
         ceoName: true,
         bizNumber: true,
         clientType: true,
+        contractStatus: true,
         assignedUserId: true,
         assignedUser: {
           select: {

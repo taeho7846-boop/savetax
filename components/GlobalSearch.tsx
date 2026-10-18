@@ -20,6 +20,7 @@ type ClientResult = {
   ceoName: string | null;
   bizNumber: string | null;
   clientType: string;
+  contractStatus?: string; // "active" | "terminated"
   assignedUserId: number | null;
   assignedUser: AssignedUserInfo;
 };
@@ -690,6 +691,11 @@ export function GlobalSearch() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-medium truncate">{client.name}</span>
+                            {client.contractStatus && client.contractStatus !== "active" && (
+                              <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] group-data-[selected=true]:bg-white/25 group-data-[selected=true]:text-white group-data-[selected=true]:border-white/40">
+                                해지
+                              </span>
+                            )}
                             <span
                               className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0 ${
                                 assignee.tone === "none"
