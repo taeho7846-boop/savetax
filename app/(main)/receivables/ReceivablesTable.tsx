@@ -627,6 +627,15 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
           </span>
         </span>
         <div className="flex items-center gap-3">
+          <a
+            href={`/api/receivables/unpaid-report${unpaidFilter ? `?group=${unpaidFilter}` : ""}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`미수가 있는 거래처만 모아 회의자료용 PDF로 엽니다${unpaidFilter ? ` (${unpaidFilter === "save" ? "세이브택스" : "개인세무거래처"}만)` : ""}`}
+            className="text-[12px] font-bold px-3 py-1.5 rounded-xl bg-[#191F28] text-white hover:bg-[#333D4B] transition-colors flex items-center gap-1.5"
+          >
+            🖨 미수 보고서 PDF
+          </a>
           <button
             onClick={handleExcelDownload}
             disabled={downloading || filtered.length === 0}
