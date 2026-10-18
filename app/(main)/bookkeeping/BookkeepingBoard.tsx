@@ -299,30 +299,32 @@ export function BookkeepingBoard({
         </div>
       </div>
 
-      {/* KPI 4-up (클릭 = 기준월 단계 필터) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      {/* KPI 5-up 한 줄 (클릭 = 기준월 단계 필터) */}
+      <div className="grid grid-cols-5 gap-2.5 mb-4">
         {kpiCards.map(k => {
           const active = stageFilter === k.key;
           return (
             <button
               key={k.key}
               onClick={() => setStageFilter(active ? "all" : k.key)}
-              className={`stat-card glass rounded-2xl p-4 relative overflow-hidden text-left transition-all ${active ? "ring-2 ring-[#191F28]/80" : "hover:-translate-y-px"}`}
+              className={`stat-card glass rounded-2xl px-4 py-3 relative overflow-hidden text-left transition-all ${active ? "ring-2 ring-[#191F28]/80" : "hover:-translate-y-px"}`}
             >
-              <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r" style={{ background: k.color }} />
-              <div className="text-[11px] font-bold text-[#8B95A1] tracking-wide pl-2">{k.label}</div>
-              <div className="text-[24px] font-extrabold mt-1 leading-none pl-2 tabular-nums" style={{ color: k.key === "done" || k.key === "overdue" ? k.color : "#191F28" }}>
-                {k.value}<span className="text-[13px] text-[#6B7684] font-bold ml-0.5">곳</span>
+              <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r" style={{ background: k.color }} />
+              <div className="flex items-baseline justify-between gap-2 pl-2">
+                <span className="text-[11px] font-bold text-[#8B95A1] tracking-wide whitespace-nowrap">{k.label}</span>
+                <span className="text-[20px] font-extrabold leading-none tabular-nums" style={{ color: k.key === "done" || k.key === "overdue" ? k.color : "#191F28" }}>
+                  {k.value}<span className="text-[11px] text-[#6B7684] font-bold ml-0.5">곳</span>
+                </span>
               </div>
               {k.key === "done" ? (
-                <div className="mt-2 pl-2 pr-1">
+                <div className="mt-1.5 pl-2">
                   <div className="h-1.5 rounded-full bg-[#E5E8EB] overflow-hidden">
                     <div className="h-full rounded-full bg-[#16A865] transition-all" style={{ width: `${doneRate}%` }} />
                   </div>
-                  <div className="text-[10.5px] text-[#8B95A1] mt-1">{k.sub}</div>
+                  <div className="text-[10px] text-[#8B95A1] mt-1 truncate">{k.sub}</div>
                 </div>
               ) : (
-                <div className="text-[10.5px] text-[#8B95A1] mt-1.5 pl-2">{k.sub}</div>
+                <div className="text-[10px] text-[#8B95A1] mt-1.5 pl-2 truncate">{k.sub}</div>
               )}
             </button>
           );
