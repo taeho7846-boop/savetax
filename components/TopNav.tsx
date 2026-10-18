@@ -18,6 +18,7 @@ import {
   CheckIcon,
   CalendarIcon,
   ClockIcon,
+  ClipboardListIcon,
 } from "@/components/icons";
 
 type Settings = {
@@ -34,7 +35,7 @@ type User = {
 };
 
 type SubItem = { href: string; label: string };
-type CatKey = "home" | "clients" | "filing" | "settle" | "ops";
+type CatKey = "home" | "clients" | "manage" | "filing" | "settle" | "ops";
 type Category = { key: CatKey; label: string; icon: ReactNode; subs: SubItem[] };
 
 const CATEGORIES: Category[] = [
@@ -55,6 +56,14 @@ const CATEGORIES: Category[] = [
       { href: "/distribution-taeho", label: "세무회계태호 배분" },
       { href: "/commission", label: "신규수임" },
       { href: "/receivables", label: "채권관리" },
+    ],
+  },
+  {
+    key: "manage",
+    label: "관리",
+    icon: <ClipboardListIcon width={14} height={14} />,
+    subs: [
+      { href: "/bookkeeping", label: "월기장 보드" },
     ],
   },
   {

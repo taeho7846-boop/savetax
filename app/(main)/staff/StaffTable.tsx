@@ -28,6 +28,7 @@ const ALL_MENUS = [
   { key: "withholding", label: "원천세" },
   { key: "income-tax", label: "종합소득세" },
   { key: "receivables", label: "채권 관리" },
+  { key: "bookkeeping", label: "월기장 보드" },
   { key: "data-collect", label: "자료수집" },
   { key: "distribution", label: "Savetax 배분" },
   { key: "settlement", label: "Savetax 정산" },
