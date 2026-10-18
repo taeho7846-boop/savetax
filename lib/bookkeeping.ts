@@ -1,13 +1,12 @@
 // 월기장 관리 공통 — 단계 정의, 마감 기한 계산 (순수 로직, DB 의존 없음)
 
-export type BookkeepingStage = "none" | "requested" | "received" | "input" | "review" | "done";
+export type BookkeepingStage = "none" | "requested" | "received" | "input" | "done";
 
 export const STAGES: { key: BookkeepingStage; label: string; short: string; desc: string }[] = [
   { key: "none", label: "미시작", short: "·", desc: "아직 자료 요청 전" },
   { key: "requested", label: "자료요청", short: "요청", desc: "거래처에 자료 요청함" },
   { key: "received", label: "자료수령", short: "수령", desc: "자료 받음 · 입력 대기" },
-  { key: "input", label: "입력", short: "입력", desc: "전표 입력 완료 · 검토 대기" },
-  { key: "review", label: "검토", short: "검토", desc: "세무사 검토 완료 · 마감 대기" },
+  { key: "input", label: "입력", short: "입력", desc: "전표 입력 완료 · 마감 대기" },
   { key: "done", label: "마감", short: "마감", desc: "월기장 마감 (리포트 발송)" },
 ];
 
@@ -26,7 +25,8 @@ export function stageIndex(s: string): number {
   return i < 0 ? 0 : i;
 }
 
-export const DEFAULT_TARGET_DAY = 15;
+// 홈택스 자료가 매월 15~17일에 열리므로 기본 마감 목표는 24일
+export const DEFAULT_TARGET_DAY = 24;
 export const TARGET_DAY_KEY = "bookkeepingTargetDay";
 
 /** "YYYY-MM" + n개월 */

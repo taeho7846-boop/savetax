@@ -50,6 +50,39 @@ export async function bulkSetBookkeepingStage(clientIds: number[], yearMonth: st
   return { updated: clientIds.length };
 }
 
+/**
+ * 기간 일괄 마감 — fromYM~toYM 사이 모든 달을 done 으로 (이미 done 인 칸도 done 유지).
+ * 예) 부가세 신고가 끝난 상반기(01~06월분)를 한 번에 마감 처리.
+ */
+export async function bulkCloseThrough(clientIds: number[], fromYM: string, toYM: string) {
+  const session = await requireAuth();
+  if (session.role === "readonly") throw new Error("FORBIDDEN");
+  if (!YM.test(fromYM) || !YM.test(toYM) || fromYM > toYM || clientIds.length === 0) throw new Error("BAD_INPUT");
+  await assertInScope(session, clientIds);
+  const months: string[] = [];
+  let [y, m] = fromYM.split("-").map(Number);
+  const [ty, tm] = toYM.split("-").map(Number);
+  while (y < ty || (y === ty && m <= tm)) {
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  if (months.length > 36) throw new Error("BAD_INPUT");
+  const ops = [];
+  for (const clientId of clientIds) {
+    for (const yearMonth of months) {
+      ops.push(prisma.bookkeepingMonth.upsert({
+        where: { clientId_yearMonth: { clientId, yearMonth } },
+        update: { stage: "done", updatedByUserId: session.id },
+        create: { clientId, yearMonth, stage: "done", updatedByUserId: session.id },
+      }));
+    }
+  }
+  await prisma.$transaction(ops);
+  revalidatePath("/bookkeeping");
+  revalidatePath("/dashboard");
+  return { clients: clientIds.length, months: months.length };
+}
+
 /** 월별 메모 */
 export async function setBookkeepingMemo(clientId: number, yearMonth: string, memo: string) {
   const session = await requireAuth();

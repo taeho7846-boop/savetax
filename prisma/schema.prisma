@@ -127,7 +127,7 @@ model Client {
   bookkeepingMonths         BookkeepingMonth[]
 }
 
-// 월기장 진행 상태 — 거래처 × 기장 대상 월. stage: none(미시작) | requested(자료요청) | received(자료수령) | input(입력) | review(검토) | done(마감)
+// 월기장 진행 상태 — 거래처 × 기장 대상 월. stage: none(미시작) | requested(자료요청) | received(자료수령) | input(입력) | done(마감)
 model BookkeepingMonth {
   id              Int      @id @default(autoincrement())
   clientId        Int
@@ -143,7 +143,7 @@ model BookkeepingMonth {
   @@index([yearMonth])
 }
 
-// 사무실 공통 설정 (키-값). 예: bookkeepingTargetDay = "15" (월기장 마감 목표일: 매월 N일)
+// 사무실 공통 설정 (키-값). 예: bookkeepingTargetDay = "24" (월기장 마감 목표일: 매월 N일)
 model AppConfig {
   key       String   @id
   value     String

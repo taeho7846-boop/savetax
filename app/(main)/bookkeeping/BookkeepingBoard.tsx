@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setBookkeepingStage, setBookkeepingMemo, setBookkeepingTargetDay, bulkSetBookkeepingStage } from "@/app/actions/bookkeeping";
+import { setBookkeepingStage, setBookkeepingMemo, setBookkeepingTargetDay, bulkSetBookkeepingStage, bulkCloseThrough } from "@/app/actions/bookkeeping";
 import {
   STAGES, STAGE_ORDER, nextStage, prevStage, stageIndex, bookkeepingDeadline, isOverdue, daysUntilDeadline, addMonths,
   type BookkeepingStage,
@@ -25,7 +25,6 @@ const STAGE_STYLE: Record<BookkeepingStage, { chip: string; dot: string; label: 
   requested: { chip: "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]", dot: "#F59E0B", label: "자료요청" },
   received:  { chip: "bg-[#EEF4FF] text-[#3B6FD6] border border-[#C7D7FE]", dot: "#6B8CFF", label: "자료수령" },
   input:     { chip: "bg-[#E8F3FF] text-[#1B64DA] border border-[#A3CAFD]", dot: "#3182F6", label: "입력" },
-  review:    { chip: "bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE]", dot: "#8B5CF6", label: "검토" },
   done:      { chip: "bg-[#E7F7EE] text-[#15803D] border border-[#BBF7D0]", dot: "#16A865", label: "마감" },
 };
 
@@ -67,7 +66,8 @@ export function BookkeepingBoard({
   const [affFilter, setAffFilter] = useState<string[]>([]);
   const [affOpen, setAffOpen] = useState(false);
   const affRef = useRef<HTMLDivElement>(null);
-  const [stageFilter, setStageFilter] = useState<"all" | "notReceived" | "received" | "input" | "review" | "done" | "overdue">("all");
+  const closeRef = useRef<HTMLDivElement>(null);
+  const [stageFilter, setStageFilter] = useState<"all" | "notReceived" | "received" | "input" | "done" | "overdue">("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkStage, setBulkStage] = useState<BookkeepingStage>("received");
 
@@ -75,6 +75,7 @@ export function BookkeepingBoard({
     function onDown(e: MouseEvent) {
       if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
       if (affRef.current && !affRef.current.contains(e.target as Node)) setAffOpen(false);
+      if (closeRef.current && !closeRef.current.contains(e.target as Node)) setCloseOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -97,9 +98,8 @@ export function BookkeepingBoard({
     const notReceived = base.filter(c => stageIndex(focusStage(c)) < stageIndex("received")).length;
     const received = base.filter(c => focusStage(c) === "received").length;
     const input = base.filter(c => focusStage(c) === "input").length;
-    const review = base.filter(c => focusStage(c) === "review").length;
     const overdue = base.filter(c => isOverdue(focus, focusStage(c), targetDay, today)).length;
-    return { total, done, notReceived, received, input, review, overdue };
+    return { total, done, notReceived, received, input, overdue };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, local, focus, targetDay, today]);
 
@@ -110,7 +110,6 @@ export function BookkeepingBoard({
       case "notReceived": return stageIndex(s) < stageIndex("received");
       case "received": return s === "received";
       case "input": return s === "input";
-      case "review": return s === "review";
       case "done": return s === "done";
       case "overdue": return isOverdue(focus, s, targetDay, today);
       default: return true;
@@ -147,6 +146,26 @@ export function BookkeepingBoard({
       try { await bulkSetBookkeepingStage(ids, focus, bulkStage); setSelected(new Set()); }
       catch { router.refresh(); }
     });
+  }
+
+  // ---- 기간 일괄 마감 (예: 부가세 끝난 상반기 01~06월분) ----
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeThrough, setCloseThrough] = useState(focus);
+  const [closing, setClosing] = useState(false);
+  async function applyCloseThrough() {
+    const ids = base.map(c => c.id);
+    if (ids.length === 0) return;
+    const fromYM = `${closeThrough.slice(0, 4)}-01`;
+    const label = `${closeThrough.slice(0, 4)}년 1월분 ~ ${mLabel(closeThrough)}분`;
+    if (!confirm(`표시된 ${ids.length}곳의 ${label}을 모두 '마감'으로 처리할까요?\n(되돌리려면 칸을 눌러 단계를 바꾸면 됩니다)`)) return;
+    setClosing(true);
+    try {
+      const r = await bulkCloseThrough(ids, fromYM, closeThrough);
+      setCloseOpen(false);
+      router.refresh();
+      alert(`${r.clients}곳 × ${r.months}개월 마감 처리 완료`);
+    } catch { alert("일괄 마감 실패"); }
+    finally { setClosing(false); }
   }
 
   // ---- 팝오버 ----
@@ -193,7 +212,7 @@ export function BookkeepingBoard({
     { key: "done", label: "마감 완료", value: kpi.done, color: "#16A865", sub: `${doneRate}% · ${kpi.total}곳 중` },
     { key: "notReceived", label: "자료 미수령", value: kpi.notReceived, color: "#F59E0B", sub: "미시작 + 요청만 한 곳" },
     { key: "received", label: "입력 대기", value: kpi.received, color: "#3182F6", sub: "자료는 받았고 입력 전" },
-    { key: "review", label: "검토 대기", value: kpi.input, color: "#8B5CF6", sub: "입력 끝, 세무사 검토 전" },
+    { key: "input", label: "마감 대기", value: kpi.input, color: "#8B5CF6", sub: "입력 끝, 마감(리포트) 전" },
     { key: "overdue", label: "기한 지남", value: kpi.overdue, color: "#DC2626", sub: `기한 ${mdLabel(deadline)} 경과 · 미마감` },
   ];
 
@@ -243,6 +262,31 @@ export function BookkeepingBoard({
           </div>
         </div>
 
+        <div className="flex items-center gap-2 flex-wrap">
+        {!readonly && (
+          <div className="relative" ref={closeRef}>
+            <button
+              onClick={() => { setCloseThrough(focus); setCloseOpen(o => !o); }}
+              className="h-10 px-4 rounded-2xl text-[12.5px] font-bold glass-strong text-[#15803D] hover:bg-white transition flex items-center gap-1.5"
+              title="부가세 신고가 끝난 기간처럼 이미 마무리된 달을 한 번에 마감 처리"
+            >
+              ✓ 기간 일괄 마감
+            </button>
+            {closeOpen && (
+              <div className="absolute right-0 top-12 z-40 w-[280px] bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] p-4">
+                <div className="text-[13px] font-bold text-[#191F28] mb-1">기간 일괄 마감</div>
+                <div className="text-[11px] text-[#6B7684] mb-3">표시된 <b className="text-[#191F28]">{base.length}곳</b>의 1월분부터 아래 달까지 전부 '마감'으로 바꿉니다. 담당자·소속 필터를 걸면 그 거래처만 적용됩니다.</div>
+                <select value={closeThrough} onChange={e => setCloseThrough(e.target.value)} className="w-full h-9 mb-3 rounded-xl border border-[#E5E8EB] bg-[#F9FAFB] px-2 text-[12.5px] font-bold text-[#191F28] outline-none">
+                  {months.map(m => <option key={m} value={m}>{m.slice(0, 4)}년 {mLabel(m)}분까지</option>)}
+                </select>
+                <div className="flex gap-2">
+                  <button onClick={applyCloseThrough} disabled={closing || base.length === 0} className="flex-1 h-9 rounded-xl bg-[#16A865] text-white text-[12.5px] font-bold hover:bg-[#15803D] disabled:opacity-40">{closing ? "처리 중..." : "마감 처리"}</button>
+                  <button onClick={() => setCloseOpen(false)} className="h-9 px-3 rounded-xl bg-[#F2F4F6] text-[#4E5968] text-[12.5px] font-bold">취소</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {/* 기준월 선택 */}
         <div className="flex items-center gap-1 glass-strong rounded-2xl px-1 h-10">
           <button onClick={() => router.push(`/bookkeeping?focus=${addMonths(focus, -1)}`)} className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm">◀</button>
@@ -252,10 +296,11 @@ export function BookkeepingBoard({
             <button onClick={() => router.push(`/bookkeeping`)} className="ml-1 text-[11px] font-bold text-[#3182F6] px-2 h-7 rounded-lg hover:bg-white/60">전월분</button>
           )}
         </div>
+        </div>
       </div>
 
-      {/* KPI 5-up (클릭 = 기준월 단계 필터) */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+      {/* KPI 4-up (클릭 = 기준월 단계 필터) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         {kpiCards.map(k => {
           const active = stageFilter === k.key;
           return (
@@ -428,7 +473,7 @@ export function BookkeepingBoard({
               <button onClick={() => setPop(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-lg leading-none">✕</button>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 mb-3">
+            <div className="grid grid-cols-5 gap-1 mb-3">
               {STAGES.map(s => {
                 const active = s.key === stage;
                 return (
