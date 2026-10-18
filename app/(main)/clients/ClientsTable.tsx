@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ClientEditModal } from "./ClientEditModal";
-import { bulkDeleteClients, bulkChangeAssignedUser, getAssignableUsers } from "@/app/actions/clients";
+import { bulkDeleteClients, bulkChangeAssignedUser, getAssignableUsers, setSemoReportStatus } from "@/app/actions/clients";
+import { SemoStatusBadge } from "./SemoReportModal";
 
 type LoginStatus = "idle" | "loading" | "success" | "error";
 
@@ -67,6 +68,7 @@ type Client = {
   contactMethod: string;
   affiliation: string | null;
   cmsAffiliation?: string | null;
+  semoReportStatus?: string | null;
   contractDate: string | null;
   myboxLink: string | null;
   driveFolderId: string | null;
@@ -107,6 +109,17 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [subUserFilter, setSubUserFilter] = useState<string[]>([]);
   const [subUserFilterOpen, setSubUserFilterOpen] = useState(false);
   const [loginStatuses, setLoginStatuses] = useState<Record<number, LoginStatus>>({});
+  // 세모리포트 상태 뱃지 클릭 순환(사용→미반영→제외) — 낙관적 표시용
+  const [semoOverrides, setSemoOverrides] = useState<Record<number, string>>({});
+  async function cycleSemo(id: number, current: string) {
+    const next = current === "use" ? "none" : current === "none" ? "excluded" : "use";
+    setSemoOverrides(prev => ({ ...prev, [id]: next }));
+    try {
+      await setSemoReportStatus([id], next as "use" | "none" | "excluded");
+    } catch {
+      setSemoOverrides(prev => ({ ...prev, [id]: current }));
+    }
+  }
   const [loginErrors, setLoginErrors] = useState<Record<number, string>>({});
   const [vncOpen, setVncOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
@@ -839,6 +852,9 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
               {!hide.has("affiliation") && (
               <th className="text-center px-4 py-3 text-[#333D4B] font-medium whitespace-nowrap">CMS</th>
               )}
+              {!hide.has("affiliation") && (
+              <th className="text-center px-4 py-3 text-[#333D4B] font-medium whitespace-nowrap" title="세모리포트 반영 상태 (클릭 시 사용→미반영→제외 순환)">세모</th>
+              )}
               {!hide.has("contractDate") && (
               <th className="text-center px-4 py-3 text-[#333D4B] font-medium">
                 <button
@@ -867,7 +883,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <tbody className="divide-y divide-white/40">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={(readonly ? 11 : 12) + (showTaxationType ? 1 : 0) + (showAssignedUser ? 2 : 0)} className="text-center py-12 text-[#6B7684]">
+                <td colSpan={(readonly ? 11 : 12) + (hide.has("affiliation") ? 0 : 1) + (showTaxationType ? 1 : 0) + (showAssignedUser ? 2 : 0)} className="text-center py-12 text-[#6B7684]">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -989,6 +1005,25 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       ) : (
                         <span className="text-[#8B95A1]">-</span>
                       )}
+                    </td>
+                    )}
+                    {!hide.has("affiliation") && (
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const st = semoOverrides[client.id] ?? client.semoReportStatus ?? "none";
+                        return readonly ? (
+                          <SemoStatusBadge status={st} small />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => cycleSemo(client.id, st)}
+                            title="클릭: 사용 → 미반영 → 제외"
+                            className="hover:opacity-70 transition-opacity"
+                          >
+                            <SemoStatusBadge status={st} small />
+                          </button>
+                        );
+                      })()}
                     </td>
                     )}
                     {!hide.has("contractDate") && (

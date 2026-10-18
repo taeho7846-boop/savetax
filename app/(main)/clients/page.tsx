@@ -8,6 +8,7 @@ import { TransferButton } from "./TransferModal";
 import { TrashBinButton } from "./TrashBin";
 import { TerminatedBinButton } from "./TerminatedBin";
 import { MissingInfoCards } from "./MissingInfoCards";
+import { SemoReportVerifyButton } from "./SemoReportModal";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "1인사업자": { border: "border-[#A3CAFD]", text: "text-[#3182F6]", bg: "bg-[#F5F9FF]" },
@@ -165,6 +166,7 @@ export default async function ClientsPage({
               <TerminatedBinButton count={terminatedCount} />
               <TrashBinButton count={trashCount} />
               {(session.role === "owner" || session.role === "admin") && <TransferButton />}
+              <SemoReportVerifyButton />
               <BulkUpdateButton />
               <BulkUploadButton />
               <ClientCreateButton />

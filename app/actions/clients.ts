@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createClientFolder } from "@/lib/google-drive";
 import { redirect } from "next/navigation";
+import { getClientScopeWhere } from "@/lib/client-scope";
 
 async function parseWehagoUrl(url: string | null | undefined, clientId?: number) {
   if (!url || !url.includes("smarta.wehago.com")) return {};
@@ -586,4 +587,18 @@ export async function bulkCmsRegister(ids: number[]) {
   });
   revalidatePath("/receivables");
   revalidatePath("/dashboard");
+}
+
+/** 세모리포트 반영 상태 일괄 변경 (use=사용 / none=미반영 / excluded=제외). 본인 권한 범위의 거래처만. */
+export async function setSemoReportStatus(ids: number[], status: "use" | "none" | "excluded") {
+  const session = await requireAuth();
+  if (session.role === "readonly") throw new Error("FORBIDDEN");
+  if (ids.length === 0) return { updated: 0 };
+  const scope = await getClientScopeWhere(session);
+  const res = await prisma.client.updateMany({
+    where: { ...scope, id: { in: ids } },
+    data: { semoReportStatus: status },
+  });
+  revalidatePath("/clients");
+  return { updated: res.count };
 }
