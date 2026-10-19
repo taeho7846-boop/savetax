@@ -562,7 +562,26 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                     <Field label="주민등록번호">{c.residentNumber ? <CopyChip value={c.residentNumber} label={fmtResident(c.residentNumber)} title="누르면 복사" /> : <Empty />}</Field>
                     <Field label="전화">{c.phone ? <CopyChip value={c.phone} label={c.phone} title="누르면 복사" /> : <Empty />}</Field>
                     <Field label="개업일">{c.openDate ? <b className="tabular-nums text-[#191F28]">{c.openDate}</b> : <Empty />}</Field>
-                    {(c.bizType || c.bizItem) && <Field label="업종"><span className="text-[#4E5968]">{[c.bizType, c.bizItem].filter(Boolean).join(" / ")}</span></Field>}
+                  </div>
+                  {/* 셋째 줄: 인건비 종류 · 업종 */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <Field label="인건비">
+                      {(() => {
+                        const labor = (c.laborTypes ?? "").split(",").map(t => t.trim()).filter(Boolean);
+                        if (labor.length === 0) return <Empty text="미입력" />;
+                        const color = (t: string) => t.includes("근로") ? "#10B981" : t.includes("사업") ? "#3182F6" : t.includes("일용") ? "#F59E0B" : "#8B95A1";
+                        return (
+                          <span className="inline-flex flex-wrap gap-1">
+                            {labor.map(t => (
+                              <span key={t} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold" style={{ background: `${color(t)}1A`, color: color(t) }}>
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color(t) }} />{t}
+                              </span>
+                            ))}
+                          </span>
+                        );
+                      })()}
+                    </Field>
+                    <Field label="업종">{c.bizType || c.bizItem ? <span className="text-[#4E5968]">{[c.bizType, c.bizItem].filter(Boolean).join(" / ")}</span> : <Empty />}</Field>
                   </div>
                 </div>
               </div>
