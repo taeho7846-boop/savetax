@@ -146,6 +146,7 @@ export type ClientProfile = {
     terminationMonth: string | null;
     contractDate: string | null;
     openDate: string | null;
+    residentNumber: string | null;
     affiliation: string | null;
     accountingProgram: string;
     contactMethod: string;
@@ -257,7 +258,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
       bizType: true, bizItem: true, clientType: true, taxationType: true, vatTypeDetail: true, taxTypes: true, laborTypes: true,
       contractStatus: true, terminationMonth: true, contractDate: true, openDate: true, affiliation: true, cmsAffiliation: true,
       accountingProgram: true, contactMethod: true, paymentMethod: true, cmsStatus: true, withholdingType: true, halfYearTax: true,
-      semoReportStatus: true, notes: true, driveFolderId: true, myboxLink: true, hometaxId: true, hometaxPw: true,
+      semoReportStatus: true, notes: true, driveFolderId: true, myboxLink: true, hometaxId: true, hometaxPw: true, residentNumber: true,
       wehagoCno: true, wehagoCdCom: true, wehagoColors: true,
       monthlyFee: true, firstWithdrawalMonth: true, withdrawalDay: true, billingTiming: true, subAssignedUserId: true,
       assignedUser: { select: { name: true, role: true, useSemoReport: true, manager: { select: { name: true, useSemoReport: true } } } },
@@ -509,7 +510,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
       phone: client.phone, email: client.email, address: client.address, bizType: client.bizType, bizItem: client.bizItem,
       clientType: client.clientType, taxationType: client.taxationType, vatTypeDetail: client.vatTypeDetail, taxTypes: client.taxTypes,
       laborTypes: client.laborTypes, contractStatus: client.contractStatus, terminationMonth: client.terminationMonth,
-      contractDate: client.contractDate, openDate: client.openDate, affiliation: client.affiliation, accountingProgram: client.accountingProgram,
+      contractDate: client.contractDate, openDate: client.openDate, residentNumber: client.residentNumber, affiliation: client.affiliation, accountingProgram: client.accountingProgram,
       contactMethod: client.contactMethod, paymentMethod: client.paymentMethod, cmsStatus: client.cmsStatus,
       withholdingType: client.withholdingType, halfYearTax: client.halfYearTax, semoReportStatus: client.semoReportStatus,
       notes: client.notes, driveFolderId: client.driveFolderId, myboxLink: client.myboxLink,

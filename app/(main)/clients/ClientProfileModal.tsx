@@ -61,7 +61,26 @@ function Badge({ children, tone = "gray" }: { children: React.ReactNode; tone?: 
   return <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap ${cls}`}>{children}</span>;
 }
 
-function CopyChip({ value, label }: { value: string; label?: string }) {
+/** 헤더 정보 한 칸: 회색 라벨 + 값 */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[12.5px] text-[#4E5968]">
+      <span className="text-[11px] font-bold text-[#8B95A1]">{label}</span>
+      {children}
+    </span>
+  );
+}
+function Empty({ text = "-" }: { text?: string }) {
+  return <span className="text-[#B0B8C1]">{text}</span>;
+}
+/** 주민등록번호 마스킹: 850101-1****** (복사는 전체) */
+function maskResident(v: string): string {
+  const d = v.replace(/[^0-9]/g, "");
+  if (d.length >= 7) return `${d.slice(0, 6)}-${d.slice(6, 7)}******`;
+  return v;
+}
+
+function CopyChip({ value, label, title }: { value: string; label?: string; title?: string }) {
   const [copied, setCopied] = useState(false);
   function copy(e: React.MouseEvent) {
     e.stopPropagation();
@@ -80,7 +99,7 @@ function CopyChip({ value, label }: { value: string; label?: string }) {
     <button
       type="button"
       onClick={copy}
-      title="복사"
+      title={title ?? "복사"}
       className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11.5px] font-medium tabular-nums transition-colors ${
         copied ? "bg-[#E7F7EE] text-[#15803D]" : "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E8F3FF] hover:text-[#3182F6]"
       }`}
@@ -531,27 +550,35 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                     {c.taxTypes && <Badge>{c.taxTypes}</Badge>}
                     {c.affiliation && <Badge>{c.affiliation}</Badge>}
                   </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#4E5968]">
-                    {c.ceoName && <span>대표 <b className="text-[#191F28]">{c.ceoName}</b></span>}
-                    {c.bizNumber && <CopyChip value={c.bizNumber} label={fmtBiz(c.bizNumber)} />}
-                    {c.phone && (
-                      <a href={`tel:${c.phone.replace(/[^0-9+]/g, "")}`} className="inline-flex items-center gap-1 rounded-md bg-[#F2F4F6] px-1.5 py-0.5 text-[11.5px] font-medium tabular-nums text-[#4E5968] hover:bg-[#E8F3FF] hover:text-[#3182F6]">
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" /></svg>
-                        {c.phone}
-                      </a>
-                    )}
-                    <span className="text-[#D1D6DB]">|</span>
-                    <span>
-                      담당 <b className="text-[#191F28]">{c.assignedUser ?? "-"}</b>
+                  {/* 기본 정보 격자: 라벨 + 값, 복사 가능한 값은 칩 */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <Field label="대표">{c.ceoName ? <b className="text-[#191F28]">{c.ceoName}</b> : <Empty />}</Field>
+                    <Field label="사업자번호">{c.bizNumber ? <CopyChip value={c.bizNumber} label={fmtBiz(c.bizNumber)} /> : <Empty />}</Field>
+                    <Field label="주민번호">{c.residentNumber ? <CopyChip value={c.residentNumber} label={maskResident(c.residentNumber)} title="누르면 전체 번호 복사" /> : <Empty />}</Field>
+                    <Field label="전화">{c.phone ? <CopyChip value={c.phone} label={c.phone} title="누르면 번호 복사" /> : <Empty />}</Field>
+                    <Field label="개업일">{c.openDate ? <b className="tabular-nums text-[#191F28]">{c.openDate}</b> : <Empty />}</Field>
+                    <Field label="담당">
+                      <b className="text-[#191F28]">{c.assignedUser ?? "-"}</b>
                       {c.subAssignedUser && <span className="text-[#8B95A1]"> · 부 {c.subAssignedUser}</span>}
                       {c.accountant && c.accountant !== c.assignedUser && c.accountant !== c.subAssignedUser && <span className="text-[#8B95A1]"> · {c.accountant} 세무사</span>}
-                    </span>
-                    {(c.bizType || c.bizItem) && (
-                      <>
-                        <span className="text-[#D1D6DB]">|</span>
-                        <span className="truncate text-[#6B7684]" title={[c.bizType, c.bizItem].filter(Boolean).join(" / ")}>{[c.bizType, c.bizItem].filter(Boolean).join(" / ")}</span>
-                      </>
-                    )}
+                    </Field>
+                    <Field label="인건비">
+                      {(() => {
+                        const labor = (c.laborTypes ?? "").split(",").map(t => t.trim()).filter(Boolean);
+                        if (labor.length === 0) return <Empty text="미입력" />;
+                        const color = (t: string) => t.includes("근로") ? "#10B981" : t.includes("사업") ? "#3182F6" : t.includes("일용") ? "#F59E0B" : "#8B95A1";
+                        return (
+                          <span className="inline-flex flex-wrap gap-1">
+                            {labor.map(t => (
+                              <span key={t} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold" style={{ background: `${color(t)}1A`, color: color(t) }}>
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color(t) }} />{t}
+                              </span>
+                            ))}
+                          </span>
+                        );
+                      })()}
+                    </Field>
+                    {(c.bizType || c.bizItem) && <Field label="업종"><span className="text-[#4E5968]">{[c.bizType, c.bizItem].filter(Boolean).join(" / ")}</span></Field>}
                   </div>
                 </div>
               </div>
