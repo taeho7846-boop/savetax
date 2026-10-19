@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { VatTable } from "./VatTable";
+import { NOTICE_BILL_TEMPLATE_KEY, parseNoticeBillTemplate } from "@/lib/vat-notice-bill";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,10 @@ export default async function VatPage({
             { NOT: { taxTypes: { contains: "신고대리" } } },
           ],
         };
+
+  // 예정고지 납부서 안내문(사무실 공통) — 예정 기간에서만 쓰지만 항상 가볍게 읽어 둠
+  const tplRow = await prisma.appConfig.findUnique({ where: { key: NOTICE_BILL_TEMPLATE_KEY } });
+  const noticeTemplate = parseNoticeBillTemplate(tplRow?.value);
 
   const rawClients = await prisma.client.findMany({
     where: {
@@ -155,6 +160,8 @@ export default async function VatPage({
         clients={clients}
         period={period}
         activeTab={activeTab}
+        noticeTemplate={noticeTemplate}
+        canEditNoticeTemplate={isManager}
         showAssignedUser
       />
     </div>

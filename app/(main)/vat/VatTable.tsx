@@ -6,7 +6,8 @@ import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatF
 import { VatRejectModal } from "./VatRejectModal";
 import { notify } from "@/components/ui/Dialog";
 import { isNoticeType as isNoticeTypeShared, inferNoticeFromHtx, NOTICE_BILL_SENT_KEY } from "@/lib/vat-notice";
-import { parseNoticeBill, buildNoticeBillMessage, noticeBillFileName, formatKoreanDate, type NoticeBill } from "@/lib/vat-notice-bill";
+import { parseNoticeBill, buildNoticeBillMessage, noticeBillFileName, formatKoreanDate, type NoticeBill, type NoticeBillTemplate } from "@/lib/vat-notice-bill";
+import { NoticeBillTemplateModal } from "./NoticeBillTemplateModal";
 
 // 홈택스 부가세 신고자료 업로드 데이터 (모든 금액은 공급가액 기준)
 type HtxData = {
@@ -63,6 +64,9 @@ interface Props {
   period: string;
   activeTab: "bookkeeping" | "single";
   showAssignedUser: boolean;
+  /** 예정고지 납부서 안내문 (상단·하단, 사무실 공통) */
+  noticeTemplate: NoticeBillTemplate;
+  canEditNoticeTemplate: boolean;
 }
 
 const STAGES: { key: VatStage; label: string; color: string; tint: string }[] = [
@@ -351,7 +355,7 @@ function HtxSummary({ htx, isCorp, isConfirm }: { htx: HtxData | null; isCorp: b
   );
 }
 
-export function VatTable({ clients, period, activeTab, showAssignedUser }: Props) {
+export function VatTable({ clients, period, activeTab, showAssignedUser, noticeTemplate, canEditNoticeTemplate }: Props) {
   const router = useRouter();
   const [recMap, setRecMap] = useState<Map<number, Rec>>(() => buildMap(clients, activeTab));
   const [, startTransition] = useTransition();
@@ -413,6 +417,9 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const billFileRef = useRef<HTMLInputElement>(null);
   const [billUploading, setBillUploading] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<number | null>(null);
+  const [tpl, setTpl] = useState<NoticeBillTemplate>(noticeTemplate);
+  const [tplOpen, setTplOpen] = useState(false);
+  useEffect(() => { setTpl(noticeTemplate); }, [noticeTemplate]);
 
   async function onBillFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const list = e.target.files ? Array.from(e.target.files) : [];
@@ -443,7 +450,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
   // 대표님께 보낼 안내문 복사 (납부기한·납부금액 채워서)
   function copyNoticeMessage(client: ClientRow, bill: NoticeBill) {
-    const text = buildNoticeBillMessage(period, bill);
+    const text = buildNoticeBillMessage({ period, bill, clientName: client.name, ceoName: client.ceoName }, tpl);
     const fallback = () => {
       const ta = document.createElement("textarea");
       ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
@@ -786,7 +793,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                     onClick={() => copyNoticeMessage(client, r.bill!)}
                     disabled={dim}
                     className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors disabled:opacity-40 ${copiedMsgId === client.id ? "bg-[#E7F7EE] text-[#15803D]" : "bg-[#6D28D9] text-white hover:bg-[#5B21B6]"}`}
-                    title={buildNoticeBillMessage(period, r.bill)}
+                    title={buildNoticeBillMessage({ period, bill: r.bill, clientName: client.name, ceoName: client.ceoName }, tpl)}
                   >
                     {copiedMsgId === client.id ? "✓ 복사됨" : "💬 안내문 복사"}
                   </button>
@@ -1214,7 +1221,21 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                     <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">예정고지 거래처가 없습니다</td></tr>
                   )}
                   {noticeWithTax.length > 0 && (
-                    <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 고지세액 있음 · 납부서 PDF {billAttachedCount}/{noticeWithTax.length} · 발송 완료 {billSentCount}/{noticeWithTax.length}곳 <span className="text-[#8B95A1] font-medium">(발송 완료는 아래로)</span></td></tr>
+                    <tr>
+                      <td colSpan={colCount} className="px-4 py-1.5 bg-[#F5E8FF]/40">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-[11px] font-bold text-[#6D28D9]">📋 고지세액 있음 · 납부서 PDF {billAttachedCount}/{noticeWithTax.length} · 발송 완료 {billSentCount}/{noticeWithTax.length}곳 <span className="text-[#8B95A1] font-medium">(발송 완료는 아래로)</span></span>
+                          <button
+                            type="button"
+                            onClick={() => setTplOpen(true)}
+                            className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold bg-white border border-[#E5E8EB] text-[#6B7684] hover:text-[#6D28D9] hover:border-[#6D28D9] transition-colors"
+                            title="대표님께 보낼 안내문 상단·하단 문구 편집 (납부기한·납부금액은 고정)"
+                          >
+                            ✎ 안내문 {canEditNoticeTemplate ? "편집" : "보기"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   )}
                   {noticeWithTax.map((c) => row(c, false))}
                   {noticeZero.length > 0 && (
@@ -1248,6 +1269,17 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           </table>
         </div>
       </div>
+
+      {/* 안내문 편집 모달 */}
+      {tplOpen && (
+        <NoticeBillTemplateModal
+          period={period}
+          initial={tpl}
+          canEdit={canEditNoticeTemplate}
+          onClose={() => setTplOpen(false)}
+          onSaved={(t) => setTpl(t)}
+        />
+      )}
 
       {/* 결재 반려 모달 */}
       {rejectTarget && (

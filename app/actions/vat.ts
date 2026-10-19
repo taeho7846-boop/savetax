@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { NOTICE_BILL_TEMPLATE_KEY, parseNoticeBillTemplate, type NoticeBillTemplate } from "@/lib/vat-notice-bill";
 
 export type VatStage = "collect" | "writing" | "approval" | "confirm" | "done";
 
@@ -143,6 +144,27 @@ export async function setVatMemo(clientId: number, period: string, memo: string)
     where: { clientId_period: { clientId, period } },
     update: { memo: memo || null },
     create: { clientId, period, memo: memo || null },
+  });
+  revalidatePath("/vat");
+}
+
+/* ───────────── 예정고지 납부서 안내문 (사무실 공통) ───────────── */
+
+export async function getNoticeBillTemplate(): Promise<NoticeBillTemplate> {
+  await requireAuth();
+  const row = await prisma.appConfig.findUnique({ where: { key: NOTICE_BILL_TEMPLATE_KEY } });
+  return parseNoticeBillTemplate(row?.value);
+}
+
+/** 상단·하단 문구 저장 — 대표/관리자/세무사만 (중단 납부기한·납부금액은 고정) */
+export async function setNoticeBillTemplate(top: string, bottom: string) {
+  const session = await requireAuth();
+  if (!["owner", "admin", "accountant"].includes(session.role)) throw new Error("FORBIDDEN");
+  const value = JSON.stringify({ top: String(top ?? ""), bottom: String(bottom ?? "") });
+  await prisma.appConfig.upsert({
+    where: { key: NOTICE_BILL_TEMPLATE_KEY },
+    update: { value },
+    create: { key: NOTICE_BILL_TEMPLATE_KEY, value },
   });
   revalidatePath("/vat");
 }

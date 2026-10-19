@@ -44,29 +44,80 @@ export function formatKoreanDate(ymd: string): string {
   return `${y}년 ${pad2(m)}월 ${pad2(d)}일`;
 }
 
-/**
- * 대표님께 보낼 예정고지 납부서 안내문.
- * 2기 예정: 상반기 기준 / 1기 예정: 전년 하반기 기준. 확정신고 시기는 2기→익년 1월, 1기→당해 7월.
- */
-export function buildNoticeBillMessage(period: string, bill: Pick<NoticeBill, "amount" | "dueDate">): string {
-  const { year, gi } = parsePeriod(period);
-  const half = gi === 2 ? "상반기" : `${year - 1}년 하반기`;
-  const confirmWhen = gi === 2 ? `${year + 1}년 1월 중` : `${year}년 7월 중`;
-  return [
+/* ───────────── 안내문 템플릿 (상단 · 고정 중단 · 하단) ───────────── */
+
+/** AppConfig 키 — 사무실 공통 안내문 */
+export const NOTICE_BILL_TEMPLATE_KEY = "vatNoticeBillMessage";
+
+export type NoticeBillTemplate = { top: string; bottom: string };
+
+/** 상단·하단에 쓸 수 있는 치환 문구 */
+export const NOTICE_BILL_PLACEHOLDERS: { key: string; desc: string }[] = [
+  { key: "{연도}", desc: "2026" },
+  { key: "{기수}", desc: "1 또는 2" },
+  { key: "{반기}", desc: "2기=상반기 / 1기=전년 하반기" },
+  { key: "{확정신고시기}", desc: "2기=익년 1월 중 / 1기=당해 7월 중" },
+  { key: "{상호}", desc: "거래처명" },
+  { key: "{대표자}", desc: "대표자명" },
+];
+
+export const DEFAULT_NOTICE_BILL_TEMPLATE: NoticeBillTemplate = {
+  top: [
     "대표님 안녕하세요",
-    `${year}년 ${gi}기 부가가치세 예정고지세액 납부서 전달드립니다.`,
+    "{연도}년 {기수}기 부가가치세 예정고지세액 납부서 전달드립니다.",
     "",
-    `해당 금액은 (${half} 부가가치세 납부액 - ${half} 예정고지세액) 의 1/2 입니다.`,
+    "해당 금액은 ({반기} 부가가치세 납부액 - {반기} 예정고지세액) 의 1/2 입니다.",
     "",
-    `위 금액은 추후 ${year}년 ${gi}기 부가가치세 확정신고(${confirmWhen}) 시 기납부세액으로 차감됩니다.`,
+    "위 금액은 추후 {연도}년 {기수}기 부가가치세 확정신고({확정신고시기}) 시 기납부세액으로 차감됩니다.",
     "",
     "금액 및 납부기한은 아래와 같습니다.",
     "",
     "확인 부탁드리겠습니다.",
-    "",
-    `납부기한 : ${formatKoreanDate(bill.dueDate)}`,
-    `납부금액 : ${bill.amount.toLocaleString("ko-KR")}원`,
-  ].join("\n");
+  ].join("\n"),
+  bottom: "",
+};
+
+export function parseNoticeBillTemplate(json: string | null | undefined): NoticeBillTemplate {
+  if (!json) return DEFAULT_NOTICE_BILL_TEMPLATE;
+  try {
+    const t = JSON.parse(json) as Partial<NoticeBillTemplate>;
+    return { top: typeof t.top === "string" ? t.top : DEFAULT_NOTICE_BILL_TEMPLATE.top, bottom: typeof t.bottom === "string" ? t.bottom : "" };
+  } catch { return DEFAULT_NOTICE_BILL_TEMPLATE; }
+}
+
+export type NoticeBillMessageCtx = {
+  period: string;
+  bill: Pick<NoticeBill, "amount" | "dueDate">;
+  clientName?: string;
+  ceoName?: string | null;
+};
+
+/** 고정 중단: 납부기한 · 납부금액 */
+export function noticeBillMiddle(bill: Pick<NoticeBill, "amount" | "dueDate">): string {
+  return `납부기한 : ${formatKoreanDate(bill.dueDate)}\n납부금액 : ${bill.amount.toLocaleString("ko-KR")}원`;
+}
+
+function fillPlaceholders(text: string, ctx: NoticeBillMessageCtx): string {
+  const { year, gi } = parsePeriod(ctx.period);
+  const half = gi === 2 ? "상반기" : `${year - 1}년 하반기`;
+  const confirmWhen = gi === 2 ? `${year + 1}년 1월 중` : `${year}년 7월 중`;
+  return text
+    .replace(/\{연도\}/g, String(year))
+    .replace(/\{기수\}/g, String(gi))
+    .replace(/\{반기\}/g, half)
+    .replace(/\{확정신고시기\}/g, confirmWhen)
+    .replace(/\{상호\}/g, ctx.clientName ?? "")
+    .replace(/\{대표자\}/g, ctx.ceoName ?? "");
+}
+
+/**
+ * 대표님께 보낼 예정고지 납부서 안내문 = 상단(편집) + 고정 중단(납부기한·납부금액) + 하단(편집).
+ * 템플릿을 안 주면 기본 문구.
+ */
+export function buildNoticeBillMessage(ctx: NoticeBillMessageCtx, tpl: NoticeBillTemplate = DEFAULT_NOTICE_BILL_TEMPLATE): string {
+  const top = fillPlaceholders(tpl.top, ctx).trim();
+  const bottom = fillPlaceholders(tpl.bottom, ctx).trim();
+  return [top, noticeBillMiddle(ctx.bill), bottom].filter((s) => s.length > 0).join("\n\n");
 }
 
 /** 다운로드 시 저장될 파일명 */
