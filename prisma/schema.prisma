@@ -130,6 +130,7 @@ model Client {
   collectionContacts        CollectionContact[]
   bookkeepingMonths         BookkeepingMonth[]
   semoLedgerMonths          SemoLedgerMonth[]
+  payrollMonths             PayrollMonth[]
 }
 
 // 월기장 진행 상태 — 거래처 × 기장 대상 월. stage: none(미시작) | input(기장입력 중) | booked(기장완료) | reviewed(세모리포트 검토완료) | done(세모리포트 완료)
@@ -983,5 +984,25 @@ model SemoLedgerMonth {
   client         Client   @relation(fields: [clientId], references: [id])
 
   @@unique([clientId, yearMonth])
+  @@index([yearMonth])
+}
+
+model PayrollMonth {
+  id          Int      @id @default(autoincrement())
+  clientId    Int
+  yearMonth   String   // 급여 귀속/지급 월 "YYYY-MM" (위하고 자료 파일명의 연·월)
+  incomeType  String   // salary(근로) | business(사업) | daily(일용)
+  headcount   Int      @default(0)
+  gross       BigInt   @default(0) // 지급액 합계 (근로: 지급액계, 사업: 지급액, 일용: 지급총액)
+  deductions  BigInt   @default(0) // 공제 합계 (근로: 공제액계, 사업: 소득세+지방세 등, 일용: 지급-실지급)
+  net         BigInt   @default(0) // 실지급(차인지급액) 합계
+  employees   String   // JSON [{ name, gross, deductions, net, dept?, rank?, items? }]
+  sourceFile  String?  // 읽어온 드라이브 파일명
+  collectedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  client      Client   @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, yearMonth, incomeType])
   @@index([yearMonth])
 }

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { ClientProfile, LedgerMonth, ProfileTile, ProfileWarning } from "@/lib/client-profile";
+import type { ClientProfile, LedgerMonth, ProfileTile, ProfileWarning, PayrollSummaryMonth } from "@/lib/client-profile";
 import { openClientEditModal } from "@/app/(main)/clients/ClientLink";
 import { ClientLedgerModal } from "@/app/(main)/clients/ClientLedgerModal";
+import { ClientPayrollModal } from "@/app/(main)/clients/ClientPayrollModal";
 import type { ClientEditModalTab } from "@/app/(main)/clients/ClientEditModal";
 
 /**
@@ -328,6 +329,84 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
   );
 }
 
+/* ───────── 인건비 요약 (최근 12개월) ───────── */
+
+const PAY_COLORS = { salary: "#10B981", business: "#3182F6", daily: "#F59E0B" } as const;
+function prevYm(ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+
+function PayrollSummary({ rows, today, onOpen }: { rows: PayrollSummaryMonth[]; today: string; onOpen: (ym?: string) => void }) {
+  const [hover, setHover] = useState<number | null>(null);
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[#E5E8EB] px-4 py-4 text-[12.5px] text-[#8B95A1]">
+        <span>아직 저장된 급여 자료가 없어요 · 원천세 위멤버스 업로드 후 자동으로 쌓이고, 과거분은 상세에서 드라이브로부터 가져올 수 있어요</span>
+        <button type="button" onClick={() => onOpen()} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">상세 · 가져오기</button>
+      </div>
+    );
+  }
+  const thisMonth = today.slice(0, 7);
+  const latest = [...rows].reverse().find(r => r.yearMonth <= thisMonth) ?? rows[rows.length - 1];
+  const prev = rows.find(r => r.yearMonth === prevYm(latest.yearMonth));
+  const diff = prev ? latest.gross - prev.gross : null;
+  const last12 = rows.slice(-12);
+  const max = Math.max(1, ...last12.map(r => r.gross));
+  const H = 72;
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <div>
+        <div className="text-[11px] font-medium text-[#8B95A1]">급여대장 기준</div>
+        <div className="mt-0.5 text-[19px] font-extrabold leading-snug tracking-tight text-[#191F28]">
+          {parseInt(latest.yearMonth.slice(5, 7))}월 직원 인건비는 <span className="text-[#0F9D77]">{won(latest.gross)}원</span>이에요.
+        </div>
+        <div className="mt-1 text-[12.5px] text-[#8B95A1]">
+          {diff == null ? "지난달 자료 없음" : diff === 0 ? "지난달과 같아요" : <>지난달보다 <b className={diff > 0 ? "text-[#191F28]" : "text-[#1B64DA]"}>{won(Math.abs(diff))}원 {diff > 0 ? "늘었어요" : "줄었어요"}</b></>}
+          <span className="ml-2">· {latest.headcount}명 · 세후 {won(latest.net)}원</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {([["salary", "근로"], ["business", "사업"], ["daily", "일용"]] as const).map(([k, label]) => {
+            const t = latest[k];
+            if (t.headcount === 0 && t.gross === 0) return null;
+            return (
+              <span key={k} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: `${PAY_COLORS[k]}1A`, color: PAY_COLORS[k] }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: PAY_COLORS[k] }} />{label} {t.headcount}명 · {won(t.gross)}원
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div className="relative" onMouseLeave={() => setHover(null)}>
+        <div className="flex items-end gap-1.5" style={{ height: H }}>
+          {last12.map((r, i) => {
+            const h = Math.max(r.gross > 0 ? 3 : 0, (r.gross / max) * H);
+            const dim = hover != null && hover !== i;
+            const segs = ([["salary", r.salary.gross], ["business", r.business.gross], ["daily", r.daily.gross]] as const).filter(([, v]) => v > 0);
+            return (
+              <button type="button" key={r.yearMonth} onClick={() => onOpen(r.yearMonth)} onMouseEnter={() => setHover(i)} title="누르면 이 달 상세" className="relative flex h-full flex-1 flex-col justify-end">
+                <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-[4px] transition-opacity" style={{ height: h, opacity: dim ? 0.4 : 1 }}>
+                  {segs.map(([k, v]) => <div key={k} style={{ height: `${(v / r.gross) * 100}%`, background: PAY_COLORS[k] }} />)}
+                </div>
+                {hover === i && (
+                  <div className={`pointer-events-none absolute bottom-full z-10 mb-1 w-[170px] rounded-xl border border-[#E5E8EB] bg-white/95 p-2.5 text-left shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 3 ? "left-0" : i > 8 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
+                    <div className="text-[12px] font-extrabold text-[#191F28]">{r.yearMonth.slice(0, 4)}년 {parseInt(r.yearMonth.slice(5, 7))}월 · {r.headcount}명</div>
+                    <div className="mt-1 text-[12px] font-bold tabular-nums text-[#0F9D77]">{won(r.gross)}원</div>
+                    <div className="text-[10.5px] tabular-nums text-[#8B95A1]">세후 {won(r.net)}원</div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-1 flex gap-1.5">
+          {last12.map(r => <div key={r.yearMonth} className="flex-1 text-center text-[9.5px] tabular-nums text-[#8B95A1]">{parseInt(r.yearMonth.slice(5, 7))}월</div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ───────── 이력 표 ───────── */
 
 const TH = "px-3 py-2 text-left text-[10.5px] font-bold text-[#8B95A1] whitespace-nowrap";
@@ -370,6 +449,8 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
   const [activeSection, setActiveSection] = useState("sec-summary");
   // 매출·매입 상세 모달 (열려 있으면 처음 보여줄 달)
   const [ledgerOpen, setLedgerOpen] = useState<{ month?: string } | null>(null);
+  // 인건비 상세 모달
+  const [payrollOpen, setPayrollOpen] = useState<{ month?: string } | null>(null);
 
   // 스크롤 위치에 따라 활성 탭 갱신 — 보이는 영역 상단(+80px)을 지난 마지막 구역
   const onBodyScroll = useCallback(() => {
@@ -552,6 +633,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
             tabs={[
               { id: "sec-summary", label: "요약" },
               { id: "sec-ledger", label: "매출·매입" },
+              ...(c?.withholdingType !== "D" ? [{ id: "sec-payroll", label: "인건비" }] : []),
               { id: "sec-vat", label: "부가세" },
               ...(!isCorp ? [{ id: "sec-income", label: "종소세" }] : []),
               ...(c?.withholdingType !== "D" ? [{ id: "sec-wh", label: "원천세" }] : []),
@@ -615,6 +697,23 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 />
                 <LedgerChart rows={data.ledger} today={data.today} onSelectMonth={ym => setLedgerOpen({ month: ym })} />
               </section>
+
+              {/* 인건비 */}
+              {c?.withholdingType !== "D" && (
+                <section id="sec-payroll" data-section className="glass rounded-2xl p-4 scroll-mt-3">
+                  <SectionTitle
+                    eyebrow="Payroll"
+                    title="월별 인건비 (급여대장 기준)"
+                    right={
+                      <div className="flex items-center gap-3">
+                        <span className="hidden text-[11px] text-[#8B95A1] sm:inline">최근 12개월 · 막대를 누르면 그 달 상세</span>
+                        <button type="button" onClick={() => setPayrollOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">상세 보기</button>
+                      </div>
+                    }
+                  />
+                  <PayrollSummary rows={data.payroll} today={data.today} onOpen={ym => setPayrollOpen({ month: ym })} />
+                </section>
+              )}
 
               {/* 부가세 이력 */}
               <HistoryCard id="sec-vat" eyebrow="VAT" title="부가가치세 이력" href={data.links.vat} empty={data.vatHistory.length === 0} count={data.vatHistory.length}>
@@ -765,6 +864,9 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
       </div>
       {ledgerOpen && c && (
         <ClientLedgerModal clientId={clientId} clientName={c.name} initialMonth={ledgerOpen.month} onClose={() => setLedgerOpen(null)} />
+      )}
+      {payrollOpen && c && (
+        <ClientPayrollModal clientId={clientId} clientName={c.name} initialMonth={payrollOpen.month} onClose={() => setPayrollOpen(null)} />
       )}
     </div>
   );

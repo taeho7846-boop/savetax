@@ -6,6 +6,7 @@ import { findFileByName, downloadFile } from "@/lib/google-drive";
 import { access, writeFile, mkdir } from "fs/promises";
 import path from "path";
 import os from "os";
+import { collectPayrollMonth, type PayrollType } from "@/lib/payroll";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -101,6 +102,12 @@ export async function POST(req: NextRequest) {
           create: { clientId: client.id, yearMonth, taskType: "위멤버스완료", done: true },
         });
         revalidatePath("/withholding");
+        // 거래처 프로필 > 인건비: 방금 올린 급여 엑셀을 읽어 월별 인건비로 저장 (실패해도 업로드 결과엔 영향 없음)
+        try {
+          await collectPayrollMonth({ id: client.id, name: clientName }, yearMonth, incomeTypes as PayrollType[]);
+        } catch (e) {
+          console.error("[wemembers-process] 인건비 저장 실패:", e);
+        }
       }
     }
 

@@ -112,6 +112,16 @@ export type LedgerMonth = {
   purchasingRate: number | null;
 };
 
+export type PayrollSummaryMonth = {
+  yearMonth: string;
+  headcount: number;
+  gross: number;
+  net: number;
+  salary: { headcount: number; gross: number };
+  business: { headcount: number; gross: number };
+  daily: { headcount: number; gross: number };
+};
+
 export type ProfileMemo = { id: number; title: string | null; content: string; memoType: string; createdAt: string; author: string };
 
 export type ClientProfile = {
@@ -176,6 +186,7 @@ export type ClientProfile = {
     recent: { yearMonth: string; stage: BookkeepingStage }[]; // 최근 6개월 (오래된→최근)
   };
   ledger: LedgerMonth[];       // 오래된→최근, 최대 24개월
+  payroll: PayrollSummaryMonth[]; // 오래된→최근, 최근 13개월 (PayrollMonth — 위하고 급여 엑셀에서 저장)
   vatHistory: VatHistoryRow[];
   incomeTaxHistory: IncomeTaxHistoryRow[];
   withholdingHistory: WithholdingHistoryRow[];
@@ -266,7 +277,8 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
   const wh12Start = addMonths(whMonth, -11);
   const bk6Start = addMonths(bkMonth, -5);
 
-  const [subUser, targetCfg, bkRows, whRecords, whFilings, vatRows, itRows, ledgerRows, dataCollections, memoRows, wehagoUrl] = await Promise.all([
+  const payrollStart = addMonths(today.slice(0, 7), -12);
+  const [subUser, targetCfg, bkRows, whRecords, whFilings, vatRows, itRows, ledgerRows, dataCollections, memoRows, wehagoUrl, payrollRows] = await Promise.all([
     client.subAssignedUserId ? prisma.user.findUnique({ where: { id: client.subAssignedUserId }, select: { name: true } }) : null,
     prisma.appConfig.findUnique({ where: { key: TARGET_DAY_KEY } }),
     prisma.bookkeepingMonth.findMany({ where: { clientId, yearMonth: { gte: bk6Start, lte: bkMonth } }, select: { yearMonth: true, stage: true } }),
@@ -297,6 +309,10 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
       select: { id: true, title: true, content: true, memoType: true, createdAt: true, author: { select: { name: true } } },
     }),
     buildWehagoUrl(session, client, today),
+    prisma.payrollMonth.findMany({
+      where: { clientId, yearMonth: { gte: payrollStart } }, orderBy: { yearMonth: "asc" },
+      select: { yearMonth: true, incomeType: true, headcount: true, gross: true, net: true },
+    }),
   ]);
 
   /* ── 미수 ── */
@@ -393,6 +409,21 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
       buySupply: Number(r.buySupply), buyVat: Number(r.buyVat), buyCount: r.buyCount, purchasingRate: r.purchasingRate,
     }))
     .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+
+  /* ── 인건비 (최근 13개월) ── */
+  const payrollMap = new Map<string, PayrollSummaryMonth>();
+  for (const r of payrollRows) {
+    let m = payrollMap.get(r.yearMonth);
+    if (!m) {
+      m = { yearMonth: r.yearMonth, headcount: 0, gross: 0, net: 0, salary: { headcount: 0, gross: 0 }, business: { headcount: 0, gross: 0 }, daily: { headcount: 0, gross: 0 } };
+      payrollMap.set(r.yearMonth, m);
+    }
+    const g = Number(r.gross);
+    m.headcount += r.headcount; m.gross += g; m.net += Number(r.net);
+    const t = r.incomeType === "salary" ? m.salary : r.incomeType === "business" ? m.business : m.daily;
+    t.headcount += r.headcount; t.gross += g;
+  }
+  const payroll = [...payrollMap.values()].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 
   /* ── 경고 ── */
   const warnings: ProfileWarning[] = [];
@@ -494,6 +525,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     },
     bookkeeping: { month: bkMonth, stage: bkStage, deadline: bookkeepingDeadline(bkMonth, targetDay), overdue: bkOverdue, semo, recent: bkRecent },
     ledger,
+    payroll,
     vatHistory,
     incomeTaxHistory: itHistory,
     withholdingHistory: whHistory,
