@@ -179,10 +179,19 @@ function TrendTable({ months, selected, onSelect }: { months: LedgerDetailMonth[
   );
 }
 
-/* ───────── 작년 vs 올해 막대 ───────── */
+/* ───────── 작년 vs 올해 (올해 막대 + 작년 점선) ───────── */
 
 function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMonth[]; year: number; mode: "sale" | "buy"; thisMonth: string }) {
   const [hover, setHover] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => { for (const e of entries) setWidth(e.contentRect.width); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const byYm = new Map(months.map(m => [m.yearMonth, m]));
   const val = (ym: string) => { const m = byYm.get(ym); return m ? (mode === "sale" ? m.saleSupply : m.buySupply) : null; };
   const cur = Array.from({ length: 12 }, (_, i) => val(`${year}-${String(i + 1).padStart(2, "0")}`));
@@ -190,13 +199,27 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
   const max = Math.max(1, ...cur.map(v => v ?? 0), ...prev.map(v => v ?? 0));
   const color = mode === "sale" ? SALE : BUY;
   const H = 220;
+  const PADL = 36, PADR = 4, GAP = 8; // pl-9 pr-1 gap-2
 
   // 올해 데이터가 있는 마지막 달까지의 누적 vs 작년 같은 기간
   const lastIdx = (() => { let k = -1; cur.forEach((v, i) => { if (v != null && `${year}-${String(i + 1).padStart(2, "0")}` < thisMonth) k = i; }); return k; })();
   const curSum = cur.slice(0, lastIdx + 1).reduce<number>((a, v) => a + (v ?? 0), 0);
   const prevSum = prev.slice(0, lastIdx + 1).reduce<number>((a, v) => a + (v ?? 0), 0);
   const hasPrev = prev.slice(0, lastIdx + 1).some(v => v != null);
+  const hasAnyPrev = prev.some(v => v != null);
   const label = mode === "sale" ? "매출" : "매입";
+
+  // 작년 점선 좌표 (자료 없는 달은 선 끊김)
+  const colW = width > 0 ? (width - PADL - PADR - GAP * 11) / 12 : 0;
+  const xOf = (i: number) => PADL + colW * i + GAP * i + colW / 2;
+  const yOf = (v: number) => H - (v / max) * H;
+  const segments: string[] = [];
+  let seg: string[] = [];
+  prev.forEach((v, i) => {
+    if (v == null) { if (seg.length) segments.push(seg.join(" ")); seg = []; return; }
+    seg.push(`${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`);
+  });
+  if (seg.length) segments.push(seg.join(" "));
 
   return (
     <div>
@@ -214,13 +237,13 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
         )}
       </div>
       <div className="flex items-center justify-end gap-4 text-[11px] text-[#6B7684]">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#D1D6DB]" />작년 {year - 1}</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />올해 {year}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />작년 {year - 1}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />올해 {year}</span>
       </div>
-      <div className="relative mt-2" style={{ height: H }} onMouseLeave={() => setHover(null)}>
+      <div ref={wrapRef} className="relative mt-2" style={{ height: H }} onMouseLeave={() => setHover(null)}>
         {[0.25, 0.5, 0.75, 1].map(g => (
-          <div key={g} className="absolute left-0 right-0 border-t border-dashed border-[#E5E8EB]" style={{ bottom: `${g * 100}%` }}>
-            <span className="-translate-y-0.5 text-[9.5px] tabular-nums text-[#B0B8C1]">{short(max * g)}</span>
+          <div key={g} className="absolute left-0 right-0 border-t border-dashed border-[#EEF0F2]" style={{ bottom: `${g * 100}%` }}>
+            <span className="-translate-y-0.5 text-[9.5px] tabular-nums text-[#C4CAD1]">{short(max * g)}</span>
           </div>
         ))}
         <div className="absolute inset-x-0 bottom-0 border-t border-[#D1D6DB]" />
@@ -229,11 +252,10 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
             const p = prev[i];
             const dim = hover != null && hover !== i;
             return (
-              <div key={i} className="relative flex h-full flex-1 items-end justify-center gap-[2px] cursor-crosshair" onMouseEnter={() => setHover(i)}>
-                <div className="w-[40%] rounded-t-[4px] bg-[#D1D6DB] transition-all" style={{ height: p == null ? 0 : Math.max(p > 0 ? 2 : 0, (p / max) * H), opacity: dim ? 0.35 : 1 }} />
-                <div className="w-[40%] rounded-t-[4px] transition-all" style={{ height: c == null ? 0 : Math.max(c > 0 ? 2 : 0, (c / max) * H), background: color, opacity: dim ? 0.35 : 1 }} />
+              <div key={i} className="relative flex h-full flex-1 items-end justify-center cursor-crosshair" onMouseEnter={() => setHover(i)}>
+                <div className="w-[56%] rounded-t-[4px] transition-all" style={{ height: c == null ? 0 : Math.max(c > 0 ? 2 : 0, (c / max) * H), background: color, opacity: dim ? 0.35 : 1 }} />
                 {hover === i && (
-                  <div className={`pointer-events-none absolute top-0 z-10 w-[200px] rounded-2xl border border-[#E5E8EB] bg-white/95 p-3 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 2 ? "left-0" : i > 9 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
+                  <div className={`pointer-events-none absolute top-0 z-20 w-[200px] rounded-2xl border border-[#E5E8EB] bg-white/95 p-3 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 2 ? "left-0" : i > 9 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
                     <div className="text-[12.5px] font-extrabold text-[#191F28]">{i + 1}월 {label}</div>
                     <div className="mt-1.5 flex justify-between text-[12px]"><span className="text-[#8B95A1]">{year}</span><b className="tabular-nums" style={{ color }}>{c == null ? "-" : `${won(c)}원`}</b></div>
                     <div className="flex justify-between text-[12px]"><span className="text-[#8B95A1]">{year - 1}</span><b className="tabular-nums text-[#4E5968]">{p == null ? "-" : `${won(p)}원`}</b></div>
@@ -244,6 +266,16 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
             );
           })}
         </div>
+        {hasAnyPrev && width > 0 && (
+          <svg className="pointer-events-none absolute inset-0 z-10" width={width} height={H} viewBox={`0 0 ${width} ${H}`}>
+            {segments.map((pts, k) => (
+              <polyline key={k} points={pts} fill="none" stroke="#6B7684" strokeWidth={2} strokeDasharray="6 5" strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+            {prev.map((v, i) => v == null ? null : (
+              <circle key={i} cx={xOf(i)} cy={yOf(v)} r={hover === i ? 5 : 3.5} fill="#fff" stroke="#6B7684" strokeWidth={2} />
+            ))}
+          </svg>
+        )}
       </div>
       <div className="mt-1.5 flex gap-2 pl-9 pr-1">
         {Array.from({ length: 12 }, (_, i) => <div key={i} className="flex-1 text-center text-[10.5px] tabular-nums text-[#8B95A1]">{i + 1}월</div>)}
