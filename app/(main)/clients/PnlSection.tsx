@@ -240,8 +240,9 @@ function ProfitTrend({ pnl }: { pnl: PnlData }) {
 
 export function PnlSection({ pnl, onOpenLedger, onOpenPayroll }: { pnl: PnlData; onOpenLedger?: (ym?: string) => void; onOpenPayroll?: (ym?: string) => void }) {
   const [open, setOpen] = useState(false);
-  const periods: PnlPeriod[] = [pnl.ytd, ...pnl.months];
-  const [idx, setIdx] = useState(0);
+  // 기간 목록: 오래된 달 … 최근 달 → 올해 누적(맨 오른쪽). ‹ 는 과거로, › 는 누적 쪽으로
+  const periods: PnlPeriod[] = [...pnl.months].reverse().concat([pnl.ytd]);
+  const [idx, setIdx] = useState(periods.length - 1);
   const cur = periods[Math.min(idx, periods.length - 1)] ?? pnl.ytd;
   const isYtd = cur.key === "ytd";
   const through = pnl.throughMonth ? parseInt(pnl.throughMonth.slice(5, 7)) : null;
