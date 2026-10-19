@@ -188,12 +188,18 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   const months = Array.from(new Set([prev, ...yearMonths]));
 
   const [clients, bookkeepings, oneoffs, expenses, exclusions, rounds] = await Promise.all([
-    // 1) 기장료 입금 — 담당(사수) 거래처 중 세이브택스 소속 제외, 해당 월 수납(paid) 체크
+    // 1) 기장료 입금 — 담당(사수) 거래처 중 해당 월 수납(paid) 체크.
+    //    소속이 세이브택스이거나 CMS 청구처가 세이브택스인 거래처는 제외한다.
+    //    (소속 세무회계태호 + CMS 세이브택스 = 본점에서 빼온 거래처 → 돈은 Savetax 정산 기장 목록의 출금 체크로 들어오므로
+    //     여기서도 잡으면 '빼온 거래처 입금'과 이중 계산됨. 2026-10-19 사용자 지적)
     prisma.client.findMany({
       where: {
         isDeleted: false,
         assignedUserId: participant.id,
-        OR: [{ affiliation: null }, { affiliation: { not: "세이브택스" } }],
+        AND: [
+          { OR: [{ affiliation: null }, { affiliation: { not: "세이브택스" } }] },
+          { OR: [{ cmsAffiliation: null }, { cmsAffiliation: { not: "세이브택스" } }] },
+        ],
         monthlyFee: { gt: 0 },
         feeRecords: { some: { status: "paid", yearMonth: { in: months } } },
       },
@@ -312,8 +318,8 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   }
 
   const ITEM_META: Record<RevenueSource, { label: string; hint: string }> = {
-    client: { label: "기장료 입금", hint: "채권관리에서 수납 체크된 담당 거래처 (세이브택스 소속 제외)" },
-    pulled: { label: "빼온 거래처 입금", hint: "Savetax 정산 기장 목록에서 이번 달 출금 체크된 건" },
+    client: { label: "기장료 입금", hint: "채권관리에서 수납 체크된 담당 거래처 (소속·CMS가 세이브택스인 거래처 제외 — 빼온 거래처는 아래 항목에서 집계)" },
+    pulled: { label: "빼온 거래처 입금", hint: "Savetax 정산 기장 목록에서 이번 달 출금 체크된 건 (소속 세무회계태호 + CMS 세이브택스 거래처)" },
     oneoff: { label: "단건 출금", hint: "Savetax 정산 단건에서 출금 체크된 건의 출금액" },
   };
 
