@@ -73,11 +73,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Empty({ text = "-" }: { text?: string }) {
   return <span className="text-[#B0B8C1]">{text}</span>;
 }
-/** 주민등록번호 마스킹: 850101-1****** (복사는 전체) */
-function maskResident(v: string): string {
+/** 주민등록번호 표시: 숫자 13자리면 850101-1234567 형태로 */
+function fmtResident(v: string): string {
   const d = v.replace(/[^0-9]/g, "");
-  if (d.length >= 7) return `${d.slice(0, 6)}-${d.slice(6, 7)}******`;
-  return v;
+  return d.length === 13 ? `${d.slice(0, 6)}-${d.slice(6)}` : v;
 }
 
 function CopyChip({ value, label, title }: { value: string; label?: string; title?: string }) {
@@ -535,7 +534,8 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <h2 className="mr-1 truncate text-[22px] font-extrabold tracking-tight text-[#191F28]">{c.name}</h2>
+                    <h2 className="truncate text-[22px] font-extrabold tracking-tight text-[#191F28]">{c.name}</h2>
+                    {c.bizNumber && <span className="mr-1"><CopyChip value={c.bizNumber} label={fmtBiz(c.bizNumber)} title="사업자등록번호 복사" /></span>}
                     <Badge tone={isCorp ? "purple" : "blue"}>{isCorp ? "법인" : "개인"}</Badge>
                     {(() => {
                       const detail = cleanVatDetail(c.vatTypeDetail);
@@ -549,36 +549,19 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                     )}
                     {c.taxTypes && <Badge>{c.taxTypes}</Badge>}
                     {c.affiliation && <Badge>{c.affiliation}</Badge>}
-                  </div>
-                  {/* 기본 정보 격자: 라벨 + 값, 복사 가능한 값은 칩 */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                    <Field label="대표">{c.ceoName ? <b className="text-[#191F28]">{c.ceoName}</b> : <Empty />}</Field>
-                    <Field label="사업자번호">{c.bizNumber ? <CopyChip value={c.bizNumber} label={fmtBiz(c.bizNumber)} /> : <Empty />}</Field>
-                    <Field label="주민번호">{c.residentNumber ? <CopyChip value={c.residentNumber} label={maskResident(c.residentNumber)} title="누르면 전체 번호 복사" /> : <Empty />}</Field>
-                    <Field label="전화">{c.phone ? <CopyChip value={c.phone} label={c.phone} title="누르면 번호 복사" /> : <Empty />}</Field>
-                    <Field label="개업일">{c.openDate ? <b className="tabular-nums text-[#191F28]">{c.openDate}</b> : <Empty />}</Field>
-                    <Field label="담당">
+                    <span className="ml-1 inline-flex items-center gap-1.5 text-[12.5px] text-[#4E5968]">
+                      <span className="text-[11px] font-bold text-[#8B95A1]">담당</span>
                       <b className="text-[#191F28]">{c.assignedUser ?? "-"}</b>
-                      {c.subAssignedUser && <span className="text-[#8B95A1]"> · 부 {c.subAssignedUser}</span>}
-                      {c.accountant && c.accountant !== c.assignedUser && c.accountant !== c.subAssignedUser && <span className="text-[#8B95A1]"> · {c.accountant} 세무사</span>}
-                    </Field>
-                    <Field label="인건비">
-                      {(() => {
-                        const labor = (c.laborTypes ?? "").split(",").map(t => t.trim()).filter(Boolean);
-                        if (labor.length === 0) return <Empty text="미입력" />;
-                        const color = (t: string) => t.includes("근로") ? "#10B981" : t.includes("사업") ? "#3182F6" : t.includes("일용") ? "#F59E0B" : "#8B95A1";
-                        return (
-                          <span className="inline-flex flex-wrap gap-1">
-                            {labor.map(t => (
-                              <span key={t} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold" style={{ background: `${color(t)}1A`, color: color(t) }}>
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color(t) }} />{t}
-                              </span>
-                            ))}
-                          </span>
-                        );
-                      })()}
-                    </Field>
-                    {(c.bizType || c.bizItem) && <Field label="업종"><span className="text-[#4E5968]">{[c.bizType, c.bizItem].filter(Boolean).join(" / ")}</span></Field>}
+                      {c.subAssignedUser && <span className="text-[#8B95A1]">· 부 {c.subAssignedUser}</span>}
+                      {c.accountant && c.accountant !== c.assignedUser && c.accountant !== c.subAssignedUser && <span className="text-[#8B95A1]">· {c.accountant} 세무사</span>}
+                    </span>
+                  </div>
+                  {/* 둘째 줄: 대표 · 주민등록번호 · 전화 · 개업일 */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <Field label="대표">{c.ceoName ? <b className="text-[#191F28]">{c.ceoName}</b> : <Empty />}</Field>
+                    <Field label="주민등록번호">{c.residentNumber ? <CopyChip value={c.residentNumber} label={fmtResident(c.residentNumber)} title="누르면 복사" /> : <Empty />}</Field>
+                    <Field label="전화">{c.phone ? <CopyChip value={c.phone} label={c.phone} title="누르면 복사" /> : <Empty />}</Field>
+                    <Field label="개업일">{c.openDate ? <b className="tabular-nums text-[#191F28]">{c.openDate}</b> : <Empty />}</Field>
                   </div>
                 </div>
               </div>
