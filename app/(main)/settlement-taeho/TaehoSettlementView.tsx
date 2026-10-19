@@ -358,7 +358,7 @@ export function TaehoSettlementView({
             today={thisYM === ym ? kstToday() : `${ym}-${String(new Date(Number(ym.slice(0, 4)), Number(ym.slice(5)), 0).getDate()).padStart(2, "0")}`}
           />
 
-          <OutstandingCard outstanding={data.outstanding} participantName={participant.name} feeRate={participant.feeRate} />
+          <OutstandingCard outstanding={data.outstanding} participantName={participant.name} feeRate={participant.feeRate} ym={ym} />
 
           <section className="glass rounded-3xl p-5 stat-card">
             <div className="flex items-start justify-between gap-3 mb-2">
@@ -521,36 +521,64 @@ function PaymentCard({
   );
 }
 
-function OutstandingCard({ outstanding, participantName, feeRate }: { outstanding: Outstanding; participantName: string; feeRate: number }) {
-  const [open, setOpen] = useState(false);
+/** 미수 달 표시 — 기준 연도면 "8월", 다른 해면 "25.12" */
+function monthChip(m: string, ym: string): string {
+  return m.slice(0, 4) === ym.slice(0, 4) ? `${Number(m.slice(5))}월` : `${m.slice(2, 4)}.${m.slice(5)}`;
+}
+
+function OutstandingCard({ outstanding, participantName, feeRate, ym }: { outstanding: Outstanding; participantName: string; feeRate: number; ym: string }) {
+  const [open, setOpen] = useState(true);
   const n = outstanding.rows.length;
+  const longTerm = outstanding.rows.filter((r) => r.months.length >= 2).length;
   return (
     <section className="glass rounded-3xl p-5 stat-card">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <div className="text-[14px] font-bold text-[#191F28]">{participantName} 미수 · 추가 입금 예상</div>
-          <div className="text-[11.5px] text-[#8B95A1] mt-0.5">이 달 아직 수납·출금 안 된 거래처. 들어오면 다음 차수에 쌓여요</div>
+          <div className="text-[14px] font-bold text-[#191F28]">{participantName} 누적 미수 · 추가 입금 예상</div>
+          <div className="text-[11.5px] text-[#8B95A1] mt-0.5">{ymKo(ym)}까지 수납·출금 체크가 없는 달을 거래처별로 모았어요. 들어오면 다음 차수에 쌓여요</div>
         </div>
-        <span className={`text-[11px] font-bold rounded-full px-2.5 py-1 ${n > 0 ? "bg-[#FEF2F2] text-[#DC2626]" : "bg-[#E7F7EE] text-[#15803D]"}`}>{n > 0 ? `${n}건 미수` : "미수 없음"}</span>
+        <span className={`text-[11px] font-bold rounded-full px-2.5 py-1 whitespace-nowrap ${n > 0 ? "bg-[#FEF2F2] text-[#DC2626]" : "bg-[#E7F7EE] text-[#15803D]"}`}>
+          {n > 0 ? `${n}곳 · ${outstanding.monthCount}개월` : "미수 없음"}
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <MiniStat label="미수 매출" value={outstanding.total} />
+      <div className="grid grid-cols-3 gap-2">
+        <MiniStat label="누적 미수 매출" value={outstanding.total} />
+        <MiniStat label={`${Number(ym.slice(5))}월분 미수`} value={outstanding.currentMonthTotal} />
         <MiniStat label={`예상 추가 입금액 (× ${100 - feeRate}%)`} value={outstanding.expectedPayout} strong />
       </div>
       {n > 0 && (
         <>
-          <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 text-[11.5px] font-bold text-[#3182F6] hover:underline">
-            {open ? "거래처 접기" : `거래처 ${n}곳 보기`}
-          </button>
+          <div className="mt-2 flex items-center justify-between">
+            <button type="button" onClick={() => setOpen((v) => !v)} className="text-[11.5px] font-bold text-[#3182F6] hover:underline">
+              {open ? "거래처 접기" : `거래처 ${n}곳 보기`}
+            </button>
+            {longTerm > 0 && <span className="text-[10.5px] font-bold text-[#B45309]">2개월 이상 밀린 곳 {longTerm}</span>}
+          </div>
           {open && (
-            <div className="mt-1.5 rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden max-h-[260px] overflow-y-auto">
+            <div className="mt-1.5 rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden max-h-[320px] overflow-y-auto">
               {outstanding.rows.map((r) => (
                 <div key={`${r.source}-${r.refId}`} className="flex items-center justify-between gap-3 px-3.5 py-2 border-b border-[#F2F4F6] last:border-b-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[12.5px] text-[#191F28] truncate">{r.name}</span>
-                    <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[12.5px] text-[#191F28] truncate">{r.name}</span>
+                      <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0 ${SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                      {r.months.map((m) => (
+                        <span
+                          key={m}
+                          className={`text-[10px] font-bold rounded-md px-1.5 py-0.5 tabular-nums ${m === ym ? "bg-[#E8F3FF] text-[#1B64DA]" : "bg-[#FEF2F2] text-[#DC2626]"}`}
+                          title={m === ym ? "이번 달분 (아직 출금 전일 수 있어요)" : "지난 달 미수"}
+                        >
+                          {monthChip(m, ym)}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-[12.5px] font-bold text-[#191F28] tabular-nums">{won(r.amount)}</span>
+                  <div className="text-right whitespace-nowrap">
+                    <div className="text-[12.5px] font-bold text-[#191F28] tabular-nums">{won(r.amount)}</div>
+                    <div className="text-[10px] text-[#8B95A1] tabular-nums">{won(r.monthlyFee)} × {r.months.length}개월</div>
+                  </div>
                 </div>
               ))}
             </div>

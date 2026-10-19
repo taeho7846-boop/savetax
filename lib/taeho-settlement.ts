@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { monthsBetween } from "@/lib/withdrawal";
 
 /**
  * 세무회계태호 정산 — 참여자(이휘언) 월 손익계산서 계산.
@@ -111,13 +112,31 @@ export type MonthPoint = { yearMonth: string; revenue: number; cost: number; pro
 /** 대표 → 참여자 실제 입금 기록 */
 export type Payment = { id: number; paidOn: string; amount: number; note: string | null };
 
-/** 아직 안 들어온 돈 — 채권관리 미수(수납 체크 없음) + Savetax 기장 목록 미출금 */
-export type OutstandingRow = { refId: number; name: string; amount: number; source: "client" | "pulled" };
+/**
+ * 누적 미수 — 거래처별로 최초출금월(빼온 거래처는 출금시작월)부터 기준 월까지 수납·출금 체크가 없는 달 전부.
+ * 청구 제외(exempt) 달은 빼고, 해지 거래처는 해지월까지만 본다. 기준 월은 출금일이 안 지났어도 포함(추가 입금 예상용).
+ */
+export type OutstandingRow = {
+  refId: number;
+  name: string;
+  source: "client" | "pulled";
+  monthlyFee: number;
+  /** 미수인 달들 (오름차순, YYYY-MM) */
+  months: string[];
+  /** = monthlyFee × months.length */
+  amount: number;
+  /** 기준 월도 미수인지 */
+  includesCurrent: boolean;
+};
 export type Outstanding = {
   rows: OutstandingRow[];
-  /** 미수 매출 합계 */
+  /** 누적 미수 매출 합계 */
   total: number;
-  /** 들어오면 참여자에게 갈 예상 추가 입금액 = 미수 × (1 − 기장료 수수료율) */
+  /** 누적 미수 개월 수 합계 */
+  monthCount: number;
+  /** 기준 월분만의 미수 매출 */
+  currentMonthTotal: number;
+  /** 들어오면 참여자에게 갈 예상 추가 입금액 = 누적 미수 × (1 − 기장료 수수료율) */
   expectedPayout: number;
 };
 
@@ -290,7 +309,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
       orderBy: [{ paidOn: "asc" }, { id: "asc" }],
       select: { id: true, paidOn: true, amount: true, note: true },
     }),
-    // 8) 기준 월 미수 — 청구 대상(최초출금월 이후, 해지 전)인데 수납·청구제외 기록이 없는 담당 거래처 (신고대리 제외)
+    // 8) 누적 미수 후보 — 최초출금월이 기준 월 이전인 담당 거래처 전부 (신고대리 제외). 수납 기록은 전체 기간
     prisma.client.findMany({
       where: {
         isDeleted: false,
@@ -299,19 +318,25 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
         monthlyFee: { gt: 0 },
         firstWithdrawalMonth: { lte: yearMonth },
         OR: [{ taxTypes: null }, { NOT: { taxTypes: { contains: "신고대리" } } }],
-        NOT: { feeRecords: { some: { yearMonth, status: { in: ["paid", "exempt"] } } } },
       },
-      select: { id: true, name: true, monthlyFee: true, contractStatus: true, terminationMonth: true },
+      select: {
+        id: true,
+        name: true,
+        monthlyFee: true,
+        firstWithdrawalMonth: true,
+        contractStatus: true,
+        terminationMonth: true,
+        feeRecords: { select: { yearMonth: true, status: true } },
+      },
       orderBy: { name: "asc" },
     }),
-    // 9) 기준 월 미출금 — Savetax 기장 목록(담당자=참여자, 출금시작월 이후)인데 이 달 출금 체크가 없는 건
+    // 9) 누적 미출금 후보 — Savetax 기장 목록(담당자=참여자, 출금시작월이 기준 월 이전). 출금 체크는 전체 기간
     prisma.settlementBookkeeping.findMany({
       where: {
         assignedUserName: participant.name,
         OR: [{ startMonth: null }, { startMonth: { lte: yearMonth } }],
-        NOT: { checks: { some: { yearMonth, withdrawn: true } } },
       },
-      select: { id: true, clientName: true, monthlyFee: true },
+      select: { id: true, clientName: true, monthlyFee: true, startMonth: true, checks: { select: { yearMonth: true, withdrawn: true } } },
       orderBy: { clientName: "asc" },
     }),
   ]);
@@ -509,13 +534,26 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   const cur = computeMonth(yearMonth);
   const prevRecurring = (expensesByMonth.get(prev) ?? []).some((e) => e.recurring);
 
-  // 미수·미출금 → 추가 입금 예상
-  const outstandingRows: OutstandingRow[] = [
-    ...unpaidClients
-      .filter((c) => c.contractStatus === "active" || (c.terminationMonth && c.terminationMonth >= yearMonth))
-      .map((c) => ({ refId: c.id, name: c.name, amount: c.monthlyFee ?? 0, source: "client" as const })),
-    ...unpaidPulled.map((b) => ({ refId: b.id, name: b.clientName, amount: b.monthlyFee, source: "pulled" as const })),
-  ];
+  // 누적 미수·미출금 → 추가 입금 예상
+  const outstandingRows: OutstandingRow[] = [];
+  for (const c of unpaidClients) {
+    if (!c.firstWithdrawalMonth) continue;
+    // 해지 거래처는 해지월까지만. 해지월이 없으면 기준 월까지
+    const end = c.contractStatus !== "active" && c.terminationMonth && c.terminationMonth < yearMonth ? c.terminationMonth : yearMonth;
+    const done = new Set(c.feeRecords.filter((r) => r.status === "paid" || r.status === "exempt").map((r) => r.yearMonth));
+    const months = monthsBetween(c.firstWithdrawalMonth, end).filter((m) => !done.has(m));
+    if (months.length === 0) continue;
+    const fee = c.monthlyFee ?? 0;
+    outstandingRows.push({ refId: c.id, name: c.name, source: "client", monthlyFee: fee, months, amount: fee * months.length, includesCurrent: months.includes(yearMonth) });
+  }
+  for (const b of unpaidPulled) {
+    const withdrawn = new Set(b.checks.filter((k) => k.withdrawn).map((k) => k.yearMonth));
+    // 출금시작월이 없으면 기준 월만 본다 (과거를 알 수 없으므로)
+    const months = monthsBetween(b.startMonth ?? yearMonth, yearMonth).filter((m) => !withdrawn.has(m));
+    if (months.length === 0) continue;
+    outstandingRows.push({ refId: b.id, name: b.clientName, source: "pulled", monthlyFee: b.monthlyFee, months, amount: b.monthlyFee * months.length, includesCurrent: months.includes(yearMonth) });
+  }
+  outstandingRows.sort((a, b) => b.months.length - a.months.length || b.amount - a.amount || a.name.localeCompare(b.name, "ko"));
   const outstandingTotal = outstandingRows.reduce((s, r) => s + r.amount, 0);
   const paidTotal = payments.reduce((s, p) => s + p.amount, 0);
 
@@ -532,6 +570,8 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     outstanding: {
       rows: outstandingRows,
       total: outstandingTotal,
+      monthCount: outstandingRows.reduce((s, r) => s + r.months.length, 0),
+      currentMonthTotal: outstandingRows.reduce((s, r) => s + (r.includesCurrent ? r.monthlyFee : 0), 0),
       expectedPayout: outstandingTotal - pct(outstandingTotal, participant.feeRate),
     },
   };
