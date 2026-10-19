@@ -890,6 +890,7 @@ model TaehoSettlementExpense {
   amount          Int      @default(0)   // 전체 금액 (부가세 포함)
   shareRate       Int      @default(50)  // 참여자(이휘언) 부담 비율 %
   recurring       Boolean  @default(false) // 매월 반복 항목 — 다음 달에 '전월 항목 가져오기'로 복사됨
+  roundSeq        Int      @default(1)   // 몇 차 정산에서 차감하는지 (기본 1차, 항목별 변경 가능)
   note            String?
   sortOrder       Int      @default(0)
   createdByUserId Int?
@@ -897,6 +898,34 @@ model TaehoSettlementExpense {
   updatedAt       DateTime @updatedAt
 
   @@index([yearMonth])
+}
+
+/// 세무회계태호 정산 — 차수(1차·2차·…). 현금이 들어온 만큼 끊어서 정산한다.
+/// 대표가 'N차 정산 확정'을 누르면 그 시점까지 아직 어느 차수에도 안 들어간 입금 건을 items로 스냅샷한다.
+model TaehoSettlementRound {
+  id              Int      @id @default(autoincrement())
+  yearMonth       String
+  participantId   Int
+  seq             Int
+  settledAt       DateTime @default(now())
+  note            String?
+  createdByUserId Int?
+  items           TaehoSettlementRoundItem[]
+
+  @@unique([yearMonth, participantId, seq])
+}
+
+/// 차수에 묶인 입금 건 스냅샷. 원본 체크가 나중에 풀려도 확정 내역은 유지(화면에 경고만).
+model TaehoSettlementRoundItem {
+  id      Int    @id @default(autoincrement())
+  roundId Int
+  source  String // client | pulled | oneoff
+  refId   Int
+  name    String
+  amount  Int    // 확정 시점 금액
+  round   TaehoSettlementRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, source, refId])
 }
 
 /// 세무회계태호 정산 — 특정 월 계산에서 매출 행 하나를 제외 (원본 수납 체크·출금 체크·단건 행은 그대로 둔다).

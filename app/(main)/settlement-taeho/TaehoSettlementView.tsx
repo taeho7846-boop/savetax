@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 import {
+  cancelLastTaehoRound,
+  confirmTaehoRound,
   copyRecurringExpenses,
   createTaehoExpense,
   deleteTaehoExpense,
@@ -12,12 +14,25 @@ import {
   type ExpenseInput,
 } from "@/app/actions/taeho-settlement";
 import { askConfirm, notify } from "@/components/ui/Dialog";
-import type { ExpenseRow, RevenueItem, RevenueRow, RevenueSource, TaehoSettlementData } from "@/lib/taeho-settlement";
+import type {
+  ExpenseRow,
+  RevenueItem,
+  RevenueRow,
+  RevenueSource,
+  RoundView,
+  Statement,
+  TaehoSettlementData,
+} from "@/lib/taeho-settlement";
 import { SERIES, TaehoTrendChart } from "./TaehoTrendChart";
 
 const won = (n: number) => n.toLocaleString("ko-KR");
 const ymLabel = (ym: string) => `${ym.slice(0, 4)}.${ym.slice(5)}`;
 const ymKo = (ym: string) => `${ym.slice(0, 4)}년 ${Number(ym.slice(5))}월`;
+/** "9/25 14:12" (KST). 서버·브라우저 로케일 차이로 hydration이 깨지지 않도록 직접 조립 */
+const fmtWhen = (iso: string) => {
+  const d = new Date(new Date(iso).getTime() + 9 * 3600_000);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+};
 
 function shiftYM(ym: string, delta: number): string {
   const [y, m] = ym.split("-").map(Number);
@@ -31,6 +46,8 @@ const SOURCE_CHIP: Record<RevenueSource, { label: string; cls: string }> = {
   oneoff: { label: "단건", cls: "bg-[#F3E8FF] text-[#7E22CE]" },
 };
 
+type Tab = "all" | number; // number = 차수(seq). 확정 차수 또는 미정산(다음 차수)
+
 export function TaehoSettlementView({
   data,
   participants,
@@ -43,8 +60,11 @@ export function TaehoSettlementView({
   viewerName: string;
 }) {
   const router = useRouter();
-  const { participant, statement: st, prev, year } = data;
-  const ym = st.yearMonth;
+  const { participant, statement: month, rounds, draft, prev, year } = data;
+  const ym = month.yearMonth;
+  const [tab, setTab] = useState<Tab>("all");
+  const [isPending, startTransition] = useTransition();
+
   const uq = participants.length > 1 ? `&u=${participant.id}` : "";
   const href = (m: string) => `/settlement-taeho?ym=${m}${uq}`;
   const thisYM = (() => {
@@ -53,6 +73,57 @@ export function TaehoSettlementView({
   })();
   const yearProfit = year.reduce((s, p) => s + p.profit, 0);
   const yearRevenue = year.reduce((s, p) => s + p.revenue, 0);
+
+  // 선택된 탭의 손익계산서
+  const selectedRound: RoundView | null = tab === "all" ? null : tab === draft.seq ? draft : rounds.find((r) => r.seq === tab) ?? null;
+  const st: Statement = selectedRound ? selectedRound.statement : month;
+  const isDraftTab = selectedRound !== null && !selectedRound.confirmed;
+  const isLastRound = selectedRound?.confirmed && selectedRound.seq === rounds.length;
+  const draftCount = draft.statement.revenue.count;
+  const monthHasExpenses = month.cost.expenses.length > 0;
+  const futureExpenses = month.cost.expenses.filter((e) => e.roundSeq > draft.seq);
+
+  async function handleConfirm() {
+    const d = draft.statement;
+    const ok = await askConfirm({
+      title: `${draft.seq}차 정산 확정`,
+      message: (
+        <div className="space-y-1.5 text-[13px]">
+          <div>미정산 입금 <b>{d.revenue.count}건</b>을 {draft.seq}차로 묶습니다.</div>
+          <div className="rounded-xl bg-[#F2F4F6] px-3 py-2 tabular-nums text-[12.5px] space-y-0.5">
+            <div className="flex justify-between"><span className="text-[#6B7684]">매출</span><b>{won(d.revenue.total)}원</b></div>
+            <div className="flex justify-between"><span className="text-[#6B7684]">비용</span><b>{won(d.cost.total)}원</b></div>
+            <div className="flex justify-between"><span className="text-[#6B7684]">{participant.name} 입금액</span><b className="text-[#3182F6]">{won(d.profit)}원</b></div>
+          </div>
+          <div className="text-[11.5px] text-[#8B95A1]">확정 뒤에 들어오는 입금은 {draft.seq + 1}차(미정산)에 쌓여요. 마지막 차수는 확정 취소로 되돌릴 수 있어요.</div>
+        </div>
+      ),
+      confirmText: "확정",
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      try {
+        const r = await confirmTaehoRound(ym, participant.id);
+        notify(`${r.seq}차 정산을 확정했어요 (${r.count}건)`);
+        setTab(r.seq);
+      } catch (e) {
+        notify(e instanceof Error && e.message !== "FORBIDDEN" ? e.message : "확정 실패 — 대표만 할 수 있어요", { type: "error" });
+      }
+    });
+  }
+
+  async function handleCancelLast() {
+    if (!(await askConfirm({ title: `${rounds.length}차 확정 취소`, message: `${rounds.length}차에 묶인 입금 건이 다시 '미정산'으로 돌아가요. 취소할까요?`, confirmText: "확정 취소", danger: true }))) return;
+    startTransition(async () => {
+      try {
+        const seq = await cancelLastTaehoRound(ym, participant.id);
+        notify(`${seq}차 확정을 취소했어요`);
+        setTab("all");
+      } catch (e) {
+        notify(e instanceof Error && e.message !== "FORBIDDEN" ? e.message : "취소 실패", { type: "error" });
+      }
+    });
+  }
 
   return (
     <>
@@ -93,31 +164,85 @@ export function TaehoSettlementView({
         </div>
       </div>
 
+      {/* 차수 탭 */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <TabPill active={tab === "all"} onClick={() => setTab("all")}>
+          통합 I/S
+        </TabPill>
+        {rounds.map((r) => (
+          <TabPill key={r.seq} active={tab === r.seq} onClick={() => setTab(r.seq)}>
+            {r.seq}차
+            <span className={`ml-1.5 text-[10.5px] font-medium ${tab === r.seq ? "text-white/80" : "text-[#8B95A1]"}`}>
+              ✓ {r.settledAt ? fmtWhen(r.settledAt).split(" ")[0] : ""}
+            </span>
+            {r.warnings > 0 && <span className="ml-1 text-[10.5px]" title="원본 체크가 풀리거나 금액이 바뀐 건이 있어요">⚠</span>}
+          </TabPill>
+        ))}
+        <TabPill active={tab === draft.seq} onClick={() => setTab(draft.seq)} dashed={draftCount === 0}>
+          {draft.seq}차
+          <span className={`ml-1.5 text-[10.5px] font-medium ${tab === draft.seq ? "text-white/80" : draftCount > 0 ? "text-[#DC2626]" : "text-[#8B95A1]"}`}>
+            미정산 {draftCount}건
+          </span>
+        </TabPill>
+        {canEdit && draftCount > 0 && (
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isPending}
+            className="ml-auto h-9 px-4 rounded-xl text-[12.5px] font-bold text-white bg-gradient-to-br from-[#6FA8FF] to-[#3182F6] shadow-md shadow-[#3182F6]/30 hover:brightness-105 transition disabled:opacity-50"
+          >
+            {draft.seq}차 정산 확정
+          </button>
+        )}
+      </div>
+
       {/* KPI 3장 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <StatCard label="매출" value={st.revenue.total} prev={prev?.revenue} color={SERIES.revenue.color} caption={`기장료 ${won(st.revenue.bookkeeping)} · 단건 ${won(st.revenue.oneoff)}`} />
-        <StatCard label="비용" value={st.cost.total} prev={prev?.cost} color={SERIES.cost.color} inverse caption={`수수료 ${won(st.cost.feeTotal)} · 공통비용 ${won(st.cost.expenseShareTotal)}`} />
-        <HeroCard label={`${participant.name} 입금액`} value={st.profit} prev={prev?.profit} caption={`${ymKo(ym)} 이익 = 매출 − 비용`} />
+        <StatCard label={selectedRound ? `${selectedRound.seq}차 매출` : "매출"} value={st.revenue.total} prev={tab === "all" ? prev?.revenue : undefined} color={SERIES.revenue.color} caption={`기장료 ${won(st.revenue.bookkeeping)} · 단건 ${won(st.revenue.oneoff)}`} />
+        <StatCard label={selectedRound ? `${selectedRound.seq}차 비용` : "비용"} value={st.cost.total} prev={tab === "all" ? prev?.cost : undefined} color={SERIES.cost.color} inverse caption={`수수료 ${won(st.cost.feeTotal)} · 공통비용 ${won(st.cost.expenseShareTotal)}`} />
+        <HeroCard
+          label={selectedRound ? `${selectedRound.seq}차 ${participant.name} 입금액${isDraftTab ? " (예정)" : ""}` : `${participant.name} 입금액 · 월 합계`}
+          value={st.profit}
+          prev={tab === "all" ? prev?.profit : undefined}
+          caption={selectedRound ? (selectedRound.confirmed && selectedRound.settledAt ? `${fmtWhen(selectedRound.settledAt)} 확정` : "확정하면 이 금액이 입금 기준이 돼요") : `${ymKo(ym)} 이익 = 매출 − 비용`}
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_1fr] gap-4 items-start">
         {/* 손익계산서 */}
-        <section className="glass-strong rounded-3xl overflow-hidden">
-          <div className="px-6 pt-5 pb-3 flex items-center justify-between">
+        <section className={`glass-strong rounded-3xl overflow-hidden ${isPending ? "opacity-70" : ""}`}>
+          <div className="px-6 pt-5 pb-3 flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <div className="text-[15px] font-bold text-[#191F28]">손익계산서</div>
-              <div className="text-[11.5px] text-[#8B95A1] mt-0.5">{ymKo(ym)} · {participant.name} · 단위: 원 (부가세 포함)</div>
+              <div className="text-[15px] font-bold text-[#191F28] flex items-center gap-2">
+                {selectedRound ? `${selectedRound.seq}차 손익계산서` : "통합 손익계산서"}
+                {selectedRound?.confirmed && <span className="text-[10.5px] font-bold rounded-full px-2 py-0.5 bg-[#E7F7EE] text-[#15803D]">확정</span>}
+                {isDraftTab && <span className="text-[10.5px] font-bold rounded-full px-2 py-0.5 bg-[#FEF2F2] text-[#DC2626]">미정산</span>}
+                {selectedRound && selectedRound.warnings > 0 && (
+                  <span className="text-[10.5px] font-bold rounded-full px-2 py-0.5 bg-[#FFFBEB] text-[#B45309]" title="확정 뒤 원본 체크가 풀리거나 금액이 바뀐 건 — 확정 내역은 그대로 유지돼요">⚠ 원본 변경 {selectedRound.warnings}건</span>
+                )}
+              </div>
+              <div className="text-[11.5px] text-[#8B95A1] mt-0.5">
+                {ymKo(ym)} · {participant.name} · 단위: 원 (부가세 포함)
+                {selectedRound?.confirmed && selectedRound.settledAt && ` · ${fmtWhen(selectedRound.settledAt)} 확정`}
+              </div>
             </div>
-            <span className="text-[11px] font-bold text-[#8B95A1] bg-[#F2F4F6] rounded-full px-2.5 py-1">
-              {canEdit ? "대표 편집 가능" : `${viewerName} 조회`}
-            </span>
+            <div className="flex items-center gap-2">
+              {canEdit && isLastRound && (
+                <button type="button" onClick={handleCancelLast} disabled={isPending} className="text-[11.5px] font-bold text-[#DC2626] bg-[#FEF2F2] rounded-lg px-2.5 py-1.5 hover:bg-[#FEE2E2] transition disabled:opacity-50">
+                  {selectedRound!.seq}차 확정 취소
+                </button>
+              )}
+              <span className="text-[11px] font-bold text-[#8B95A1] bg-[#F2F4F6] rounded-full px-2.5 py-1">
+                {canEdit ? "대표 편집 가능" : `${viewerName} 조회`}
+              </span>
+            </div>
           </div>
 
           <div className="px-6 pb-6">
             {/* 매출 */}
             <SectionTitle color={SERIES.revenue.color}>매출</SectionTitle>
             {st.revenue.items.map((item) => (
-              <RevenueLine key={item.key} item={item} ym={ym} canEdit={canEdit} />
+              <RevenueLine key={item.key} item={item} ym={ym} canEdit={canEdit} showRound={tab === "all"} />
             ))}
             <TotalLine label="매출 합계" value={st.revenue.total} />
 
@@ -137,14 +262,18 @@ export function TaehoSettlementView({
             <SubtotalLine label="수수료 소계" value={st.cost.feeTotal} />
 
             <GroupLabel className="mt-4">
-              공통비용 <span className="font-medium text-[#8B95A1]">{participant.name} 부담분</span>
+              공통비용 <span className="font-medium text-[#8B95A1]">{participant.name} 부담분{selectedRound ? ` · ${selectedRound.seq}차 차감분` : ""}</span>
             </GroupLabel>
             <ExpenseBlock
               ym={ym}
               rows={st.cost.expenses}
               canEdit={canEdit}
-              canCopyRecurring={data.canCopyRecurring}
+              canCopyRecurring={data.canCopyRecurring && !monthHasExpenses}
+              monthHasExpenses={monthHasExpenses}
               participantName={participant.name}
+              defaultRoundSeq={selectedRound ? selectedRound.seq : draft.seq}
+              maxRoundSeq={Math.max(draft.seq + 1, ...month.cost.expenses.map((e) => e.roundSeq))}
+              showRound={tab === "all"}
             />
             <SubtotalLine label="공통비용 소계" value={st.cost.expenseShareTotal} />
             <TotalLine label="비용 합계" value={st.cost.total} />
@@ -154,7 +283,9 @@ export function TaehoSettlementView({
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <div className="text-[15px] font-bold text-[#191F28]">이익</div>
-                  <div className="text-[11.5px] text-[#8B95A1] mt-0.5">= {participant.name}에게 입금할 금액</div>
+                  <div className="text-[11.5px] text-[#8B95A1] mt-0.5">
+                    = {participant.name}에게 입금할 금액{selectedRound ? ` (${selectedRound.seq}차)` : " (월 합계)"}
+                  </div>
                 </div>
                 <div className={`text-[30px] leading-none font-bold tabular-nums tracking-tight ${st.profit < 0 ? "text-[#DC2626]" : "text-[#191F28]"}`}>
                   {won(st.profit)}<span className="text-[16px] ml-0.5 text-[#6B7684] font-bold">원</span>
@@ -162,20 +293,51 @@ export function TaehoSettlementView({
               </div>
               {st.profit < 0 && (
                 <div className="mt-3 text-[11.5px] text-[#DC2626] bg-[#FEF2F2] rounded-xl px-3 py-2">
-                  비용이 매출보다 커서 이익이 마이너스예요. 공통비용 항목이나 출금·수납 체크를 확인해 주세요.
+                  비용이 매출보다 커서 이익이 마이너스예요. 공통비용의 차수나 출금·수납 체크를 확인해 주세요.
                 </div>
+              )}
+              {isDraftTab && canEdit && draftCount > 0 && (
+                <button type="button" onClick={handleConfirm} disabled={isPending} className="mt-4 w-full h-11 rounded-xl text-[13px] font-bold text-white bg-[#3182F6] hover:bg-[#1B64DA] transition disabled:opacity-50">
+                  이 금액으로 {draft.seq}차 정산 확정
+                </button>
               )}
             </div>
           </div>
         </section>
 
-        {/* 우측: 추이 + 대표 수취 요약 */}
+        {/* 우측: 차수 요약 + 추이 + 대표 수취 요약 */}
         <div className="space-y-4">
+          <section className="glass rounded-3xl p-5 stat-card">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-[14px] font-bold text-[#191F28]">{ymKo(ym)} 정산 차수</div>
+                <div className="text-[11.5px] text-[#8B95A1] mt-0.5">현금이 들어온 만큼 끊어서 정산해요</div>
+              </div>
+              <span className="text-[11px] font-bold text-[#8B95A1] bg-[#F2F4F6] rounded-full px-2.5 py-1">{rounds.length}차 확정</span>
+            </div>
+            <div className="space-y-1.5">
+              {rounds.map((r) => (
+                <RoundRow key={r.seq} round={r} active={tab === r.seq} onClick={() => setTab(r.seq)} />
+              ))}
+              <RoundRow round={draft} active={tab === draft.seq} onClick={() => setTab(draft.seq)} />
+              {futureExpenses.length > 0 && (
+                <div className="flex items-center justify-between gap-3 px-3.5 py-2 text-[11.5px] text-[#8B95A1]">
+                  <span>아직 차수가 없는 비용 ({futureExpenses.map((e) => `${e.roundSeq}차`).filter((v, i, a) => a.indexOf(v) === i).join("·")})</span>
+                  <span className="tabular-nums">−{won(futureExpenses.reduce((s, e) => s + e.share, 0))}</span>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 pt-3 border-t border-[#E5E8EB]/70 flex items-center justify-between">
+              <span className="text-[12.5px] font-bold text-[#4E5968]">월 합계 입금액</span>
+              <span className="text-[16px] font-bold text-[#191F28] tabular-nums">{won(month.profit)}원</span>
+            </div>
+          </section>
+
           <section className="glass rounded-3xl p-5 stat-card">
             <div className="flex items-start justify-between gap-3 mb-2">
               <div>
                 <div className="text-[14px] font-bold text-[#191F28]">{ym.slice(0, 4)}년 월별 추이</div>
-                <div className="text-[11.5px] text-[#8B95A1] mt-0.5">막대를 누르면 그 달로 이동해요</div>
+                <div className="text-[11.5px] text-[#8B95A1] mt-0.5">통합 기준 · 막대를 누르면 그 달로 이동해요</div>
               </div>
               <div className="flex items-center gap-3">
                 {(["revenue", "cost", "profit"] as const).map((k) => (
@@ -194,18 +356,69 @@ export function TaehoSettlementView({
           </section>
 
           <section className="glass rounded-3xl p-5 stat-card">
-            <div className="text-[13px] font-bold text-[#191F28] mb-3">대표 수취 요약</div>
+            <div className="text-[13px] font-bold text-[#191F28] mb-3">대표 수취 요약{selectedRound ? ` · ${selectedRound.seq}차` : " · 월 합계"}</div>
             <div className="space-y-2">
               <KV label="수수료 합계" value={st.cost.feeTotal} hint={`기장료 ${won(st.cost.feeBookkeeping)} + 단건 ${won(st.cost.feeOneoff)}`} />
               <KV label="공통비용 대표 부담분" value={st.cost.expenseOwnerTotal} hint={`전체 ${won(st.cost.expenseGrossTotal)} 중 ${participant.name} 부담 ${won(st.cost.expenseShareTotal)}`} />
             </div>
             <div className="mt-3 pt-3 border-t border-[#E5E8EB]/70 text-[11px] text-[#8B95A1] leading-relaxed">
-              모든 금액은 공급대가(부가세 포함) 기준이에요. 채권관리 수납 체크, Savetax 정산의 출금 체크가 바뀌면 이 화면에 바로 반영됩니다.
+              모든 금액은 공급대가(부가세 포함) 기준이에요. 정산 대상은 채권관리에서 이 달 수납 체크된 담당 거래처와 Savetax 정산에서 출금 체크된 기장·단건 건입니다. 확정된 차수는 그 시점 금액으로 고정되고, 이후 원본이 바뀌면 경고만 표시돼요.
             </div>
           </section>
         </div>
       </div>
     </>
+  );
+}
+
+/* ───────────────────────── 탭·차수 ───────────────────────── */
+
+function TabPill({ active, onClick, children, dashed }: { active: boolean; onClick: () => void; children: ReactNode; dashed?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-9 px-3.5 rounded-xl text-[12.5px] font-bold flex items-center transition ${
+        active
+          ? "text-white bg-[#3182F6] shadow-md shadow-[#3182F6]/25"
+          : `glass-strong text-[#6B7684] hover:text-[#191F28] hover:-translate-y-px ${dashed ? "border-dashed" : ""}`
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function RoundRow({ round, active, onClick }: { round: RoundView; active: boolean; onClick: () => void }) {
+  const s = round.statement;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-left transition ${
+        active ? "bg-[#E8F3FF]" : "bg-white/60 hover:bg-white/90"
+      } ${!round.confirmed ? "border border-dashed border-[#D1D6DB]" : "border border-[#E5E8EB]/60"}`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-bold shrink-0 ${round.confirmed ? "bg-[#3182F6] text-white" : "bg-[#F2F4F6] text-[#8B95A1]"}`}>
+          {round.seq}
+        </span>
+        <div className="min-w-0">
+          <div className="text-[12.5px] font-bold text-[#191F28] flex items-center gap-1.5">
+            {round.seq}차 {round.confirmed ? "확정" : "미정산"}
+            {round.warnings > 0 && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#FFFBEB] text-[#B45309]">⚠ {round.warnings}</span>}
+          </div>
+          <div className="text-[10.5px] text-[#8B95A1]">
+            {round.confirmed && round.settledAt ? `${fmtWhen(round.settledAt)} · ` : ""}
+            입금 {s.revenue.count}건 · 매출 {won(s.revenue.total)}
+          </div>
+        </div>
+      </div>
+      <div className="text-right whitespace-nowrap">
+        <div className={`text-[14px] font-bold tabular-nums ${round.confirmed ? "text-[#191F28]" : "text-[#4E5968]"}`}>{won(s.profit)}원</div>
+        {!round.confirmed && <div className="text-[10px] text-[#8B95A1]">확정 전</div>}
+      </div>
+    </button>
   );
 }
 
@@ -247,10 +460,10 @@ function HeroCard({ label, value, prev, caption }: { label: string; value: numbe
     <div className="rounded-2xl p-5 gradient-blue text-white shadow-lg shadow-[#3182F6]/30 stat-card relative overflow-hidden">
       <div className="absolute -right-6 -top-8 w-32 h-32 rounded-full bg-white/10" />
       <div className="absolute right-10 -bottom-10 w-24 h-24 rounded-full bg-white/10" />
-      <div className="relative flex items-center justify-between">
-        <div className="text-[12px] font-bold text-white/85">{label}</div>
+      <div className="relative flex items-center justify-between gap-2">
+        <div className="text-[12px] font-bold text-white/85 truncate">{label}</div>
         {prev !== undefined && (
-          <span className="text-[11px] font-bold bg-white/20 rounded-full px-2 py-0.5 tabular-nums">
+          <span className="text-[11px] font-bold bg-white/20 rounded-full px-2 py-0.5 tabular-nums whitespace-nowrap">
             {value - prev === 0 ? "전월과 동일" : `${value - prev > 0 ? "▲" : "▼"} ${won(Math.abs(value - prev))}`}
           </span>
         )}
@@ -326,7 +539,7 @@ function TotalLine({ label, value }: { label: string; value: number }) {
   );
 }
 
-function RevenueLine({ item, ym, canEdit }: { item: RevenueItem; ym: string; canEdit: boolean }) {
+function RevenueLine({ item, ym, canEdit, showRound }: { item: RevenueItem; ym: string; canEdit: boolean; showRound: boolean }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const count = item.rows.length;
@@ -337,8 +550,8 @@ function RevenueLine({ item, ym, canEdit }: { item: RevenueItem; ym: string; can
       try {
         await setTaehoRevenueExcluded(ym, r.source, r.refId, !r.excluded, r.name);
         notify(r.excluded ? `'${r.name}' 다시 계산에 포함했어요` : `'${r.name}' 이번 달 계산에서 제외했어요`);
-      } catch {
-        notify("변경 실패 — 대표만 바꿀 수 있어요", { type: "error" });
+      } catch (e) {
+        notify(e instanceof Error && e.message !== "FORBIDDEN" ? e.message : "변경 실패 — 대표만 바꿀 수 있어요", { type: "error" });
       }
     });
   }
@@ -363,37 +576,48 @@ function RevenueLine({ item, ym, canEdit }: { item: RevenueItem; ym: string; can
       </button>
       {open && count > 0 && (
         <div className={`ml-7 mr-1 mb-2 rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
-          {item.rows.map((r, i) => (
-            <div
-              key={`${r.source}-${r.refId}-${r.yearMonth}-${i}`}
-              className={`group flex items-center justify-between gap-3 px-3.5 py-2 border-b border-[#F2F4F6] last:border-b-0 ${r.excluded ? "bg-[#F9FAFB]" : ""}`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`text-[12.5px] truncate ${r.excluded ? "text-[#B0B8C1] line-through" : "text-[#191F28]"}`}>{r.name}</span>
-                <span className="text-[10.5px] text-[#8B95A1] tabular-nums">{ymLabel(r.yearMonth)}</span>
-                <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${r.excluded ? "bg-[#F2F4F6] text-[#B0B8C1]" : SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
-                {r.excluded && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#FEF2F2] text-[#DC2626]" title="원본 행은 그대로 있고, 이번 달 정산 계산에서만 빠져 있어요">계산 제외</span>}
-                {r.note && <span className="text-[10.5px] text-[#8B95A1] truncate" title={r.note}>{r.note}</span>}
+          {item.rows.map((r, i) => {
+            const confirmed = r.roundSeq !== null;
+            const muted = r.excluded;
+            return (
+              <div
+                key={`${r.source}-${r.refId}-${r.yearMonth}-${i}`}
+                className={`group flex items-center justify-between gap-3 px-3.5 py-2 border-b border-[#F2F4F6] last:border-b-0 ${muted ? "bg-[#F9FAFB]" : ""}`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-[12.5px] truncate ${muted ? "text-[#B0B8C1] line-through" : "text-[#191F28]"}`}>{r.name}</span>
+                  <span className="text-[10.5px] text-[#8B95A1] tabular-nums">{ymLabel(r.yearMonth)}</span>
+                  <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${muted ? "bg-[#F2F4F6] text-[#B0B8C1]" : SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
+                  {showRound && (
+                    confirmed
+                      ? <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#E7F7EE] text-[#15803D]">{r.roundSeq}차</span>
+                      : !muted && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#FEF2F2] text-[#DC2626]">미정산</span>
+                  )}
+                  {r.excluded && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#FEF2F2] text-[#DC2626]" title="원본 행은 그대로 있고, 이번 달 정산 계산에서만 빠져 있어요">계산 제외</span>}
+                  {r.status === "unchecked" && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#FFFBEB] text-[#B45309]" title="확정 뒤 채권관리 수납 체크 또는 Savetax 출금 체크가 풀렸어요. 확정 내역은 그대로 유지돼요">⚠ 원본 체크 해제됨</span>}
+                  {r.status === "changed" && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#FFFBEB] text-[#B45309]" title={`확정 당시 ${won(r.amount)}원, 지금 원본은 ${won(r.liveAmount ?? 0)}원`}>⚠ 금액 변경 (현재 {won(r.liveAmount ?? 0)})</span>}
+                  {r.note && <span className="text-[10.5px] text-[#8B95A1] truncate" title={r.note}>{r.note}</span>}
+                </div>
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  {canEdit && !confirmed && (
+                    <button
+                      type="button"
+                      onClick={() => toggleExcluded(r)}
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-lg transition ${
+                        r.excluded
+                          ? "text-[#3182F6] bg-[#E8F3FF] hover:bg-[#D6E8FF]"
+                          : "text-[#6B7684] opacity-0 group-hover:opacity-100 hover:bg-[#F2F4F6]"
+                      }`}
+                      title={r.excluded ? "이번 달 계산에 다시 넣기" : "원본은 두고 이번 달 계산에서만 빼기"}
+                    >
+                      {r.excluded ? "다시 포함" : "계산에서 제외"}
+                    </button>
+                  )}
+                  <span className={`text-[12.5px] font-bold tabular-nums ${muted ? "text-[#B0B8C1] line-through" : "text-[#191F28]"}`}>{won(r.amount)}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => toggleExcluded(r)}
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-lg transition ${
-                      r.excluded
-                        ? "text-[#3182F6] bg-[#E8F3FF] hover:bg-[#D6E8FF]"
-                        : "text-[#6B7684] opacity-0 group-hover:opacity-100 hover:bg-[#F2F4F6]"
-                    }`}
-                    title={r.excluded ? "이번 달 계산에 다시 넣기" : "원본은 두고 이번 달 계산에서만 빼기"}
-                  >
-                    {r.excluded ? "다시 포함" : "계산에서 제외"}
-                  </button>
-                )}
-                <span className={`text-[12.5px] font-bold tabular-nums ${r.excluded ? "text-[#B0B8C1] line-through" : "text-[#191F28]"}`}>{won(r.amount)}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -402,14 +626,15 @@ function RevenueLine({ item, ym, canEdit }: { item: RevenueItem; ym: string; can
 
 /* ───────────────────────── 공통비용 (인라인 편집) ───────────────────────── */
 
-type Draft = { label: string; amount: string; shareRate: string; recurring: boolean; note: string };
-const emptyDraft = (): Draft => ({ label: "", amount: "", shareRate: "50", recurring: true, note: "" });
-const toDraft = (r: ExpenseRow): Draft => ({ label: r.label, amount: String(r.amount), shareRate: String(r.shareRate), recurring: r.recurring, note: r.note ?? "" });
+type Draft = { label: string; amount: string; shareRate: string; recurring: boolean; roundSeq: number; note: string };
+const emptyDraft = (roundSeq: number): Draft => ({ label: "", amount: "", shareRate: "50", recurring: true, roundSeq, note: "" });
+const toDraft = (r: ExpenseRow): Draft => ({ label: r.label, amount: String(r.amount), shareRate: String(r.shareRate), recurring: r.recurring, roundSeq: r.roundSeq, note: r.note ?? "" });
 const fromDraft = (d: Draft): ExpenseInput => ({
   label: d.label,
   amount: Number(String(d.amount).replace(/[^\d-]/g, "")) || 0,
   shareRate: Number(d.shareRate) || 0,
   recurring: d.recurring,
+  roundSeq: d.roundSeq,
   note: d.note || null,
 });
 
@@ -418,13 +643,21 @@ function ExpenseBlock({
   rows,
   canEdit,
   canCopyRecurring,
+  monthHasExpenses,
   participantName,
+  defaultRoundSeq,
+  maxRoundSeq,
+  showRound,
 }: {
   ym: string;
   rows: ExpenseRow[];
   canEdit: boolean;
   canCopyRecurring: boolean;
+  monthHasExpenses: boolean;
   participantName: string;
+  defaultRoundSeq: number;
+  maxRoundSeq: number;
+  showRound: boolean;
 }) {
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -467,11 +700,17 @@ function ExpenseBlock({
     });
   }
 
+  const editorProps = { participantName, maxRoundSeq };
+
   return (
     <div className={isPending ? "opacity-60 pointer-events-none" : ""}>
       {rows.length === 0 && editing !== "new" && (
         <div className="ml-7 mr-1 my-1 rounded-2xl border border-dashed border-[#D1D6DB] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div className="text-[12px] text-[#8B95A1]">이번 달 공통비용 항목이 없어요{canEdit ? "." : ". 대표가 입력하면 여기에 표시돼요."}</div>
+          <div className="text-[12px] text-[#8B95A1]">
+            {monthHasExpenses
+              ? `${defaultRoundSeq}차에서 차감하는 공통비용이 없어요. (다른 차수의 항목은 통합 I/S에서 볼 수 있어요)`
+              : `이번 달 공통비용 항목이 없어요${canEdit ? "." : ". 대표가 입력하면 여기에 표시돼요."}`}
+          </div>
           {canEdit && (
             <div className="flex items-center gap-2">
               {canCopyRecurring && (
@@ -489,11 +728,12 @@ function ExpenseBlock({
 
       {rows.map((r) =>
         editing === r.id ? (
-          <ExpenseEditor key={r.id} initial={toDraft(r)} onSave={(d) => save(r.id, d)} onCancel={() => setEditing(null)} participantName={participantName} />
+          <ExpenseEditor key={r.id} initial={toDraft(r)} onSave={(d) => save(r.id, d)} onCancel={() => setEditing(null)} {...editorProps} />
         ) : (
           <div key={r.id} className="group flex items-center justify-between gap-3 py-1.5 pl-7 pr-1 rounded-xl hover:bg-white/70 transition">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-[12.5px] text-[#191F28] truncate">{r.label}</span>
+              {showRound && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#E8F3FF] text-[#1B64DA]" title="이 차수에서 차감">{r.roundSeq}차</span>}
               {r.recurring && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#F2F4F6] text-[#6B7684]" title="매월 반복 항목">반복</span>}
               <span className="text-[11px] text-[#8B95A1] tabular-nums whitespace-nowrap">전체 {won(r.amount)} × {r.shareRate}%</span>
               {r.note && <span className="text-[10.5px] text-[#8B95A1] truncate" title={r.note}>{r.note}</span>}
@@ -512,7 +752,7 @@ function ExpenseBlock({
       )}
 
       {editing === "new" && (
-        <ExpenseEditor initial={emptyDraft()} onSave={(d) => save("new", d)} onCancel={() => setEditing(null)} participantName={participantName} />
+        <ExpenseEditor initial={emptyDraft(defaultRoundSeq)} onSave={(d) => save("new", d)} onCancel={() => setEditing(null)} {...editorProps} />
       )}
 
       {canEdit && rows.length > 0 && editing !== "new" && (
@@ -524,17 +764,30 @@ function ExpenseBlock({
   );
 }
 
-function ExpenseEditor({ initial, onSave, onCancel, participantName }: { initial: Draft; onSave: (d: Draft) => void; onCancel: () => void; participantName: string }) {
+function ExpenseEditor({
+  initial,
+  onSave,
+  onCancel,
+  participantName,
+  maxRoundSeq,
+}: {
+  initial: Draft;
+  onSave: (d: Draft) => void;
+  onCancel: () => void;
+  participantName: string;
+  maxRoundSeq: number;
+}) {
   const [d, setD] = useState<Draft>(initial);
   const amount = Number(String(d.amount).replace(/[^\d]/g, "")) || 0;
   const share = Math.round((amount * (Number(d.shareRate) || 0)) / 100);
   const input = "border border-[#E5E8EB] bg-white rounded-lg px-2.5 py-1.5 text-[12.5px] focus:outline-none focus:border-[#3182F6]";
+  const seqOptions = Array.from({ length: Math.max(maxRoundSeq, d.roundSeq) }, (_, i) => i + 1);
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); onSave(d); }}
       className="ml-7 mr-1 my-1.5 rounded-2xl bg-white/80 border border-[#A3CAFD] p-3 space-y-2"
     >
-      <div className="grid grid-cols-[1.4fr_1fr_0.6fr] gap-2">
+      <div className="grid grid-cols-[1.4fr_1fr_0.6fr_0.6fr] gap-2">
         <label className="block">
           <span className="text-[10.5px] text-[#8B95A1] font-medium">항목명</span>
           <input autoFocus value={d.label} onChange={(e) => setD({ ...d, label: e.target.value })} placeholder="예) 사무실 임차료" className={`${input} w-full`} />
@@ -546,6 +799,12 @@ function ExpenseEditor({ initial, onSave, onCancel, participantName }: { initial
         <label className="block">
           <span className="text-[10.5px] text-[#8B95A1] font-medium">{participantName} 부담 %</span>
           <input type="number" min={0} max={100} value={d.shareRate} onChange={(e) => setD({ ...d, shareRate: e.target.value })} className={`${input} w-full text-right tabular-nums`} />
+        </label>
+        <label className="block">
+          <span className="text-[10.5px] text-[#8B95A1] font-medium">차감 차수</span>
+          <select value={d.roundSeq} onChange={(e) => setD({ ...d, roundSeq: Number(e.target.value) })} className={`${input} w-full`} title="이 비용을 몇 차 정산에서 뺄지">
+            {seqOptions.map((n) => <option key={n} value={n}>{n}차</option>)}
+          </select>
         </label>
       </div>
       <div className="flex items-center gap-3 flex-wrap">
