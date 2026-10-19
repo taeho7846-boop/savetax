@@ -338,12 +338,11 @@ function prevYm(ym: string) {
 }
 
 function PayrollSummary({ rows, today, onOpen }: { rows: PayrollSummaryMonth[]; today: string; onOpen: (ym?: string) => void }) {
-  const [hover, setHover] = useState<number | null>(null);
   if (rows.length === 0) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[#E5E8EB] px-4 py-4 text-[12.5px] text-[#8B95A1]">
-        <span>아직 저장된 급여 자료가 없어요 · 원천세 위멤버스 업로드 후 자동으로 쌓이고, 과거분은 상세에서 드라이브로부터 가져올 수 있어요</span>
-        <button type="button" onClick={() => onOpen()} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">상세 · 가져오기</button>
+        <span>아직 저장된 급여 자료가 없어요 · 매달 원천세 위멤버스 루틴을 돌리면 자동으로 쌓이고, 지난 달들은 상세의 ‘지난 달 일괄 처리’로 채울 수 있어요</span>
+        <button type="button" onClick={() => onOpen()} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">상세 · 일괄 처리</button>
       </div>
     );
   }
@@ -351,57 +350,66 @@ function PayrollSummary({ rows, today, onOpen }: { rows: PayrollSummaryMonth[]; 
   const latest = [...rows].reverse().find(r => r.yearMonth <= thisMonth) ?? rows[rows.length - 1];
   const prev = rows.find(r => r.yearMonth === prevYm(latest.yearMonth));
   const diff = prev ? latest.gross - prev.gross : null;
-  const last12 = rows.slice(-12);
-  const max = Math.max(1, ...last12.map(r => r.gross));
-  const H = 72;
+  const cols = [...rows].sort((a, b) => b.yearMonth.localeCompare(a.yearMonth)).slice(0, 12);
+  const TYPES = [["salary", "근로"], ["business", "사업"], ["daily", "일용"]] as const;
+  const anyType = (k: typeof TYPES[number][0]) => cols.some(r => r[k].gross > 0 || r[k].headcount > 0);
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <div>
-        <div className="text-[11px] font-medium text-[#8B95A1]">급여대장 기준</div>
-        <div className="mt-0.5 text-[19px] font-extrabold leading-snug tracking-tight text-[#191F28]">
-          {parseInt(latest.yearMonth.slice(5, 7))}월 직원 인건비는 <span className="text-[#0F9D77]">{won(latest.gross)}원</span>이에요.
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <div className="text-[11px] font-medium text-[#8B95A1]">급여대장 기준</div>
+          <div className="mt-0.5 text-[19px] font-extrabold leading-snug tracking-tight text-[#191F28]">
+            {parseInt(latest.yearMonth.slice(5, 7))}월 직원 인건비는 <span className="text-[#0F9D77]">{won(latest.gross)}원</span>이에요.
+          </div>
+          <div className="mt-1 text-[12.5px] text-[#8B95A1]">
+            {diff == null ? "지난달 자료 없음" : diff === 0 ? "지난달과 같아요" : <>지난달보다 <b className={diff > 0 ? "text-[#191F28]" : "text-[#1B64DA]"}>{won(Math.abs(diff))}원 {diff > 0 ? "늘었어요" : "줄었어요"}</b></>}
+            <span className="ml-2">· {latest.headcount}명 · 세후 {won(latest.net)}원</span>
+          </div>
         </div>
-        <div className="mt-1 text-[12.5px] text-[#8B95A1]">
-          {diff == null ? "지난달 자료 없음" : diff === 0 ? "지난달과 같아요" : <>지난달보다 <b className={diff > 0 ? "text-[#191F28]" : "text-[#1B64DA]"}>{won(Math.abs(diff))}원 {diff > 0 ? "늘었어요" : "줄었어요"}</b></>}
-          <span className="ml-2">· {latest.headcount}명 · 세후 {won(latest.net)}원</span>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {([["salary", "근로"], ["business", "사업"], ["daily", "일용"]] as const).map(([k, label]) => {
-            const t = latest[k];
-            if (t.headcount === 0 && t.gross === 0) return null;
-            return (
-              <span key={k} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: `${PAY_COLORS[k]}1A`, color: PAY_COLORS[k] }}>
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: PAY_COLORS[k] }} />{label} {t.headcount}명 · {won(t.gross)}원
-              </span>
-            );
-          })}
-        </div>
+        <div className="text-[11px] text-[#B0B8C1]">표를 좌우로 움직여 보세요 · 월을 누르면 그 달 상세</div>
       </div>
-      <div className="relative" onMouseLeave={() => setHover(null)}>
-        <div className="flex items-end gap-1.5" style={{ height: H }}>
-          {last12.map((r, i) => {
-            const h = Math.max(r.gross > 0 ? 3 : 0, (r.gross / max) * H);
-            const dim = hover != null && hover !== i;
-            const segs = ([["salary", r.salary.gross], ["business", r.business.gross], ["daily", r.daily.gross]] as const).filter(([, v]) => v > 0);
-            return (
-              <button type="button" key={r.yearMonth} onClick={() => onOpen(r.yearMonth)} onMouseEnter={() => setHover(i)} title="누르면 이 달 상세" className="relative flex h-full flex-1 flex-col justify-end">
-                <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-[4px] transition-opacity" style={{ height: h, opacity: dim ? 0.4 : 1 }}>
-                  {segs.map(([k, v]) => <div key={k} style={{ height: `${(v / r.gross) * 100}%`, background: PAY_COLORS[k] }} />)}
-                </div>
-                {hover === i && (
-                  <div className={`pointer-events-none absolute bottom-full z-10 mb-1 w-[170px] rounded-xl border border-[#E5E8EB] bg-white/95 p-2.5 text-left shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 3 ? "left-0" : i > 8 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
-                    <div className="text-[12px] font-extrabold text-[#191F28]">{r.yearMonth.slice(0, 4)}년 {parseInt(r.yearMonth.slice(5, 7))}월 · {r.headcount}명</div>
-                    <div className="mt-1 text-[12px] font-bold tabular-nums text-[#0F9D77]">{won(r.gross)}원</div>
-                    <div className="text-[10.5px] tabular-nums text-[#8B95A1]">세후 {won(r.net)}원</div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-1 flex gap-1.5">
-          {last12.map(r => <div key={r.yearMonth} className="flex-1 text-center text-[9.5px] tabular-nums text-[#8B95A1]">{parseInt(r.yearMonth.slice(5, 7))}월</div>)}
-        </div>
+      <div className="mt-3 overflow-x-auto -mx-1 px-1">
+        <table className="border-separate border-spacing-0 min-w-max">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 bg-white/95 w-[64px]" />
+              {cols.map((r, i) => (
+                <th key={r.yearMonth} className="px-0.5 pb-1">
+                  <button type="button" onClick={() => onOpen(r.yearMonth)} className={`w-[112px] rounded-xl px-2 py-2 text-[12px] font-bold transition-colors ${i === 0 ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"}`}>
+                    {r.yearMonth.slice(0, 4)}년 {r.yearMonth.slice(5, 7)}월
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {TYPES.filter(([k]) => anyType(k)).map(([k, label]) => (
+              <tr key={k}>
+                <td className="sticky left-0 z-10 bg-white/95 px-2 py-2 text-[12px] font-bold whitespace-nowrap border-t border-[#F2F4F6]" style={{ color: PAY_COLORS[k] }}>
+                  <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ background: PAY_COLORS[k] }} />{label}
+                </td>
+                {cols.map((r, i) => {
+                  const t = r[k];
+                  const has = t.gross > 0 || t.headcount > 0;
+                  return (
+                    <td key={r.yearMonth} className={`px-3 py-2 text-right tabular-nums whitespace-nowrap border-t border-[#F2F4F6] ${i === 0 ? "bg-[#F9FAFB] font-bold text-[#191F28]" : "text-[#6B7684]"}`}>
+                      {has ? <><div className="text-[12.5px]">{won(t.gross)}</div><div className="text-[10.5px] text-[#8B95A1]">{t.headcount}명</div></> : <span className="text-[#D1D6DB]">-</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr>
+              <td className="sticky left-0 z-10 bg-white/95 px-2 py-2 text-[12px] font-extrabold text-[#191F28] whitespace-nowrap border-t-2 border-[#E5E8EB]">총 지급</td>
+              {cols.map((r, i) => (
+                <td key={r.yearMonth} className={`px-3 py-2 text-right tabular-nums whitespace-nowrap border-t-2 border-[#E5E8EB] ${i === 0 ? "bg-[#F9FAFB]" : ""}`}>
+                  <div className={`text-[12.5px] font-extrabold ${i === 0 ? "text-[#0F9D77] underline decoration-2 underline-offset-4" : "text-[#333D4B]"}`}>{won(r.gross)}</div>
+                  <div className="text-[10.5px] text-[#8B95A1]">{r.headcount}명</div>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

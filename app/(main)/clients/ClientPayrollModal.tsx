@@ -209,6 +209,89 @@ function TypeTable({ months, filings, selected, onSelect }: { months: PayrollMon
   );
 }
 
+/* ───────── 유형별 직원 × 월 급여 표 (세모리포트에 없는 것) ───────── */
+
+function EmployeeMatrix({ months, type, selected, onSelect }: { months: PayrollMonthData[]; type: PayrollType; selected: string; onSelect: (ym: string) => void }) {
+  const t = typeOf(type);
+  const cols = [...months].sort((a, b) => b.yearMonth.localeCompare(a.yearMonth)).map(m => m.yearMonth);
+  // 직원별 월 금액 (이름 기준)
+  const byName = new Map<string, Map<string, { gross: number; net: number }>>();
+  for (const m of months) {
+    const tm = m.types.find(x => x.incomeType === type);
+    if (!tm) continue;
+    for (const e of tm.employees) {
+      const row = byName.get(e.name) ?? new Map();
+      const cur = row.get(m.yearMonth) ?? { gross: 0, net: 0 };
+      cur.gross += e.gross; cur.net += e.net;
+      row.set(m.yearMonth, cur);
+      byName.set(e.name, row);
+    }
+  }
+  if (byName.size === 0) return null;
+  // 정렬: 최근 지급이 있는 사람 먼저, 그다음 최근 금액 큰 순
+  const names = [...byName.keys()].sort((a, b) => {
+    const ra = byName.get(a)!, rb = byName.get(b)!;
+    const la = cols.findIndex(c => ra.has(c)), lb = cols.findIndex(c => rb.has(c));
+    if (la !== lb) return la - lb;
+    return (rb.get(cols[lb])?.gross ?? 0) - (ra.get(cols[la])?.gross ?? 0);
+  });
+  const total = (ym: string) => names.reduce((a, n) => a + (byName.get(n)!.get(ym)?.gross ?? 0), 0);
+  return (
+    <div className="glass rounded-2xl p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-[14px] font-bold text-[#191F28]">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: t.color }} />{t.label} · 직원별 월 급여
+        </div>
+        <div className="text-[11px] text-[#8B95A1]">{names.length}명 · 지급액(세전) · 칸에 마우스를 올리면 세후</div>
+      </div>
+      <div className="overflow-x-auto -mx-1 px-1">
+        <table className="border-separate border-spacing-0 min-w-max">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 bg-white/95 px-3 py-2 text-left text-[11px] font-bold text-[#8B95A1] w-[140px]">이름</th>
+              {cols.map(ym => (
+                <th key={ym} className="px-1 pb-1">
+                  <button type="button" onClick={() => onSelect(ym)} className={`w-[104px] rounded-lg px-2 py-1.5 text-[11.5px] font-bold transition-colors ${ym === selected ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"}`}>
+                    {ym.slice(2, 4)}.{ym.slice(5, 7)}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {names.map(n => {
+              const row = byName.get(n)!;
+              return (
+                <tr key={n} className="hover:bg-[#F9FAFB]">
+                  <td className="sticky left-0 z-10 bg-white/95 px-3 py-2 text-[12.5px] font-bold text-[#191F28] whitespace-nowrap border-t border-[#F2F4F6]">
+                    <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold align-middle" style={{ background: `${t.color}22`, color: t.color }}>{n.replace(/\s/g, "").charAt(0)}</span>{n}
+                  </td>
+                  {cols.map(ym => {
+                    const v = row.get(ym);
+                    return (
+                      <td key={ym} title={v ? `세후 ${won(v.net)}원` : undefined} className={`px-3 py-2 text-right text-[12px] tabular-nums whitespace-nowrap border-t border-[#F2F4F6] ${ym === selected ? "bg-[#F9FAFB] font-bold text-[#191F28]" : "text-[#4E5968]"}`}>
+                        {v ? won(v.gross) : <span className="text-[#D1D6DB]">-</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            <tr>
+              <td className="sticky left-0 z-10 bg-white/95 px-3 py-2 text-[12.5px] font-extrabold text-[#191F28] whitespace-nowrap border-t-2 border-[#E5E8EB]">합계</td>
+              {cols.map(ym => (
+                <td key={ym} className={`px-3 py-2 text-right text-[12px] font-extrabold tabular-nums whitespace-nowrap border-t-2 border-[#E5E8EB] ${ym === selected ? "bg-[#F9FAFB]" : ""}`} style={{ color: t.color }}>
+                  {total(ym) > 0 ? won(total(ym)) : <span className="text-[#D1D6DB]">-</span>}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ───────── 인건비 추이 (작년 vs 올해) ───────── */
 
 function YearTrend({ months, year, thisMonth }: { months: PayrollMonthData[]; year: number; thisMonth: string }) {
@@ -364,7 +447,16 @@ function wehagoDownloadUrl(w: PayrollWehago, clientName: string, type: PayrollTy
 function WmBatchPanel({ clientId, clientName, wehago, types, thisMonth, onRefresh }: {
   clientId: number; clientName: string; wehago: PayrollWehago; types: PayrollType[]; thisMonth: string; onRefresh: () => Promise<void>;
 }) {
-  const [range, setRange] = useState<3 | 6 | 12>(6);
+  // 처리할 기간: 시작 연월 ~ 끝 연월 (기본: 최근 6개월, 이번 달 제외)
+  const [fromYm, setFromYm] = useState(addMonths(thisMonth, -6));
+  const [toYm, setToYm] = useState(addMonths(thisMonth, -1));
+  const monthList = useMemo(() => {
+    if (!/^\d{4}-\d{2}$/.test(fromYm) || !/^\d{4}-\d{2}$/.test(toYm) || fromYm > toYm) return [] as string[];
+    const out: string[] = [];
+    for (let ym = toYm; ym >= fromYm && out.length < 36; ym = addMonths(ym, -1)) out.push(ym); // 최근 달부터
+    return out;
+  }, [fromYm, toYm]);
+  const quick = (n: number) => { setFromYm(addMonths(thisMonth, -n)); setToYm(addMonths(thisMonth, -1)); };
   const [picked, setPicked] = useState<PayrollType[]>(types.filter(t => t !== "daily"));
   const [doUpload, setDoUpload] = useState(true);
   const [doDocs, setDoDocs] = useState(true);
@@ -397,9 +489,9 @@ function WmBatchPanel({ clientId, clientName, wehago, types, thisMonth, onRefres
   }
 
   async function run() {
-    if (busy || picked.length === 0) return;
+    if (busy || picked.length === 0 || monthList.length === 0) return;
     setBusy(true); stop.current = false;
-    const list = Array.from({ length: range }, (_, i) => addMonths(thisMonth, -1 - i));
+    const list = monthList;
     const prog = { done: 0, total: list.length, current: "", log: [] as string[] };
     setProgress({ ...prog });
     try {
@@ -472,7 +564,14 @@ function WmBatchPanel({ clientId, clientName, wehago, types, thisMonth, onRefres
           <div className="text-[11.5px] text-[#6B7684]">원천세 페이지의 위멤버스 버튼과 같은 순서로, 고른 달을 연달아 돌려요: 위하고 다운로드 → 드라이브 저장(인건비 자동 저장) → 위멤버스 업로드 → 명세서 생성</div>
         </div>
         {!wehago.ready && <div className="w-full rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#DC2626]">아직 쓸 수 없어요: {wehago.reason}</div>}
-        {([3, 6, 12] as const).map(r => <button key={r} type="button" disabled={busy} onClick={() => setRange(r)} className={chip(range === r)}>최근 {r}개월</button>)}
+        <div className="flex items-center gap-1.5">
+          <input type="month" value={fromYm} max={toYm} disabled={busy} onChange={e => setFromYm(e.target.value)} className="h-8 rounded-lg border border-[#D1D6DB] bg-white px-2 text-[12px] font-bold text-[#191F28] disabled:opacity-60" />
+          <span className="text-[12px] text-[#8B95A1]">~</span>
+          <input type="month" value={toYm} min={fromYm} max={addMonths(thisMonth, -1)} disabled={busy} onChange={e => setToYm(e.target.value)} className="h-8 rounded-lg border border-[#D1D6DB] bg-white px-2 text-[12px] font-bold text-[#191F28] disabled:opacity-60" />
+          <span className="text-[11.5px] font-bold tabular-nums text-[#0B7A5C]">{monthList.length}개월</span>
+        </div>
+        {([3, 6, 12] as const).map(r => <button key={r} type="button" disabled={busy} onClick={() => quick(r)} className={chip(false)}>최근 {r}개월</button>)}
+        <button type="button" disabled={busy} onClick={() => { setFromYm(`${parseInt(thisMonth.slice(0, 4)) - 1}-01`); setToYm(addMonths(thisMonth, -1)); }} className={chip(false)}>작년 1월부터</button>
         <span className="mx-1 text-[#D1D6DB]">|</span>
         {types.map(t => {
           const on = picked.includes(t);
@@ -492,10 +591,12 @@ function WmBatchPanel({ clientId, clientName, wehago, types, thisMonth, onRefres
             <button type="button" onClick={() => { stop.current = true; skip.current = true; }} className="h-8 rounded-xl border border-[#E5E8EB] bg-white px-3 text-[12px] font-bold text-[#DC2626]">중지</button>
           </div>
         ) : (
-          <button type="button" disabled={!wehago.ready || picked.length === 0} onClick={run} className="ml-auto h-8 rounded-xl px-4 text-[12.5px] font-bold text-white hover:opacity-90 disabled:opacity-40" style={{ background: GREEN }}>시작</button>
+          <button type="button" disabled={!wehago.ready || picked.length === 0 || monthList.length === 0} onClick={run} className="ml-auto h-8 rounded-xl px-4 text-[12.5px] font-bold text-white hover:opacity-90 disabled:opacity-40" style={{ background: GREEN }}>
+            {monthList.length === 0 ? "기간을 고르세요" : `${monthList.length}개월 시작`}
+          </button>
         )}
       </div>
-      <div className="mt-2 text-[11px] text-[#8B95A1]">위하고에 로그인된 크롬에서 실행하세요. 다운로드 탭이 잠깐 열렸다 닫히며, 자료가 없는 달은 ‘이 유형 건너뛰기’를 누르면 바로 넘어가요.</div>
+      <div className="mt-2 text-[11px] text-[#8B95A1]">위하고에 로그인된 크롬에서 실행하세요. 최근 달부터 거꾸로 진행되고, 다운로드 탭이 잠깐 열렸다 닫히며, 자료가 없는 달은 ‘이 유형 건너뛰기’를 누르면 바로 넘어가요. ‘위멤버스 업로드’를 켜 두면 내려받은 급여 엑셀이 달마다 위멤버스에 자동으로 올라가요(이미 올린 달은 끄세요).</div>
       {progress && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-[11.5px] text-[#6B7684]">
@@ -691,6 +792,14 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
               <section>
                 <h3 className="mb-3 text-[17px] font-bold text-[#191F28]">• 소득별 급여 현황</h3>
                 <TypeTable months={months} filings={filings} selected={sel} onSelect={setSelected} />
+              </section>
+
+              {/* 유형별 직원 × 월 */}
+              <section>
+                <h3 className="mb-3 text-[17px] font-bold text-[#191F28]">• 직원별 월 급여 <span className="text-[13px] font-medium text-[#8B95A1]">소득유형별 · 가로로 움직여 보세요</span></h3>
+                <div className="space-y-4">
+                  {PAYROLL_TYPES.map(t => <EmployeeMatrix key={t.key} months={months} type={t.key} selected={sel} onSelect={setSelected} />)}
+                </div>
               </section>
 
               {/* 인건비 추이 */}
