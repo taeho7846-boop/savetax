@@ -568,6 +568,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                     <Field label="인건비">
                       <Badge tone="purple">유형 {c.withholdingType ?? "미지정"}</Badge>
+                      <Badge tone={c.halfYearTax ? "amber" : "gray"}>{c.halfYearTax ? "6개월납" : "월납"}</Badge>
                       {(() => {
                         const labor = (c.laborTypes ?? "").split(",").map(t => t.trim()).filter(Boolean);
                         if (labor.length === 0) return <Empty text="미입력" />;
