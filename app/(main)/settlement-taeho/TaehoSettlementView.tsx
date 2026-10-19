@@ -18,6 +18,7 @@ import {
 import { askConfirm, notify } from "@/components/ui/Dialog";
 import type {
   ExpenseRow,
+  Ledger,
   Outstanding,
   Payment,
   RevenueItem,
@@ -355,6 +356,7 @@ export function TaehoSettlementView({
             paidTotal={data.paidTotal}
             due={month.profit}
             confirmedDue={rounds.reduce((s, r) => s + r.statement.profit, 0)}
+            ledger={data.ledger}
             today={thisYM === ym ? kstToday() : `${ym}-${String(new Date(Number(ym.slice(0, 4)), Number(ym.slice(5)), 0).getDate()).padStart(2, "0")}`}
           />
 
@@ -414,6 +416,7 @@ function PaymentCard({
   paidTotal,
   due,
   confirmedDue,
+  ledger,
   today,
 }: {
   ym: string;
@@ -425,16 +428,21 @@ function PaymentCard({
   due: number;
   /** 확정 차수 합계 입금액 */
   confirmedDue: number;
+  ledger: Ledger;
   today: string;
 }) {
   const [adding, setAdding] = useState(false);
+  const [showLedger, setShowLedger] = useState(false);
   const [paidOn, setPaidOn] = useState(today);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [isPending, startTransition] = useTransition();
-  const remain = due - paidTotal;
-  const confirmedRemain = confirmedDue - paidTotal;
+  // 누적 잔액 = 전월 이월 + 이번 달 입금액 − 이번 달 기입금 (시작월부터 쭉 이월)
+  const remain = ledger.balance;
+  // 확정 기준 = 이월 + 확정 차수 합계 − 이번 달 기입금 (아직 확정 안 한 미정산분 제외)
+  const confirmedRemain = ledger.carryIn + confirmedDue - paidTotal;
   const amountNum = Number(amount.replace(/[^\d]/g, "")) || 0;
+  const startLabel = `${ledger.startMonth.slice(0, 4)}.${ledger.startMonth.slice(5)}`;
 
   function submit() {
     if (amountNum === 0) { notify("입금액을 입력하세요"); return; }
@@ -464,20 +472,63 @@ function PaymentCard({
     <section className={`glass rounded-3xl p-5 stat-card ${isPending ? "opacity-70" : ""}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <div className="text-[14px] font-bold text-[#191F28]">{participant.name} 입금 기록</div>
-          <div className="text-[11.5px] text-[#8B95A1] mt-0.5">중간에 보낸 돈을 적어두면 잔액이 계산돼요</div>
+          <div className="text-[14px] font-bold text-[#191F28]">{participant.name} 입금 기록 · 누적 잔액</div>
+          <div className="text-[11.5px] text-[#8B95A1] mt-0.5">{startLabel}부터 이월 — 많이 보낸 달은 다음 달 잔액에서 빠지고, 덜 보낸 달은 넘어가요</div>
         </div>
         <div className="text-right">
-          <div className="text-[10.5px] font-bold text-[#8B95A1]">{remainLabel}</div>
+          <div className="text-[10.5px] font-bold text-[#8B95A1]">{remainLabel} (누적)</div>
           <div className={`text-[22px] font-bold tabular-nums leading-none mt-0.5 ${remainTone}`}>{won(Math.abs(remain))}<span className="text-[13px] ml-0.5">원</span></div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <MiniStat label="월 합계 입금액" value={due} />
-        <MiniStat label="기입금" value={paidTotal} strong />
-        <MiniStat label="확정분 기준 잔액" value={confirmedRemain} />
+      {/* 이월 → 이번 달 → 누적 */}
+      <div className="rounded-2xl bg-white/60 border border-[#E5E8EB]/60 px-3.5 py-2.5 mb-3 text-[12px] tabular-nums space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[#6B7684]">전월 이월 잔액</span>
+          <span className={`font-bold ${ledger.carryIn < 0 ? "text-[#DC2626]" : "text-[#4E5968]"}`}>{ledger.carryIn < 0 ? "−" : ""}{won(Math.abs(ledger.carryIn))}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[#6B7684]">+ {Number(ym.slice(5))}월 입금액 (월 합계)</span>
+          <span className="font-bold text-[#4E5968]">{won(due)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[#6B7684]">− {Number(ym.slice(5))}월 기입금</span>
+          <span className="font-bold text-[#4E5968]">{won(paidTotal)}</span>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-dashed border-[#E5E8EB]">
+          <span className="font-bold text-[#191F28]">= 누적 잔액</span>
+          <span className={`font-bold ${remainTone}`}>{remain < 0 ? "−" : ""}{won(Math.abs(remain))}</span>
+        </div>
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-[#8B95A1]">확정 차수 기준 누적 잔액 (미정산 제외)</span>
+          <span className="text-[#8B95A1]">{confirmedRemain < 0 ? "−" : ""}{won(Math.abs(confirmedRemain))}</span>
+        </div>
       </div>
+
+      {ledger.rows.length > 1 && (
+        <div className="mb-3">
+          <button type="button" onClick={() => setShowLedger((v) => !v)} className="text-[11.5px] font-bold text-[#3182F6] hover:underline">
+            {showLedger ? "월별 원장 접기" : `월별 원장 보기 (${startLabel} ~)`}
+          </button>
+          {showLedger && (
+            <div className="mt-1.5 rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden">
+              <div className="grid grid-cols-[1fr_1.2fr_1.2fr_1.2fr] px-3.5 py-1.5 text-[10.5px] font-bold text-[#8B95A1] border-b border-[#F2F4F6]">
+                <span>월</span><span className="text-right">입금액</span><span className="text-right">기입금</span><span className="text-right">누적 잔액</span>
+              </div>
+              {ledger.rows.map((r) => (
+                <div key={r.yearMonth} className={`grid grid-cols-[1fr_1.2fr_1.2fr_1.2fr] px-3.5 py-1.5 text-[12px] tabular-nums border-b border-[#F2F4F6] last:border-b-0 ${r.yearMonth === ym ? "bg-[#E8F3FF]/60 font-bold" : ""}`}>
+                  <span className="text-[#4E5968]">{ymLabel(r.yearMonth)}</span>
+                  <span className="text-right text-[#4E5968]">{won(r.due)}</span>
+                  <span className="text-right text-[#4E5968]">{won(r.paid)}</span>
+                  <span className={`text-right ${r.balance < 0 ? "text-[#DC2626]" : r.balance === 0 ? "text-[#15803D]" : "text-[#191F28]"}`}>{r.balance < 0 ? "−" : ""}{won(Math.abs(r.balance))}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="text-[11px] font-bold text-[#8B95A1] mb-1">{Number(ym.slice(5))}월 입금 기록</div>
 
       {payments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#D1D6DB] px-3.5 py-3 text-[12px] text-[#8B95A1]">아직 기록된 입금이 없어요</div>

@@ -15,6 +15,7 @@ interface Staff {
   useSemoReport: boolean;
   taehoFeeRate: number | null;
   taehoOneoffRate: number | null;
+  taehoStartMonth: string | null;
   bizName1: string | null;
   bizName2: string | null;
   allowedMenus: string | null;
@@ -415,6 +416,8 @@ function EditRow({
                 <span className="text-xs text-[#8B95A1]">%</span>
                 <input name="taehoOneoffRate" type="number" min={0} max={100} defaultValue={staff.taehoOneoffRate ?? ""} placeholder="단건" title="단건 수수료 매출 중 대표가 받는 수수료율 %" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-[72px] block" />
                 <span className="text-xs text-[#8B95A1]">%</span>
+                <input name="taehoStartMonth" type="month" defaultValue={staff.taehoStartMonth ?? ""} title="누적 원장 시작월 — 이 달부터 입금액·기입금이 다음 달로 이월됩니다. 그 전 달은 기존 방식으로 정산 완료. 비우면 첫 입금 기록이 있는 달부터" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm block ml-1" />
+                <span className="text-xs text-[#8B95A1]">부터</span>
               </div>
             </div>
           )}

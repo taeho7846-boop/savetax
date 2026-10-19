@@ -24,6 +24,8 @@ export type Participant = {
   name: string;
   feeRate: number; // 기장료 수수료율 %
   oneoffRate: number; // 단건 수수료율 %
+  /** 누적 원장 시작월(YYYY-MM). null이면 첫 입금 기록/확정 차수가 있는 달부터 */
+  startMonth: string | null;
 };
 
 /** 매출 출처 3종 + 환불(refund: Savetax 정산 환불 탭, 수수료 없이 전액 참여자에게 지급) */
@@ -113,6 +115,27 @@ export type MonthPoint = { yearMonth: string; revenue: number; cost: number; pro
 export type Payment = { id: number; paidOn: string; amount: number; note: string | null };
 
 /**
+ * 누적 원장 — 정산 시작월부터 기준 월까지 달마다 (입금해야 할 금액 = 월 합계 입금액, 보낸 돈 = 입금 기록 합계)를 쌓는다.
+ * 잔액은 이월된다: 8월에 많이 보냈으면 9월 잔액이 그만큼 줄고, 덜 보냈으면 9월로 넘어간다.
+ */
+export type LedgerRow = {
+  yearMonth: string;
+  due: number; // 그 달 월 합계 입금액
+  paid: number; // 그 달 입금 기록 합계
+  balance: number; // 그 달까지의 누적 잔액 (+ 더 보낼 돈 / − 초과 입금)
+};
+export type Ledger = {
+  startMonth: string;
+  rows: LedgerRow[];
+  /** 기준 월 직전까지의 누적 잔액 (전월 이월) */
+  carryIn: number;
+  cumulativeDue: number;
+  cumulativePaid: number;
+  /** 기준 월까지의 누적 잔액 */
+  balance: number;
+};
+
+/**
  * 누적 미수 — 거래처별로 최초출금월(빼온 거래처는 출금시작월)부터 기준 월까지 수납·출금 체크가 없는 달 전부.
  * 청구 제외(exempt) 달은 빼고, 해지 거래처는 해지월까지만 본다. 기준 월은 출금일이 안 지났어도 포함(추가 입금 예상용).
  */
@@ -156,6 +179,8 @@ export type TaehoSettlementData = {
   /** 이 달 실제 입금 기록 */
   payments: Payment[];
   paidTotal: number;
+  /** 정산 시작월부터 기준 월까지의 누적 원장 */
+  ledger: Ledger;
   /** 기준 월 미수·미출금 (추가 입금 예상) */
   outstanding: Outstanding;
 };
@@ -185,7 +210,7 @@ export function isValidYM(s: string | undefined): s is string {
 export async function getTaehoParticipants(): Promise<Participant[]> {
   const users = await prisma.user.findMany({
     where: { isActive: true, taehoFeeRate: { not: null } },
-    select: { id: true, name: true, taehoFeeRate: true, taehoOneoffRate: true },
+    select: { id: true, name: true, taehoFeeRate: true, taehoOneoffRate: true, taehoStartMonth: true },
     orderBy: { id: "asc" },
   });
   return users.map((u) => ({
@@ -193,16 +218,17 @@ export async function getTaehoParticipants(): Promise<Participant[]> {
     name: u.name,
     feeRate: u.taehoFeeRate ?? 0,
     oneoffRate: u.taehoOneoffRate ?? 0,
+    startMonth: u.taehoStartMonth,
   }));
 }
 
 export async function getTaehoParticipant(id: number): Promise<Participant | null> {
   const u = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, name: true, isActive: true, taehoFeeRate: true, taehoOneoffRate: true },
+    select: { id: true, name: true, isActive: true, taehoFeeRate: true, taehoOneoffRate: true, taehoStartMonth: true },
   });
   if (!u || !u.isActive || u.taehoFeeRate == null) return null;
-  return { id: u.id, name: u.name, feeRate: u.taehoFeeRate, oneoffRate: u.taehoOneoffRate ?? 0 };
+  return { id: u.id, name: u.name, feeRate: u.taehoFeeRate, oneoffRate: u.taehoOneoffRate ?? 0, startMonth: u.taehoStartMonth };
 }
 
 export async function isTaehoParticipant(userId: number): Promise<boolean> {
@@ -230,7 +256,22 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   const year = Number(yearMonth.slice(0, 4));
   const yearMonths = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
   const prev = prevYM(yearMonth);
-  const months = Array.from(new Set([prev, ...yearMonths]));
+
+  // 누적 원장 시작월 — 설정값이 없으면 첫 입금 기록/확정 차수가 있는 달, 그것도 없으면 기준 월
+  let ledgerStart = participant.startMonth;
+  if (!ledgerStart) {
+    const [firstPay, firstRound] = await Promise.all([
+      prisma.taehoSettlementPayment.findFirst({ where: { participantId: participant.id }, orderBy: { yearMonth: "asc" }, select: { yearMonth: true } }),
+      prisma.taehoSettlementRound.findFirst({ where: { participantId: participant.id }, orderBy: { yearMonth: "asc" }, select: { yearMonth: true } }),
+    ]);
+    const cands = [firstPay?.yearMonth, firstRound?.yearMonth].filter((m): m is string => !!m);
+    ledgerStart = cands.length ? cands.sort()[0] : yearMonth;
+  }
+  if (ledgerStart > yearMonth) ledgerStart = yearMonth;
+  const ledgerMonths = monthsBetween(ledgerStart, yearMonth);
+
+  // 조회 범위 = 전월 + 해당 연도 12개월 + 원장 구간
+  const months = Array.from(new Set([prev, ...yearMonths, ...ledgerMonths])).sort();
 
   const notSavetax = {
     AND: [
@@ -303,11 +344,11 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
       include: { items: true },
       orderBy: { seq: "asc" },
     }),
-    // 7) 기준 월 실제 입금 기록
+    // 7) 실제 입금 기록 — 원장 구간 전체 (기준 월 목록 + 월별 합계)
     prisma.taehoSettlementPayment.findMany({
-      where: { participantId: participant.id, yearMonth },
+      where: { participantId: participant.id, yearMonth: { in: months } },
       orderBy: [{ paidOn: "asc" }, { id: "asc" }],
-      select: { id: true, paidOn: true, amount: true, note: true },
+      select: { id: true, yearMonth: true, paidOn: true, amount: true, note: true },
     }),
     // 8) 누적 미수 후보 — 최초출금월이 기준 월 이전인 담당 거래처 전부 (신고대리 제외). 수납 기록은 전체 기간
     prisma.client.findMany({
@@ -555,7 +596,29 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   }
   outstandingRows.sort((a, b) => b.months.length - a.months.length || b.amount - a.amount || a.name.localeCompare(b.name, "ko"));
   const outstandingTotal = outstandingRows.reduce((s, r) => s + r.amount, 0);
-  const paidTotal = payments.reduce((s, p) => s + p.amount, 0);
+
+  // 입금 기록 — 기준 월 목록 + 누적 원장
+  const monthPayments = payments.filter((p) => p.yearMonth === yearMonth).map(({ id, paidOn, amount, note }) => ({ id, paidOn, amount, note }));
+  const paidTotal = monthPayments.reduce((s, p) => s + p.amount, 0);
+  const paidByMonth = new Map<string, number>();
+  for (const p of payments) paidByMonth.set(p.yearMonth, (paidByMonth.get(p.yearMonth) ?? 0) + p.amount);
+  const ledgerRows: LedgerRow[] = [];
+  let running = 0;
+  for (const m of ledgerMonths) {
+    const due = m === yearMonth ? cur.integrated.profit : computeMonth(m).integrated.profit;
+    const paid = paidByMonth.get(m) ?? 0;
+    running += due - paid;
+    ledgerRows.push({ yearMonth: m, due, paid, balance: running });
+  }
+  const lastRow = ledgerRows[ledgerRows.length - 1];
+  const ledger: Ledger = {
+    startMonth: ledgerStart,
+    rows: ledgerRows,
+    carryIn: ledgerRows.length > 1 ? ledgerRows[ledgerRows.length - 2].balance : 0,
+    cumulativeDue: ledgerRows.reduce((s, r) => s + r.due, 0),
+    cumulativePaid: ledgerRows.reduce((s, r) => s + r.paid, 0),
+    balance: lastRow?.balance ?? 0,
+  };
 
   return {
     participant,
@@ -565,8 +628,9 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     prev: toPoint(computeMonth(prev).integrated),
     year: yearMonths.map((ym) => toPoint(computeMonth(ym).integrated)),
     canCopyRecurring: cur.integrated.cost.expenses.length === 0 && prevRecurring,
-    payments,
+    payments: monthPayments,
     paidTotal,
+    ledger,
     outstanding: {
       rows: outstandingRows,
       total: outstandingTotal,

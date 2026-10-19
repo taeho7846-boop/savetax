@@ -27,6 +27,7 @@ export async function getStaffList() {
       useSemoReport: true,
       taehoFeeRate: true,
       taehoOneoffRate: true,
+      taehoStartMonth: true,
       bizName1: true,
       bizName2: true,
       allowedMenus: true,
@@ -107,6 +108,9 @@ export async function updateStaff(id: number, formData: FormData) {
     const oneoffRate = parseRate("taehoOneoffRate");
     data.taehoFeeRate = feeRate ?? (oneoffRate != null ? 0 : null);
     data.taehoOneoffRate = feeRate == null && oneoffRate == null ? null : (oneoffRate ?? 0);
+    const startMonth = String(formData.get("taehoStartMonth") ?? "").trim();
+    if (startMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(startMonth)) throw new Error("정산 시작월은 YYYY-MM 형식으로 입력하세요.");
+    data.taehoStartMonth = startMonth || null;
   }
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);

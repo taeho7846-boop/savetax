@@ -26,6 +26,7 @@ model User {
   diaryShared        Boolean            @default(false) // 미사용 (다이어리 그룹은 bizName2 기준으로 변경, 2026-10-12)
   taehoFeeRate       Int?               // 세무회계태호 정산 — 기장료 매출 중 대표 수수료율(%). 값이 있으면 정산 참여자
   taehoOneoffRate    Int?               // 세무회계태호 정산 — 단건 매출 중 대표 수수료율(%)
+  taehoStartMonth    String?            // 세무회계태호 정산 — 누적 원장 시작월(YYYY-MM). 이전 달은 기존 방식으로 정산 완료. 비우면 첫 입금 기록/확정 차수 달부터
   clients            Client[]
   distributions      Distribution[]     @relation("distributions")
   distributionPasses DistributionPass[] @relation("distributionPasses")
