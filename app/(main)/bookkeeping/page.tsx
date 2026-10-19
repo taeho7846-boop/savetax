@@ -62,7 +62,7 @@ export default async function BookkeepingPage({
   const canEditTarget = ["owner", "admin", "accountant"].includes(session.role);
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
       <BookkeepingBoard
         clients={clients}
         months={months}

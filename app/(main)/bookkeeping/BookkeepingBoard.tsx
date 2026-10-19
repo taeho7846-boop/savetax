@@ -221,7 +221,7 @@ export function BookkeepingBoard({
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
       {/* 헤더 */}
       <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
