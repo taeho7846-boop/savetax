@@ -16,7 +16,7 @@ async function requireOwner() {
 
 export type ExpenseInput = {
   label: string;
-  amount: number; // 공급가
+  amount: number; // 공급대가(부가세 포함)
   shareRate: number; // 참여자 부담 %
   recurring: boolean;
   note?: string | null;

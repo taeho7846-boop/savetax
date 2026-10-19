@@ -881,13 +881,13 @@ model Bookmark {
   creator   User     @relation("createdBookmarks", fields: [createdBy], references: [id])
 }
 
-/// 세무회계태호 정산 — 대표가 입력하는 월별 공통비용 (임차료, 회계프로그램 등). 금액은 공급가.
+/// 세무회계태호 정산 — 대표가 입력하는 월별 공통비용 (임차료, 회계프로그램 등). 금액은 공급대가(부가세 포함).
 /// 손익계산서에는 amount × shareRate% (참여자 부담분)만 비용으로 잡힌다.
 model TaehoSettlementExpense {
   id              Int      @id @default(autoincrement())
   yearMonth       String
   label           String
-  amount          Int      @default(0)   // 전체 금액 (공급가)
+  amount          Int      @default(0)   // 전체 금액 (부가세 포함)
   shareRate       Int      @default(50)  // 참여자(이휘언) 부담 비율 %
   recurring       Boolean  @default(false) // 매월 반복 항목 — 다음 달에 '전월 항목 가져오기'로 복사됨
   note            String?

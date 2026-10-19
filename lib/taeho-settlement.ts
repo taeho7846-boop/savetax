@@ -6,21 +6,9 @@ import { prisma } from "@/lib/prisma";
  * 거래처 기장료는 대표(사무실) 계좌로 들어온다. 참여자 담당 거래처에서 실제 입금된 돈이 '매출'이고,
  * 거기서 대표 수수료와 공통비용의 참여자 부담분을 뺀 '이익'을 대표가 참여자에게 입금한다.
  *
- * 금액은 전부 공급가(부가세 제외). DB의 Client.monthlyFee 는 부가세 포함(×1.1)이라 ÷1.1 후 원 단위 반올림.
+ * 금액은 전부 공급대가(부가세 포함) 기준 — 거래처 월기장료·Savetax 정산 금액을 그대로 쓴다 (÷1.1 환산 없음, 2026-10-19 사용자 결정).
  * 페이지를 열 때마다 DB에서 다시 계산한다 (채권관리 수납 체크·Savetax 정산 출금 체크 변경이 바로 반영).
  */
-
-/** Savetax 정산(기장 총기장료·단건 수수료) 금액은 부가세 포함 — 사용자 확인 완료(2026-10-19), ÷1.1 해서 공급가로 환산 */
-export const SETTLEMENT_AMOUNTS_INCLUDE_VAT = true;
-
-/** 부가세 포함 금액 → 공급가 (원 단위 반올림) */
-export function toSupply(grossIncludingVat: number): number {
-  return Math.round(grossIncludingVat / 1.1);
-}
-
-function settlementSupply(n: number): number {
-  return SETTLEMENT_AMOUNTS_INCLUDE_VAT ? toSupply(n) : n;
-}
 
 export function pct(amount: number, rate: number): number {
   return Math.round((amount * rate) / 100);
@@ -38,8 +26,7 @@ export type RevenueSource = "client" | "pulled" | "oneoff";
 export type RevenueRow = {
   name: string; // 거래처명
   yearMonth: string;
-  amount: number; // 공급가
-  gross: number; // 원래 금액(부가세 포함)
+  amount: number; // 공급대가(부가세 포함)
   source: RevenueSource;
   note?: string | null;
 };
@@ -55,7 +42,7 @@ export type RevenueItem = {
 export type ExpenseRow = {
   id: number;
   label: string;
-  amount: number; // 전체 금액(공급가)
+  amount: number; // 전체 금액(부가세 포함)
   shareRate: number; // 참여자 부담 %
   share: number; // 참여자 부담분
   ownerShare: number; // 대표 부담분
@@ -206,9 +193,9 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     return b;
   };
   for (const c of clients) {
-    const gross = c.monthlyFee ?? 0;
+    const fee = c.monthlyFee ?? 0;
     for (const r of c.feeRecords) {
-      bucket(r.yearMonth).client.push({ name: c.name, yearMonth: r.yearMonth, amount: toSupply(gross), gross, source: "client" });
+      bucket(r.yearMonth).client.push({ name: c.name, yearMonth: r.yearMonth, amount: fee, source: "client" });
     }
   }
   for (const b of bookkeepings) {
@@ -216,8 +203,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
       bucket(chk.yearMonth).pulled.push({
         name: b.clientName,
         yearMonth: chk.yearMonth,
-        amount: settlementSupply(b.monthlyFee),
-        gross: b.monthlyFee,
+        amount: b.monthlyFee,
         source: "pulled",
         note: b.notes,
       });
@@ -227,8 +213,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     bucket(o.yearMonth).oneoff.push({
       name: o.clientName,
       yearMonth: o.yearMonth,
-      amount: settlementSupply(o.fee),
-      gross: o.fee,
+      amount: o.fee,
       source: "oneoff",
       note: o.notes,
     });

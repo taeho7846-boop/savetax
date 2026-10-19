@@ -59,7 +59,7 @@ export function TaehoSettlementView({
       <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
         <div>
           <div className="text-[12.5px] text-[#8B95A1] font-medium">
-            {participant.name} 월 손익계산서 · 공급가 기준 · 수수료율 기장료 {participant.feeRate}% / 단건 {participant.oneoffRate}%
+            {participant.name} 월 손익계산서 · 공급대가(부가세 포함) 기준 · 수수료율 기장료 {participant.feeRate}% / 단건 {participant.oneoffRate}%
           </div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">세무회계태호 정산</h1>
         </div>
@@ -105,7 +105,7 @@ export function TaehoSettlementView({
           <div className="px-6 pt-5 pb-3 flex items-center justify-between">
             <div>
               <div className="text-[15px] font-bold text-[#191F28]">손익계산서</div>
-              <div className="text-[11.5px] text-[#8B95A1] mt-0.5">{ymKo(ym)} · {participant.name} · 단위: 원 (공급가)</div>
+              <div className="text-[11.5px] text-[#8B95A1] mt-0.5">{ymKo(ym)} · {participant.name} · 단위: 원 (부가세 포함)</div>
             </div>
             <span className="text-[11px] font-bold text-[#8B95A1] bg-[#F2F4F6] rounded-full px-2.5 py-1">
               {canEdit ? "대표 편집 가능" : `${viewerName} 조회`}
@@ -199,7 +199,7 @@ export function TaehoSettlementView({
               <KV label="공통비용 대표 부담분" value={st.cost.expenseOwnerTotal} hint={`전체 ${won(st.cost.expenseGrossTotal)} 중 ${participant.name} 부담 ${won(st.cost.expenseShareTotal)}`} />
             </div>
             <div className="mt-3 pt-3 border-t border-[#E5E8EB]/70 text-[11px] text-[#8B95A1] leading-relaxed">
-              기장료·수수료는 부가세 포함 금액을 ÷1.1 해 공급가로 환산했어요. 채권관리 수납 체크, Savetax 정산의 출금 체크가 바뀌면 이 화면에 바로 반영됩니다.
+              모든 금액은 공급대가(부가세 포함) 기준이에요. 채권관리 수납 체크, Savetax 정산의 출금 체크가 바뀌면 이 화면에 바로 반영됩니다.
             </div>
           </section>
         </div>
@@ -353,10 +353,7 @@ function RevenueLine({ item }: { item: RevenueItem }) {
                 <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
                 {r.note && <span className="text-[10.5px] text-[#8B95A1] truncate" title={r.note}>{r.note}</span>}
               </div>
-              <div className="text-right whitespace-nowrap">
-                <div className="text-[12.5px] font-bold text-[#191F28] tabular-nums">{won(r.amount)}</div>
-                {r.gross !== r.amount && <div className="text-[10px] text-[#B0B8C1] tabular-nums">부가세 포함 {won(r.gross)}</div>}
-              </div>
+              <div className="text-[12.5px] font-bold text-[#191F28] tabular-nums whitespace-nowrap">{won(r.amount)}</div>
             </div>
           ))}
         </div>
@@ -505,7 +502,7 @@ function ExpenseEditor({ initial, onSave, onCancel, participantName }: { initial
           <input autoFocus value={d.label} onChange={(e) => setD({ ...d, label: e.target.value })} placeholder="예) 사무실 임차료" className={`${input} w-full`} />
         </label>
         <label className="block">
-          <span className="text-[10.5px] text-[#8B95A1] font-medium">전체 금액 (공급가)</span>
+          <span className="text-[10.5px] text-[#8B95A1] font-medium">전체 금액 (부가세 포함)</span>
           <input inputMode="numeric" value={d.amount === "" ? "" : won(amount)} onChange={(e) => setD({ ...d, amount: e.target.value.replace(/[^\d]/g, "") })} placeholder="0" className={`${input} w-full text-right tabular-nums`} />
         </label>
         <label className="block">
