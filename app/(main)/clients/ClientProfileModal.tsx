@@ -21,6 +21,12 @@ function short(n: number): string {
   return n.toLocaleString("ko-KR");
 }
 const fmtBiz = (v: string | null) => (v && /^\d{10}$/.test(v) ? v.replace(/(\d{3})(\d{2})(\d{5})/, "$1-$2-$3") : v ?? "");
+/** 홈택스 '과세유형 상세'는 "부가가치세 일반과세자 입니다." 같은 문장이라 핵심만 남긴다 */
+function cleanVatDetail(v: string | null): string | null {
+  if (!v) return null;
+  const t = v.replace(/부가가치세|입니다|\.|^\s*[·:]\s*/g, "").replace(/\s+/g, " ").trim();
+  return t || null;
+}
 const fmtDate = (iso: string) => {
   const d = new Date(iso);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
@@ -195,7 +201,7 @@ function niceCeil(v: number): number {
   return step * p;
 }
 
-function LedgerChart({ rows }: { rows: LedgerMonth[] }) {
+function LedgerChart({ rows, today }: { rows: LedgerMonth[]; today: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const n = rows.length;
   const max = niceCeil(Math.max(0, ...rows.map(r => Math.max(r.saleSupply, r.buySupply))));
@@ -206,7 +212,9 @@ function LedgerChart({ rows }: { rows: LedgerMonth[] }) {
   const sumSale = last12.reduce((a, r) => a + r.saleSupply, 0);
   const sumBuy = last12.reduce((a, r) => a + r.buySupply, 0);
   const rate = sumSale > 0 ? Math.round((sumBuy / sumSale) * 100) : null;
-  const latest = rows[n - 1];
+  // 전년비는 아직 진행 중인 달(오늘이 속한 달)은 빼고, 마지막으로 끝난 달 기준
+  const thisMonth = today.slice(0, 7);
+  const latest = [...rows].reverse().find(r => r.yearMonth < thisMonth) ?? rows[n - 1];
   const prevYear = latest ? rows.find(r => r.yearMonth === `${parseInt(latest.yearMonth.slice(0, 4)) - 1}${latest.yearMonth.slice(4)}`) : undefined;
   const yoy = latest && prevYear && prevYear.saleSupply > 0 ? Math.round(((latest.saleSupply - prevYear.saleSupply) / prevYear.saleSupply) * 100) : null;
 
@@ -465,7 +473,11 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <h2 className="mr-1 truncate text-[20px] font-extrabold tracking-tight text-[#191F28]">{c.name}</h2>
                     <Badge tone={isCorp ? "purple" : "blue"}>{isCorp ? "법인" : "개인"}</Badge>
-                    {c.taxationType && <Badge>{c.taxationType}{c.vatTypeDetail && c.vatTypeDetail !== c.taxationType ? ` · ${c.vatTypeDetail}` : ""}</Badge>}
+                    {(() => {
+                      const detail = cleanVatDetail(c.vatTypeDetail);
+                      const label = detail && detail !== c.taxationType ? (c.taxationType && !detail.includes(c.taxationType) ? `${c.taxationType} · ${detail}` : detail) : c.taxationType;
+                      return label ? <Badge>{label}</Badge> : null;
+                    })()}
                     {terminated ? (
                       <Badge tone="red">해지{c.terminationMonth ? ` · ${c.terminationMonth}` : ""}</Badge>
                     ) : (
@@ -487,7 +499,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                     <span>
                       담당 <b className="text-[#191F28]">{c.assignedUser ?? "-"}</b>
                       {c.subAssignedUser && <span className="text-[#8B95A1]"> · 부 {c.subAssignedUser}</span>}
-                      {c.accountant && c.accountant !== c.assignedUser && <span className="text-[#8B95A1]"> · {c.accountant} 세무사</span>}
+                      {c.accountant && c.accountant !== c.assignedUser && c.accountant !== c.subAssignedUser && <span className="text-[#8B95A1]"> · {c.accountant} 세무사</span>}
                     </span>
                     {(c.bizType || c.bizItem) && (
                       <>
@@ -583,7 +595,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
               {/* 월별 매출·매입 */}
               <section id="sec-ledger" data-section className="glass rounded-2xl p-4 scroll-mt-3">
                 <SectionTitle eyebrow="Monthly ledger" title="월별 매출 · 매입 (공급가액)" right={<span className="text-[11px] text-[#8B95A1]">최근 {data.ledger.length}개월 · 막대에 마우스를 올리면 상세</span>} />
-                <LedgerChart rows={data.ledger} />
+                <LedgerChart rows={data.ledger} today={data.today} />
               </section>
 
               {/* 부가세 이력 */}
