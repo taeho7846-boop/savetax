@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
 import { findFileByName, downloadFile } from "@/lib/google-drive";
 import { parsePayslipXlsx } from "@/lib/payslip-doc";
+import { parseWehagoSalaryGrid } from "@/lib/payslip-xlsx";
 import { parseBusinessIncomeXlsx } from "@/lib/business-ledger";
 
 /**
@@ -86,7 +87,14 @@ export function parseDailyWorkerXlsx(buf: Buffer): PayrollEmployee[] {
 
 export function parsePayrollBuffer(type: PayrollType, buf: Buffer): PayrollEmployee[] {
   if (type === "salary") {
-    return parsePayslipXlsx(buf).employees.map(e => ({
+    // 드라이브의 급여명세서 엑셀은 보통 직원별 세로 블록(파싱: parsePayslipXlsx)이지만,
+    // 위하고 급여자료입력 '엑셀 내려받기' 격자 양식이 그대로 올라간 경우도 있어 그 양식으로 한 번 더 시도한다
+    let list: ReturnType<typeof parsePayslipXlsx>["employees"] = [];
+    try { list = parsePayslipXlsx(buf).employees; } catch { list = []; }
+    if (list.length === 0) {
+      try { list = parseWehagoSalaryGrid(buf); } catch { /* 둘 다 아니면 빈 목록 */ }
+    }
+    return list.map(e => ({
       name: e.name, gross: e.paymentTotal, deductions: e.deductionTotal, net: e.net,
       dept: e.dept || undefined, rank: e.rank || undefined,
       items: e.payments.filter(p => p.amount !== 0),
@@ -119,7 +127,7 @@ export async function collectPayrollMonth(client: { id: number; name: string }, 
     const fileName = payrollFileName(type, client.name, yearMonth);
     try {
       const file = await findFileByName(fileName);
-      if (!file) { result.types.push({ incomeType: type, status: "missing" }); continue; }
+      if (!file) { result.types.push({ incomeType: type, status: "missing", message: fileName }); continue; }
       const buf = await downloadFile(file.id);
       const employees = parsePayrollBuffer(type, buf);
       if (employees.length === 0) { result.types.push({ incomeType: type, status: "empty", message: "파일은 있지만 지급 내역이 없음" }); continue; }
@@ -135,7 +143,7 @@ export async function collectPayrollMonth(client: { id: number; name: string }, 
       });
       result.types.push({ incomeType: type, status: "saved", headcount: employees.length, gross: sum.gross });
     } catch (e) {
-      result.types.push({ incomeType: type, status: "error", message: e instanceof Error ? e.message : String(e) });
+      result.types.push({ incomeType: type, status: "error", message: `${fileName}: ${e instanceof Error ? e.message : String(e)}` });
     }
   }
   return result;

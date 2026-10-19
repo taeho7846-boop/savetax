@@ -278,7 +278,7 @@ function CollectPanel({ clientId, thisMonth, onDone }: { clientId: number; thisM
           const label = saved.length > 0
             ? `${r.yearMonth} · ${saved.map(t => `${typeOf(t.incomeType).short} ${t.headcount}명 ${short(t.gross ?? 0)}`).join(", ")}`
             : errs.length > 0 ? `${r.yearMonth} · 읽기 실패: ${errs.map(t => `${typeOf(t.incomeType).short} ${t.message ?? ""}`).join(", ")}`
-            : `${r.yearMonth} · 드라이브에 급여 파일 없음`;
+            : `${r.yearMonth} · 드라이브에 급여 파일 없음 (찾은 이름: ${r.types.map(t => t.message ?? "").filter(Boolean).join(" / ") || "-"})`;
           prog.log.unshift(label);
           prog.done++;
         }
@@ -315,8 +315,8 @@ function CollectPanel({ clientId, thisMonth, onDone }: { clientId: number; thisM
             <span className="tabular-nums">{progress.done} / {progress.total}개월</span>
           </div>
           <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#191F28]/[.06]"><div className="h-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%`, background: GREEN }} /></div>
-          <ul className="mt-2 max-h-28 overflow-y-auto space-y-0.5 text-[11.5px] text-[#4E5968]">
-            {progress.log.map((l, i) => <li key={i} className="truncate">{l}</li>)}
+          <ul className="mt-2 max-h-40 overflow-y-auto space-y-0.5 text-[11.5px] text-[#4E5968]">
+            {progress.log.map((l, i) => <li key={i} className="break-all" title={l}>{l}</li>)}
           </ul>
         </div>
       )}

@@ -633,10 +633,9 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
             tabs={[
               { id: "sec-summary", label: "요약" },
               { id: "sec-ledger", label: "매출·매입" },
-              ...(c?.withholdingType !== "D" ? [{ id: "sec-payroll", label: "인건비" }] : []),
               { id: "sec-vat", label: "부가세" },
               ...(!isCorp ? [{ id: "sec-income", label: "종소세" }] : []),
-              ...(c?.withholdingType !== "D" ? [{ id: "sec-wh", label: "원천세" }] : []),
+              ...(c?.withholdingType !== "D" ? [{ id: "sec-wh", label: "원천세·인건비" }] : []),
               { id: "sec-notes", label: "메모" },
             ]}
             active={activeSection}
@@ -697,23 +696,6 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 />
                 <LedgerChart rows={data.ledger} today={data.today} onSelectMonth={ym => setLedgerOpen({ month: ym })} />
               </section>
-
-              {/* 인건비 */}
-              {c?.withholdingType !== "D" && (
-                <section id="sec-payroll" data-section className="glass rounded-2xl p-4 scroll-mt-3">
-                  <SectionTitle
-                    eyebrow="Payroll"
-                    title="월별 인건비 (급여대장 기준)"
-                    right={
-                      <div className="flex items-center gap-3">
-                        <span className="hidden text-[11px] text-[#8B95A1] sm:inline">최근 12개월 · 막대를 누르면 그 달 상세</span>
-                        <button type="button" onClick={() => setPayrollOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">상세 보기</button>
-                      </div>
-                    }
-                  />
-                  <PayrollSummary rows={data.payroll} today={data.today} onOpen={ym => setPayrollOpen({ month: ym })} />
-                </section>
-              )}
 
               {/* 부가세 이력 */}
               <HistoryCard id="sec-vat" eyebrow="VAT" title="부가가치세 이력" href={data.links.vat} empty={data.vatHistory.length === 0} count={data.vatHistory.length}>
@@ -777,41 +759,92 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 </HistoryCard>
               )}
 
-              {/* 원천세 이력 */}
-              {c?.withholdingType !== "D" && (
-                <HistoryCard id="sec-wh" eyebrow="Withholding" title="원천세 최근 12개월" href={data.links.withholding} empty={false} count={0}>
-                  <thead>
-                    <tr className="border-b border-[#F2F4F6]">
-                      <th className={TH}>월</th><th className={TH}>진행</th><th className={TH}>단계</th>
-                      <th className={`${TH} text-right`}>소득세</th><th className={`${TH} text-right`}>지방소득세</th>
-                      <th className={TH}>신고</th><th className={TH}>접수번호</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.withholdingHistory.map(r => (
-                      <tr key={r.yearMonth} className={rowCls(r.isCurrent)}>
-                        <td className={`${TD} font-bold text-[#191F28]`}>{r.label}{r.isCurrent && <span className="ml-1.5 text-[10px] font-bold text-[#3182F6]">이번</span>}</td>
-                        <td className={TD}>{r.steps.length === 0 ? <Pill color="#8B95A1" muted>해당 없음</Pill> : <Pill color={r.statusColor}>{r.statusLabel}</Pill>}</td>
-                        <td className={TD}>
-                          <span className="inline-flex items-center gap-1" title={r.steps.map(s => `${r.doneSteps.includes(s) ? "✓" : "·"} ${s}`).join("\n")}>
-                            {r.steps.map(s => <span key={s} className={`h-1.5 w-4 rounded-sm ${r.doneSteps.includes(s) ? "bg-[#10B981]" : "bg-[#E5E8EB]"}`} />)}
-                            {r.steps.length > 0 && <span className="ml-1 text-[10.5px] tabular-nums text-[#8B95A1]">{r.doneSteps.length}/{r.steps.length}</span>}
-                          </span>
-                        </td>
-                        <td className={NUM}>{r.incomeAmount != null ? won(r.incomeAmount) : <span className="text-[#B0B8C1]">-</span>}</td>
-                        <td className={NUM}>{r.localAmount != null ? won(r.localAmount) : <span className="text-[#B0B8C1]">-</span>}</td>
-                        <td className={TD}>
-                          {r.filingStatus == null || r.filingStatus === "none" ? <span className="text-[#B0B8C1]">-</span>
-                            : r.filingStatus === "submitted" ? <Badge tone="green">접수{r.reportType ? ` · ${r.reportType}` : ""}</Badge>
-                            : r.filingStatus === "error" ? <Badge tone="red">오류</Badge>
-                            : <Badge tone="amber">{r.filingStatus === "produced" ? "파일제작" : r.filingStatus === "verified" ? "검증" : r.filingStatus}</Badge>}
-                        </td>
-                        <td className={`${TD} tabular-nums text-[#6B7684]`}>{r.receiptNo ?? <span className="text-[#B0B8C1]">-</span>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </HistoryCard>
-              )}
+              {/* 원천세 · 인건비 (원천세가 메인, 급여 데이터는 그 안에) */}
+              {c && c.withholdingType !== "D" && (() => {
+                const payByYm = new Map(data.payroll.map(p => [p.yearMonth, p]));
+                const labor = (c.laborTypes ?? "").split(",").map(t => t.trim()).filter(Boolean);
+                const laborColor = (t: string) => t.includes("근로") ? "#10B981" : t.includes("사업") ? "#3182F6" : t.includes("일용") ? "#F59E0B" : "#8B95A1";
+                return (
+                  <section id="sec-wh" data-section className="glass rounded-2xl p-4 scroll-mt-3">
+                    <SectionTitle
+                      eyebrow="Withholding · Payroll"
+                      title="원천세 · 인건비"
+                      right={
+                        <div className="flex items-center gap-3">
+                          <MoreLink href={data.links.withholding}>원천세 페이지로</MoreLink>
+                          <button type="button" onClick={() => setPayrollOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">인건비 상세</button>
+                        </div>
+                      }
+                    />
+                    {/* 거래처 원천세 설정 한 줄: 유형 · 반기납 · 인건비 유형 */}
+                    <div className="mb-4 flex flex-wrap items-center gap-1.5 text-[11.5px]">
+                      <span className="mr-1 font-bold text-[#8B95A1]">설정</span>
+                      <Badge tone="purple">원천세 유형 {c.withholdingType ?? "미지정"}</Badge>
+                      {c.halfYearTax && <Badge tone="amber">반기납 · 6·12월 신고</Badge>}
+                      {labor.length === 0 ? (
+                        <Badge>인건비 유형 미입력</Badge>
+                      ) : labor.map(t => (
+                        <span key={t} className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] font-bold" style={{ background: `${laborColor(t)}1A`, color: laborColor(t) }}>
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: laborColor(t) }} />{t}
+                        </span>
+                      ))}
+                      {c.accountingProgram && <Badge>{c.accountingProgram}</Badge>}
+                      <button type="button" onClick={() => openEdit("withholding")} className="ml-auto text-[11.5px] font-bold text-[#3182F6] hover:underline">원천세 설정 수정 →</button>
+                    </div>
+
+                    {/* 인건비 요약 (급여대장) */}
+                    <div className="mb-4 rounded-2xl border border-[#E5E8EB] bg-white/60 px-4 py-3">
+                      <PayrollSummary rows={data.payroll} today={data.today} onOpen={ym => setPayrollOpen({ month: ym })} />
+                    </div>
+
+                    {/* 월별 표: 인건비 + 신고 진행 */}
+                    <div className="-mx-1 overflow-x-auto">
+                      <table className="w-full min-w-[640px] border-separate border-spacing-0">
+                        <thead>
+                          <tr className="border-b border-[#F2F4F6]">
+                            <th className={TH}>월</th><th className={`${TH} text-right`}>인건비(급여대장)</th><th className={TH}>진행</th><th className={TH}>단계</th>
+                            <th className={`${TH} text-right`}>소득세</th><th className={`${TH} text-right`}>지방소득세</th>
+                            <th className={TH}>신고</th><th className={TH}>접수번호</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.withholdingHistory.map(r => {
+                            const pay = payByYm.get(r.yearMonth);
+                            return (
+                              <tr key={r.yearMonth} className={rowCls(r.isCurrent)}>
+                                <td className={`${TD} font-bold text-[#191F28]`}>{r.label}{r.isCurrent && <span className="ml-1.5 text-[10px] font-bold text-[#3182F6]">이번</span>}</td>
+                                <td className={NUM}>
+                                  {pay ? (
+                                    <button type="button" onClick={() => setPayrollOpen({ month: r.yearMonth })} className="hover:underline" title="인건비 상세">
+                                      <b className="text-[#0F9D77]">{won(pay.gross)}</b><span className="ml-1 text-[10.5px] text-[#8B95A1]">{pay.headcount}명</span>
+                                    </button>
+                                  ) : <span className="text-[#B0B8C1]">-</span>}
+                                </td>
+                                <td className={TD}>{r.steps.length === 0 ? <Pill color="#8B95A1" muted>해당 없음</Pill> : <Pill color={r.statusColor}>{r.statusLabel}</Pill>}</td>
+                                <td className={TD}>
+                                  <span className="inline-flex items-center gap-1" title={r.steps.map(s => `${r.doneSteps.includes(s) ? "✓" : "·"} ${s}`).join("\n")}>
+                                    {r.steps.map(s => <span key={s} className={`h-1.5 w-4 rounded-sm ${r.doneSteps.includes(s) ? "bg-[#10B981]" : "bg-[#E5E8EB]"}`} />)}
+                                    {r.steps.length > 0 && <span className="ml-1 text-[10.5px] tabular-nums text-[#8B95A1]">{r.doneSteps.length}/{r.steps.length}</span>}
+                                  </span>
+                                </td>
+                                <td className={NUM}>{r.incomeAmount != null ? won(r.incomeAmount) : <span className="text-[#B0B8C1]">-</span>}</td>
+                                <td className={NUM}>{r.localAmount != null ? won(r.localAmount) : <span className="text-[#B0B8C1]">-</span>}</td>
+                                <td className={TD}>
+                                  {r.filingStatus == null || r.filingStatus === "none" ? <span className="text-[#B0B8C1]">-</span>
+                                    : r.filingStatus === "submitted" ? <Badge tone="green">접수{r.reportType ? ` · ${r.reportType}` : ""}</Badge>
+                                    : r.filingStatus === "error" ? <Badge tone="red">오류</Badge>
+                                    : <Badge tone="amber">{r.filingStatus === "produced" ? "파일제작" : r.filingStatus === "verified" ? "검증" : r.filingStatus}</Badge>}
+                                </td>
+                                <td className={`${TD} tabular-nums text-[#6B7684]`}>{r.receiptNo ?? <span className="text-[#B0B8C1]">-</span>}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                );
+              })()}
 
               {/* 메모 + 특이사항 */}
               <section id="sec-notes" data-section className="glass rounded-2xl p-4 scroll-mt-3">
