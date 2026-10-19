@@ -9,6 +9,7 @@ import {
   isValidYM,
   loadTaehoSettlement,
   prevYM,
+  statementRows,
   type RevenueSource,
 } from "@/lib/taeho-settlement";
 
@@ -103,9 +104,9 @@ export async function copyRecurringExpenses(yearMonth: string): Promise<number> 
 }
 
 /**
- * 매출 행 하나를 이 달 계산에서 제외/다시 포함. 원본(채권관리 수납 체크·Savetax 출금 체크·단건 행)은 건드리지 않는다.
+ * 매출·환불 행 하나를 이 달 계산에서 제외/다시 포함. 원본(채권관리 수납 체크·Savetax 출금 체크·단건 행)은 건드리지 않는다.
  * 이미 확정 차수에 들어간 건은 제외할 수 없다 (확정 취소 후 가능).
- * @param source client(refId=clientId) | pulled(refId=bookkeepingId) | oneoff(refId=oneoffId)
+ * @param source client(refId=clientId) | pulled(refId=bookkeepingId) | oneoff(refId=oneoffId) | refund(refId=refundId)
  */
 export async function setTaehoRevenueExcluded(
   yearMonth: string,
@@ -116,7 +117,7 @@ export async function setTaehoRevenueExcluded(
 ) {
   const session = await requireOwner();
   if (!isValidYM(yearMonth)) throw new Error("잘못된 월입니다.");
-  if (!["client", "pulled", "oneoff"].includes(source)) throw new Error("잘못된 출처입니다.");
+  if (!["client", "pulled", "oneoff", "refund"].includes(source)) throw new Error("잘못된 출처입니다.");
   if (excluded) {
     const confirmed = await prisma.taehoSettlementRoundItem.findFirst({
       where: { source, refId, round: { yearMonth } },
@@ -135,7 +136,7 @@ export async function setTaehoRevenueExcluded(
 }
 
 /**
- * N차 정산 확정 — 지금 '미정산'에 있는 입금 건(제외된 건 빼고)을 다음 차수로 스냅샷한다.
+ * N차 정산 확정 — 지금 '미정산'에 있는 입금·환불 건(제외된 건 빼고)을 다음 차수로 스냅샷한다.
  * @returns 확정된 차수 번호와 건수
  */
 export async function confirmTaehoRound(yearMonth: string, participantId: number, note?: string) {
@@ -145,7 +146,7 @@ export async function confirmTaehoRound(yearMonth: string, participantId: number
   if (!participant) throw new Error("정산 참여자가 아니에요.");
 
   const data = await loadTaehoSettlement(participant, yearMonth);
-  const rows = data.draft.statement.revenue.items.flatMap((i) => i.rows).filter((r) => !r.excluded);
+  const rows = statementRows(data.draft.statement).filter((r) => !r.excluded);
   if (rows.length === 0) throw new Error("미정산 입금 건이 없어요.");
   const seq = data.rounds.length + 1;
 

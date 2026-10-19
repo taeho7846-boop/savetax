@@ -25,7 +25,8 @@ export type Participant = {
   oneoffRate: number; // 단건 수수료율 %
 };
 
-export type RevenueSource = "client" | "pulled" | "oneoff";
+/** 매출 출처 3종 + 환불(refund: Savetax 정산 환불 탭, 수수료 없이 전액 참여자에게 지급) */
+export type RevenueSource = "client" | "pulled" | "oneoff" | "refund";
 
 /** 확정 차수에 들어간 건의 원본 상태 — live: 그대로 / unchecked: 원본 체크가 풀림 / changed: 원본 금액이 바뀜 */
 export type RowStatus = "live" | "unchecked" | "changed";
@@ -73,6 +74,8 @@ export type ExpenseRow = {
 export type Statement = {
   yearMonth: string;
   revenue: { items: RevenueItem[]; bookkeeping: number; oneoff: number; total: number; count: number };
+  /** 환불 — 수수료를 떼지 않고 전액 참여자 입금액에 더한다 (매출·비용과 별도 세 번째 항목) */
+  refund: RevenueItem;
   cost: {
     feeBookkeeping: number;
     feeOneoff: number;
@@ -83,8 +86,13 @@ export type Statement = {
     expenseGrossTotal: number;
     total: number;
   };
-  profit: number; // = 참여자 입금액
+  profit: number; // = 매출 − 비용 + 환불 = 참여자 입금액
 };
+
+/** 손익계산서의 모든 행(매출 3종 + 환불) */
+export function statementRows(s: Statement): RevenueRow[] {
+  return [...s.revenue.items.flatMap((i) => i.rows), ...s.refund.rows];
+}
 
 export type RoundView = {
   seq: number;
@@ -187,7 +195,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   const prev = prevYM(yearMonth);
   const months = Array.from(new Set([prev, ...yearMonths]));
 
-  const [clients, bookkeepings, oneoffs, expenses, exclusions, rounds] = await Promise.all([
+  const [clients, bookkeepings, oneoffs, refunds, expenses, exclusions, rounds] = await Promise.all([
     // 1) 기장료 입금 — 담당(사수) 거래처 중 해당 월 수납(paid) 체크.
     //    소속이 세이브택스이거나 CMS 청구처가 세이브택스인 거래처는 제외한다.
     //    (소속 세무회계태호 + CMS 세이브택스 = 본점에서 빼온 거래처 → 돈은 Savetax 정산 기장 목록의 출금 체크로 들어오므로
@@ -228,6 +236,12 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     }),
     // 3) 단건 — 출금 체크된 건. 매출은 '출금액'(withdrawalAmount) 전체 (2026-10-19 사용자 결정)
     prisma.settlementOneoff.findMany({
+      where: { assignedUserName: participant.name, withdrawn: true, yearMonth: { in: months } },
+      select: { id: true, clientName: true, withdrawalAmount: true, yearMonth: true, notes: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    // 3-1) 환불 — 출금 체크된 건. 출금액 전액을 수수료 없이 참여자에게 지급
+    prisma.settlementRefund.findMany({
       where: { assignedUserName: participant.name, withdrawn: true, yearMonth: { in: months } },
       select: { id: true, clientName: true, withdrawalAmount: true, yearMonth: true, notes: true },
       orderBy: { createdAt: "asc" },
@@ -291,6 +305,18 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     });
   }
 
+  for (const o of refunds) {
+    push({
+      refId: o.id,
+      name: o.clientName,
+      yearMonth: o.yearMonth,
+      amount: o.withdrawalAmount,
+      source: "refund",
+      note: o.notes,
+      excluded: isExcluded(o.yearMonth, "refund", o.id),
+    });
+  }
+
   const expensesByMonth = new Map<string, ExpenseRow[]>();
   for (const e of expenses) {
     const share = pct(e.amount, e.shareRate);
@@ -321,20 +347,24 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     client: { label: "기장료 입금", hint: "채권관리에서 수납 체크된 담당 거래처 (소속·CMS가 세이브택스인 거래처 제외 — 빼온 거래처는 아래 항목에서 집계)" },
     pulled: { label: "빼온 거래처 입금", hint: "Savetax 정산 기장 목록에서 이번 달 출금 체크된 건 (소속 세무회계태호 + CMS 세이브택스 거래처)" },
     oneoff: { label: "단건 출금", hint: "Savetax 정산 단건에서 출금 체크된 건의 출금액" },
+    refund: { label: "환불 (전액 지급)", hint: "Savetax 정산 환불 탭에서 출금 체크된 건의 출금액 — 수수료 없이 전액 참여자에게 지급" },
+  };
+
+  const makeItem = (key: RevenueSource, rows: RevenueRow[]): RevenueItem => {
+    const list = rows.filter((r) => r.source === key);
+    return {
+      key,
+      ...ITEM_META[key],
+      total: list.reduce((s, r) => (r.excluded ? s : s + r.amount), 0),
+      excludedCount: list.filter((r) => r.excluded).length,
+      rows: list,
+    };
   };
 
   /** 순수 계산: 매출 행 + 비용 항목 → 손익계산서 */
   function build(ym: string, rows: RevenueRow[], exp: ExpenseRow[]): Statement {
-    const items = (["client", "pulled", "oneoff"] as const).map((key) => {
-      const list = rows.filter((r) => r.source === key);
-      return {
-        key,
-        ...ITEM_META[key],
-        total: list.reduce((s, r) => (r.excluded ? s : s + r.amount), 0),
-        excludedCount: list.filter((r) => r.excluded).length,
-        rows: list,
-      };
-    });
+    const items = (["client", "pulled", "oneoff"] as const).map((key) => makeItem(key, rows));
+    const refund = makeItem("refund", rows);
     const bookkeeping = items[0].total + items[1].total;
     const oneoff = items[2].total;
     const revenueTotal = bookkeeping + oneoff;
@@ -350,6 +380,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     return {
       yearMonth: ym,
       revenue: { items, bookkeeping, oneoff, total: revenueTotal, count },
+      refund,
       cost: {
         feeBookkeeping,
         feeOneoff,
@@ -360,7 +391,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
         expenseGrossTotal,
         total: costTotal,
       },
-      profit: revenueTotal - costTotal,
+      profit: revenueTotal - costTotal + refund.total,
     };
   }
 
@@ -416,7 +447,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
       warnings: 0,
     };
 
-    const allRows = [...roundViews.flatMap((v) => v.statement.revenue.items.flatMap((i) => i.rows)), ...pending];
+    const allRows = [...roundViews.flatMap((v) => statementRows(v.statement)), ...pending];
     const integrated = build(ym, allRows, exp);
     return { integrated, rounds: roundViews, draft };
   }

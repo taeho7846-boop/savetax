@@ -155,6 +155,7 @@ export async function createRefundSettlement(data: {
     data: { ...data, createdByUserId: session.id },
   });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function updateRefundSettlement(
@@ -172,6 +173,7 @@ export async function updateRefundSettlement(
   await requireAuth();
   await prisma.settlementRefund.update({ where: { id }, data });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function toggleRefundField(
@@ -186,10 +188,12 @@ export async function toggleRefundField(
     data: { [field]: !existing[field] },
   });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function deleteRefundSettlement(id: number) {
   await requireAuth();
   await prisma.settlementRefund.delete({ where: { id } });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }

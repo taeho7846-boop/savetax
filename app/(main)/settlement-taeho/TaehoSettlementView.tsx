@@ -44,7 +44,9 @@ const SOURCE_CHIP: Record<RevenueSource, { label: string; cls: string }> = {
   client: { label: "채권관리", cls: "bg-[#E8F3FF] text-[#1B64DA]" },
   pulled: { label: "빼온", cls: "bg-[#FFFBEB] text-[#B45309]" },
   oneoff: { label: "단건", cls: "bg-[#F3E8FF] text-[#7E22CE]" },
+  refund: { label: "환불", cls: "bg-[#ECFEFF] text-[#0E7490]" },
 };
+const REFUND_COLOR = "#0891B2";
 
 type Tab = "all" | number; // number = 차수(seq). 확정 차수 또는 미정산(다음 차수)
 
@@ -79,7 +81,7 @@ export function TaehoSettlementView({
   const st: Statement = selectedRound ? selectedRound.statement : month;
   const isDraftTab = selectedRound !== null && !selectedRound.confirmed;
   const isLastRound = selectedRound?.confirmed && selectedRound.seq === rounds.length;
-  const draftCount = draft.statement.revenue.count;
+  const draftCount = draft.statement.revenue.count + draft.statement.refund.rows.filter((r) => !r.excluded).length;
   const monthHasExpenses = month.cost.expenses.length > 0;
   const futureExpenses = month.cost.expenses.filter((e) => e.roundSeq > draft.seq);
 
@@ -89,10 +91,11 @@ export function TaehoSettlementView({
       title: `${draft.seq}차 정산 확정`,
       message: (
         <div className="space-y-1.5 text-[13px]">
-          <div>미정산 입금 <b>{d.revenue.count}건</b>을 {draft.seq}차로 묶습니다.</div>
+          <div>미정산 입금·환불 <b>{draftCount}건</b>을 {draft.seq}차로 묶습니다.</div>
           <div className="rounded-xl bg-[#F2F4F6] px-3 py-2 tabular-nums text-[12.5px] space-y-0.5">
             <div className="flex justify-between"><span className="text-[#6B7684]">매출</span><b>{won(d.revenue.total)}원</b></div>
             <div className="flex justify-between"><span className="text-[#6B7684]">비용</span><b>{won(d.cost.total)}원</b></div>
+            {d.refund.total > 0 && <div className="flex justify-between"><span className="text-[#6B7684]">환불 (전액)</span><b>+{won(d.refund.total)}원</b></div>}
             <div className="flex justify-between"><span className="text-[#6B7684]">{participant.name} 입금액</span><b className="text-[#3182F6]">{won(d.profit)}원</b></div>
           </div>
           <div className="text-[11.5px] text-[#8B95A1]">확정 뒤에 들어오는 입금은 {draft.seq + 1}차(미정산)에 쌓여요. 마지막 차수는 확정 취소로 되돌릴 수 있어요.</div>
@@ -204,7 +207,7 @@ export function TaehoSettlementView({
           label={selectedRound ? `${selectedRound.seq}차 ${participant.name} 입금액${isDraftTab ? " (예정)" : ""}` : `${participant.name} 입금액 · 월 합계`}
           value={st.profit}
           prev={tab === "all" ? prev?.profit : undefined}
-          caption={selectedRound ? (selectedRound.confirmed && selectedRound.settledAt ? `${fmtWhen(selectedRound.settledAt)} 확정` : "확정하면 이 금액이 입금 기준이 돼요") : `${ymKo(ym)} 이익 = 매출 − 비용`}
+          caption={selectedRound ? (selectedRound.confirmed && selectedRound.settledAt ? `${fmtWhen(selectedRound.settledAt)} 확정` : "확정하면 이 금액이 입금 기준이 돼요") : `${ymKo(ym)} 입금액 = 매출 − 비용${st.refund.total > 0 ? ` + 환불 ${won(st.refund.total)}` : ""}`}
         />
       </div>
 
@@ -278,13 +281,20 @@ export function TaehoSettlementView({
             <SubtotalLine label="공통비용 소계" value={st.cost.expenseShareTotal} />
             <TotalLine label="비용 합계" value={st.cost.total} />
 
+            {/* 환불 — 수수료 없이 전액 지급 */}
+            <SectionTitle color={REFUND_COLOR} className="mt-6">
+              환불 <span className="text-[11.5px] font-medium text-[#8B95A1]">수수료 없이 전액 지급 · 입금액에 더함</span>
+            </SectionTitle>
+            <RevenueLine item={st.refund} ym={ym} canEdit={canEdit} showRound={tab === "all"} />
+            <TotalLine label="환불 합계" value={st.refund.total} />
+
             {/* 이익 */}
             <div className="mt-6 pt-4 border-t-2 border-[#191F28]/80">
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <div className="text-[15px] font-bold text-[#191F28]">이익</div>
                   <div className="text-[11.5px] text-[#8B95A1] mt-0.5">
-                    = {participant.name}에게 입금할 금액{selectedRound ? ` (${selectedRound.seq}차)` : " (월 합계)"}
+                    = 매출 − 비용{st.refund.total > 0 ? " + 환불" : ""} = {participant.name}에게 입금할 금액{selectedRound ? ` (${selectedRound.seq}차)` : " (월 합계)"}
                   </div>
                 </div>
                 <div className={`text-[30px] leading-none font-bold tabular-nums tracking-tight ${st.profit < 0 ? "text-[#DC2626]" : "text-[#191F28]"}`}>
@@ -362,7 +372,7 @@ export function TaehoSettlementView({
               <KV label="공통비용 대표 부담분" value={st.cost.expenseOwnerTotal} hint={`전체 ${won(st.cost.expenseGrossTotal)} 중 ${participant.name} 부담 ${won(st.cost.expenseShareTotal)}`} />
             </div>
             <div className="mt-3 pt-3 border-t border-[#E5E8EB]/70 text-[11px] text-[#8B95A1] leading-relaxed">
-              모든 금액은 공급대가(부가세 포함) 기준이에요. 정산 대상은 채권관리에서 이 달 수납 체크된 담당 거래처와 Savetax 정산에서 출금 체크된 기장·단건 건입니다. 확정된 차수는 그 시점 금액으로 고정되고, 이후 원본이 바뀌면 경고만 표시돼요.
+              모든 금액은 공급대가(부가세 포함) 기준이에요. 정산 대상은 채권관리에서 이 달 수납 체크된 담당 거래처와 Savetax 정산에서 출금 체크된 기장·단건·환불 건입니다. 환불은 수수료 없이 전액 입금액에 더해져요. 확정된 차수는 그 시점 금액으로 고정되고, 이후 원본이 바뀌면 경고만 표시돼요.
             </div>
           </section>
         </div>
@@ -410,7 +420,7 @@ function RoundRow({ round, active, onClick }: { round: RoundView; active: boolea
           </div>
           <div className="text-[10.5px] text-[#8B95A1]">
             {round.confirmed && round.settledAt ? `${fmtWhen(round.settledAt)} · ` : ""}
-            입금 {s.revenue.count}건 · 매출 {won(s.revenue.total)}
+            입금 {s.revenue.count}건 · 매출 {won(s.revenue.total)}{s.refund.total > 0 ? ` · 환불 ${won(s.refund.total)}` : ""}
           </div>
         </div>
       </div>
