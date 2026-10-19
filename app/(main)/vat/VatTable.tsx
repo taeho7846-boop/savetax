@@ -685,7 +685,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                 />
                 <span className="text-[11px] text-[#8B95A1] ml-1">원</span>
               </div>
-              {nAmt > 0 && checkChip(NOTICE_BILL_SENT_KEY, "납부서 발송", "#6D28D9", "대표에게 예정고지 납부서를 보냈으면 체크")}
+              {nAmt > 0 && checkChip(NOTICE_BILL_SENT_KEY, "납부서 발송 완료", "#6D28D9", "대표에게 예정고지 납부서를 보냈으면 체크")}
               {filingHints.length > 0 && (
                 <span
                   className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C2410C] bg-[#FFF7ED] border border-[#FED7AA] rounded-md px-1.5 py-0.5"
@@ -850,7 +850,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               <span className="text-[12px] font-bold text-[#6D28D9]">📋 예정고지</span>
               {nAmt > 0 ? (
                 r.checklist[NOTICE_BILL_SENT_KEY]
-                  ? <span className="text-[10px] font-bold text-[#15803D] bg-[#E7F7EE] rounded-md px-1.5 py-0.5">✓ 납부서 발송</span>
+                  ? <span className="text-[10px] font-bold text-[#15803D] bg-[#E7F7EE] rounded-md px-1.5 py-0.5">✓ 납부서 발송 완료</span>
                   : <span className="text-[10px] font-bold text-[#C2410C] bg-[#FFF7ED] rounded-md px-1.5 py-0.5">납부서 미발송</span>
               ) : (
                 <span className="text-[10px] text-[#8B95A1]">신고 불필요 · 고지세액 없음</span>
