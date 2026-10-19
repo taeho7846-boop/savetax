@@ -18,6 +18,8 @@ import { lastBillableMonth, dueDayOfMonth, unpaidBucket, type UnpaidBucket } fro
 import { InsuranceCard } from "./InsuranceCard";
 import { MonthScheduleCard } from "./MonthScheduleCard";
 import { TodayDiaryCard } from "./TodayDiaryCard";
+import { FilingStatusCard } from "./FilingStatusCard";
+import { getFilingSummaries } from "@/lib/filing-status";
 import { getDiaryTasks } from "@/app/actions/diary";
 import { getSchedulesInRange } from "@/app/actions/schedule";
 import { getTaxEventsForMonth } from "@/lib/tax-calendar";
@@ -459,9 +461,10 @@ export default async function DashboardPage({
 
   // === 이달의 일정 (토글 카드) ===
   const todayKey = todaySeoul();
-  const [monthSchedules, diaryTasks] = await Promise.all([
+  const [monthSchedules, diaryTasks, filingSummaries] = await Promise.all([
     getSchedulesInRange(monthStart(todayKey), monthEnd(todayKey)),
     getDiaryTasks(monthStart(todayKey), monthEnd(todayKey)), // 이달 전체 + 이월 + 날짜 없음 (오늘 카드는 자체 필터)
+    getFilingSummaries(session, todayKey), // 신고 현황 모아보기 (월기장·원천세·부가세·종소세)
   ]);
   const monthNum = Number(todayKey.slice(5, 7));
   const monthScheduleItems = [
@@ -590,6 +593,9 @@ export default async function DashboardPage({
 
           {/* 위젯 그리드 — 세로 스크롤 최소화 */}
           <div className="space-y-4 min-w-0">
+            {/* 신고 현황 모아보기 — 지금 진행 중인 기간의 세목별 진행률 */}
+            <FilingStatusCard items={filingSummaries} today={todayKey} />
+
             {/* 오늘의 업무 + 미수납 (50/50) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
               <TodayTasksCard items={todayTasks} />
