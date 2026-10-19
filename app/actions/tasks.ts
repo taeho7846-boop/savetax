@@ -75,7 +75,6 @@ export async function updateTaskNotesAndDueDate(
     },
   });
 
-  if (task.clientId) revalidatePath(`/clients/${task.clientId}`);
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
 }

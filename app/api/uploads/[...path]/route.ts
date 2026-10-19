@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
+import { getSession } from "@/lib/auth";
 
 const MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -20,8 +21,17 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  // 업로드 파일(신분증·수임신청서·엑셀 등)은 로그인한 사용자만 열 수 있다
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
+
   const { path: segments } = await params;
-  const filePath = path.join(process.cwd(), "public", "uploads", ...segments);
+  // 경로 역참조(..) 차단 — public/uploads 밖의 파일은 절대 내려주지 않음
+  const uploadsRoot = path.join(process.cwd(), "public", "uploads");
+  const filePath = path.resolve(uploadsRoot, ...segments);
+  if (!filePath.startsWith(uploadsRoot + path.sep)) {
+    return NextResponse.json({ error: "잘못된 경로입니다" }, { status: 400 });
+  }
 
   try {
     const data = await readFile(filePath);

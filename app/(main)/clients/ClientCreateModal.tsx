@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClientInModal, getCreateClientData } from "@/app/actions/clients";
-import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
+import { EditClientForm } from "@/app/(main)/clients/EditClientForm";
 
 type CreateData = Awaited<ReturnType<typeof getCreateClientData>>;
 

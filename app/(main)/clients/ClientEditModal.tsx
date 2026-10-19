@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getClientById, updateClientInModal, deleteClient, getClientHistory, setClientContractStatus } from "@/app/actions/clients";
 import { setWithholdingNote, getWithholdingMemos, setSkipDailyWorkReport } from "@/app/actions/withholding";
-import { EditClientForm } from "@/app/(main)/clients/[id]/edit/EditClientForm";
+import { EditClientForm } from "@/app/(main)/clients/EditClientForm";
 import { InsuranceTab } from "@/app/(main)/clients/InsuranceTab";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 

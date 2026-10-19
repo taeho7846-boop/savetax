@@ -5,11 +5,16 @@ import { getSession } from "@/lib/auth";
 // GET /api/export-labor-clients → 로그인한 사용자의 근로소득/사업소득 거래처
 export async function GET(req: NextRequest) {
   const session = await getSession();
+  if (!session) return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
 
-  // userId 파라미터로 특정 사용자 거래처 조회
+  // userId 파라미터로 특정 사용자 거래처 조회 — 본인 또는 대표/관리자만
   const userIdParam = req.nextUrl.searchParams.get("userId");
   if (userIdParam) {
     const userId = parseInt(userIdParam);
+    const canViewOthers = session.role === "owner" || session.role === "admin";
+    if (userId !== session.id && !canViewOthers) {
+      return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
+    }
     const employees = await prisma.user.findMany({
       where: { managerId: userId, isActive: true },
       select: { id: true },

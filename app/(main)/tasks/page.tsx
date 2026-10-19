@@ -7,6 +7,7 @@ import { TaskDeleteButton } from "./TaskDeleteButton";
 import TaskStatusSelect from "./TaskStatusSelect";
 import { UnifiedCreateButton } from "./TaskCreateModal";
 import { MemoDeleteButton } from "./MemoDeleteButton";
+import { ClientLink } from "@/app/(main)/clients/ClientLink";
 
 export default async function TasksPage({
   searchParams,
@@ -320,9 +321,9 @@ export default async function TasksPage({
                     )}
                     <td className="px-4 py-3">
                       {task.clientId ? (
-                        <Link href={`/clients/${task.clientId}`} className="text-[#191F28] hover:underline font-medium">
+                        <ClientLink clientId={task.clientId} tab="history" className="text-[#191F28] hover:underline font-medium">
                           {task.client?.name ?? "고객사 없음"}
-                        </Link>
+                        </ClientLink>
                       ) : (
                         <span className="text-[#6B7684]">고객사 없음</span>
                       )}
@@ -380,9 +381,9 @@ export default async function TasksPage({
                   {MEMO_TYPE_LABELS[memo.memoType] ?? memo.memoType}
                 </span>
                 {memo.client && (
-                  <Link href={`/clients/${memo.clientId}`} className="text-xs text-[#191F28] hover:underline font-medium">
+                  <ClientLink clientId={memo.clientId!} tab="history" className="text-xs text-[#191F28] hover:underline font-medium">
                     {memo.client.name}
-                  </Link>
+                  </ClientLink>
                 )}
                 <span className="text-xs text-[#8B95A1] ml-auto">{memo.author.name}</span>
                 <span className="text-xs text-[#8B95A1]">

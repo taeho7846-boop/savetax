@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { IncomeTaxCalcModal } from "./IncomeTaxCalcModal";
 import { BizTaxCalcModal } from "./BizTaxCalcModal";
 import { BuildingIcon } from "@/components/icons";
+import { openQuickCapture } from "@/components/QuickCapture";
 
 type AssignedUserInfo = {
   id: number;
@@ -56,10 +57,10 @@ type Action = {
 };
 
 const ACTIONS: Action[] = [
-  { key: "수정", label: "수정", desc: "거래처 정보 수정", icon: "✏️", path: (id: number) => `/clients/${id}/edit` },
+  { key: "수정", label: "수정", desc: "거래처 정보 수정", icon: "✏️", custom: true },
   { key: "취득", label: "취득/상실 신고", desc: "4대보험 취득·상실 등록 (원천세 탭)", icon: "🧑‍💼", custom: true },
-  { key: "메모", label: "메모", desc: "메모 작성", icon: "📝", path: (id: number) => `/memos/new?clientId=${id}` },
-  { key: "히스토리", label: "히스토리", desc: "업무/메모 히스토리", icon: "📋", path: (id: number) => `/clients/${id}?tab=history` },
+  { key: "메모", label: "메모", desc: "메모 작성 (빠른입력)", icon: "📝", custom: true },
+  { key: "히스토리", label: "히스토리", desc: "업무/메모 히스토리", icon: "📋", custom: true },
   { key: "원천세", label: "원천세", desc: "원천세 현황", icon: "🧾", path: () => `/withholding` },
   { key: "종소세", label: "종합소득세", desc: "종합소득세 현황", icon: "📑", path: () => `/income-tax` },
   { key: "자료", label: "자료수집", desc: "자료수집 현황", icon: "📥", path: () => `/data-collect` },
@@ -298,6 +299,10 @@ export function GlobalSearch() {
       openClientEditModal(selectedClient.id, "withholding");
     } else if (action.key === "수정") {
       openClientEditModal(selectedClient.id);
+    } else if (action.key === "히스토리") {
+      openClientEditModal(selectedClient.id, "history");
+    } else if (action.key === "메모") {
+      openQuickCapture({ clientId: selectedClient.id, clientName: selectedClient.name, mode: "memo" });
     } else if (action.path) {
       router.push(action.path(selectedClient.id));
     }

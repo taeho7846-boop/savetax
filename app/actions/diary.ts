@@ -40,7 +40,6 @@ function revalidateDiary(clientId?: number | null) {
   revalidatePath("/diary");
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
-  if (clientId) revalidatePath(`/clients/${clientId}`);
 }
 
 // Task.dueDate는 UTC 자정으로 저장되므로 ISO 문자열 앞 10자리가 입력한 날짜와 일치
@@ -252,7 +251,6 @@ export async function updateDiaryTask(id: number, input: {
     },
   });
   revalidateDiary(task.clientId);
-  if (input.clientId && input.clientId !== task.clientId) revalidatePath(`/clients/${input.clientId}`);
 }
 
 export async function deleteDiaryTask(id: number) {

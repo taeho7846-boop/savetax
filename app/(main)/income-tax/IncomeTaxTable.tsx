@@ -9,6 +9,7 @@ import { PinIcon } from "@/components/icons";
 import { NoticeUploadModal } from "./NoticeUploadModal";
 import { NoticeCompareModal } from "./NoticeCompareModal";
 import { RejectModal } from "./RejectModal";
+import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -2067,18 +2068,14 @@ export function IncomeTaxTable({
 
       {/* 고객사 수정 모달 */}
       {editClientId && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditClientId(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-[#F2F4F6] shrink-0">
-              <h3 className="text-sm font-bold text-[#191F28]">고객사 수정</h3>
-              <button onClick={() => setEditClientId(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
-            </div>
-            <iframe
-              src={`/clients/${editClientId}/edit?modal=1`}
-              className="flex-1 w-full border-0"
-            />
-          </div>
-        </div>
+        <ClientEditModal
+          clientId={editClientId}
+          initialTab="incomeTax"
+          onClose={() => {
+            setEditClientId(null);
+            router.refresh();
+          }}
+        />
       )}
     </>
   );

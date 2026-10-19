@@ -360,6 +360,8 @@ model WithholdingFilingFile {
   @@index([yearMonth, kind])
 }
 
+// 2026-10-19: 원천세 프로세스 화면(/withholding-process)이 삭제돼 더 이상 쓰지 않는 테이블.
+// 데이터 보존을 위해 모델은 남겨둠. 운영 DB에서 수동 drop 후 이 모델을 지울 것.
 model WithholdingProcess {
   id        Int       @id @default(autoincrement())
   clientId  Int

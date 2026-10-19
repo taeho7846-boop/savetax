@@ -13,6 +13,7 @@ import {
   type DiaryView as ViewMode,
 } from "@/lib/diary-dates";
 import { ScheduleModal, type Schedule, SCHEDULE_COLORS } from "./ScheduleModal";
+import { ClientLink } from "@/app/(main)/clients/ClientLink";
 import { chunkWeeks, layoutWeek, type LaneInput } from "@/lib/calendar-lanes";
 import { TaskEditModal } from "@/components/TaskEditModal";
 
@@ -455,7 +456,7 @@ export function DiaryView({
                 <div className="text-[12.5px] text-[#333D4B] whitespace-pre-wrap break-words">{m.content}</div>
                 <div className="flex items-center gap-2 mt-1.5 text-[10.5px] text-[#8B95A1]">
                   {m.clientName && (
-                    <Link href={`/clients/${m.clientId}`} className="text-[#1B64DA] font-medium hover:underline">{m.clientName}</Link>
+                    <ClientLink clientId={m.clientId!} tab="history" className="text-[#1B64DA] font-medium hover:underline">{m.clientName}</ClientLink>
                   )}
                   <span>{new Date(m.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                   <span className="flex-1" />
@@ -534,7 +535,7 @@ function TaskRow({ task, today, run, overdue, onEdit }: { task: DiaryTask; today
         <button onClick={onEdit} className={`text-left text-[13px] break-words hover:text-[#3182F6] hover:underline decoration-[#3182F6]/40 ${done ? "text-[#8B95A1] line-through" : "text-[#191F28]"}`} title="클릭해서 수정">{task.title}</button>
         <div className="flex items-center gap-1.5 mt-0.5 text-[10.5px] text-[#8B95A1] flex-wrap">
           {task.clientName && (
-            <Link href={`/clients/${task.clientId}`} className="text-[#1B64DA] font-medium hover:underline">{task.clientName}</Link>
+            <ClientLink clientId={task.clientId!} tab="history" className="text-[#1B64DA] font-medium hover:underline">{task.clientName}</ClientLink>
           )}
           {task.notes && <span className="truncate max-w-[260px]">{task.notes}</span>}
           {overdue && task.dueDate && <span>{shortDateLabel(task.dueDate)}에서 이월</span>}
