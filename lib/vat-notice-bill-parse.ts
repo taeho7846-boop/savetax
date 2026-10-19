@@ -13,7 +13,8 @@ export type ParsedBill = {
 };
 
 export async function parseNoticeBillPdf(bytes: Uint8Array): Promise<ParsedBill | null> {
-  const doc = await getDocument({ data: bytes, useSystemFonts: true, disableFontFace: true }).promise;
+  // pdfjs는 넘긴 버퍼를 워커로 이전(detach)해 버리므로 복사본을 넘긴다 — 호출자가 같은 bytes로 파일을 저장할 수 있게
+  const doc = await getDocument({ data: bytes.slice(), useSystemFonts: true, disableFontFace: true }).promise;
   try {
     const page = await doc.getPage(1);
     const tc = await page.getTextContent();
