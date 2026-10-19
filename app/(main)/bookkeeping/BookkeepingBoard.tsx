@@ -371,9 +371,9 @@ export function BookkeepingBoard({
 
       {/* 표 */}
       <div className="glass rounded-3xl overflow-hidden">
-        <div className="overflow-auto max-h-[68vh]">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm border-separate border-spacing-0">
-            <thead className="sticky top-0 z-20">
+            <thead>
               <tr className="bg-white/90 backdrop-blur-md">
                 <th className="sticky left-0 z-30 bg-white/95 px-3 py-3 w-10 border-b border-[#E5E8EB]">
                   {!readonly && (
