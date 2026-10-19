@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
-import { findFileByName, downloadFile } from "@/lib/google-drive";
+import { findFileByName, downloadFile, findFolder, listFiles } from "@/lib/google-drive";
 import { parsePayslipXlsx } from "@/lib/payslip-doc";
 import { parseWehagoSalaryGrid } from "@/lib/payslip-xlsx";
 import { parseBusinessIncomeXlsx } from "@/lib/business-ledger";
@@ -118,16 +118,60 @@ export function parsePayrollBuffer(type: PayrollType, buf: Buffer): PayrollEmplo
   return parseDailyWorkerXlsx(buf);
 }
 
+/* ───────── 드라이브에서 파일 찾기 ───────── */
+
+const TYPE_FOLDER: Record<PayrollType, string> = { salary: "근로소득", business: "사업소득", daily: "일용직" };
+const TYPE_KEYWORD: Record<PayrollType, RegExp> = { salary: /급여명세서|급여자료/, business: /사업소득/, daily: /일용/ };
+
+export type FoundFile = { id: string; name: string } | null;
+
+/**
+ * 1) 정확한 이름으로 드라이브 전체 검색 → 2) 거래처 폴더(5. 위멤버스/근로소득 등) 안에서 연·월이 맞는 파일 고르기.
+ * 못 찾으면 그 폴더에 실제로 있는 파일명 몇 개를 sample 로 돌려줘 로그에서 원인을 볼 수 있게 한다.
+ */
+export async function findPayrollFile(
+  client: { name: string; driveFolderId: string | null },
+  type: PayrollType,
+  yearMonth: string,
+): Promise<{ file: FoundFile; searched: string; sample: string[] }> {
+  const fileName = payrollFileName(type, client.name, yearMonth);
+  const exact = await findFileByName(fileName);
+  if (exact) return { file: exact, searched: fileName, sample: [] };
+
+  const sample: string[] = [];
+  if (client.driveFolderId) {
+    try {
+      const wm = await findFolder("5. 위멤버스", client.driveFolderId);
+      const sub = wm ? await findFolder(TYPE_FOLDER[type], wm) : null;
+      const files = sub ? await listFiles(sub) : [];
+      const [y, m] = yearMonth.split("-");
+      const mNum = parseInt(m);
+      const re = new RegExp(`${y}\s*년?\s*[-_.]?\s*0?${mNum}\s*월`);
+      const hit = files.find(f => /\.xlsx?$/i.test(f.name) && re.test(f.name) && TYPE_KEYWORD[type].test(f.name));
+      if (hit) return { file: { id: hit.id, name: hit.name }, searched: fileName, sample: [] };
+      sample.push(...files.slice(0, 4).map(f => f.name));
+      if (!sub) sample.push(wm ? `(${TYPE_FOLDER[type]} 폴더 없음)` : "(5. 위멤버스 폴더 없음)");
+    } catch { /* 폴더 탐색 실패는 '없음'으로 처리 */ }
+  } else {
+    sample.push("(거래처 드라이브 폴더 미연결)");
+  }
+  return { file: null, searched: fileName, sample };
+}
+
 /* ───────── 드라이브에서 한 달 수집 ───────── */
 
 /** 드라이브에 있는 3종 파일을 읽어 PayrollMonth 에 저장. 파일이 없는 유형은 건너뛴다(기존 데이터 유지). */
-export async function collectPayrollMonth(client: { id: number; name: string }, yearMonth: string, types: PayrollType[] = ["salary", "business", "daily"]): Promise<CollectResult> {
+export async function collectPayrollMonth(client: { id: number; name: string; driveFolderId?: string | null }, yearMonth: string, types: PayrollType[] = ["salary", "business", "daily"]): Promise<CollectResult> {
   const result: CollectResult = { yearMonth, types: [] };
   for (const type of types) {
     const fileName = payrollFileName(type, client.name, yearMonth);
     try {
-      const file = await findFileByName(fileName);
-      if (!file) { result.types.push({ incomeType: type, status: "missing", message: fileName }); continue; }
+      const found = await findPayrollFile({ name: client.name, driveFolderId: client.driveFolderId ?? null }, type, yearMonth);
+      const file = found.file;
+      if (!file) {
+        result.types.push({ incomeType: type, status: "missing", message: found.sample.length ? `${fileName} — 폴더에 있는 파일: ${found.sample.join(", ")}` : fileName });
+        continue;
+      }
       const buf = await downloadFile(file.id);
       const employees = parsePayrollBuffer(type, buf);
       if (employees.length === 0) { result.types.push({ incomeType: type, status: "empty", message: "파일은 있지만 지급 내역이 없음" }); continue; }

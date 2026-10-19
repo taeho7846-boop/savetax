@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     if (result.success) {
       const client = await prisma.client.findFirst({
         where: { name: clientName, isDeleted: false },
-        select: { id: true },
+        select: { id: true, driveFolderId: true },
       });
       if (client) {
         const yearMonth = `${year}-${month}`;
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         revalidatePath("/withholding");
         // 거래처 프로필 > 인건비: 방금 올린 급여 엑셀을 읽어 월별 인건비로 저장 (실패해도 업로드 결과엔 영향 없음)
         try {
-          await collectPayrollMonth({ id: client.id, name: clientName }, yearMonth, incomeTypes as PayrollType[]);
+          await collectPayrollMonth({ id: client.id, name: clientName, driveFolderId: client.driveFolderId }, yearMonth, incomeTypes as PayrollType[]);
         } catch (e) {
           console.error("[wemembers-process] 인건비 저장 실패:", e);
         }

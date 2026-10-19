@@ -42,3 +42,31 @@ export type CollectResult = {
   yearMonth: string;
   types: { incomeType: PayrollType; status: "saved" | "missing" | "empty" | "error"; headcount?: number; gross?: number; message?: string }[];
 };
+
+/** 원천세 신고 진행·납부세액 (월별) — 인건비 상세 모달이 급여와 나란히 보여준다 */
+export type PayrollFilingMonth = {
+  yearMonth: string;
+  steps: string[];
+  doneSteps: string[];
+  status: "none" | "progress" | "filed" | "done";
+  statusLabel: string;
+  statusColor: string;
+  incomeAmount: number | null;
+  localAmount: number | null;
+  reportType: string | null;
+  receiptNo: string | null;
+  filingStatus: string | null;
+  submittedAt: string | null;
+  isCurrent: boolean;
+};
+
+/** 위하고 급여 화면 주소 재료 (확장으로 자료 내려받기용) */
+export type PayrollWehago = {
+  ready: boolean;
+  reason: string | null;
+  cno: string | null;
+  cdCom: string | null;
+  companyId: string;
+  taxNum: string;
+  colors: Record<string, string>;
+};

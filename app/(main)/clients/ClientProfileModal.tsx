@@ -772,7 +772,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                       right={
                         <div className="flex items-center gap-3">
                           <MoreLink href={data.links.withholding}>원천세 페이지로</MoreLink>
-                          <button type="button" onClick={() => setPayrollOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">인건비 상세</button>
+                          <button type="button" onClick={() => setPayrollOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">상세 보기</button>
                         </div>
                       }
                     />

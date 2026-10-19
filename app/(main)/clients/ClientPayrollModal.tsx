@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PAYROLL_TYPES, type PayrollMonthData, type PayrollType, type CollectResult } from "@/lib/payroll-types";
+import { PAYROLL_TYPES, type PayrollMonthData, type PayrollType, type CollectResult, type PayrollFilingMonth, type PayrollWehago } from "@/lib/payroll-types";
+import { extAvailable, openHiddenOrTab } from "@/lib/ext-bridge";
 
 /**
  * 거래처 인건비(급여) 상세 모달 — 세모리포트 '급여' 화면 구성을 따른다.
@@ -10,7 +11,13 @@ import { PAYROLL_TYPES, type PayrollMonthData, type PayrollType, type CollectRes
  * 과거분은 '드라이브에서 가져오기'로 채운다 (POST, 월 단위).
  */
 
-type PayrollResponse = { today: string; client: { id: number; name: string; laborTypes: string | null; withholdingType: string | null }; months: PayrollMonthData[] };
+type PayrollResponse = {
+  today: string;
+  client: { id: number; name: string; laborTypes: string | null; withholdingType: string | null; halfYearTax: boolean; types: PayrollType[] };
+  months: PayrollMonthData[];
+  filings: PayrollFilingMonth[];
+  wehago: PayrollWehago;
+};
 
 const won = (n: number) => n.toLocaleString("ko-KR");
 function short(n: number): string {
@@ -126,8 +133,9 @@ function EmployeeList({ month }: { month: PayrollMonthData }) {
 
 /* ───────── 소득별 급여 현황 (가로 표) ───────── */
 
-function TypeTable({ months, selected, onSelect }: { months: PayrollMonthData[]; selected: string; onSelect: (ym: string) => void }) {
+function TypeTable({ months, filings, selected, onSelect }: { months: PayrollMonthData[]; filings: PayrollFilingMonth[]; selected: string; onSelect: (ym: string) => void }) {
   const byYm = new Map(months.map(m => [m.yearMonth, m]));
+  const fByYm = new Map(filings.map(f => [f.yearMonth, f]));
   const cols = Array.from({ length: 7 }, (_, i) => addMonths(selected, -i));
   const cell = (ym: string, type: PayrollType) => {
     const t = byYm.get(ym)?.types.find(x => x.incomeType === type);
@@ -162,6 +170,19 @@ function TypeTable({ months, selected, onSelect }: { months: PayrollMonthData[];
                   <td key={ym} className={`px-4 py-3 text-right tabular-nums whitespace-nowrap border-t border-[#F2F4F6] ${i === 0 ? "bg-[#F9FAFB] font-bold text-[#191F28]" : "text-[#6B7684]"}`}>
                     <div className="text-[13px]">{c.has ? `${won(c.gross)}원` : <span className="text-[#D1D6DB]">-</span>}</div>
                     <div className="text-[11px] text-[#8B95A1]">{c.has ? `${c.cnt}명` : ""}</div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+          {([["소득세 납부", "incomeAmount"], ["지방소득세", "localAmount"]] as const).map(([label, key]) => (
+            <tr key={key}>
+              <td className="sticky left-0 z-10 bg-white/95 px-3 py-2.5 text-[12.5px] font-bold text-[#8B95A1] whitespace-nowrap border-t border-[#F2F4F6]">{label}</td>
+              {cols.map((ym, i) => {
+                const v = fByYm.get(ym)?.[key] ?? null;
+                return (
+                  <td key={ym} className={`px-4 py-2.5 text-right text-[12.5px] tabular-nums whitespace-nowrap border-t border-[#F2F4F6] ${i === 0 ? "bg-[#F9FAFB] font-bold text-[#191F28]" : "text-[#8B95A1]"}`}>
+                    {v == null ? <span className="text-[#D1D6DB]">-</span> : `${won(v)}원`}
                   </td>
                 );
               })}
@@ -324,6 +345,182 @@ function CollectPanel({ clientId, thisMonth, onDone }: { clientId: number; thisM
   );
 }
 
+
+/* ───────── 위하고에서 가져오기 (확장이 위하고 급여 화면을 열어 자료를 내려받아 드라이브에 올림 → 서버가 읽어 저장) ───────── */
+
+const WEHAGO_BASE = "https://smarta.wehago.com/#/smarta/humanresource";
+function wehagoDownloadUrl(w: PayrollWehago, clientName: string, type: PayrollType, yearMonth: string): string {
+  const year = yearMonth.slice(0, 4);
+  const month = parseInt(yearMonth.slice(5, 7));
+  const color = w.colors[year] || "#D0BA00";
+  const params = `sao&cno=${w.cno}&cd_com=${w.cdCom}&gisu=${month}&yminsa=${year}&searchData=${year}0101${year}1231&color=${encodeURIComponent(color)}&companyName=${encodeURIComponent(clientName)}&companyID=${w.companyId}&taxNum=${w.taxNum}&yn_private=1&wehagoT`;
+  if (type === "salary") return `${WEHAGO_BASE}/SWSA0101?${params}&autoPayslip=${month}`;
+  if (type === "business") return `${WEHAGO_BASE}/SWBU0103?${params}&autoBusinessIncome=${month}`;
+  return `${WEHAGO_BASE}/TWSA0107?${params}&autoDailyWorker=${month}`;
+}
+
+function WehagoPanel({ clientId, clientName, wehago, types, thisMonth, onDone }: {
+  clientId: number; clientName: string; wehago: PayrollWehago; types: PayrollType[]; thisMonth: string; onDone: (months: PayrollMonthData[]) => void;
+}) {
+  const [range, setRange] = useState<3 | 6 | 12>(6);
+  const [picked, setPicked] = useState<PayrollType[]>(types.filter(t => t !== "daily"));
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number; current: string; log: string[] } | null>(null);
+  const stop = useRef(false);
+  const skip = useRef(false);
+
+  async function waitForFile(ym: string, type: PayrollType): Promise<"found" | "timeout" | "skip"> {
+    const [year, month] = ym.split("-");
+    for (let i = 0; i < 45; i++) {
+      if (stop.current || skip.current) return "skip";
+      try {
+        const res = await fetch("/api/automation/check-file", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientName, year, month, type }),
+        });
+        const d = await res.json();
+        if (d.exists) return "found";
+      } catch { /* 다음 시도 */ }
+      setProgress(p => p ? { ...p, current: `${ym} ${typeOf(type).short} · 위하고에서 내려받는 중… ${(i + 1) * 2}초 (자료 없는 달이면 건너뛰기)` } : p);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    return "timeout";
+  }
+
+  async function run() {
+    if (busy || picked.length === 0) return;
+    setBusy(true); stop.current = false;
+    const ext = await extAvailable();
+    const list = Array.from({ length: range }, (_, i) => addMonths(thisMonth, -1 - i));
+    const prog = { done: 0, total: list.length, current: "", log: [] as string[] };
+    setProgress({ ...prog });
+    let latest: PayrollMonthData[] | null = null;
+    try {
+      for (const ym of list) {
+        if (stop.current) break;
+        const got: PayrollType[] = [];
+        for (const type of picked) {
+          if (stop.current) break;
+          skip.current = false;
+          const url = wehagoDownloadUrl(wehago, clientName, type, ym);
+          const opened = await openHiddenOrTab([url]);
+          if (!opened.ok) { prog.log.unshift(`${ym} · 팝업이 차단됐어요. 이 사이트의 팝업을 허용해주세요`); setProgress({ ...prog, log: [...prog.log] }); stop.current = true; break; }
+          const r = await waitForFile(ym, type);
+          opened.tabs.forEach(t => { try { t.close(); } catch { /* 이미 닫힘 */ } });
+          if (r === "found") got.push(type);
+          else prog.log.unshift(`${ym} · ${typeOf(type).short} ${r === "skip" ? "건너뜀" : "시간 초과(자료 없는 달로 처리)"}`);
+        }
+        if (got.length > 0) {
+          const res = await fetch(`/api/clients/${clientId}/payroll`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ yearMonths: [ym], types: got }),
+          });
+          const j = await res.json();
+          if (res.ok) {
+            latest = j.months as PayrollMonthData[];
+            for (const rr of (j.results as CollectResult[])) {
+              const saved = rr.types.filter(t => t.status === "saved");
+              prog.log.unshift(saved.length ? `${ym} · 저장: ${saved.map(t => `${typeOf(t.incomeType).short} ${t.headcount}명 ${short(t.gross ?? 0)}`).join(", ")}` : `${ym} · 내려받았지만 읽지 못함: ${rr.types.map(t => t.message ?? t.status).join(" / ")}`);
+            }
+          } else prog.log.unshift(`${ym} · 저장 오류: ${j.error ?? res.status}`);
+        }
+        prog.done++;
+        setProgress({ ...prog, current: "", log: [...prog.log] });
+      }
+    } finally {
+      setBusy(false);
+      setProgress(p => p ? { ...p, current: ext.ok ? "" : "확장 프로그램이 없어 새 탭 방식으로 진행했어요" } : p);
+      if (latest) onDone(latest);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#D1FAE5] bg-[#ECFDF5]/60 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="mr-2">
+          <div className="text-[13px] font-bold text-[#191F28]">위하고에서 가져오기</div>
+          <div className="text-[11.5px] text-[#6B7684]">크롬 확장이 위하고 급여 화면을 열어 자료를 내려받고(드라이브 5. 위멤버스에 저장) 바로 읽어 저장해요 · 위하고 로그인 필요</div>
+        </div>
+        {!wehago.ready && <div className="w-full rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#DC2626]">아직 쓸 수 없어요: {wehago.reason}</div>}
+        {([3, 6, 12] as const).map(r => (
+          <button key={r} type="button" disabled={busy} onClick={() => setRange(r)} className={`h-8 rounded-lg px-3 text-[12px] font-bold border transition-colors ${range === r ? "bg-[#191F28] border-[#191F28] text-white" : "bg-white border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB]"} disabled:opacity-60`}>최근 {r}개월</button>
+        ))}
+        <span className="mx-1 text-[#D1D6DB]">|</span>
+        {types.map(t => {
+          const on = picked.includes(t);
+          const disabled = busy || t === "daily";
+          return (
+            <button key={t} type="button" disabled={disabled} title={t === "daily" ? "일용직은 PC 저장 방식이라 여기서는 지원하지 않아요" : undefined} onClick={() => setPicked(p => on ? p.filter(x => x !== t) : [...p, t])}
+              className={`h-8 rounded-lg px-3 text-[12px] font-bold border transition-colors ${on ? "border-[#0F9D77] bg-[#0F9D77] text-white" : "bg-white border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB]"} disabled:opacity-40`}>
+              {typeOf(t).label}
+            </button>
+          );
+        })}
+        {busy ? (
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" onClick={() => { skip.current = true; }} className="h-8 rounded-xl border border-[#E5E8EB] bg-white px-3 text-[12px] font-bold text-[#4E5968]">이 달 건너뛰기</button>
+            <button type="button" onClick={() => { stop.current = true; skip.current = true; }} className="h-8 rounded-xl border border-[#E5E8EB] bg-white px-3 text-[12px] font-bold text-[#DC2626]">중지</button>
+          </div>
+        ) : (
+          <button type="button" disabled={!wehago.ready || picked.length === 0} onClick={run} className="ml-auto h-8 rounded-xl px-4 text-[12.5px] font-bold text-white hover:opacity-90 disabled:opacity-40" style={{ background: GREEN }}>가져오기 시작</button>
+        )}
+      </div>
+      {progress && (
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-[11.5px] text-[#6B7684]">
+            <span className="truncate">{busy ? (progress.current || "진행 중…") : (progress.current || "완료")}</span>
+            <span className="tabular-nums shrink-0">{progress.done} / {progress.total}개월</span>
+          </div>
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#191F28]/[.06]"><div className="h-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%`, background: GREEN }} /></div>
+          <ul className="mt-2 max-h-40 overflow-y-auto space-y-0.5 text-[11.5px] text-[#4E5968]">
+            {progress.log.map((l, i) => <li key={i} className="break-all">{l}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────── 선택 월 신고·납부 카드 ───────── */
+
+function FilingCard({ f }: { f: PayrollFilingMonth | null }) {
+  if (!f) return <div className="rounded-3xl border border-[#E5E8EB] bg-white/60 px-5 py-4 text-[12.5px] text-[#B0B8C1]">이 달 원천세 진행 기록이 없어요</div>;
+  const won0 = (n: number | null) => (n == null ? "-" : `${won(n)}원`);
+  return (
+    <div className="rounded-3xl border border-[#E5E8EB] bg-white/70 px-5 py-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11.5px] font-bold text-[#8B95A1]">원천세 신고 · 납부</div>
+        {f.steps.length === 0 ? <span className="text-[11px] text-[#B0B8C1]">이 달 신고 없음(반기납)</span> : (
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: `${f.statusColor}1F`, color: f.statusColor }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.statusColor }} />{f.statusLabel}
+          </span>
+        )}
+      </div>
+      {f.steps.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {f.steps.map(s => {
+            const done = f.doneSteps.includes(s);
+            return <span key={s} className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${done ? "bg-[#E7F7EE] text-[#15803D]" : "bg-[#F2F4F6] text-[#B0B8C1]"}`}>{done ? "✓ " : ""}{s}</span>;
+          })}
+        </div>
+      )}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <div><div className="text-[10.5px] text-[#8B95A1]">소득세</div><div className="text-[15px] font-extrabold tabular-nums text-[#191F28]">{won0(f.incomeAmount)}</div></div>
+        <div><div className="text-[10.5px] text-[#8B95A1]">지방소득세</div><div className="text-[15px] font-extrabold tabular-nums text-[#191F28]">{won0(f.localAmount)}</div></div>
+        <div>
+          <div className="text-[10.5px] text-[#8B95A1]">전자신고</div>
+          <div className="text-[12.5px] font-bold text-[#191F28]">
+            {f.filingStatus == null || f.filingStatus === "none" ? <span className="text-[#B0B8C1]">-</span>
+              : f.filingStatus === "submitted" ? <span className="text-[#15803D]">접수{f.reportType ? ` · ${f.reportType}` : ""}</span>
+              : f.filingStatus === "error" ? <span className="text-[#DC2626]">오류</span>
+              : <span className="text-[#B45309]">{f.filingStatus === "produced" ? "파일제작" : f.filingStatus === "verified" ? "검증" : f.filingStatus}</span>}
+          </div>
+          {f.receiptNo && <div className="text-[10.5px] tabular-nums text-[#8B95A1]">접수 {f.receiptNo}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ───────── 본체 ───────── */
 
 export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose, preload }: {
@@ -337,6 +534,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(initialMonth ?? null);
   const [showCollect, setShowCollect] = useState(false);
+  const [showWehago, setShowWehago] = useState(false);
 
   useEffect(() => {
     if (preload) return;
@@ -368,6 +566,8 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
   const onCollected = useCallback((ms: PayrollMonthData[]) => { setData(d => d ? { ...d, months: ms } : d); }, []);
 
   const diff = m && prevM ? m.total.gross - prevM.total.gross : null;
+  const filings = useMemo(() => data?.filings ?? [], [data]);
+  const selFiling = sel ? filings.find(f => f.yearMonth === sel) ?? null : null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#191F28]/35 p-2 backdrop-blur-[4px] sm:p-4" onClick={onClose}>
@@ -376,13 +576,16 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
         <div className="border-b border-[#F2F4F6] px-5 pt-4 pb-3 sm:px-8">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10.5px] font-bold uppercase tracking-widest text-[#8B95A1]">Payroll · 급여대장 기준</div>
+              <div className="text-[10.5px] font-bold uppercase tracking-widest text-[#8B95A1]">Withholding · Payroll</div>
               <h2 className="mt-0.5 truncate text-[20px] font-extrabold tracking-tight text-[#191F28]">
-                {data?.client.name ?? clientName ?? ""} <span className="text-[#8B95A1] font-bold">인건비 상세</span>
+                {data?.client.name ?? clientName ?? ""} <span className="text-[#8B95A1] font-bold">원천세 · 인건비 상세</span>
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setShowCollect(v => !v)} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showCollect ? "border-[#191F28] bg-[#191F28] text-white" : "border-[#E5E8EB] bg-white/80 text-[#4E5968] hover:bg-[#F2F4F6]"}`}>
+              <button type="button" onClick={() => { setShowWehago(v => !v); setShowCollect(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showWehago ? "border-[#0F9D77] bg-[#0F9D77] text-white" : "border-[#0F9D77] bg-white/80 text-[#0B7A5C] hover:bg-[#ECFDF5]"}`}>
+                위하고에서 가져오기
+              </button>
+              <button type="button" onClick={() => { setShowCollect(v => !v); setShowWehago(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showCollect ? "border-[#191F28] bg-[#191F28] text-white" : "border-[#E5E8EB] bg-white/80 text-[#4E5968] hover:bg-[#F2F4F6]"}`}>
                 드라이브에서 가져오기
               </button>
               <button onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg leading-none text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#333D4B]" aria-label="닫기">✕</button>
@@ -411,6 +614,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
 
         {/* 본문 */}
         <div className="flex-1 space-y-7 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
+          {showWehago && data && <WehagoPanel clientId={clientId} clientName={data.client.name} wehago={data.wehago} types={data.client.types} thisMonth={thisMonth} onDone={onCollected} />}
           {showCollect && data && <CollectPanel clientId={clientId} thisMonth={thisMonth} onDone={onCollected} />}
           {error ? (
             <div className="rounded-2xl bg-[#FEF2F2] px-4 py-6 text-center text-[13px] font-bold text-[#DC2626]">{error}</div>
@@ -419,13 +623,14 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
           ) : months.length === 0 || !m || !sel ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <div className="text-[15px] font-bold text-[#4E5968]">아직 저장된 급여 자료가 없어요</div>
-              <div className="text-[12.5px] text-[#8B95A1]">원천세 위멤버스 업로드가 끝나면 자동으로 쌓이고, 과거분은 위 ‘드라이브에서 가져오기’로 채울 수 있어요</div>
-              {!showCollect && <button type="button" onClick={() => setShowCollect(true)} className="mt-2 h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: GREEN }}>드라이브에서 가져오기</button>}
+              <div className="text-[12.5px] text-[#8B95A1]">원천세 위멤버스 업로드가 끝나면 자동으로 쌓여요. 과거분은 ‘위하고에서 가져오기’(권장)나 ‘드라이브에서 가져오기’로 채울 수 있어요</div>
+              {!showWehago && !showCollect && <button type="button" onClick={() => setShowWehago(true)} className="mt-2 h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: GREEN }}>위하고에서 가져오기</button>}
             </div>
           ) : (
             <>
-              {/* 문장 요약 */}
-              <section>
+              {/* 문장 요약 + 이 달 신고·납부 */}
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+              <div>
                 <div className="text-[12px] font-medium text-[#8B95A1]">급여대장 기준</div>
                 <div className="mt-1 text-[24px] font-extrabold leading-snug tracking-tight text-[#191F28]">
                   {parseInt(mm(sel))}월 직원 인건비는<br /><span style={{ color: GREEN }}>{won(m.total.gross)}원</span> 이에요.
@@ -434,6 +639,8 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
                   {diff == null ? "지난달 자료가 없어 비교는 못 해요." : diff === 0 ? "지난달 급여와 같아요." : <>지난달 급여에 비해 <b className={diff > 0 ? "text-[#191F28]" : "text-[#1B64DA]"}>{won(Math.abs(diff))}원 {diff > 0 ? "늘었어요" : "줄었어요"}.</b></>}
                   <span className="ml-3 text-[12.5px]">세후 합계 {won(m.total.net)}원 · {m.total.headcount}명</span>
                 </div>
+              </div>
+              <FilingCard f={selFiling} />
               </section>
 
               {/* 급여대상자 */}
@@ -445,7 +652,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
               {/* 소득별 급여 현황 */}
               <section>
                 <h3 className="mb-3 text-[17px] font-bold text-[#191F28]">• 소득별 급여 현황</h3>
-                <TypeTable months={months} selected={sel} onSelect={setSelected} />
+                <TypeTable months={months} filings={filings} selected={sel} onSelect={setSelected} />
               </section>
 
               {/* 인건비 추이 */}
