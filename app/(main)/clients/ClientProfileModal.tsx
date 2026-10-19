@@ -567,6 +567,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                   {/* 셋째 줄: 인건비 종류 · 업종 */}
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                     <Field label="인건비">
+                      <Badge tone="purple">유형 {c.withholdingType ?? "미지정"}</Badge>
                       {(() => {
                         const labor = (c.laborTypes ?? "").split(",").map(t => t.trim()).filter(Boolean);
                         if (labor.length === 0) return <Empty text="미입력" />;
@@ -582,7 +583,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                         );
                       })()}
                     </Field>
-                    <Field label="업종">{c.bizType || c.bizItem ? <span className="text-[#4E5968]">{[c.bizType, c.bizItem].filter(Boolean).join(" / ")}</span> : <Empty />}</Field>
+                    <Field label="업종">{c.bizType || c.bizCategory || c.bizItem ? <span className="text-[#4E5968]">{[c.bizType, c.bizCategory, c.bizItem].filter(Boolean).join(" / ")}</span> : <Empty text="미입력" />}</Field>
                   </div>
                 </div>
               </div>

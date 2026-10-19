@@ -157,6 +157,7 @@ export type ClientProfile = {
     email: string | null;
     address: string | null;
     bizType: string | null;
+    bizCategory: string | null;
     bizItem: string | null;
     clientType: string;
     taxationType: string | null;
@@ -277,7 +278,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     where: { id: clientId, isDeleted: false, AND: [assignedFilter] },
     select: {
       id: true, name: true, bizNumber: true, corporateNumber: true, ceoName: true, phone: true, email: true, address: true,
-      bizType: true, bizItem: true, clientType: true, taxationType: true, vatTypeDetail: true, taxTypes: true, laborTypes: true,
+      bizType: true, bizCategory: true, bizItem: true, clientType: true, taxationType: true, vatTypeDetail: true, taxTypes: true, laborTypes: true,
       contractStatus: true, terminationMonth: true, contractDate: true, openDate: true, affiliation: true, cmsAffiliation: true,
       accountingProgram: true, contactMethod: true, paymentMethod: true, cmsStatus: true, withholdingType: true, halfYearTax: true,
       semoReportStatus: true, notes: true, driveFolderId: true, myboxLink: true, hometaxId: true, hometaxPw: true, residentNumber: true,
@@ -504,7 +505,8 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
 
   const year = parseInt(today.slice(0, 4));
   const yearMonths = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
-  const through = [...yearMonths].reverse().find(ym => ym <= thisMonth && hasData(ym)) ?? null;
+  // 이번 달은 아직 진행 중이라 누적에서 뺀다 — 지난달까지(자료 있는 마지막 달)가 기본
+  const through = [...yearMonths].reverse().find(ym => ym < thisMonth && hasData(ym)) ?? null;
   const ytdMonths = through ? yearMonths.filter(ym => ym <= through) : [];
   const prevMonthsRange = through ? ytdMonths.map(ym => `${year - 1}${ym.slice(4)}`) : [];
   const prevHas = prevMonthsRange.some(hasData);
@@ -514,7 +516,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     throughMonth: through,
     ytd: buildPeriod("ytd", `${year}년 누적`, ytdMonths, null),
     prevYtd: prevHas ? buildPeriod("prev-ytd", `${year - 1}년 ${through ? parseInt(through.slice(5, 7)) : 12}월까지`, prevMonthsRange, null) : null,
-    months: allMonths.map(ym => buildPeriod(ym, `${ym.slice(0, 4)}년 ${ym.slice(5, 7)}월`, [ym], daysIn(ym))),
+    months: allMonths.map(ym => buildPeriod(ym, `${ym.slice(0, 4)}년 ${ym.slice(5, 7)}월${ym >= thisMonth ? " (진행 중)" : ""}`, [ym], daysIn(ym))),
   };
 
   /* ── 경고 ── */
@@ -598,7 +600,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     today,
     client: {
       id: client.id, name: client.name, bizNumber: client.bizNumber, corporateNumber: client.corporateNumber, ceoName: client.ceoName,
-      phone: client.phone, email: client.email, address: client.address, bizType: client.bizType, bizItem: client.bizItem,
+      phone: client.phone, email: client.email, address: client.address, bizType: client.bizType, bizCategory: client.bizCategory, bizItem: client.bizItem,
       clientType: client.clientType, taxationType: client.taxationType, vatTypeDetail: client.vatTypeDetail, taxTypes: client.taxTypes,
       laborTypes: client.laborTypes, contractStatus: client.contractStatus, terminationMonth: client.terminationMonth,
       contractDate: client.contractDate, openDate: client.openDate, residentNumber: client.residentNumber, affiliation: client.affiliation, accountingProgram: client.accountingProgram,
