@@ -431,6 +431,19 @@ export function VatTable({ clients, period, activeTab, showAssignedUser, noticeT
       for (const f of list) fd.append("file", f);
       fd.append("period", period);
       const res = await fetch("/api/vat/notice-bill/import", { method: "POST", body: fd });
+      if (res.status === 413) {
+        notify(`파일이 너무 커서 서버(nginx)가 거부했습니다 (${(list.reduce((s, f) => s + f.size, 0) / 1024 / 1024).toFixed(1)}MB).
+
+nginx의 client_max_body_size 를 올려야 합니다. 임시로는 zip을 풀어 PDF를 20~30개씩 나눠 올려도 됩니다.`);
+        return;
+      }
+      const ct = res.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
+        notify(`서버가 올바르게 응답하지 않았습니다 (HTTP ${res.status}).
+
+배포 직후라면 1~2분 뒤 다시 시도해 주세요.`);
+        return;
+      }
       const data = await res.json();
       if (!res.ok) { notify(data.error || "업로드에 실패했습니다."); return; }
       const unmatchedMsg = data.unmatchedCount > 0
