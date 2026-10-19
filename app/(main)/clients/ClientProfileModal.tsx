@@ -6,6 +6,7 @@ import type { ClientProfile, LedgerMonth, ProfileTile, ProfileWarning, PayrollSu
 import { openClientEditModal } from "@/app/(main)/clients/ClientLink";
 import { ClientLedgerModal } from "@/app/(main)/clients/ClientLedgerModal";
 import { ClientPayrollModal } from "@/app/(main)/clients/ClientPayrollModal";
+import { YearBarLineChart } from "@/app/(main)/clients/YearBarLineChart";
 import type { ClientEditModalTab } from "@/app/(main)/clients/ClientEditModal";
 
 /**
@@ -195,21 +196,8 @@ function Tile({ t, onNavigate }: { t: ProfileTile; onNavigate: () => void }) {
 const SALE = "#10B981";
 const BUY = "#F59E0B";
 
-function niceCeil(v: number): number {
-  if (v <= 0) return 1;
-  const p = Math.pow(10, Math.floor(Math.log10(v)));
-  const r = v / p;
-  const step = r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10;
-  return step * p;
-}
-
 function LedgerChart({ rows, today, onSelectMonth }: { rows: LedgerMonth[]; today: string; onSelectMonth?: (ym: string) => void }) {
-  const [hover, setHover] = useState<number | null>(null);
   const n = rows.length;
-  const max = niceCeil(Math.max(0, ...rows.map(r => Math.max(r.saleSupply, r.buySupply))));
-  const H = 260;
-  const grid = [0.25, 0.5, 0.75, 1];
-
   const last12 = rows.slice(-12);
   const sumSale = last12.reduce((a, r) => a + r.saleSupply, 0);
   const sumBuy = last12.reduce((a, r) => a + r.buySupply, 0);
@@ -228,6 +216,16 @@ function LedgerChart({ rows, today, onSelectMonth }: { rows: LedgerMonth[]; toda
     );
   }
 
+  // 올해 1~12월 막대 + 작년 같은 달 점선 (매출/매입 따로)
+  const year = parseInt(today.slice(0, 4));
+  const byYm = new Map(rows.map(r => [r.yearMonth, r]));
+  const series = (k: "saleSupply" | "buySupply", y: number) => Array.from({ length: 12 }, (_, i) => byYm.get(`${y}-${String(i + 1).padStart(2, "0")}`)?.[k] ?? null);
+  const yearSum = (vals: (number | null)[]) => vals.reduce<number>((a, v) => a + (v ?? 0), 0);
+  const charts = [
+    { key: "sale", label: "매출", color: SALE, cur: series("saleSupply", year), prev: series("saleSupply", year - 1) },
+    { key: "buy", label: "매입", color: BUY, cur: series("buySupply", year), prev: series("buySupply", year - 1) },
+  ];
+
   return (
     <div>
       {/* 요약 숫자 */}
@@ -242,79 +240,31 @@ function LedgerChart({ rows, today, onSelectMonth }: { rows: LedgerMonth[]; toda
         />
       </div>
 
-      <div className="relative select-none" onMouseLeave={() => setHover(null)}>
-        {/* 격자 + 축 라벨 */}
-        <div className="relative" style={{ height: H }}>
-          {grid.map(g => (
-            <div key={g} className="absolute left-0 right-0 flex items-end border-t border-dashed border-[#E5E8EB]" style={{ bottom: `${g * 100}%` }}>
-              <span className="-translate-y-0.5 text-[9.5px] tabular-nums text-[#B0B8C1]">{short(max * g)}</span>
-            </div>
-          ))}
-          <div className="absolute inset-x-0 bottom-0 border-t border-[#D1D6DB]" />
-          {/* 막대 */}
-          <div className="absolute inset-0 flex items-end gap-[3px] pl-8 pr-1 sm:gap-1">
-            {rows.map((r, i) => {
-              const sh = Math.max(r.saleSupply > 0 ? 2 : 0, (r.saleSupply / max) * H);
-              const bh = Math.max(r.buySupply > 0 ? 2 : 0, (r.buySupply / max) * H);
-              const dim = hover != null && hover !== i;
-              return (
-                <div
-                  key={r.yearMonth}
-                  className={`group relative flex h-full flex-1 items-end justify-center gap-px ${onSelectMonth ? "cursor-pointer" : "cursor-crosshair"}`}
-                  onMouseEnter={() => setHover(i)}
-                  onClick={() => onSelectMonth?.(r.yearMonth)}
-                  title={onSelectMonth ? "누르면 이 달 상세" : undefined}
-                >
-                  <div className={`absolute inset-x-[-2px] inset-y-0 rounded-md transition-colors ${hover === i ? "bg-[#191F28]/[.04]" : ""}`} />
-                  <div className="relative w-[46%] rounded-t-[3px] transition-all duration-200" style={{ height: sh, background: SALE, opacity: dim ? 0.35 : 1 }} />
-                  <div className="relative w-[46%] rounded-t-[3px] transition-all duration-200" style={{ height: bh, background: BUY, opacity: dim ? 0.35 : 1 }} />
-                  {hover === i && (
-                    <div className={`pointer-events-none absolute top-0 z-10 w-[230px] rounded-2xl border border-[#E5E8EB] bg-white/95 p-3 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur ${i < 4 ? "left-0" : i > n - 5 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
-                      <div className="mb-2 flex items-baseline justify-between">
-                        <div className="text-[13px] font-extrabold text-[#191F28]">{r.yearMonth.slice(0, 4)}년 {parseInt(r.yearMonth.slice(5, 7))}월</div>
-                        <div className="text-[11px] font-bold text-[#8B95A1]">매입률 {r.purchasingRate == null ? "-" : `${Math.round(r.purchasingRate)}%`}</div>
-                      </div>
-                      <TipRow color={SALE} label="매출" supply={r.saleSupply} vat={r.saleVat} count={r.saleCount} />
-                      <TipRow color={BUY} label="매입" supply={r.buySupply} vat={r.buyVat} count={r.buyCount} />
-                    </div>
-                  )}
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        {charts.map(ch => {
+          const curSum = yearSum(ch.cur), prevSum = yearSum(ch.prev);
+          return (
+            <div key={ch.key} className="rounded-2xl border border-[#E5E8EB] bg-white/60 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#191F28]">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: ch.color }} />{ch.label} 공급가액
+                  <span className="ml-1 text-[11px] font-medium text-[#8B95A1]">{year}년 막대 · {year - 1}년 점선</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-        {/* x 라벨 */}
-        <div className="mt-1.5 flex gap-[3px] pl-8 pr-1 sm:gap-1">
-          {rows.map((r, i) => {
-            const m = parseInt(r.yearMonth.slice(5, 7));
-            const show = n <= 12 || m === 1 || m === 7 || i === n - 1 || i === 0;
-            return (
-              <div key={r.yearMonth} className="flex-1 text-center text-[9.5px] tabular-nums text-[#8B95A1]">
-                {show ? (m === 1 ? <b className="text-[#4E5968]">{r.yearMonth.slice(0, 4)}</b> : `${m}월`) : ""}
+                <div className="text-[11px] tabular-nums text-[#8B95A1]">
+                  {year}년 <b className="text-[#191F28]">{short(curSum)}</b>{prevSum > 0 && <span> · {year - 1}년 {short(prevSum)}</span>}
+                </div>
               </div>
-            );
-          })}
-        </div>
+              <YearBarLineChart year={year} cur={ch.cur} prev={ch.prev} color={ch.color} label={ch.label} height={170} onClickMonth={onSelectMonth} />
+            </div>
+          );
+        })}
       </div>
 
-      <div className="mt-2 flex items-center gap-4 pl-8 text-[11px] text-[#6B7684]">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: SALE }} />매출 공급가액</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: BUY }} />매입 공급가액</span>
-        <span className="ml-auto text-[#B0B8C1]">세모리포트 고객 매입매출장 · {rows[0].yearMonth} ~ {rows[n - 1].yearMonth}</span>
-      </div>
-    </div>
-  );
-}
-
-function TipRow({ color, label, supply, vat, count }: { color: string; label: string; supply: number; vat: number; count: number }) {
-  return (
-    <div className="flex items-start justify-between gap-2 py-1 text-[12px]">
-      <span className="inline-flex items-center gap-1.5 font-bold" style={{ color }}>
-        <span className="h-2 w-2 rounded-sm" style={{ background: color }} />{label}
-      </span>
-      <div className="text-right">
-        <div className="font-extrabold tabular-nums text-[#191F28]">{won(supply)}원</div>
-        <div className="text-[10.5px] tabular-nums text-[#8B95A1]">세액 {won(vat)} · {count}건</div>
+      <div className="mt-2 flex items-center gap-4 text-[11px] text-[#6B7684]">
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />{year - 1}년(점선)</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: SALE }} />매출</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: BUY }} />매입</span>
+        <span className="ml-auto text-[#B0B8C1]">세모리포트 고객 매입매출장 · {rows[0].yearMonth} ~ {rows[n - 1].yearMonth} · 막대를 누르면 그 달 상세</span>
       </div>
     </div>
   );
@@ -420,6 +370,7 @@ function PayrollSummary({ rows, today, onOpen }: { rows: PayrollSummaryMonth[]; 
 const TH = "px-3 py-2 text-left text-[10.5px] font-bold text-[#8B95A1] whitespace-nowrap";
 const TD = "px-3 py-2.5 text-[12.5px] text-[#333D4B] whitespace-nowrap";
 const NUM = `${TD} text-right tabular-nums`;
+const THC = TH.replace("text-left", "text-center");
 
 function HistoryCard({ id, title, eyebrow, href, children, empty, count }: { id: string; title: string; eyebrow: string; href: string; children: React.ReactNode; empty: boolean; count: number }) {
   return (
@@ -693,7 +644,6 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                   title="월별 매출 · 매입 (공급가액)"
                   right={
                     <div className="flex items-center gap-3">
-                      <span className="hidden text-[11px] text-[#8B95A1] sm:inline">최근 {data.ledger.length}개월 · 막대를 누르면 그 달 상세</span>
                       {data.ledger.length > 0 && (
                         <button type="button" onClick={() => setLedgerOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">
                           상세 보기
@@ -811,9 +761,10 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                         <thead>
                           <tr className="border-b border-[#F2F4F6]">
                             <th className={TH}>월</th>
-                            <th className={`${TH} text-center`} style={{ color: PAY_COLORS.salary }}>근로</th>
-                            <th className={`${TH} text-center`} style={{ color: PAY_COLORS.business }}>사업</th>
-                            <th className={`${TH} text-center`} style={{ color: PAY_COLORS.daily }}>일용</th>
+                            <th className={`${TH} text-right`}>인건비(급여대장)</th>
+                            <th className={THC} style={{ color: PAY_COLORS.salary }}>근로</th>
+                            <th className={THC} style={{ color: PAY_COLORS.business }}>사업</th>
+                            <th className={THC} style={{ color: PAY_COLORS.daily }}>일용</th>
                             <th className={TH}>진행</th><th className={TH}>단계</th>
                             <th className={`${TH} text-right`}>소득세</th><th className={`${TH} text-right`}>지방소득세</th>
                             <th className={TH}>신고</th><th className={TH}>접수번호</th>
@@ -825,6 +776,13 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                             return (
                               <tr key={r.yearMonth} className={rowCls(r.isCurrent)}>
                                 <td className={`${TD} font-bold text-[#191F28]`}>{r.label}{r.isCurrent && <span className="ml-1.5 text-[10px] font-bold text-[#3182F6]">이번</span>}</td>
+                                <td className={NUM}>
+                                  {pay ? (
+                                    <button type="button" onClick={() => setPayrollOpen({ month: r.yearMonth })} className="hover:underline" title="인건비 상세">
+                                      <b className="text-[#0F9D77]">{won(pay.gross)}</b><span className="ml-1 text-[10.5px] text-[#8B95A1]">{pay.headcount}명</span>
+                                    </button>
+                                  ) : <span className="text-[#B0B8C1]">-</span>}
+                                </td>
                                 {(["salary", "business", "daily"] as const).map(k => {
                                   const t = pay?.[k];
                                   const has = !!t && (t.headcount > 0 || t.gross > 0);

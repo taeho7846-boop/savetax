@@ -218,9 +218,9 @@ function EmployeeMatrix({ months, type, selected, onSelect }: { months: PayrollM
   );
 }
 
-/* ───────── 인건비 추이: 선택한 달까지 최근 12개월 막대 + 각 달의 1년 전 점선 (같은 자리에 겹쳐 비교) ───────── */
+/* ───────── 인건비 추이: 선택한 해 1~12월 막대 + 전년도 같은 달 점선 (같은 자리에 겹쳐 비교) ───────── */
 
-function YearTrend({ months, endYm }: { months: PayrollMonthData[]; endYm: string }) {
+function YearTrend({ months, year }: { months: PayrollMonthData[]; year: number }) {
   const [hover, setHover] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -232,7 +232,7 @@ function YearTrend({ months, endYm }: { months: PayrollMonthData[]; endYm: strin
     return () => ro.disconnect();
   }, []);
   const byYm = new Map(months.map(m => [m.yearMonth, m.total.gross]));
-  const cols = Array.from({ length: 12 }, (_, i) => addMonths(endYm, -11 + i)); // 오래된 → 최근
+  const cols = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
   const cur = cols.map(ym => byYm.get(ym) ?? null);
   const prev = cols.map(ym => byYm.get(addMonths(ym, -12)) ?? null);
   const max = Math.max(1, ...cur.map(v => v ?? 0), ...prev.map(v => v ?? 0));
@@ -243,7 +243,7 @@ function YearTrend({ months, endYm }: { months: PayrollMonthData[]; endYm: strin
   const curPaired = pairs.reduce((a, [c]) => a + c, 0);
   const prevPaired = pairs.reduce((a, [, p]) => a + p, 0);
   const hasAnyPrev = prev.some(v => v != null);
-  const rangeLabel = `${cols[0].slice(2, 4)}.${parseInt(cols[0].slice(5, 7))}~${cols[11].slice(2, 4)}.${parseInt(cols[11].slice(5, 7))}`;
+  const lastIdx = cur.reduce<number>((a, v, i) => (v != null ? i : a), -1);
 
   const colW = width > 0 ? (width - PADX * 2 - GAP * 11) / 12 : 0;
   const xOf = (i: number) => PADX + colW * i + GAP * i + colW / 2;
@@ -259,19 +259,19 @@ function YearTrend({ months, endYm }: { months: PayrollMonthData[]; endYm: strin
   return (
     <div>
       <div className="text-[17px] font-bold leading-snug text-[#191F28]">
-        최근 12개월({rangeLabel}) 인건비는 <span style={{ color: GREEN }}>{won(curSum)}원</span>이에요
+        {lastIdx < 0 ? <span className="text-[#8B95A1]">{year}년 인건비 자료가 아직 없어요</span> : <>{year}년 1~{lastIdx + 1}월 인건비는 <span style={{ color: GREEN }}>{won(curSum)}원</span>이에요</>}
         {pairs.length > 0 ? (
           <div className="text-[13.5px] font-bold text-[#4E5968]">
-            1년 전 같은 달과 비교하면({pairs.length}개월) <span style={{ color: curPaired >= prevPaired ? "#DC2626" : "#1B64DA" }}>{won(Math.abs(curPaired - prevPaired))}원 {curPaired >= prevPaired ? "늘었어요" : "줄었어요"}</span>
+            {year - 1}년 같은 달과 비교하면({pairs.length}개월) <span style={{ color: curPaired >= prevPaired ? "#DC2626" : "#1B64DA" }}>{won(Math.abs(curPaired - prevPaired))}원 {curPaired >= prevPaired ? "늘었어요" : "줄었어요"}</span>
             {pct(curPaired, prevPaired) != null && <span className="ml-1 text-[#8B95A1]">({curPaired >= prevPaired ? "+" : ""}{pct(curPaired, prevPaired)}%)</span>}
           </div>
-        ) : (
-          <div className="text-[12.5px] font-medium text-[#8B95A1]">1년 전 자료가 없어 비교는 못 해요</div>
-        )}
+        ) : lastIdx >= 0 ? (
+          <div className="text-[12.5px] font-medium text-[#8B95A1]">{year - 1}년 같은 달 자료가 없어 비교는 못 해요</div>
+        ) : null}
       </div>
       <div className="mt-3 flex items-center justify-end gap-4 text-[12px] text-[#6B7684]">
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />1년 전 같은 달</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GREEN }} />최근 12개월</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />{year - 1}년(점선)</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GREEN }} />{year}년</span>
       </div>
       <div ref={wrapRef} className="relative mt-2" style={{ height: H }} onMouseLeave={() => setHover(null)}>
         {[0.25, 0.5, 0.75, 1].map(g => (
@@ -320,8 +320,7 @@ function YearTrend({ months, endYm }: { months: PayrollMonthData[]; endYm: strin
           const m = parseInt(ym.slice(5, 7));
           return (
             <div key={ym} className="flex flex-1 flex-col items-center gap-1 text-[11px] tabular-nums text-[#8B95A1]">
-              <span className={`h-2 w-2 rounded-full ${cur[i] != null ? "bg-[#4E5968]" : "bg-[#D1D6DB]"}`} />
-              {m === 1 || i === 0 ? <span><b className="text-[#4E5968]">{ym.slice(2, 4)}.</b>{m}월</span> : `${m}월`}
+              <span className={`h-2 w-2 rounded-full ${cur[i] != null ? "bg-[#4E5968]" : "bg-[#D1D6DB]"}`} />{m}월
             </div>
           );
         })}
@@ -756,8 +755,8 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
 
               {/* 인건비 추이 */}
               <section>
-                <h3 className="mb-3 text-[17px] font-bold text-[#191F28]">• 인건비 추이 <span className="text-[13px] font-medium text-[#8B95A1]">선택한 달까지 최근 12개월 · 1년 전 같은 달과 겹쳐 비교</span></h3>
-                <YearTrend months={months} endYm={sel} />
+                <h3 className="mb-3 text-[17px] font-bold text-[#191F28]">• 인건비 추이 <span className="text-[13px] font-medium text-[#8B95A1]">{sel.slice(0, 4)}년 1~12월 · {parseInt(sel.slice(0, 4)) - 1}년은 같은 월에 점선</span></h3>
+                <YearTrend months={months} year={parseInt(sel.slice(0, 4))} />
               </section>
 
               <div className="flex items-center justify-between pb-1 text-[11px] text-[#B0B8C1]">
