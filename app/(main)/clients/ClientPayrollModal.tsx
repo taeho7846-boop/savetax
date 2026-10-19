@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MonthGrid } from "@/app/(main)/clients/MonthGrid";
 import { PAYROLL_TYPES, type PayrollMonthData, type PayrollType, type CollectResult, type PayrollFilingMonth, type PayrollWehago } from "@/lib/payroll-types";
 
 /**
@@ -217,9 +218,9 @@ function EmployeeMatrix({ months, type, selected, onSelect }: { months: PayrollM
   );
 }
 
-/* ───────── 인건비 추이 (올해 막대 + 작년 점선) ───────── */
+/* ───────── 인건비 추이: 선택한 달까지 최근 12개월 막대 + 각 달의 1년 전 점선 (같은 자리에 겹쳐 비교) ───────── */
 
-function YearTrend({ months, year, thisMonth }: { months: PayrollMonthData[]; year: number; thisMonth: string }) {
+function YearTrend({ months, endYm }: { months: PayrollMonthData[]; endYm: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -231,20 +232,19 @@ function YearTrend({ months, year, thisMonth }: { months: PayrollMonthData[]; ye
     return () => ro.disconnect();
   }, []);
   const byYm = new Map(months.map(m => [m.yearMonth, m.total.gross]));
-  const cur = Array.from({ length: 12 }, (_, i) => byYm.get(`${year}-${String(i + 1).padStart(2, "0")}`) ?? null);
-  const prev = Array.from({ length: 12 }, (_, i) => byYm.get(`${year - 1}-${String(i + 1).padStart(2, "0")}`) ?? null);
+  const cols = Array.from({ length: 12 }, (_, i) => addMonths(endYm, -11 + i)); // 오래된 → 최근
+  const cur = cols.map(ym => byYm.get(ym) ?? null);
+  const prev = cols.map(ym => byYm.get(addMonths(ym, -12)) ?? null);
   const max = Math.max(1, ...cur.map(v => v ?? 0), ...prev.map(v => v ?? 0));
   const H = 240;
-  const PADX = 8; // px-2
-  const GAP = 12; // gap-3
-  let lastIdx = -1;
-  cur.forEach((v, i) => { if (v != null && `${year}-${String(i + 1).padStart(2, "0")}` <= thisMonth) lastIdx = i; });
-  const curSum = cur.slice(0, lastIdx + 1).reduce<number>((a, v) => a + (v ?? 0), 0);
-  const prevSum = prev.slice(0, lastIdx + 1).reduce<number>((a, v) => a + (v ?? 0), 0);
-  const hasPrev = prev.slice(0, lastIdx + 1).some(v => v != null);
+  const PADX = 8, GAP = 12; // px-2 gap-3
+  const curSum = cur.reduce<number>((a, v) => a + (v ?? 0), 0);
+  const pairs = cols.map((_, i) => [cur[i], prev[i]] as const).filter(([c, p]) => c != null && p != null) as [number, number][];
+  const curPaired = pairs.reduce((a, [c]) => a + c, 0);
+  const prevPaired = pairs.reduce((a, [, p]) => a + p, 0);
   const hasAnyPrev = prev.some(v => v != null);
+  const rangeLabel = `${cols[0].slice(2, 4)}.${parseInt(cols[0].slice(5, 7))}~${cols[11].slice(2, 4)}.${parseInt(cols[11].slice(5, 7))}`;
 
-  // 작년 점선 좌표: 열 가운데 x, 값 높이 y. 자료 없는 달은 선을 끊는다
   const colW = width > 0 ? (width - PADX * 2 - GAP * 11) / 12 : 0;
   const xOf = (i: number) => PADX + colW * i + GAP * i + colW / 2;
   const yOf = (v: number) => H - (v / max) * H;
@@ -259,13 +259,19 @@ function YearTrend({ months, year, thisMonth }: { months: PayrollMonthData[]; ye
   return (
     <div>
       <div className="text-[17px] font-bold leading-snug text-[#191F28]">
-        {lastIdx < 0 ? <span className="text-[#8B95A1]">{year}년 인건비 자료가 아직 없어요</span>
-          : !hasPrev ? <>{year}년 1~{lastIdx + 1}월 인건비는 <span style={{ color: GREEN }}>{won(curSum)}원</span>이에요<div className="text-[12.5px] font-medium text-[#8B95A1]">작년 같은 기간 자료가 없어 비교는 못 해요</div></>
-          : <>지난해 같은 기간(1~{lastIdx + 1}월) 대비 인건비는<br /><span style={{ color: curSum >= prevSum ? GREEN : "#1B64DA" }}>{won(Math.abs(curSum - prevSum))}원</span> {curSum >= prevSum ? "증가" : "감소"}했어요 <span className="text-[13px] font-bold text-[#8B95A1]">({curSum >= prevSum ? "+" : ""}{pct(curSum, prevSum) ?? 0}%)</span></>}
+        최근 12개월({rangeLabel}) 인건비는 <span style={{ color: GREEN }}>{won(curSum)}원</span>이에요
+        {pairs.length > 0 ? (
+          <div className="text-[13.5px] font-bold text-[#4E5968]">
+            1년 전 같은 달과 비교하면({pairs.length}개월) <span style={{ color: curPaired >= prevPaired ? "#DC2626" : "#1B64DA" }}>{won(Math.abs(curPaired - prevPaired))}원 {curPaired >= prevPaired ? "늘었어요" : "줄었어요"}</span>
+            {pct(curPaired, prevPaired) != null && <span className="ml-1 text-[#8B95A1]">({curPaired >= prevPaired ? "+" : ""}{pct(curPaired, prevPaired)}%)</span>}
+          </div>
+        ) : (
+          <div className="text-[12.5px] font-medium text-[#8B95A1]">1년 전 자료가 없어 비교는 못 해요</div>
+        )}
       </div>
       <div className="mt-3 flex items-center justify-end gap-4 text-[12px] text-[#6B7684]">
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />작년 {year - 1}</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GREEN }} />올해 {year}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />1년 전 같은 달</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GREEN }} />최근 12개월</span>
       </div>
       <div ref={wrapRef} className="relative mt-2" style={{ height: H }} onMouseLeave={() => setHover(null)}>
         {[0.25, 0.5, 0.75, 1].map(g => (
@@ -274,19 +280,19 @@ function YearTrend({ months, year, thisMonth }: { months: PayrollMonthData[]; ye
           </div>
         ))}
         <div className="absolute inset-x-0 bottom-0 border-t border-[#D1D6DB]" />
-        {/* 올해 막대 */}
         <div className="absolute inset-0 flex items-end gap-3 px-2">
-          {cur.map((c, i) => {
-            const p = prev[i];
+          {cols.map((ym, i) => {
+            const c = cur[i], p = prev[i];
             const dim = hover != null && hover !== i;
+            const prevYm = addMonths(ym, -12);
             return (
-              <div key={i} className="relative flex h-full flex-1 items-end justify-center cursor-crosshair" onMouseEnter={() => setHover(i)}>
+              <div key={ym} className="relative flex h-full flex-1 items-end justify-center cursor-crosshair" onMouseEnter={() => setHover(i)}>
                 <div className="w-[56%] rounded-t-[6px] transition-all" style={{ height: c == null ? 0 : Math.max(c > 0 ? 3 : 0, (c / max) * H), background: GREEN, opacity: dim ? 0.35 : 1 }} />
                 {hover === i && (
-                  <div className={`pointer-events-none absolute top-0 z-20 w-[200px] rounded-2xl border border-[#E5E8EB] bg-white/95 p-3 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 2 ? "left-0" : i > 9 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
-                    <div className="text-[12.5px] font-extrabold text-[#191F28]">{i + 1}월 인건비</div>
-                    <div className="mt-1.5 flex justify-between text-[12px]"><span className="text-[#8B95A1]">{year}</span><b className="tabular-nums" style={{ color: GREEN }}>{c == null ? "-" : `${won(c)}원`}</b></div>
-                    <div className="flex justify-between text-[12px]"><span className="text-[#8B95A1]">{year - 1}</span><b className="tabular-nums text-[#4E5968]">{p == null ? "-" : `${won(p)}원`}</b></div>
+                  <div className={`pointer-events-none absolute top-0 z-20 w-[210px] rounded-2xl border border-[#E5E8EB] bg-white/95 p-3 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 2 ? "left-0" : i > 9 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
+                    <div className="text-[12.5px] font-extrabold text-[#191F28]">{ym.slice(0, 4)}년 {parseInt(ym.slice(5, 7))}월 인건비</div>
+                    <div className="mt-1.5 flex justify-between text-[12px]"><span className="text-[#8B95A1]">{ym.slice(0, 4)}.{ym.slice(5, 7)}</span><b className="tabular-nums" style={{ color: GREEN }}>{c == null ? "-" : `${won(c)}원`}</b></div>
+                    <div className="flex justify-between text-[12px]"><span className="text-[#8B95A1]">{prevYm.slice(0, 4)}.{prevYm.slice(5, 7)}</span><b className="tabular-nums text-[#4E5968]">{p == null ? "-" : `${won(p)}원`}</b></div>
                     {c != null && p != null && p > 0 && (
                       <div className={`mt-1 text-right text-[11px] font-bold ${c >= p ? "text-[#DC2626]" : "text-[#1B64DA]"}`}>
                         {c >= p ? "▲" : "▼"} {won(Math.abs(c - p))}원 ({c >= p ? "+" : ""}{pct(c, p)}%)
@@ -298,7 +304,6 @@ function YearTrend({ months, year, thisMonth }: { months: PayrollMonthData[]; ye
             );
           })}
         </div>
-        {/* 작년 점선 (겹침) */}
         {hasAnyPrev && width > 0 && (
           <svg className="pointer-events-none absolute inset-0 z-10" width={width} height={H} viewBox={`0 0 ${width} ${H}`}>
             {segments.map((pts, k) => (
@@ -311,11 +316,15 @@ function YearTrend({ months, year, thisMonth }: { months: PayrollMonthData[]; ye
         )}
       </div>
       <div className="mt-2 flex gap-3 px-2">
-        {Array.from({ length: 12 }, (_, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1 text-[11px] tabular-nums text-[#8B95A1]">
-            <span className={`h-2 w-2 rounded-full ${cur[i] != null ? "bg-[#4E5968]" : "bg-[#D1D6DB]"}`} />{i + 1}월
-          </div>
-        ))}
+        {cols.map((ym, i) => {
+          const m = parseInt(ym.slice(5, 7));
+          return (
+            <div key={ym} className="flex flex-1 flex-col items-center gap-1 text-[11px] tabular-nums text-[#8B95A1]">
+              <span className={`h-2 w-2 rounded-full ${cur[i] != null ? "bg-[#4E5968]" : "bg-[#D1D6DB]"}`} />
+              {m === 1 || i === 0 ? <span><b className="text-[#4E5968]">{ym.slice(2, 4)}.</b>{m}월</span> : `${m}월`}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -663,10 +672,6 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
   const m = sel ? byYm.get(sel) ?? null : null;
   const prevM = sel ? byYm.get(addMonths(sel, -1)) ?? null : null;
   const thisMonth = data?.today.slice(0, 7) ?? "9999-12";
-  const selYear = sel ? parseInt(sel.slice(0, 4)) : parseInt(thisMonth.slice(0, 4));
-  const years = useMemo(() => Array.from(new Set(months.map(x => x.yearMonth.slice(0, 4)))).sort(), [months]);
-  const selChipRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { selChipRef.current?.scrollIntoView({ inline: "center", block: "nearest" }); }, [selected, data]);
   const onCollected = useCallback((ms: PayrollMonthData[]) => { setData(d => d ? { ...d, months: ms } : d); }, []);
   const refresh = useCallback(async () => {
     try {
@@ -701,25 +706,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
               <button onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg leading-none text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#333D4B]" aria-label="닫기">✕</button>
             </div>
           </div>
-          {months.length > 0 && sel && (
-            <div className="mt-3 overflow-x-auto">
-              <div className="flex items-center gap-1 min-w-max">
-                {years.map(y => (
-                  <div key={y} className="flex items-center gap-1">
-                    <span className="mx-1 text-[11px] font-bold text-[#8B95A1]">{y}</span>
-                    {months.filter(x => x.yearMonth.startsWith(y)).map(x => {
-                      const on = x.yearMonth === sel;
-                      return (
-                        <button key={x.yearMonth} ref={on ? selChipRef : undefined} type="button" onClick={() => setSelected(x.yearMonth)} className={`h-8 rounded-lg px-2.5 text-[12px] font-bold tabular-nums transition-colors ${on ? "bg-[#191F28] text-white shadow-sm" : "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"}`}>
-                          {parseInt(mm(x.yearMonth))}월
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {months.length > 0 && sel && <MonthGrid available={months.map(x => x.yearMonth)} selected={sel} onSelect={setSelected} />}
         </div>
 
         {/* 본문 */}
@@ -769,8 +756,8 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
 
               {/* 인건비 추이 */}
               <section>
-                <h3 className="mb-3 text-[17px] font-bold text-[#191F28]">• 인건비 추이 <span className="text-[13px] font-medium text-[#8B95A1]">{selYear}년 vs {selYear - 1}년</span></h3>
-                <YearTrend months={months} year={selYear} thisMonth={thisMonth} />
+                <h3 className="mb-3 text-[17px] font-bold text-[#191F28]">• 인건비 추이 <span className="text-[13px] font-medium text-[#8B95A1]">선택한 달까지 최근 12개월 · 1년 전 같은 달과 겹쳐 비교</span></h3>
+                <YearTrend months={months} endYm={sel} />
               </section>
 
               <div className="flex items-center justify-between pb-1 text-[11px] text-[#B0B8C1]">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LedgerDetailMonth, LedgerCategory } from "@/lib/semo-ledger";
+import { MonthGrid } from "@/app/(main)/clients/MonthGrid";
 
 /**
  * 거래처 매출·매입 상세 모달 — 거래처 프로필의 '월별 매출·매입' 영역에서 연다.
@@ -179,9 +180,9 @@ function TrendTable({ months, selected, onSelect }: { months: LedgerDetailMonth[
   );
 }
 
-/* ───────── 작년 vs 올해 (올해 막대 + 작년 점선) ───────── */
+/* ───────── 추이: 선택한 달까지 최근 12개월 막대 + 각 달의 1년 전 점선 (같은 자리에 겹쳐 비교) ───────── */
 
-function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMonth[]; year: number; mode: "sale" | "buy"; thisMonth: string }) {
+function YearCompare({ months, endYm, mode }: { months: LedgerDetailMonth[]; endYm: string; mode: "sale" | "buy" }) {
   const [hover, setHover] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -194,22 +195,21 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
   }, []);
   const byYm = new Map(months.map(m => [m.yearMonth, m]));
   const val = (ym: string) => { const m = byYm.get(ym); return m ? (mode === "sale" ? m.saleSupply : m.buySupply) : null; };
-  const cur = Array.from({ length: 12 }, (_, i) => val(`${year}-${String(i + 1).padStart(2, "0")}`));
-  const prev = Array.from({ length: 12 }, (_, i) => val(`${year - 1}-${String(i + 1).padStart(2, "0")}`));
+  const cols = Array.from({ length: 12 }, (_, i) => addMonths(endYm, -11 + i));
+  const cur = cols.map(ym => val(ym));
+  const prev = cols.map(ym => val(addMonths(ym, -12)));
   const max = Math.max(1, ...cur.map(v => v ?? 0), ...prev.map(v => v ?? 0));
   const color = mode === "sale" ? SALE : BUY;
   const H = 220;
   const PADL = 36, PADR = 4, GAP = 8; // pl-9 pr-1 gap-2
-
-  // 올해 데이터가 있는 마지막 달까지의 누적 vs 작년 같은 기간
-  const lastIdx = (() => { let k = -1; cur.forEach((v, i) => { if (v != null && `${year}-${String(i + 1).padStart(2, "0")}` < thisMonth) k = i; }); return k; })();
-  const curSum = cur.slice(0, lastIdx + 1).reduce<number>((a, v) => a + (v ?? 0), 0);
-  const prevSum = prev.slice(0, lastIdx + 1).reduce<number>((a, v) => a + (v ?? 0), 0);
-  const hasPrev = prev.slice(0, lastIdx + 1).some(v => v != null);
-  const hasAnyPrev = prev.some(v => v != null);
   const label = mode === "sale" ? "매출" : "매입";
+  const curSum = cur.reduce<number>((a, v) => a + (v ?? 0), 0);
+  const pairs = cols.map((_, i) => [cur[i], prev[i]] as const).filter(([c, p]) => c != null && p != null) as [number, number][];
+  const curPaired = pairs.reduce((a, [c]) => a + c, 0);
+  const prevPaired = pairs.reduce((a, [, p]) => a + p, 0);
+  const hasAnyPrev = prev.some(v => v != null);
+  const rangeLabel = `${cols[0].slice(2, 4)}.${parseInt(cols[0].slice(5, 7))}~${cols[11].slice(2, 4)}.${parseInt(cols[11].slice(5, 7))}`;
 
-  // 작년 점선 좌표 (자료 없는 달은 선 끊김)
   const colW = width > 0 ? (width - PADL - PADR - GAP * 11) / 12 : 0;
   const xOf = (i: number) => PADL + colW * i + GAP * i + colW / 2;
   const yOf = (v: number) => H - (v / max) * H;
@@ -224,21 +224,16 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
   return (
     <div>
       <div className="mb-3 text-[15px] font-bold leading-snug text-[#191F28]">
-        {lastIdx < 0 ? (
-          <span className="text-[#8B95A1]">{year}년 {label} 자료가 아직 없어요</span>
-        ) : !hasPrev ? (
-          <>{year}년 1~{lastIdx + 1}월 {label}은 <b style={{ color }}>{won(curSum)}원</b>이에요. <span className="text-[#8B95A1] font-medium">작년 자료가 없어 비교는 못 해요.</span></>
+        최근 12개월({rangeLabel}) {label}은 <b style={{ color }}>{won(curSum)}원</b>이에요.
+        {pairs.length > 0 ? (
+          <span className="ml-1">1년 전 같은 달과 비교하면({pairs.length}개월) <b style={{ color: curPaired >= prevPaired ? "#DC2626" : "#1B64DA" }}>{won(Math.abs(curPaired - prevPaired))}원 {curPaired >= prevPaired ? "증가" : "감소"}</b>{pct(curPaired, prevPaired) != null && <span className="ml-1 text-[13px] font-bold text-[#8B95A1]">({curPaired >= prevPaired ? "+" : ""}{pct(curPaired, prevPaired)}%)</span>}</span>
         ) : (
-          <>
-            지난해 같은 기간(1~{lastIdx + 1}월) 대비 {label}은{" "}
-            <b style={{ color: curSum - prevSum >= 0 ? "#DC2626" : "#1B64DA" }}>{won(Math.abs(curSum - prevSum))}원 {curSum - prevSum >= 0 ? "증가" : "감소"}</b>했어요
-            {pct(curSum, prevSum) != null && <span className="ml-1 text-[13px] font-bold text-[#8B95A1]">({pct(curSum, prevSum)! > 0 ? "+" : ""}{pct(curSum, prevSum)}%)</span>}
-          </>
+          <span className="ml-1 text-[#8B95A1] font-medium">1년 전 자료가 없어 비교는 못 해요.</span>
         )}
       </div>
       <div className="flex items-center justify-end gap-4 text-[11px] text-[#6B7684]">
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />작년 {year - 1}</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />올해 {year}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t-2 border-dashed border-[#8B95A1]" />1년 전 같은 달</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />최근 12개월</span>
       </div>
       <div ref={wrapRef} className="relative mt-2" style={{ height: H }} onMouseLeave={() => setHover(null)}>
         {[0.25, 0.5, 0.75, 1].map(g => (
@@ -248,17 +243,18 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
         ))}
         <div className="absolute inset-x-0 bottom-0 border-t border-[#D1D6DB]" />
         <div className="absolute inset-0 flex items-end gap-2 pl-9 pr-1">
-          {cur.map((c, i) => {
-            const p = prev[i];
+          {cols.map((ym, i) => {
+            const c = cur[i], p = prev[i];
             const dim = hover != null && hover !== i;
+            const prevYm = addMonths(ym, -12);
             return (
-              <div key={i} className="relative flex h-full flex-1 items-end justify-center cursor-crosshair" onMouseEnter={() => setHover(i)}>
+              <div key={ym} className="relative flex h-full flex-1 items-end justify-center cursor-crosshair" onMouseEnter={() => setHover(i)}>
                 <div className="w-[56%] rounded-t-[4px] transition-all" style={{ height: c == null ? 0 : Math.max(c > 0 ? 2 : 0, (c / max) * H), background: color, opacity: dim ? 0.35 : 1 }} />
                 {hover === i && (
-                  <div className={`pointer-events-none absolute top-0 z-20 w-[200px] rounded-2xl border border-[#E5E8EB] bg-white/95 p-3 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 2 ? "left-0" : i > 9 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
-                    <div className="text-[12.5px] font-extrabold text-[#191F28]">{i + 1}월 {label}</div>
-                    <div className="mt-1.5 flex justify-between text-[12px]"><span className="text-[#8B95A1]">{year}</span><b className="tabular-nums" style={{ color }}>{c == null ? "-" : `${won(c)}원`}</b></div>
-                    <div className="flex justify-between text-[12px]"><span className="text-[#8B95A1]">{year - 1}</span><b className="tabular-nums text-[#4E5968]">{p == null ? "-" : `${won(p)}원`}</b></div>
+                  <div className={`pointer-events-none absolute top-0 z-20 w-[210px] rounded-2xl border border-[#E5E8EB] bg-white/95 p-3 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ${i < 2 ? "left-0" : i > 9 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
+                    <div className="text-[12.5px] font-extrabold text-[#191F28]">{ym.slice(0, 4)}년 {parseInt(ym.slice(5, 7))}월 {label}</div>
+                    <div className="mt-1.5 flex justify-between text-[12px]"><span className="text-[#8B95A1]">{ym.slice(0, 4)}.{ym.slice(5, 7)}</span><b className="tabular-nums" style={{ color }}>{c == null ? "-" : `${won(c)}원`}</b></div>
+                    <div className="flex justify-between text-[12px]"><span className="text-[#8B95A1]">{prevYm.slice(0, 4)}.{prevYm.slice(5, 7)}</span><b className="tabular-nums text-[#4E5968]">{p == null ? "-" : `${won(p)}원`}</b></div>
                     {c != null && p != null && p > 0 && <div className="mt-1 text-right text-[11px] font-bold"><Delta cur={c} prev={p} /></div>}
                   </div>
                 )}
@@ -278,7 +274,10 @@ function YearCompare({ months, year, mode, thisMonth }: { months: LedgerDetailMo
         )}
       </div>
       <div className="mt-1.5 flex gap-2 pl-9 pr-1">
-        {Array.from({ length: 12 }, (_, i) => <div key={i} className="flex-1 text-center text-[10.5px] tabular-nums text-[#8B95A1]">{i + 1}월</div>)}
+        {cols.map((ym, i) => {
+          const m = parseInt(ym.slice(5, 7));
+          return <div key={ym} className="flex-1 text-center text-[10.5px] tabular-nums text-[#8B95A1]">{m === 1 || i === 0 ? <span><b className="text-[#4E5968]">{ym.slice(2, 4)}.</b>{m}월</span> : `${m}월`}</div>;
+        })}
       </div>
     </div>
   );
@@ -299,8 +298,6 @@ export function ClientLedgerModal({ clientId, clientName, initialMonth, onClose,
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(initialMonth ?? null);
   const [mode, setMode] = useState<"sale" | "buy">("sale");
-  // 오늘이 속한 달(KST)은 서버가 응답에 넣어준다 (렌더 중 Date.now() 호출 회피)
-  const thisMonth = data?.today.slice(0, 7) ?? "9999-12";
 
   useEffect(() => {
     if (preload) return;
@@ -320,26 +317,13 @@ export function ClientLedgerModal({ clientId, clientName, initialMonth, onClose,
   }, [onClose]);
 
   const months = useMemo(() => data?.months ?? [], [data]);
-  // 선택된 달 칩이 월 띠 안에서 보이도록
-  const selChipRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { selChipRef.current?.scrollIntoView({ inline: "center", block: "nearest" }); }, [selected, data]);
   const byYm = useMemo(() => new Map(months.map(m => [m.yearMonth, m])), [months]);
   const latest = months.length ? months[months.length - 1].yearMonth : null;
   const sel = selected && byYm.has(selected) ? selected : latest;
   const m = sel ? byYm.get(sel) ?? null : null;
   const prevM = sel ? byYm.get(addMonths(sel, -1)) ?? null : null;
   const yoyM = sel ? byYm.get(addMonths(sel, -12)) ?? null : null;
-  const years = useMemo(() => Array.from(new Set(months.map(x => x.yearMonth.slice(0, 4)))).sort(), [months]);
-  const selYear = sel ? parseInt(sel.slice(0, 4)) : new Date().getFullYear();
   const rate = m && m.saleSupply > 0 ? Math.round((m.buySupply / m.saleSupply) * 100) : null;
-  const canPrev = !!sel && months.some(x => x.yearMonth < sel);
-  const canNext = !!sel && months.some(x => x.yearMonth > sel);
-  const step = (dir: -1 | 1) => {
-    if (!sel) return;
-    const idx = months.findIndex(x => x.yearMonth === sel);
-    const next = months[idx + dir];
-    if (next) setSelected(next.yearMonth);
-  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#191F28]/35 p-2 backdrop-blur-[4px] sm:p-4" onClick={onClose}>
@@ -360,35 +344,7 @@ export function ClientLedgerModal({ clientId, clientName, initialMonth, onClose,
             </div>
             <button onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg leading-none text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#333D4B]" aria-label="닫기">✕</button>
           </div>
-          {months.length > 0 && sel && (
-            <div className="mt-3 flex items-center gap-2">
-              <button type="button" disabled={!canPrev} onClick={() => step(-1)} className="h-8 w-8 rounded-lg border border-[#E5E8EB] bg-white/80 text-[#4E5968] hover:bg-[#F2F4F6] disabled:opacity-30">‹</button>
-              <div className="flex-1 overflow-x-auto">
-                <div className="flex items-center gap-1 min-w-max">
-                  {years.map(y => (
-                    <div key={y} className="flex items-center gap-1">
-                      <span className="mx-1 text-[11px] font-bold text-[#8B95A1]">{y}</span>
-                      {months.filter(x => x.yearMonth.startsWith(y)).map(x => {
-                        const on = x.yearMonth === sel;
-                        return (
-                          <button
-                            key={x.yearMonth}
-                            ref={on ? selChipRef : undefined}
-                            type="button"
-                            onClick={() => setSelected(x.yearMonth)}
-                            className={`h-8 rounded-lg px-2.5 text-[12px] font-bold tabular-nums transition-colors ${on ? "bg-[#191F28] text-white shadow-sm" : "bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"}`}
-                          >
-                            {parseInt(x.yearMonth.slice(5, 7))}월
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <button type="button" disabled={!canNext} onClick={() => step(1)} className="h-8 w-8 rounded-lg border border-[#E5E8EB] bg-white/80 text-[#4E5968] hover:bg-[#F2F4F6] disabled:opacity-30">›</button>
-            </div>
-          )}
+          {months.length > 0 && sel && <MonthGrid available={months.map(x => x.yearMonth)} selected={sel} onSelect={setSelected} />}
         </div>
 
         {/* 본문 */}
@@ -475,7 +431,7 @@ export function ClientLedgerModal({ clientId, clientName, initialMonth, onClose,
                 <div className="mb-3 flex items-end justify-between gap-3">
                   <div>
                     <div className="text-[10.5px] font-bold uppercase tracking-widest text-[#8B95A1]">Year over year</div>
-                    <h3 className="mt-0.5 text-[15px] font-bold tracking-tight text-[#191F28]">{selYear}년 vs {selYear - 1}년 월별 추이</h3>
+                    <h3 className="mt-0.5 text-[15px] font-bold tracking-tight text-[#191F28]">최근 12개월 추이 · 1년 전 같은 달과 겹쳐 비교</h3>
                   </div>
                   <div className="flex items-center gap-1 rounded-xl bg-[#F2F4F6] p-1">
                     {(["sale", "buy"] as const).map(k => (
@@ -485,7 +441,7 @@ export function ClientLedgerModal({ clientId, clientName, initialMonth, onClose,
                     ))}
                   </div>
                 </div>
-                <YearCompare months={months} year={selYear} mode={mode} thisMonth={thisMonth} />
+                <YearCompare months={months} endYm={sel} mode={mode} />
               </section>
 
               <div className="flex items-center justify-between pb-1 text-[11px] text-[#B0B8C1]">

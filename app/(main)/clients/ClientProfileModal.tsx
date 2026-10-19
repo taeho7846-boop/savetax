@@ -807,10 +807,14 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
 
                     {/* 월별 표: 인건비 + 신고 진행 */}
                     <div className="-mx-1 overflow-x-auto">
-                      <table className="w-full min-w-[640px] border-separate border-spacing-0">
+                      <table className="w-full min-w-[720px] border-separate border-spacing-0">
                         <thead>
                           <tr className="border-b border-[#F2F4F6]">
-                            <th className={TH}>월</th><th className={`${TH} text-right`}>인건비(급여대장)</th><th className={TH}>진행</th><th className={TH}>단계</th>
+                            <th className={TH}>월</th>
+                            <th className={`${TH} text-center`} style={{ color: PAY_COLORS.salary }}>근로</th>
+                            <th className={`${TH} text-center`} style={{ color: PAY_COLORS.business }}>사업</th>
+                            <th className={`${TH} text-center`} style={{ color: PAY_COLORS.daily }}>일용</th>
+                            <th className={TH}>진행</th><th className={TH}>단계</th>
                             <th className={`${TH} text-right`}>소득세</th><th className={`${TH} text-right`}>지방소득세</th>
                             <th className={TH}>신고</th><th className={TH}>접수번호</th>
                           </tr>
@@ -821,13 +825,18 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                             return (
                               <tr key={r.yearMonth} className={rowCls(r.isCurrent)}>
                                 <td className={`${TD} font-bold text-[#191F28]`}>{r.label}{r.isCurrent && <span className="ml-1.5 text-[10px] font-bold text-[#3182F6]">이번</span>}</td>
-                                <td className={NUM}>
-                                  {pay ? (
-                                    <button type="button" onClick={() => setPayrollOpen({ month: r.yearMonth })} className="hover:underline" title="인건비 상세">
-                                      <b className="text-[#0F9D77]">{won(pay.gross)}</b><span className="ml-1 text-[10.5px] text-[#8B95A1]">{pay.headcount}명</span>
-                                    </button>
-                                  ) : <span className="text-[#B0B8C1]">-</span>}
-                                </td>
+                                {(["salary", "business", "daily"] as const).map(k => {
+                                  const t = pay?.[k];
+                                  const has = !!t && (t.headcount > 0 || t.gross > 0);
+                                  return (
+                                    <td key={k} className={`${TD} text-center`}>
+                                      {has ? (
+                                        <button type="button" onClick={() => setPayrollOpen({ month: r.yearMonth })} title={`${t!.headcount}명 · ${won(t!.gross)}원 · 누르면 상세`}
+                                          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-extrabold" style={{ background: `${PAY_COLORS[k]}1F`, color: PAY_COLORS[k] }}>O</button>
+                                      ) : <span className="text-[#D1D6DB]">-</span>}
+                                    </td>
+                                  );
+                                })}
                                 <td className={TD}>{r.steps.length === 0 ? <Pill color="#8B95A1" muted>해당 없음</Pill> : <Pill color={r.statusColor}>{r.statusLabel}</Pill>}</td>
                                 <td className={TD}>
                                   <span className="inline-flex items-center gap-1" title={r.steps.map(s => `${r.doneSteps.includes(s) ? "✓" : "·"} ${s}`).join("\n")}>
