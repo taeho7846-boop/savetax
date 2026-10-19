@@ -3,13 +3,14 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteMemo } from "@/app/actions/memos";
+import { askConfirm } from "@/components/ui/Dialog";
 
 export function MemoDeleteButton({ memoId }: { memoId: number }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  function handleDelete() {
-    if (!confirm("이 메모를 삭제하시겠습니까?")) return;
+  async function handleDelete() {
+    if (!await askConfirm("이 메모를 삭제하시겠습니까?")) return;
     startTransition(async () => {
       await deleteMemo(memoId);
       router.refresh();

@@ -17,6 +17,7 @@ import {
   setLaborOfficeManaged,
 } from "@/app/actions/commission";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type HappyCallData = {
   id: number;
@@ -231,7 +232,7 @@ export default function CommissionBoard({
   }
 
   async function doMarkComplete(id: number) {
-    if (!confirm("수임 완료 처리하시겠습니까?")) return;
+    if (!await askConfirm("수임 완료 처리하시겠습니까?")) return;
     setLoadingId(id);
     await markComplete(id);
     router.refresh();
@@ -239,7 +240,7 @@ export default function CommissionBoard({
   }
 
   async function doRemove(id: number) {
-    if (!confirm("수임 관리에서 제거하시겠습니까?")) return;
+    if (!await askConfirm("수임 관리에서 제거하시겠습니까?")) return;
     setLoadingId(id);
     await removeFromCommission(id);
     router.refresh();
@@ -265,7 +266,7 @@ export default function CommissionBoard({
     const count = await bulkImportAllClients();
     router.refresh();
     setImporting(false);
-    if (count > 0) alert(`${count}명의 고객이 신규수임 목록에 추가되었습니다.`);
+    if (count > 0) notify(`${count}명의 고객이 신규수임 목록에 추가되었습니다.`);
   }
 
   async function doSaveNotes(id: number) {
@@ -289,7 +290,7 @@ export default function CommissionBoard({
         data = await res.json();
       } catch {}
       if (!res.ok) {
-        alert(`업로드 실패: ${data.error ?? res.status}`);
+        notify(`업로드 실패: ${data.error ?? res.status}`);
         return;
       }
       console.log("[upload] res.ok:", res.ok, "data:", data);
@@ -303,7 +304,7 @@ export default function CommissionBoard({
       }
       router.refresh();
     } catch (err) {
-      alert(`업로드 오류: ${String(err)}`);
+      notify(`업로드 오류: ${String(err)}`);
     } finally {
       setUploading(false);
     }
@@ -787,7 +788,7 @@ export default function CommissionBoard({
                             ) : (
                               <button
                                 onClick={async () => {
-                                  if (!confirm(`"${c.client.name}" 위하고 수임처를 자동 생성하시겠습니까?`)) return;
+                                  if (!await askConfirm(`"${c.client.name}" 위하고 수임처를 자동 생성하시겠습니까?`)) return;
                                   setWehagoProgress({ id: c.id, step: "준비 중..." });
                                   try {
                                     const res = await fetch("/api/wehago/create-client", {
@@ -823,15 +824,15 @@ export default function CommissionBoard({
                                     }
                                     setWehagoProgress(null);
                                     const msg = finalResult.message || "완료";
-                                    alert(msg);
+                                    notify(msg);
                                     if (finalResult.success) doToggle(c.id, "wihagoDone", true);
                                   } catch (err) {
                                     setWehagoProgress(null);
                                     const errMsg = String(err);
                                     if (errMsg.includes("network") || errMsg.includes("abort") || errMsg.includes("TypeError")) {
-                                      alert("위하고 자동생성이 진행 중이거나 완료되었을 수 있습니다. 위하고에서 직접 확인해주세요.");
+                                      notify("위하고 자동생성이 진행 중이거나 완료되었을 수 있습니다. 위하고에서 직접 확인해주세요.");
                                     } else {
-                                      alert("위하고 자동생성 실패: " + errMsg);
+                                      notify("위하고 자동생성 실패: " + errMsg);
                                     }
                                   }
                                 }}
@@ -1220,8 +1221,8 @@ export default function CommissionBoard({
 
       {/* ── 해피콜 이력 모달 ── */}
       {modal && typeof modal === "object" && "type" in modal && modal.type === "happycall-history" && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-96 max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] p-6 w-96 max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-[#191F28]">해피콜 이력</h3>
@@ -1267,7 +1268,7 @@ export default function CommissionBoard({
         typeof modal === "object" &&
         modal.type === "happycall" && (
           <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] flex items-center justify-center z-50"
             onClick={() => setModal(null)}
           >
             <div
@@ -1336,7 +1337,7 @@ export default function CommissionBoard({
         typeof modal === "object" &&
         modal.type === "notes" && (
           <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] flex items-center justify-center z-50"
             onClick={() => setModal(null)}
           >
             <div
@@ -1378,7 +1379,7 @@ export default function CommissionBoard({
         const isImage = currentPath ? /\.(jpg|jpeg|png|gif|webp)$/i.test(currentPath) : false;
         return (
           <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] flex items-center justify-center z-50"
             onClick={() => setModal(null)}
           >
             <div
@@ -1577,7 +1578,7 @@ export default function CommissionBoard({
       {/* ── 수임 추가 모달 ── */}
       {modal === "add" && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] flex items-center justify-center z-50"
           onClick={() => {
             setModal(null);
             setAddSearch("");

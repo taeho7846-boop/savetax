@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { restoreClient, permanentDeleteClient } from "@/app/actions/clients";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type TrashClient = {
   id: number;
@@ -51,8 +52,8 @@ function TrashBinModal({ onClose }: { onClose: () => void }) {
     });
   }
 
-  function handleDelete(id: number, name: string) {
-    if (!confirm(`"${name}"을(를) 영구 삭제하시겠습니까?\n관련 데이터가 모두 삭제됩니다.`)) return;
+  async function handleDelete(id: number, name: string) {
+    if (!await askConfirm(`"${name}"을(를) 영구 삭제하시겠습니까?\n관련 데이터가 모두 삭제됩니다.`)) return;
     startTransition(async () => {
       await permanentDeleteClient(id);
       setItems(prev => prev?.filter(c => c.id !== id) ?? null);
@@ -61,8 +62,8 @@ function TrashBinModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-lg max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2F4F6] shrink-0">
           <h3 className="text-base font-bold text-[#191F28]">🗑️ 휴지통</h3>
           <button onClick={onClose} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>

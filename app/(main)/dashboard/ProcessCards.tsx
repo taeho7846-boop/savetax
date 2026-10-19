@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markDataRequested, postponeTask, markTransferRequested, markTransferReceived } from "@/app/actions/commission";
 import { ClipboardListIcon, DownloadIcon, ClockIcon, PhoneCallIcon } from "@/components/icons";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type HappyCallItem = {
   commissionId: number;
@@ -88,7 +89,7 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
   function handlePostpone() {
     if (!postponeTarget) return;
     const dateVal = (document.getElementById("postpone-date") as HTMLInputElement)?.value;
-    if (!dateVal) { alert("날짜를 선택하세요"); return; }
+    if (!dateVal) { notify("날짜를 선택하세요"); return; }
     const note = (document.getElementById("postpone-note") as HTMLInputElement)?.value || "";
     startTransition(async () => {
       await postponeTask(postponeTarget.commissionId, dateVal, note);
@@ -209,7 +210,7 @@ export function TodayTasksCard({ items }: { items: TodayTaskItem[] }) {
 
     {/* 미루기 모달 */}
     {postponeTarget && (
-      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setPostponeTarget(null)}>
+      <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setPostponeTarget(null)}>
         <div className="bg-white rounded-2xl border border-[#E5E8EB] w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-[#191F28]">업무 미루기</h3>
@@ -247,7 +248,7 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
     const msg = prevCount > 0
       ? `"${clientName}"에게 이미 ${prevCount}차 발송했습니다.\n${prevCount + 1}차로 다시 발송하시겠습니까?`
       : `"${clientName}"에게 카카오톡 안내를 발송하시겠습니까?`;
-    if (!confirm(msg)) return;
+    if (!await askConfirm(msg)) return;
     setSendingId(clientId);
     try {
       const res = await fetch("/api/alimtalk/send", {
@@ -256,10 +257,10 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
         body: JSON.stringify({ clientId, type: "happy_call" }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error); return; }
-      alert("카카오톡 안내가 발송되었습니다");
+      if (!res.ok) { notify(data.error); return; }
+      notify("카카오톡 안내가 발송되었습니다");
       router.refresh();
-    } catch { alert("발송 실패"); }
+    } catch { notify("발송 실패"); }
     finally { setSendingId(null); }
   }
 
@@ -285,7 +286,7 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <div className="glass-strong rounded-3xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 flex items-center gap-3 border-b border-white/40">
               <div className="w-10 h-10 rounded-2xl gradient-emerald flex items-center justify-center text-white">
@@ -356,7 +357,7 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
     const msg = prevCount > 0
       ? `"${clientName}"에게 이미 ${prevCount}차 발송했습니다.\n${prevCount + 1}차로 다시 발송하시겠습니까?`
       : `"${clientName}"에게 카카오톡 독촉을 발송하시겠습니까?`;
-    if (!confirm(msg)) return;
+    if (!await askConfirm(msg)) return;
     setSendingId(clientId);
     try {
       const res = await fetch("/api/alimtalk/send", {
@@ -365,10 +366,10 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
         body: JSON.stringify({ clientId, type: "doc_remind" }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error); return; }
-      alert("카카오톡 독촉이 발송되었습니다");
+      if (!res.ok) { notify(data.error); return; }
+      notify("카카오톡 독촉이 발송되었습니다");
       router.refresh();
-    } catch { alert("발송 실패"); }
+    } catch { notify("발송 실패"); }
     finally { setSendingId(null); }
   }
 
@@ -388,7 +389,7 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <div className="glass-strong rounded-3xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 flex items-center gap-3 border-b border-white/40">
               <div className="w-10 h-10 rounded-2xl gradient-purple flex items-center justify-center text-white">

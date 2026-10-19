@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { createSchedule, updateSchedule, deleteSchedule } from "@/app/actions/schedule";
 import { getQuickCaptureClients } from "@/app/actions/diary";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type ClientOpt = { id: number; name: string };
 
@@ -90,8 +91,8 @@ export function ScheduleModal({
     });
   }
 
-  function handleDelete() {
-    if (!schedule || !confirm("이 일정을 삭제할까요?")) return;
+  async function handleDelete() {
+    if (!schedule || !await askConfirm("이 일정을 삭제할까요?")) return;
     startTransition(async () => {
       try {
         await deleteSchedule(schedule.id);
@@ -104,7 +105,7 @@ export function ScheduleModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6">

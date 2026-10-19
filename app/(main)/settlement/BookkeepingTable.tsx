@@ -8,6 +8,7 @@ import {
   toggleBookkeepingField,
   deleteBookkeepingSettlement,
 } from "@/app/actions/settlement";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 const AFF_ORDER = ["도율세무회계", "세무회계세웅", "예강세무회계", "세무회계태호"];
 const AFF_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -51,14 +52,14 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
     startTransition(() => toggleBookkeepingField(id, yearMonth, field));
   }
 
-  function handleDelete(id: number) {
-    if (!confirm("삭제하시겠습니까?")) return;
+  async function handleDelete(id: number) {
+    if (!await askConfirm("삭제하시겠습니까?")) return;
     startTransition(() => deleteBookkeepingSettlement(id));
   }
 
   function handleSave() {
     const clientName = (document.getElementById("bk-name") as HTMLInputElement)?.value?.trim();
-    if (!clientName) { alert("거래처명을 입력하세요"); return; }
+    if (!clientName) { notify("거래처명을 입력하세요"); return; }
     const ceoName = (document.getElementById("bk-ceo") as HTMLInputElement)?.value?.trim() || undefined;
     const assignedUserName = (document.getElementById("bk-assigned") as HTMLInputElement)?.value?.trim() || undefined;
     const affiliation = (document.getElementById("bk-aff") as HTMLSelectElement)?.value || undefined;
@@ -119,7 +120,7 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
+      <div className="glass rounded-3xl overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-[#F9FAFB] border-b border-[#E5E8EB]">
             <tr>
@@ -197,8 +198,8 @@ export function BookkeepingTable({ rows, yearMonth }: { rows: Row[]; yearMonth: 
 
       {/* 등록/수정 모달 */}
       {modal !== null && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setModal(null)}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-bold text-[#191F28]">
                 {modal === "create" ? "기장 등록" : "기장 수정"}

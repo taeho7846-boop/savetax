@@ -7,6 +7,7 @@ import { CheckSquareIcon } from "@/components/icons";
 import { quickCreateTask, setTaskDone, type DiaryTask } from "@/app/actions/diary";
 import { TaskEditModal } from "@/components/TaskEditModal";
 import { daysBetween, shortDateLabel } from "@/lib/diary-dates";
+import { notify } from "@/components/ui/Dialog";
 
 // 홈: 오늘 할 일 (다이어리와 같은 데이터) — 체크·추가·클릭해서 수정
 export function TodayDiaryCard({ tasks, today }: { tasks: DiaryTask[]; today: string }) {
@@ -25,7 +26,7 @@ export function TodayDiaryCard({ tasks, today }: { tasks: DiaryTask[]; today: st
 
   function run(fn: () => Promise<unknown>) {
     startTransition(async () => {
-      try { await fn(); router.refresh(); } catch (e) { alert(e instanceof Error ? e.message : "오류가 발생했습니다."); }
+      try { await fn(); router.refresh(); } catch (e) { notify(e instanceof Error ? e.message : "오류가 발생했습니다."); }
     });
   }
 

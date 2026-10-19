@@ -177,7 +177,7 @@ function TransferIncomingPill() {
 
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-[10vh] pb-4 overflow-y-auto"
+          className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-start justify-center pt-[10vh] pb-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
           <div className="relative w-full max-w-[720px] mx-4">

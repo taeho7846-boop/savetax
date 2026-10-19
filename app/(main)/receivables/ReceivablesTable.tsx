@@ -4,6 +4,7 @@ import React, { useState, useTransition, useRef, useEffect, useMemo } from "reac
 import { useRouter } from "next/navigation";
 import { toggleFeeRecord, setFeeRecordExempt } from "@/app/actions/feeRecords";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
+import { notify } from "@/components/ui/Dialog";
 
 interface ClientRow {
   id: number;
@@ -170,10 +171,10 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
       formData.append("targetMonth", verifyMonth);
       const res = await fetch("/api/receivables/verify-excel", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "파싱 실패"); return; }
+      if (!res.ok) { notify(data.error || "파싱 실패"); return; }
       setVerifyResult(data);
       setPaidIds(new Set());
-    } catch { alert("업로드 실패"); }
+    } catch { notify("업로드 실패"); }
     finally {
       setVerifyLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -208,7 +209,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
       });
       router.refresh();
     } catch {
-      alert("일괄 수납처리 실패");
+      notify("일괄 수납처리 실패");
     } finally {
       setBulkPaying(false);
     }
@@ -334,7 +335,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ year, months, rows, filterSummary: parts.join(" · ") || "전체" }),
       });
-      if (!res.ok) { alert("엑셀 다운로드 실패"); return; }
+      if (!res.ok) { notify("엑셀 다운로드 실패"); return; }
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -346,7 +347,7 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      alert("엑셀 다운로드 실패");
+      notify("엑셀 다운로드 실패");
     } finally {
       setDownloading(false);
     }
@@ -382,8 +383,8 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
 
       {/* 출금 검증 결과 모달 */}
       {verifyResult && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-[#191F28]">{verifyResult.targetMonth.replace("-", "년 ")}월 출금 검증</h2>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ClientEditModal } from "./ClientEditModal";
 import { bulkDeleteClients, bulkChangeAssignedUser, getAssignableUsers, setSemoReportStatus } from "@/app/actions/clients";
 import { SemoStatusBadge } from "./SemoReportModal";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type LoginStatus = "idle" | "loading" | "success" | "error";
 
@@ -179,7 +180,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   async function handleBulkAssign() {
     if (!selectedUserId || checkedIds.size === 0) return;
     const userName = assignUsers.find(u => u.id === selectedUserId)?.name;
-    if (!confirm(`선택한 ${checkedIds.size}개 거래처의 담당자를 '${userName}'(으)로 변경하시겠습니까?`)) return;
+    if (!await askConfirm(`선택한 ${checkedIds.size}개 거래처의 담당자를 '${userName}'(으)로 변경하시겠습니까?`)) return;
     startTransition(async () => {
       await bulkChangeAssignedUser([...checkedIds], selectedUserId);
       setCheckedIds(new Set());
@@ -196,7 +197,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientIds: [...checkedIds] }),
       });
-      if (!res.ok) { alert("다운로드 실패"); return; }
+      if (!res.ok) { notify("다운로드 실패"); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -204,12 +205,12 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
       a.download = `고객사정보_${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { alert("다운로드 실패"); }
+    } catch { notify("다운로드 실패"); }
   }
 
   async function handleBulkDelete() {
     if (checkedIds.size === 0) return;
-    if (!confirm(`선택한 ${checkedIds.size}개 거래처를 삭제하시겠습니까?`)) return;
+    if (!await askConfirm(`선택한 ${checkedIds.size}개 거래처를 삭제하시겠습니까?`)) return;
     startTransition(async () => {
       await bulkDeleteClients([...checkedIds]);
       setCheckedIds(new Set());
@@ -222,8 +223,8 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const unlinkedCount = clients.filter(c => !c.driveFolderId).length;
 
   async function handleDriveCreateAll() {
-    if (unlinkedCount === 0) { alert("미연결 거래처가 없습니다."); return; }
-    if (!confirm(`Drive 폴더가 없는 ${unlinkedCount}개 거래처에 폴더를 생성하시겠습니까?`)) return;
+    if (unlinkedCount === 0) { notify("미연결 거래처가 없습니다."); return; }
+    if (!await askConfirm(`Drive 폴더가 없는 ${unlinkedCount}개 거래처에 폴더를 생성하시겠습니까?`)) return;
     setDriveCreating(true);
     setDriveProgress("준비 중...");
     try {
@@ -233,7 +234,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         body: JSON.stringify({}),
       });
       const reader = res.body?.getReader();
-      if (!reader) { alert("스트림 오류"); return; }
+      if (!reader) { notify("스트림 오류"); return; }
       const decoder = new TextDecoder();
       let buf = "";
       while (true) {
@@ -250,18 +251,18 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
             if (msg.type === "progress") {
               setDriveProgress(`${msg.current}/${msg.total} - ${msg.name}`);
             } else if (msg.type === "done") {
-              alert(`완료! ${msg.created}/${msg.total}개 폴더 생성${msg.errors?.length ? `\n실패: ${msg.errors.map((e: string) => e).join(", ")}` : ""}`);
+              notify(`완료! ${msg.created}/${msg.total}개 폴더 생성${msg.errors?.length ? `\n실패: ${msg.errors.map((e: string) => e).join(", ")}` : ""}`);
             }
           } catch {}
         }
       }
       router.refresh();
-    } catch { alert("네트워크 오류"); }
+    } catch { notify("네트워크 오류"); }
     finally { setDriveCreating(false); setDriveProgress(""); }
   }
 
   async function handleDriveMatch() {
-    if (!driveParentId.trim()) { alert("Google Drive 상위 폴더 ID를 입력해주세요."); return; }
+    if (!driveParentId.trim()) { notify("Google Drive 상위 폴더 ID를 입력해주세요."); return; }
     setDriveMatching(true);
     try {
       const res = await fetch("/api/drive-match", {
@@ -270,27 +271,27 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
         body: JSON.stringify({ parentId: driveParentId.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(`오류: ${data.error}`); return; }
-      alert(`완료! ${data.updated}개 거래처 매칭 성공`);
+      if (!res.ok) { notify(`오류: ${data.error}`); return; }
+      notify(`완료! ${data.updated}개 거래처 매칭 성공`);
       setDriveMatchModal(false);
       setDriveParentId("");
       router.refresh();
-    } catch { alert("네트워크 오류"); }
+    } catch { notify("네트워크 오류"); }
     finally { setDriveMatching(false); }
   }
 
   async function handleDriveMatchPreview() {
-    if (!driveParentId.trim()) { alert("Google Drive 상위 폴더 ID를 입력해주세요."); return; }
+    if (!driveParentId.trim()) { notify("Google Drive 상위 폴더 ID를 입력해주세요."); return; }
     setDriveMatching(true);
     try {
       const res = await fetch(`/api/drive-match?parentId=${encodeURIComponent(driveParentId.trim())}`);
       const data = await res.json();
-      if (!res.ok) { alert(`오류: ${data.error}`); return; }
+      if (!res.ok) { notify(`오류: ${data.error}`); return; }
       const msg = [`매칭 가능: ${data.matched}개`, `미매칭: ${data.unmatched}개`];
       if (data.matchedList?.length) msg.push(`\n매칭 목록:\n${data.matchedList.map((m: any) => `  ${m.clientName} ↔ ${m.folderName}`).join("\n")}`);
       if (data.unmatchedList?.length) msg.push(`\n미매칭 폴더:\n${data.unmatchedList.join(", ")}`);
-      alert(msg.join("\n"));
-    } catch { alert("네트워크 오류"); }
+      notify(msg.join("\n"));
+    } catch { notify("네트워크 오류"); }
     finally { setDriveMatching(false); }
   }
 
@@ -465,7 +466,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
 
       {/* Drive 매칭 모달 */}
       {driveMatchModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setDriveMatchModal(false)}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] flex items-center justify-center z-50" onClick={() => setDriveMatchModal(false)}>
           <div className="bg-white rounded-xl p-6 w-[480px] shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="font-bold text-[#191F28] mb-1">기존 Drive 폴더 매칭</h3>
             <p className="text-xs text-[#8B95A1] mb-4">Google Drive 상위 폴더의 ID를 입력하면, 하위 폴더명과 거래처명이 일치하는 것을 자동 연결합니다.</p>
@@ -1110,10 +1111,10 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
 
       {showAssignModal && (
         <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center"
           onClick={(e) => { if (e.target === e.currentTarget) setShowAssignModal(false); }}
         >
-          <div className="bg-white rounded-xl shadow-xl p-6 w-80">
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] p-6 w-80">
             <h3 className="text-sm font-bold text-[#191F28] mb-1">담당자 일괄 변경</h3>
             <p className="text-xs text-[#8B95A1] mb-4">{checkedIds.size}개 거래처 선택됨</p>
             <select

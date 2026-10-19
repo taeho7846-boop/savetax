@@ -4,6 +4,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { moveTempMemoToTask, deleteTempMemo } from "@/app/actions/temp-memo";
 import { MessageCircleIcon, PaperclipIcon } from "@/components/icons";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type TempMemo = {
   id: number;
@@ -39,8 +40,8 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
     });
   }
 
-  function handleDelete(id: number) {
-    if (!confirm("이 메모를 삭제하시겠습니까?")) return;
+  async function handleDelete(id: number) {
+    if (!await askConfirm("이 메모를 삭제하시겠습니까?")) return;
     startTransition(async () => {
       await deleteTempMemo(id);
       router.refresh();
@@ -54,7 +55,7 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
   );
 
   return (
-    <div className="bg-white rounded-[6px] border border-[#6FABF9] p-5 mb-6">
+    <div className="glass rounded-3xl ring-1 ring-[#6FABF9]/40 p-5 mb-6">
       <div className="flex items-center gap-2 mb-4">
         <MessageCircleIcon width={18} height={18} className="text-[#4E5968]" />
         <h3 className="text-sm font-bold text-[#191F28]">임시메모함</h3>
@@ -66,15 +67,15 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
 
       <div className="space-y-3">
         {memos.map((memo) => (
-          <div key={memo.id} className="border border-[#E5E8EB] rounded-[6px] p-4 hover:border-[#6FABF9] transition-colors">
+          <div key={memo.id} className="rounded-2xl bg-white/60 border border-white/70 p-4 hover:bg-white/85 transition-colors">
             {processing === memo.id ? (
               /* 정리 모드 */
               <form action={(fd) => handleMove(memo.id, fd)} className="space-y-3">
-                <div className="text-sm text-[#4E5968] bg-[#F9FAFB] rounded px-3 py-2 whitespace-pre-wrap">{memo.content}</div>
+                <div className="text-sm text-[#4E5968] bg-[#F9FAFB] rounded-xl px-3 py-2 whitespace-pre-wrap">{memo.content}</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-[#6B7684] mb-1">유형</label>
-                    <select name="type" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-2 py-1.5 text-xs text-[#191F28]">
+                    <select name="type" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-2 py-1.5 text-xs text-[#191F28]">
                       <option value="memo">메모</option>
                       <option value="task">업무</option>
                     </select>
@@ -86,10 +87,10 @@ export function TempMemoBox({ memos, clients }: { memos: TempMemo[]; clients: Cl
                 </div>
                 <div>
                   <label className="block text-xs text-[#6B7684] mb-1">제목 (선택)</label>
-                  <input name="title" placeholder={memo.content.slice(0, 30)} className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-2 py-1.5 text-xs text-[#191F28]" />
+                  <input name="title" placeholder={memo.content.slice(0, 30)} className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-2 py-1.5 text-xs text-[#191F28]" />
                 </div>
                 <div className="flex gap-2">
-                  <button type="submit" disabled={isPending} className="text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-[6px] hover:bg-[#1B64DA] disabled:opacity-50">
+                  <button type="submit" disabled={isPending} className="text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl hover:bg-[#1B64DA] disabled:opacity-50">
                     저장
                   </button>
                   <button type="button" onClick={() => setProcessing(null)} className="text-xs text-[#6B7684] hover:text-[#4E5968] px-3 py-1.5">
@@ -163,10 +164,10 @@ function ClientSearch({ clients }: { clients: Client[] }) {
         onChange={(e) => { setQuery(e.target.value); setSelectedId(null); setOpen(true); }}
         onFocus={() => setOpen(true)}
         placeholder="거래처 검색..."
-        className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-2 py-1.5 text-xs text-[#191F28] focus:outline-none focus:border-[#3182F6]"
+        className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-2 py-1.5 text-xs text-[#191F28] focus:outline-none focus:border-[#3182F6]"
       />
       {open && filtered.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[#101113] border border-[#E5E8EB] rounded-[6px] z-30 max-h-40 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 glass-strong rounded-xl shadow-lg z-30 max-h-40 overflow-y-auto">
           <button
             type="button"
             onClick={() => { setSelectedId(null); setQuery(""); setOpen(false); }}

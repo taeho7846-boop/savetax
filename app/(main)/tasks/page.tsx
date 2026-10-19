@@ -123,7 +123,7 @@ export default async function TasksPage({
     <div>
       <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
+          <div className="text-[12.5px] text-[#8B95A1] font-medium flex items-center gap-1.5">
             <span className="live-dot" />
             <Link href="/diary" className="hover:text-[#191F28]">← 다이어리</Link> · 전체 목록
           </div>

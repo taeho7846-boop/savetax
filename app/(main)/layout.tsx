@@ -9,6 +9,7 @@ import { GlobalClientEditModal } from "@/components/GlobalClientEditModal";
 import { DriveBasePathSync } from "@/components/DriveBasePathSync";
 import { ChatBot } from "@/components/ChatBot";
 import { QuickCapture } from "@/components/QuickCapture";
+import { DialogHost } from "@/components/ui/Dialog";
 
 export default async function MainLayout({
   children,
@@ -69,12 +70,13 @@ export default async function MainLayout({
   return (
     <div className="glass-canvas h-screen overflow-hidden flex flex-col">
       <TopNav user={session} settings={settings} notifications={notifications} />
-      <main className="flex-1 px-6 pb-[100px] overflow-y-auto text-[#4E5968]">{children}</main>
+      <main className="flex-1 px-4 md:px-6 pb-[100px] overflow-y-auto text-[#4E5968]">{children}</main>
       <DockBar />
       <GlobalSearch />
       <QuickCapture />
       <GlobalClientEditModal />
       <ChatBot />
+      <DialogHost />
       <DriveBasePathSync value={settings?.driveBasePath ?? null} />
     </div>
   );

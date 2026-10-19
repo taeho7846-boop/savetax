@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PaperclipIcon, BotIcon } from "@/components/icons";
+import { notify } from "@/components/ui/Dialog";
 
 type Message = { role: "user" | "assistant"; content: string; image?: string };
 
@@ -22,11 +23,11 @@ export function ChatBot() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      alert("이미지 파일만 업로드 가능합니다.");
+      notify("이미지 파일만 업로드 가능합니다.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert("10MB 이하 이미지만 업로드 가능합니다.");
+      notify("10MB 이하 이미지만 업로드 가능합니다.");
       return;
     }
     setImageFile(file);
@@ -101,11 +102,11 @@ export function ChatBot() {
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      alert("이미지 파일만 업로드 가능합니다.");
+      notify("이미지 파일만 업로드 가능합니다.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert("10MB 이하 이미지만 업로드 가능합니다.");
+      notify("10MB 이하 이미지만 업로드 가능합니다.");
       return;
     }
     setImageFile(file);
@@ -218,7 +219,7 @@ export function ChatBot() {
       {/* 채팅창 */}
       {open && (
         <div
-          className={`fixed bottom-4 left-[240px] w-[600px] h-[780px] bg-white rounded-2xl shadow-2xl border flex flex-col z-50 overflow-hidden transition-colors ${isDragging ? "border-blue-400 border-2" : "border-[#E5E8EB]"}`}
+          className={`fixed bottom-4 left-[240px] w-[600px] h-[780px] glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] border flex flex-col z-50 overflow-hidden transition-colors ${isDragging ? "border-blue-400 border-2" : "border-[#E5E8EB]"}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}

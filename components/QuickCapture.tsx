@@ -96,10 +96,10 @@ export function QuickCapture() {
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] flex items-start justify-center pt-[10vh] p-4"
+      className="fixed inset-0 z-[60] bg-[#191F28]/25 backdrop-blur-[3px] flex items-start justify-center pt-[10vh] p-4"
       onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}
     >
-      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl">
+      <div className="w-full max-w-2xl glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)]">
         {/* 상단: 유형 · 마감 · 거래처 */}
         <div className="flex items-center gap-2 px-6 pt-5 pb-3 flex-wrap border-b border-[#F2F4F6]">
           <div className="inline-flex gap-0.5 p-1 bg-[#F2F4F6] rounded-[12px]">

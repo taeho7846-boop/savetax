@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addCollectionContact, deleteCollectionContact } from "@/app/actions/collection";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 interface Contact {
   id: number;
@@ -116,20 +117,20 @@ export function CollectionBoard({ clients }: { clients: CollectionClient[] }) {
       setExpanded((prev) => new Set(prev).add(modalClient.id));
       router.refresh();
     } catch {
-      alert("저장 실패");
+      notify("저장 실패");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("이 컨택 기록을 삭제할까요?")) return;
+    if (!await askConfirm("이 컨택 기록을 삭제할까요?")) return;
     setDeletingId(id);
     try {
       await deleteCollectionContact(id);
       router.refresh();
     } catch {
-      alert("삭제 실패");
+      notify("삭제 실패");
     } finally {
       setDeletingId(null);
     }
@@ -304,7 +305,7 @@ export function CollectionBoard({ clients }: { clients: CollectionClient[] }) {
 
       {/* 컨택 추가 모달 */}
       {modalClient && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setModalClient(null)}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] flex items-center justify-center z-50 p-4" onClick={() => setModalClient(null)}>
           <div className="bg-white rounded-2xl p-6 w-[400px] max-w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4">
               <h3 className="text-[16px] font-bold text-[#191F28]">컨택 기록 추가</h3>

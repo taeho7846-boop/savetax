@@ -90,7 +90,7 @@ export default async function SettingsPage() {
   return (
     <div>
       <div className="mb-4">
-        <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
+        <div className="text-[12.5px] text-[#8B95A1] font-medium flex items-center gap-1.5">
           <span className="live-dot" />
           계정 · 연동 · 환경설정
         </div>

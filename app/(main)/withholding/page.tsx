@@ -2,7 +2,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { WithholdingTable } from "./WithholdingTable";
-import { WithholdingRedirect } from "./WithholdingRedirect";
+import { cookies } from "next/headers";
 
 export default async function WithholdingPage({
   searchParams,
@@ -13,14 +13,20 @@ export default async function WithholdingPage({
   if (!session) redirect("/login");
 
   const params = await searchParams;
-  // ym 파라미터가 없으면 클라이언트에서 localStorage 확인 후 리다이렉트
-  if (!params.ym) {
-    const now = new Date();
-    const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    // 클라이언트 리다이렉트 컴포넌트 반환
-    return <WithholdingRedirect fallback={fallback} />;
+  // ym 파라미터가 없으면 마지막으로 본 월(쿠키, WithholdingTable이 저장) → 없으면 이번 달.
+  // 예전엔 빈 화면을 띄운 뒤 클라이언트에서 localStorage를 읽어 한 번 더 이동했는데(깜빡임),
+  // 서버에서 바로 결정해 한 번에 그린다.
+  const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+  let yearMonth = params.ym && YM_RE.test(params.ym) ? params.ym : "";
+  if (!yearMonth) {
+    const saved = (await cookies()).get("withholding_ym")?.value;
+    if (saved && YM_RE.test(saved)) {
+      yearMonth = saved;
+    } else {
+      const now = new Date();
+      yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    }
   }
-  const yearMonth = params.ym;
 
   const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
   // 직원: 본인이 사수(담당)이거나 부사수(서브)인 거래처

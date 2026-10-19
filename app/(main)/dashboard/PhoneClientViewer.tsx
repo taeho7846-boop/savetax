@@ -22,6 +22,7 @@ import {
   PaperclipIcon,
 } from "@/components/icons";
 import { getSchedules } from "@/app/actions/schedule";
+import { notify } from "@/components/ui/Dialog";
 
 type AppIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -113,9 +114,9 @@ async function handleSiteOpen(site: BuiltinSite, openFn: (url: string) => void) 
         openFn(`https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`);
         return;
       }
-      alert("세무대리인 홈택스 계정이 설정되지 않았습니다");
+      notify("세무대리인 홈택스 계정이 설정되지 않았습니다");
     } catch {
-      alert("네트워크 오류");
+      notify("네트워크 오류");
     }
   } else if (site.autoLogin) {
     try {
@@ -144,7 +145,7 @@ async function doClientHometaxLogin(clientId: number, openFn: (url: string) => v
     });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.error ?? "로그인 정보를 가져올 수 없습니다");
+      notify(data.error ?? "로그인 정보를 가져올 수 없습니다");
       return;
     }
     const isCorp = !!data.agentNumber;
@@ -163,7 +164,7 @@ async function doClientHometaxLogin(clientId: number, openFn: (url: string) => v
     const creds = btoa(unescape(encodeURIComponent(JSON.stringify(credData)))).replace(/=/g, "");
     openFn(`https://hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index_pp.xml&menuCd=index3#savetax=${creds}`);
   } catch {
-    alert("네트워크 오류");
+    notify("네트워크 오류");
   }
 }
 
@@ -181,10 +182,10 @@ async function doClientDriveFolder(clientId: number, clientName: string, openFn:
     if (data.url) {
       openFn(data.url);
     } else {
-      alert("구글드라이브 폴더가 설정되지 않았습니다");
+      notify("구글드라이브 폴더가 설정되지 않았습니다");
     }
   } catch {
-    alert("네트워크 오류");
+    notify("네트워크 오류");
   }
 }
 
@@ -1679,18 +1680,18 @@ function PhoneChatbotView({ onHome }: { onHome: () => void }) {
 
   async function loadFile(file: File) {
     if (!file.type.startsWith("image/")) {
-      alert("이미지 파일만 업로드 가능합니다.");
+      notify("이미지 파일만 업로드 가능합니다.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert("10MB 이하 이미지만 업로드 가능합니다.");
+      notify("10MB 이하 이미지만 업로드 가능합니다.");
       return;
     }
     try {
       const dataUrl = await compressImage(file, 1600);
       setImagePreview(dataUrl);
     } catch {
-      alert("이미지 처리 실패");
+      notify("이미지 처리 실패");
     }
   }
 

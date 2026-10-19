@@ -523,7 +523,7 @@ export default async function DashboardPage({
       {activeTab === "overview" && (
         <>
           {/* 4 글래스 스탯카드 — 미니 위젯 패턴 (아래 3개 카드와 통일) */}
-          <div className="grid grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
             <Link href="/clients" className="stat-card glass rounded-3xl p-5 cursor-pointer block">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-9 h-9 rounded-xl gradient-blue flex items-center justify-center text-white">
@@ -591,19 +591,19 @@ export default async function DashboardPage({
           {/* 위젯 그리드 — 세로 스크롤 최소화 */}
           <div className="space-y-4 min-w-0">
             {/* 오늘의 업무 + 미수납 (50/50) */}
-            <div className="grid grid-cols-2 gap-4 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
               <TodayTasksCard items={todayTasks} />
               <UnpaidCard clients={unpaidClients} />
             </div>
 
             {/* 오늘 할 일(다이어리) + 이달의 일정(접힘/펼침) */}
-            <div className="grid grid-cols-[1fr_2fr] gap-4 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-4 items-start">
               <TodayDiaryCard tasks={diaryTasks} today={todayKey} />
               <MonthScheduleCard items={monthScheduleItems} today={todayKey} />
             </div>
 
             {/* 프로세스 카드 4-col */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <HappyCallCard items={happyCallItems} />
               <DataCollectCard items={dataCollectItems} />
               <ExcludeRequestCard items={excludeItems} />

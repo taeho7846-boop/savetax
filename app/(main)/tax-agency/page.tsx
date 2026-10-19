@@ -57,7 +57,7 @@ export default async function TaxAgencyPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">부가세 · 원천세 · 종소세 · 법인세</div>
+          <div className="text-[12.5px] text-[#8B95A1] font-medium">부가세 · 원천세 · 종소세 · 법인세</div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">신고 대리 · {clients.length}건</h1>
         </div>
         <ClientCreateButton />

@@ -188,7 +188,7 @@ function ClientCreateModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end"
+      className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-start justify-end"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-xl flex flex-col">

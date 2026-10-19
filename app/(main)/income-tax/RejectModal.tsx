@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { rejectIncomeTaxReport, getIncomeTaxRejections } from "@/app/actions/income-tax";
+import { notify } from "@/components/ui/Dialog";
 
 type Rejection = {
   id: number;
@@ -45,7 +46,7 @@ export function RejectModal({
       onRejected?.();
       onClose();
     } catch (e: any) {
-      alert(e?.message || "반려 실패");
+      notify(e?.message || "반려 실패");
     } finally {
       setSubmitting(false);
     }

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PhoneClientViewer } from "@/app/(main)/dashboard/PhoneClientViewer";
 import { DriveBasePathSync } from "@/components/DriveBasePathSync";
 import { PhoneEditModalHost } from "./PhoneEditModalHost";
+import { DialogHost } from "@/components/ui/Dialog";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
@@ -66,6 +67,7 @@ export default async function PhonePopupPage() {
       <DriveBasePathSync value={settings?.driveBasePath ?? null} />
       {/* 편집 모달 — 열리면 팝업 창이 폴드처럼 펼쳐지고, 닫으면 다시 접힘 */}
       <PhoneEditModalHost />
+      <DialogHost />
     </div>
   );
 }

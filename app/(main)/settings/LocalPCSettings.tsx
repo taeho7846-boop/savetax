@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { notify } from "@/components/ui/Dialog";
 
 const DRIVE_BASE_KEY = "savetax-drive-base-path";
 
@@ -35,7 +36,7 @@ export function LocalPCSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } else {
-      alert("저장 실패");
+      notify("저장 실패");
     }
   }
 
@@ -55,7 +56,7 @@ export function LocalPCSettings() {
 
   function testDrive() {
     if (!basePath.trim()) {
-      alert("먼저 기본 경로를 저장하세요");
+      notify("먼저 기본 경로를 저장하세요");
       return;
     }
     window.location.href = "savetax-app://folder?path=" + encodeURIComponent(basePath.trim());

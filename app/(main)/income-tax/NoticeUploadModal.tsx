@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import JSZip from "jszip";
+import { notify } from "@/components/ui/Dialog";
 
 type MatchResult =
   | { filename: string; status: "matched"; clientId: number; clientName: string; ceoName: string | null; driveFolderId: string; year: string; warning?: string }
@@ -66,7 +67,7 @@ export function NoticeUploadModal({ taxYear, onClose }: { taxYear: string; onClo
         );
 
         if (entries.length === 0) {
-          alert("ZIP 안에 PDF 파일이 없습니다.");
+          notify("ZIP 안에 PDF 파일이 없습니다.");
           setParsing(false);
           return;
         }
@@ -89,7 +90,7 @@ export function NoticeUploadModal({ taxYear, onClose }: { taxYear: string; onClo
         }));
         setRows(newRows);
       } catch (err: any) {
-        alert("ZIP 처리 중 오류: " + (err?.message || err));
+        notify("ZIP 처리 중 오류: " + (err?.message || err));
       } finally {
         setParsing(false);
       }
@@ -104,7 +105,7 @@ export function NoticeUploadModal({ taxYear, onClose }: { taxYear: string; onClo
       const file = e.dataTransfer.files?.[0];
       if (!file) return;
       if (!file.name.toLowerCase().endsWith(".zip")) {
-        alert("ZIP 파일을 올려주세요.");
+        notify("ZIP 파일을 올려주세요.");
         return;
       }
       handleZip(file);
@@ -179,7 +180,7 @@ export function NoticeUploadModal({ taxYear, onClose }: { taxYear: string; onClo
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[6vh]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-[920px] mx-4 bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] overflow-hidden flex flex-col max-h-[88vh]"
+        className="relative w-full max-w-[920px] mx-4 glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] border border-[#E5E8EB] overflow-hidden flex flex-col max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createFeedback, updateFeedback, deleteFeedback } from "@/app/actions/feedback";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type FeedbackItem = {
   id: number;
@@ -27,7 +28,7 @@ function PageSelect({ value, onChange, name, required }: { value?: string; onCha
       required={required}
       value={value}
       onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-      className="bg-white border border-[#D1D6DB] rounded-[6px] px-2 py-1 text-xs text-[#4E5968] focus:outline-none focus:border-[#3182F6]"
+      className="bg-white/80 border border-[#E5E8EB] rounded-xl px-2 py-1 text-xs text-[#4E5968] focus:outline-none focus:border-[#3182F6]"
     >
       <option value="">해당 탭 선택</option>
       {PAGE_OPTIONS.map((p) => (
@@ -93,8 +94,8 @@ export function FeedbackBoard({
     });
   }
 
-  function handleDelete(id: number) {
-    if (!confirm("삭제하시겠습니까?")) return;
+  async function handleDelete(id: number) {
+    if (!await askConfirm("삭제하시겠습니까?")) return;
     startTransition(async () => {
       await deleteFeedback(id);
     });
@@ -103,13 +104,13 @@ export function FeedbackBoard({
   const canModify = (f: FeedbackItem) => f.authorId === currentUserId || currentUserRole === "owner";
 
   return (
-    <div className="bg-white rounded-[6px] border border-[#E5E8EB] p-5">
+    <div className="glass rounded-3xl p-5">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-bold text-[#191F28]">건의사항 / 오류제보</h3>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-[6px] hover:bg-[#1B64DA] transition-colors"
+          className="text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl hover:bg-[#1B64DA] transition-colors"
         >
           {showForm ? "취소" : "+ 등록"}
         </button>
@@ -117,7 +118,7 @@ export function FeedbackBoard({
 
       {/* 등록 폼 */}
       {showForm && (
-        <form action={handleCreate} className="mb-4 p-4 bg-[#F9FAFB] rounded-[6px] border border-[#E5E8EB]">
+        <form action={handleCreate} className="mb-4 p-4 glass rounded-3xl">
           <div className="flex gap-3 mb-3 items-center">
             <div className="flex gap-2">
               <label className="flex items-center gap-1.5 cursor-pointer">
@@ -136,12 +137,12 @@ export function FeedbackBoard({
             required
             rows={3}
             placeholder="내용을 입력하세요"
-            className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none mb-3"
+            className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none mb-3"
           />
           <button
             type="submit"
             disabled={isPending}
-            className="bg-[#3182F6] text-white text-xs px-4 py-2 rounded-[6px] hover:bg-[#1B64DA] disabled:opacity-50"
+            className="bg-[#3182F6] text-white text-xs px-4 py-2 rounded-xl hover:bg-[#1B64DA] disabled:opacity-50"
           >
             등록
           </button>
@@ -161,7 +162,7 @@ export function FeedbackBoard({
         <button
           onClick={() => setFilter(filter === "suggestion" ? null : "suggestion")}
           className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-            filter === "suggestion" ? "bg-[#3182F6] text-white" : "bg-[#eff6ff] text-[#1e40af] hover:bg-[rgba(59,130,246,0.18)]"
+            filter === "suggestion" ? "bg-[#3182F6] text-white" : "bg-[#E8F3FF] text-[#1B64DA] hover:bg-[#D2E5FF]"
           }`}
         >
           건의사항 {feedbacks.filter((f) => f.category === "suggestion").length}
@@ -186,7 +187,7 @@ export function FeedbackBoard({
             const isEditing = editingId === f.id;
 
             return (
-              <div key={f.id} className="border border-[#E5E8EB] rounded-[6px] px-4 py-3 hover:border-[#D1D6DB] transition-colors">
+              <div key={f.id} className="rounded-2xl bg-white/60 border border-white/70 px-4 py-3 hover:bg-white/85 transition-colors">
                 {isEditing ? (
                   /* 수정 모드 */
                   <div>
@@ -217,13 +218,13 @@ export function FeedbackBoard({
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
                       rows={3}
-                      className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none mb-2"
+                      className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none mb-2"
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleUpdate(f.id)}
                         disabled={isPending}
-                        className="text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-[6px] hover:bg-[#1B64DA] disabled:opacity-50"
+                        className="text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl hover:bg-[#1B64DA] disabled:opacity-50"
                       >
                         저장
                       </button>

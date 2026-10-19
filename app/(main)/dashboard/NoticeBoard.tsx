@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createNotice, updateNotice, deleteNotice, togglePin } from "@/app/actions/notice";
 import { PinIcon, CheckIcon, ClipboardListIcon } from "@/components/icons";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type Notice = {
   id: number;
@@ -122,8 +123,8 @@ export function NoticeBoard({
     });
   }
 
-  function handleDelete(id: number) {
-    if (!confirm("삭제하시겠습니까?")) return;
+  async function handleDelete(id: number) {
+    if (!await askConfirm("삭제하시겠습니까?")) return;
     startTransition(async () => { await deleteNotice(id); });
   }
 
@@ -199,7 +200,7 @@ export function NoticeBoard({
 
         <button
           onClick={() => setShowForm(!showForm)}
-          className="text-xs bg-[#3182F6] text-white px-4 py-2 rounded-[6px] hover:bg-[#1B64DA] transition-colors"
+          className="text-xs bg-[#3182F6] text-white px-4 py-2 rounded-xl hover:bg-[#1B64DA] transition-colors"
         >
           {showForm ? "취소" : "+ 등록"}
         </button>
@@ -207,17 +208,17 @@ export function NoticeBoard({
 
       {/* 등록 폼 */}
       {showForm && (
-        <form action={handleCreate} className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] p-5 mb-5">
+        <form action={handleCreate} className="glass rounded-3xl p-5 mb-5">
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs text-[#6B7684] mb-1">카테고리</label>
-              <select name="category" defaultValue="template" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]">
+              <select name="category" defaultValue="template" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]">
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs text-[#6B7684] mb-1">세부 분류</label>
-              <select name="subCategory" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none">
+              <select name="subCategory" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none">
                 <option value="">선택 안 함</option>
                 {Object.values(SUB_CATEGORIES).flat().map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
@@ -226,14 +227,14 @@ export function NoticeBoard({
             </div>
             <div>
               <label className="block text-xs text-[#6B7684] mb-1">제목</label>
-              <input name="title" required placeholder="제목 입력" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]" />
+              <input name="title" required placeholder="제목 입력" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]" />
             </div>
           </div>
           <div className="mb-4">
             <label className="block text-xs text-[#6B7684] mb-1">내용</label>
-            <textarea name="content" required rows={5} placeholder="내용 입력 (템플릿의 경우 복사할 텍스트를 그대로 입력)" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none" />
+            <textarea name="content" required rows={5} placeholder="내용 입력 (템플릿의 경우 복사할 텍스트를 그대로 입력)" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none" />
           </div>
-          <button type="submit" disabled={isPending} className="bg-[#3182F6] text-white text-sm px-5 py-2 rounded-[6px] hover:bg-[#1B64DA] disabled:opacity-50">
+          <button type="submit" disabled={isPending} className="bg-[#3182F6] text-white text-sm px-5 py-2 rounded-xl hover:bg-[#1B64DA] disabled:opacity-50">
             등록
           </button>
         </form>
@@ -255,20 +256,20 @@ export function NoticeBoard({
                   /* 수정 모드 */
                   <div className="p-5">
                     <div className="grid grid-cols-3 gap-3 mb-3">
-                      <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]">
+                      <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28]">
                         {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                       </select>
-                      <select value={editSubCategory} onChange={(e) => setEditSubCategory(e.target.value)} className="bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]">
+                      <select value={editSubCategory} onChange={(e) => setEditSubCategory(e.target.value)} className="bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28]">
                         <option value="">선택 안 함</option>
                         {(SUB_CATEGORIES[editCategory] || []).map((s) => (
                           <option key={s.value} value={s.value}>{s.label}</option>
                         ))}
                       </select>
-                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]" />
+                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28]" />
                     </div>
-                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={5} className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] resize-none mb-3" />
+                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={5} className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] resize-none mb-3" />
                     <div className="flex gap-2">
-                      <button onClick={() => handleUpdate(n.id)} disabled={isPending} className="text-xs bg-[#3182F6] text-white px-4 py-1.5 rounded-[6px] hover:bg-[#1B64DA]">저장</button>
+                      <button onClick={() => handleUpdate(n.id)} disabled={isPending} className="text-xs bg-[#3182F6] text-white px-4 py-1.5 rounded-xl hover:bg-[#1B64DA]">저장</button>
                       <button onClick={() => setEditingId(null)} className="text-xs text-[#6B7684] px-4 py-1.5">취소</button>
                     </div>
                   </div>
@@ -309,18 +310,18 @@ export function NoticeBoard({
 
                     {/* 확장 내용 */}
                     {isExpanded && (
-                      <div className="px-5 pb-4 border-t border-[#E5E8EB] pt-3">
-                        <div className="bg-[#F9FAFB] rounded-[6px] px-4 py-3 text-sm text-[#4E5968] whitespace-pre-wrap mb-3">
+                      <div className="px-5 pb-4 border-t border-[#191F28]/[.06] pt-3">
+                        <div className="bg-white/60 rounded-2xl px-4 py-3 text-sm text-[#4E5968] whitespace-pre-wrap mb-3">
                           <Linkify text={n.content} />
                         </div>
                         <div className="flex items-center gap-2">
                           {/* 복사 버튼 */}
                           <button
                             onClick={() => handleCopy(n.content, n.id)}
-                            className={`text-xs px-3 py-1.5 rounded-[6px] font-[500] transition-all ${
+                            className={`text-xs px-3 py-1.5 rounded-xl font-[500] transition-all ${
                               copyFeedback === n.id
                                 ? "bg-[#ecfdf5] text-[#065f46]"
-                                : "bg-[#eff6ff] text-[#1e40af] hover:bg-[rgba(59,130,246,0.18)]"
+                                : "bg-[#E8F3FF] text-[#1B64DA] hover:bg-[#D2E5FF]"
                             }`}
                           >
                             {copyFeedback === n.id ? (

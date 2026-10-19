@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 export function WimembersButton() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
 
   async function handleClick() {
-    if (!confirm("기존 거래처에 위멤버스 폴더를 일괄 생성하시겠습니까?")) return;
+    if (!await askConfirm("기존 거래처에 위멤버스 폴더를 일괄 생성하시겠습니까?")) return;
     setLoading(true);
     setProgress("준비 중...");
     try {
@@ -37,9 +38,9 @@ export function WimembersButton() {
       }
 
       setProgress(`완료! ${finalResult.created}개 생성${finalResult.failed > 0 ? `, ${finalResult.failed}개 실패` : ""}`);
-      alert(`${finalResult.created}개 거래처에 위멤버스 폴더 생성 완료!${finalResult.failed > 0 ? ` (${finalResult.failed}개 실패)` : ""}`);
+      notify(`${finalResult.created}개 거래처에 위멤버스 폴더 생성 완료!${finalResult.failed > 0 ? ` (${finalResult.failed}개 실패)` : ""}`);
     } catch (err) {
-      alert("오류가 발생했습니다: " + String(err));
+      notify("오류가 발생했습니다: " + String(err));
       setProgress("");
     }
     setLoading(false);

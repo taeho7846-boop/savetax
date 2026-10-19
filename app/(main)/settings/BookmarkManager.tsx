@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createBookmark, updateBookmark, deleteBookmark } from "@/app/actions/bookmarks";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type Bookmark = {
   id: number;
@@ -25,8 +26,8 @@ export function BookmarkManager({
   const shared = bookmarks.filter((b) => b.scope === "shared");
   const personal = bookmarks.filter((b) => b.scope === "personal");
 
-  function handleDelete(id: number) {
-    if (!confirm("삭제하시겠습니까?")) return;
+  async function handleDelete(id: number) {
+    if (!await askConfirm("삭제하시겠습니까?")) return;
     startTransition(() => deleteBookmark(id));
   }
 

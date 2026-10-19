@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeInsuranceStep, undoInsuranceStep, type InsuranceStep } from "@/app/actions/insurance";
 import { UsersIcon } from "@/components/icons";
+import { askConfirm } from "@/components/ui/Dialog";
 
 export type InsuranceItem = {
   id: number;
@@ -121,8 +122,8 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
     });
   }
 
-  function undo(id: number, step: InsuranceStep, label: string) {
-    if (!confirm(`'${label}' 단계를 취소할까요?`)) return;
+  async function undo(id: number, step: InsuranceStep, label: string) {
+    if (!await askConfirm(`'${label}' 단계를 취소할까요?`)) return;
     startTransition(async () => {
       await undoInsuranceStep(id, step);
       router.refresh();
@@ -171,7 +172,7 @@ export function InsuranceCard({ items }: { items: InsuranceItem[] }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           {/* 높이 고정 — 카테고리 필터 전환 시 모달 크기가 출렁이지 않도록 */}
           <div className="glass-strong rounded-3xl w-full max-w-3xl h-[min(620px,80vh)] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 flex items-center gap-3 border-b border-white/40">

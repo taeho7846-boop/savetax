@@ -109,7 +109,7 @@ export function RevenueChart({ clients }: { clients: ClientData[] }) {
       </div>
 
       {/* 그래프 */}
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+      <div className="glass rounded-3xl p-5">
         <h2 className="text-sm font-medium text-[#333D4B] mb-4">월별 수익추이 (본사 귀속 vs 본인 귀속)</h2>
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={chartData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
@@ -176,7 +176,7 @@ export function RevenueChart({ clients }: { clients: ClientData[] }) {
         const hqTotal = details.filter(d => d.status === "본사 귀속").reduce((s, d) => s + d.fee, 0);
 
         return (
-          <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-hidden">
+          <div className="glass rounded-3xl overflow-hidden">
             <div className="px-5 py-3 border-b border-[#F2F4F6]">
               <h2 className="font-medium text-[#333D4B]">이번 달 거래처별 귀속 현황</h2>
             </div>

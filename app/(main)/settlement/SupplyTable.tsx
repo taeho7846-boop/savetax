@@ -9,6 +9,7 @@ import {
   toggleSupplySettled,
 } from "@/app/actions/settlement-supply";
 import { SUPPLY_PEOPLE, computeNet, type SupplyItem } from "@/lib/settlement-supply";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 const PEOPLE = SUPPLY_PEOPLE as readonly string[];
 
@@ -67,10 +68,10 @@ export function SupplyTable({
 
   function handleSave() {
     const item = fItem.trim();
-    if (!item) { alert("항목을 입력하세요"); return; }
+    if (!item) { notify("항목을 입력하세요"); return; }
     const amount = parseInt(fAmount || "0") || 0;
     const participants = PEOPLE.filter((p) => fParts.has(p));
-    if (participants.length === 0) { alert("분배 대상을 한 명 이상 체크하세요"); return; }
+    if (participants.length === 0) { notify("분배 대상을 한 명 이상 체크하세요"); return; }
     const channel = fChannel.trim() || undefined;
 
     if (modal === "create") {
@@ -90,8 +91,8 @@ export function SupplyTable({
     startTransition(() => toggleSupplyParticipant(id, person));
   }
 
-  function handleDelete(id: number) {
-    if (!confirm("삭제하시겠습니까?")) return;
+  async function handleDelete(id: number) {
+    if (!await askConfirm("삭제하시겠습니까?")) return;
     startTransition(() => deleteSupply(id));
   }
 
@@ -119,7 +120,7 @@ export function SupplyTable({
       </div>
 
       {/* 입력표 */}
-      <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-x-auto">
+      <div className="glass rounded-3xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-[#F9FAFB] border-b border-[#E5E8EB]">
             <tr>
@@ -184,7 +185,7 @@ export function SupplyTable({
       </div>
 
       {/* 월별 정산 요약 */}
-      <div className="mt-6 bg-white rounded-lg shadow-sm border border-[#F2F4F6] p-5">
+      <div className="mt-6 glass rounded-3xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[15px] font-bold text-[#191F28]">이번 달 정산 요약</h3>
           <span className="text-xs text-[#8B95A1]">＋ 받을 돈 · － 낼 돈</span>
@@ -237,8 +238,8 @@ export function SupplyTable({
 
       {/* 추가/수정 모달 */}
       {modal !== null && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setModal(null)}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-bold text-[#191F28]">{modal === "create" ? "비품정산 추가" : "비품정산 수정"}</h3>
               <button onClick={() => setModal(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>

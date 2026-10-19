@@ -10,6 +10,7 @@ import { NoticeUploadModal } from "./NoticeUploadModal";
 import { NoticeCompareModal } from "./NoticeCompareModal";
 import { RejectModal } from "./RejectModal";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
+import { notify, askConfirm, askPrompt } from "@/components/ui/Dialog";
 
 type ITRecord = {
   bookkeepingDuty: string | null;
@@ -385,7 +386,7 @@ export function IncomeTaxTable({
     if (client.driveFolderId) {
       window.open(`https://drive.google.com/drive/folders/${client.driveFolderId}`, "_blank");
     } else {
-      alert("이 거래처에 드라이브 폴더가 연결되어 있지 않습니다. 거래처 수정에서 폴더를 연결하거나, 설정 → 로컬 PC에서 드라이브 기본 경로를 등록하세요.");
+      notify("이 거래처에 드라이브 폴더가 연결되어 있지 않습니다. 거래처 수정에서 폴더를 연결하거나, 설정 → 로컬 PC에서 드라이브 기본 경로를 등록하세요.");
     }
   }
 
@@ -394,7 +395,7 @@ export function IncomeTaxTable({
     const id = client.hometaxId || agentHometaxId;
     const pw = client.hometaxPw || agentHometaxPw;
     if (!id || !pw) {
-      alert("홈택스 계정이 등록되어 있지 않습니다. 설정에서 등록하세요.");
+      notify("홈택스 계정이 등록되어 있지 않습니다. 설정에서 등록하세요.");
       return;
     }
     try {
@@ -405,7 +406,7 @@ export function IncomeTaxTable({
         "_blank"
       );
     } catch {
-      alert("홈택스 로그인 실행 실패");
+      notify("홈택스 로그인 실행 실패");
     }
   }
 
@@ -475,8 +476,8 @@ export function IncomeTaxTable({
         <div className="mb-3">
           {r.excluded ? (
             <button
-              onClick={() => {
-                if (confirm(`${client.name} — 제외를 해제하고 작성중 단계로 복구할까요?`)) {
+              onClick={async () => {
+                if (await askConfirm(`${client.name} — 제외를 해제하고 작성중 단계로 복구할까요?`)) {
                   startTransition(async () => { await setIncomeTaxExcluded(client.id, taxYear, false); });
                 }
               }}
@@ -485,8 +486,8 @@ export function IncomeTaxTable({
             >↺ 제외 해제 (작성중으로 복구)</button>
           ) : (
             <button
-              onClick={() => {
-                const reason = prompt(`${client.name} — 이번 연도 신고를 제외할 사유를 입력하세요\n(예: 2026년 신규 개업, 폐업 등)`);
+              onClick={async () => {
+                const reason = await askPrompt(`${client.name} — 이번 연도 신고를 제외할 사유를 입력하세요\n(예: 2026년 신규 개업, 폐업 등)`);
                 if (reason === null) return;
                 startTransition(async () => { await setIncomeTaxExcluded(client.id, taxYear, true, reason || undefined); });
               }}
@@ -537,7 +538,7 @@ export function IncomeTaxTable({
       {/* 헤더 */}
       <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">종합소득세 신고 시즌</div>
+          <div className="text-[12.5px] text-[#8B95A1] font-medium">종합소득세 신고 시즌</div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">종합소득세 · {taxYear}년 귀속</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -866,8 +867,8 @@ export function IncomeTaxTable({
                             ← 수집
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm(`${client.name} 거래처를 [③ 결재] 단계로 넘기시겠어요?\n\n· 세무사가 검토 후 컨펌 또는 반려합니다.`)) {
+                            onClick={async () => {
+                              if (await askConfirm(`${client.name} 거래처를 [③ 결재] 단계로 넘기시겠어요?\n\n· 세무사가 검토 후 컨펌 또는 반려합니다.`)) {
                                 startTransition(async () => { await moveToApproval(client.id, taxYear); });
                               }
                             }}
@@ -981,9 +982,9 @@ export function IncomeTaxTable({
                           })}
                           <td className="px-2 py-2.5 text-center">
                             <button
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                if (confirm(`${client.name} 거래처를 [② 작성중] 단계로 넘기시겠어요?\n\n· 당기 수입금액에 임시값 1이 입력됩니다.\n· 작성중 단계에서 정확한 금액으로 수정해 주세요.`)) {
+                                if (await askConfirm(`${client.name} 거래처를 [② 작성중] 단계로 넘기시겠어요?\n\n· 당기 수입금액에 임시값 1이 입력됩니다.\n· 작성중 단계에서 정확한 금액으로 수정해 주세요.`)) {
                                   handleFieldBlur(client.id, "currSales", "1");
                                 }
                               }}
@@ -1146,8 +1147,8 @@ export function IncomeTaxTable({
                                 반려
                               </button>
                               <button
-                                onClick={() => {
-                                  if (confirm(`${client.name} — [④ 컨펌] 단계로 넘기시겠어요?`)) {
+                                onClick={async () => {
+                                  if (await askConfirm(`${client.name} — [④ 컨펌] 단계로 넘기시겠어요?`)) {
                                     startTransition(async () => { await confirmIncomeTaxReport(client.id, taxYear); });
                                   }
                                 }}
@@ -1315,9 +1316,9 @@ export function IncomeTaxTable({
                                 title="결재 단계로 되돌리기"
                                 className="text-[10.5px] bg-white/70 border border-[#E5E8EB] text-[#F59E0B] px-2 py-1 rounded-lg font-bold hover:bg-[#F59E0B]/10 whitespace-nowrap">← 결재</button>
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   if (r.filingDone) return;
-                                  if (confirm(`${client.name} — [⑤ 신고완료] 단계로 넘기시겠어요?`)) {
+                                  if (await askConfirm(`${client.name} — [⑤ 신고완료] 단계로 넘기시겠어요?`)) {
                                     handleToggle(client.id, "filingDone");
                                   }
                                 }}
@@ -1452,8 +1453,8 @@ export function IncomeTaxTable({
                           <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
                               <button
-                                onClick={() => {
-                                  if (confirm(`${client.name} 거래처를 [④ 컨펌] 단계로 되돌리시겠어요?\n\n· 되돌리기 기록이 남습니다.`)) {
+                                onClick={async () => {
+                                  if (await askConfirm(`${client.name} 거래처를 [④ 컨펌] 단계로 되돌리시겠어요?\n\n· 되돌리기 기록이 남습니다.`)) {
                                     startTransition(async () => { await revertDoneToConfirm(client.id, taxYear); });
                                   }
                                 }}
@@ -1496,7 +1497,7 @@ export function IncomeTaxTable({
               {showGroup("가결산") && <th className={`px-3 py-1.5 ${GROUP_COLORS["가결산"]} border-b border-[#FDE68A]`} colSpan={1}>가결산</th>}
               {showGroup("전기") && <th className={`px-3 py-1.5 ${GROUP_COLORS["전기"]} border-b border-[#A3CAFD]`} colSpan={3}>전기</th>}
               {showGroup("당기") && <th className={`px-3 py-1.5 ${GROUP_COLORS["당기"]} border-b border-emerald-200`} colSpan={3}>당기</th>}
-              {showGroup("AI판단") && <th className="px-3 py-1.5 bg-indigo-50 border-b border-indigo-200" colSpan={2}>AI판단</th>}
+              {showGroup("AI판단") && <th className="px-3 py-1.5 bg-[#E8F3FF]/70 border-b border-[#A3CAFD]/60" colSpan={2}>AI판단</th>}
               {showGroup("감면") && <th className={`px-3 py-1.5 ${GROUP_COLORS["감면"]} border-b border-orange-200`} colSpan={5}>감면</th>}
               {showGroup("완료") && <th className={`px-3 py-1.5 ${GROUP_COLORS["완료"]} border-b border-[#BBF7D0]`} colSpan={3}>완료</th>}
               {showGroup("조정료") && <th className={`px-3 py-1.5 bg-rose-50 border-b border-rose-200`} colSpan={1}>조정료</th>}
@@ -1533,8 +1534,8 @@ export function IncomeTaxTable({
                 <th className="px-2 py-2 text-center text-[#4E5968] font-medium">결정<br/>세액</th>
               </>}
               {showGroup("AI판단") && <>
-                <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">창중감</th>
-                <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-indigo-50/50">중특감</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-[#E8F3FF]/50">창중감</th>
+                <th className="px-2 py-2 text-center text-[#4E5968] font-medium bg-[#E8F3FF]/50">중특감</th>
               </>}
               {showGroup("감면") && <>
                 <th className="px-2 py-2 text-center text-[#4E5968] font-medium">기장<br/>공제</th>
@@ -1609,7 +1610,7 @@ export function IncomeTaxTable({
                             className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
                               savedCalcIds.has(client.id)
                                 ? "bg-[#E7F7EE] text-[#15803D] hover:bg-[#BBF7D0]"
-                                : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                                : "bg-indigo-50 text-[#1B64DA] hover:bg-indigo-100"
                             }`}
                             title="세액계산"
                           >
@@ -1679,10 +1680,10 @@ export function IncomeTaxTable({
                     </>}
 
                     {showGroup("AI판단") && <>
-                      <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
+                      <td className="px-2 py-2 text-center text-xs font-medium bg-[#E8F3FF]/30">
                         {client.aiStartupReduction === "O" ? <span className="text-[#16A865]">O</span> : client.aiStartupReduction === "X" ? <span className="text-[#E02E2E]">X</span> : <span className="text-[#B0B8C1]">-</span>}
                       </td>
-                      <td className="px-2 py-2 text-center text-xs font-medium bg-indigo-50/30">
+                      <td className="px-2 py-2 text-center text-xs font-medium bg-[#E8F3FF]/30">
                         {client.aiSmeReduction === "O" ? <span className="text-[#16A865]">O</span> : client.aiSmeReduction === "X" ? <span className="text-[#E02E2E]">X</span> : <span className="text-[#B0B8C1]">-</span>}
                       </td>
                     </>}
@@ -1975,8 +1976,8 @@ export function IncomeTaxTable({
 
       {/* 메모 모달 */}
       {memoModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setMemoModal(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setMemoModal(null)}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-bold text-[#191F28]">메모</h3>
@@ -2183,8 +2184,8 @@ function ExcludedSection({
                   </td>
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => {
-                        if (confirm(`${c.name} — 제외 해제하고 작성중으로 복구할까요?`)) onRestore(c.id);
+                      onClick={async () => {
+                        if (await askConfirm(`${c.name} — 제외 해제하고 작성중으로 복구할까요?`)) onRestore(c.id);
                       }}
                       disabled={isPending}
                       className="text-[10.5px] bg-white hover:bg-[#10B981] hover:text-white text-[#10B981] border border-[#10B981]/40 px-2 py-1 rounded-lg font-bold whitespace-nowrap disabled:opacity-50"

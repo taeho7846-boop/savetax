@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addDistribution, deleteDistribution, togglePass, permanentDeleteDistribution, restoreDistribution, dismissMissingClient, addPassBlock } from "@/app/actions/distribution";
+import { askConfirm, askPrompt } from "@/components/ui/Dialog";
 
 interface Accountant {
   id: number;
@@ -66,8 +67,8 @@ export function DistributionBoard({
     });
   }
 
-  function handleDelete(id: number, name: string) {
-    const reason = prompt(`'${name}' 관리제외 사유를 입력하세요 (선택사항):`, "");
+  async function handleDelete(id: number, name: string) {
+    const reason = await askPrompt(`'${name}' 관리제외 사유를 입력하세요 (선택사항):`, "");
     if (reason === null) return;
     startTransition(async () => {
       await deleteDistribution(id, reason || undefined);
@@ -75,8 +76,8 @@ export function DistributionBoard({
     });
   }
 
-  function handlePermanentDelete(id: number, name: string) {
-    if (!confirm(`'${name}'을(를) 완전 삭제하시겠습니까?`)) return;
+  async function handlePermanentDelete(id: number, name: string) {
+    if (!await askConfirm(`'${name}'을(를) 완전 삭제하시겠습니까?`)) return;
     startTransition(async () => {
       await permanentDeleteDistribution(id);
       router.refresh();
@@ -104,8 +105,8 @@ export function DistributionBoard({
     });
   }
 
-  function handleDismissMissing(id: number, name: string) {
-    if (!confirm(`'${name}'은(는) 기장대리에 있는 거래처와 같은 곳인가요?\n빨간 표시를 끄겠습니다 (띄어쓰기 차이 등 false positive 정리).`)) return;
+  async function handleDismissMissing(id: number, name: string) {
+    if (!await askConfirm(`'${name}'은(는) 기장대리에 있는 거래처와 같은 곳인가요?\n빨간 표시를 끄겠습니다 (띄어쓰기 차이 등 false positive 정리).`)) return;
     startTransition(async () => {
       await dismissMissingClient(id);
       router.refresh();

@@ -11,6 +11,7 @@ import {
   setTerminationNotes,
   setTerminationCompleted,
 } from "@/app/actions/termination";
+import { askConfirm } from "@/components/ui/Dialog";
 
 export type TerminationRow = {
   id: number;
@@ -208,9 +209,9 @@ function TerminationCard({ row, readonly }: { row: TerminationRow; readonly: boo
     });
   }
 
-  function reactivate() {
+  async function reactivate() {
     if (readonly) return;
-    if (!confirm(`'${r.name}'을(를) 다시 '계약중'으로 되돌리시겠습니까?\n(해지 체크리스트 기록은 보존됩니다)`)) return;
+    if (!await askConfirm(`'${r.name}'을(를) 다시 '계약중'으로 되돌리시겠습니까?\n(해지 체크리스트 기록은 보존됩니다)`)) return;
     startTransition(async () => {
       await setClientContractStatus(r.id, "active");
       router.refresh();

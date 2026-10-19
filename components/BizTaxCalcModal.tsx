@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BarChartIcon, DownloadIcon } from "@/components/icons";
+import { notify } from "@/components/ui/Dialog";
 
 // 소득세율 (2026년)
 function calcTax(taxBase: number): number {
@@ -401,8 +402,8 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
       });
       setSavedOnce(true);
       onSaved?.();
-      alert("저장 완료!");
-    } catch { alert("저장 실패"); }
+      notify("저장 완료!");
+    } catch { notify("저장 실패"); }
     finally { setSaving(false); }
   }
 
@@ -467,7 +468,7 @@ export function BizTaxCalcModal({ onClose, clientName, clientId, taxYear, loadDa
     <div className="fixed inset-0 z-[110] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden max-h-[92vh] overflow-y-auto"
+        className="relative glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-3xl mx-4 overflow-hidden max-h-[92vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}

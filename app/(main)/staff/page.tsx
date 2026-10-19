@@ -24,7 +24,7 @@ export default async function StaffPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
+          <div className="text-[12.5px] text-[#8B95A1] font-medium flex items-center gap-1.5">
             <span className="live-dot" />
             {activeStaff.length}명 활성 사용자
           </div>

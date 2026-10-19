@@ -7,6 +7,7 @@ import { setWithholdingNote, getWithholdingMemos, setSkipDailyWorkReport } from 
 import { EditClientForm } from "@/app/(main)/clients/EditClientForm";
 import { InsuranceTab } from "@/app/(main)/clients/InsuranceTab";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
+import { askConfirm, notify } from "@/components/ui/Dialog";
 
 type ClientData = Awaited<ReturnType<typeof getClientById>>;
 type HistoryData = Awaited<ReturnType<typeof getClientHistory>>;
@@ -15,6 +16,35 @@ const MEMO_TYPE_LABELS: Record<string, string> = { general: "일반", handover: 
 const MEMO_TYPE_COLORS: Record<string, string> = { general: "bg-[#F2F4F6] text-[#4E5968]", handover: "bg-[#E8F3FF] text-[#3182F6]", caution: "bg-[#FEF2F2] text-[#DC2626]" };
 
 export type ClientEditModalTab = "edit" | "history" | "vat" | "incomeTax" | "withholding";
+
+/* 공용: 모달 안의 섹션 카드 */
+function Section({
+  title,
+  desc,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  desc?: string;
+  tone?: "default" | "brand" | "danger";
+  children: React.ReactNode;
+}) {
+  const toneCls =
+    tone === "brand"
+      ? "border-[#A3CAFD]/70 bg-[#F5F9FF]/80"
+      : tone === "danger"
+        ? "border-[#FECACA]/80 bg-[#FFF9F9]/80"
+        : "border-white/70 bg-white/60";
+  return (
+    <div className={`rounded-2xl border px-4 py-3.5 ${toneCls}`}>
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="text-[13.5px] font-bold text-[#191F28]">{title}</span>
+        {desc && <span className="text-[11px] text-[#8B95A1]">{desc}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 // 이번달 메모 모아보기 — 연도별 토글, 열면 1~12월 메모 표시
 function MonthlyMemoArchive({ clientId }: { clientId: number }) {
@@ -27,7 +57,7 @@ function MonthlyMemoArchive({ clientId }: { clientId: number }) {
 
   if (!memos) {
     return (
-      <div className="border border-[#E5E8EB] rounded-xl px-4 py-3.5 text-xs text-[#8B95A1]">
+      <div className="rounded-2xl border border-white/70 bg-white/60 px-4 py-3.5 text-xs text-[#8B95A1]">
         메모 불러오는 중...
       </div>
     );
@@ -46,17 +76,13 @@ function MonthlyMemoArchive({ clientId }: { clientId: number }) {
   byYear.forEach((list) => list.sort((a, b) => a.month - b.month));
 
   return (
-    <div className="border border-[#E5E8EB] rounded-xl px-4 py-3.5">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-sm font-bold text-[#191F28]">이번달 메모 모아보기</span>
-        <span className="text-[11px] text-[#8B95A1]">원천세 페이지에서 월별로 적은 메모 · 총 {memos.length}건</span>
-      </div>
-      <div className="space-y-1.5 mt-2">
+    <Section title="이번달 메모 모아보기" desc={`원천세 페이지에서 월별로 적은 메모 · 총 ${memos.length}건`}>
+      <div className="space-y-1.5">
         {years.map((year) => {
           const list = byYear.get(year)!;
           const open = openYears.has(year);
           return (
-            <div key={year} className="border border-[#F2F4F6] rounded-lg overflow-hidden">
+            <div key={year} className="overflow-hidden rounded-xl border border-[#F2F4F6] bg-white/80">
               <button
                 type="button"
                 onClick={() =>
@@ -66,20 +92,20 @@ function MonthlyMemoArchive({ clientId }: { clientId: number }) {
                     return next;
                   })
                 }
-                className="w-full flex items-center gap-2 px-3 py-2 bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors text-left"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[#F9FAFB]"
               >
-                <span className="text-[10px] text-[#8B95A1] w-3">{open ? "▼" : "▶"}</span>
+                <span className="w-3 text-[10px] text-[#8B95A1]">{open ? "▼" : "▶"}</span>
                 <span className="text-[13px] font-bold text-[#333D4B]">{year}년</span>
-                <span className="text-[11px] text-[#8B95A1] bg-white rounded-full px-2 py-0.5">{list.length}건</span>
+                <span className="rounded-full bg-[#F2F4F6] px-2 py-0.5 text-[11px] text-[#6B7684]">{list.length}건</span>
               </button>
               {open && (
                 <div className="divide-y divide-[#F2F4F6]">
                   {list.map(({ month, memo }) => (
-                    <div key={month} className="flex gap-2.5 px-3 py-2 items-start">
-                      <span className="shrink-0 inline-flex items-center justify-center min-w-[34px] h-[20px] rounded-md bg-[#E8F3FF] text-[#1B64DA] text-[11px] font-bold px-1.5 mt-px">
+                    <div key={month} className="flex items-start gap-2.5 px-3 py-2">
+                      <span className="mt-px inline-flex h-[20px] min-w-[34px] shrink-0 items-center justify-center rounded-md bg-[#E8F3FF] px-1.5 text-[11px] font-bold text-[#1B64DA]">
                         {month}월
                       </span>
-                      <p className="text-xs text-[#4E5968] whitespace-pre-wrap leading-relaxed">{memo}</p>
+                      <p className="whitespace-pre-wrap text-xs leading-relaxed text-[#4E5968]">{memo}</p>
                     </div>
                   ))}
                 </div>
@@ -88,7 +114,7 @@ function MonthlyMemoArchive({ clientId }: { clientId: number }) {
           );
         })}
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -138,46 +164,38 @@ function DoumConvertSection() {
   }
 
   const fmt = (n: number) => (n ?? 0).toLocaleString("ko-KR");
+  const fileCls = "text-xs text-[#4E5968] file:mr-2 file:rounded-lg file:border-0 file:bg-[#E8F3FF] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[#1B64DA]";
 
   return (
-    <div className="border border-[#A3CAFD] bg-[#F5F9FF] rounded-xl px-4 py-3.5">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm font-bold text-[#191F28]">원천세 변환 마법사</span>
-        <span className="text-[11px] text-[#8B95A1]">정산 원본 → 검증 → 위하고 업로드 서식</span>
-      </div>
-
-      {/* 입력 */}
+    <Section title="원천세 변환 마법사" desc="정산 원본 → 검증 → 위하고 업로드 서식" tone="brand">
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#6B7684] w-16 shrink-0">귀속월</span>
+          <span className="w-16 shrink-0 text-xs text-[#6B7684]">귀속월</span>
           <input value={ym} onChange={e => setYm(e.target.value)} placeholder="2026.09"
-            className="w-24 text-sm border border-[#D1D6DB] rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-[#3182F6]" />
+            className="h-9 w-24 rounded-xl border border-[#E5E8EB] bg-white px-2.5 text-sm outline-none transition focus:border-[#3182F6] focus:ring-4 focus:ring-[#3182F6]/15" />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#6B7684] w-16 shrink-0">정산 원본</span>
-          <input type="file" accept=".xlsx" onChange={e => { const f = e.target.files?.[0] ?? null; setSrcFile(f); if (f) pickYmFromName(f.name); }}
-            className="text-xs text-[#4E5968] file:mr-2 file:text-xs file:border-0 file:rounded-lg file:px-3 file:py-1.5 file:bg-[#E8F3FF] file:text-[#1B64DA] file:font-bold" />
+          <span className="w-16 shrink-0 text-xs text-[#6B7684]">정산 원본</span>
+          <input type="file" accept=".xlsx" onChange={e => { const f = e.target.files?.[0] ?? null; setSrcFile(f); if (f) pickYmFromName(f.name); }} className={fileCls} />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#6B7684] w-16 shrink-0">사원등록</span>
-          <input type="file" accept=".xlsx" onChange={e => setRegFile(e.target.files?.[0] ?? null)}
-            className="text-xs text-[#4E5968] file:mr-2 file:text-xs file:border-0 file:rounded-lg file:px-3 file:py-1.5 file:bg-[#E8F3FF] file:text-[#1B64DA] file:font-bold" />
+          <span className="w-16 shrink-0 text-xs text-[#6B7684]">사원등록</span>
+          <input type="file" accept=".xlsx" onChange={e => setRegFile(e.target.files?.[0] ?? null)} className={fileCls} />
         </div>
         <button type="button" disabled={!srcFile || !regFile || running} onClick={run}
-          className="w-full text-sm py-2 rounded-lg bg-[#3182F6] text-white font-bold hover:bg-[#1B64DA] disabled:opacity-40 transition-colors">
+          className="h-10 w-full rounded-xl bg-[#3182F6] text-sm font-bold text-white shadow-md shadow-[#3182F6]/25 transition-colors hover:bg-[#1B64DA] disabled:opacity-40 disabled:shadow-none">
           {running ? "검증·변환 중..." : "① 주민번호 검증 → 변환 실행"}
         </button>
       </div>
 
-      {/* 결과 */}
       {result && (
         <div className="mt-3 space-y-2">
           {result.fatal && (
-            <div className="text-xs bg-[#FEF2F2] text-[#B91C1C] rounded-lg px-3 py-2.5 whitespace-pre-wrap">{result.fatal}</div>
+            <div className="whitespace-pre-wrap rounded-xl bg-[#FEF2F2] px-3 py-2.5 text-xs text-[#B91C1C]">{result.fatal}</div>
           )}
           {!result.fatal && !result.ok && (
-            <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-lg px-3 py-2.5">
-              <div className="text-xs font-bold text-[#B91C1C] mb-1.5">🚫 주민번호 검증 실패 — 정정 후 다시 업로드하세요 (파일 미생성)</div>
+            <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5">
+              <div className="mb-1.5 text-xs font-bold text-[#B91C1C]">🚫 주민번호 검증 실패 — 정정 후 다시 업로드하세요 (파일 미생성)</div>
               {(result.errors ?? []).map((e: any, i: number) => (
                 <div key={i} className="text-[11.5px] text-[#B91C1C]">· [{e.tag}] {e.name} {e.rrn} — {e.msg}{e.work ? ` (${e.work})` : ""}</div>
               ))}
@@ -185,17 +203,16 @@ function DoumConvertSection() {
           )}
           {result.ok && (
             <>
-              <div className="text-xs bg-[#E8F5EE] text-[#15803D] rounded-lg px-3 py-2 font-bold">
+              <div className="rounded-xl bg-[#E8F5EE] px-3 py-2 text-xs font-bold text-[#15803D]">
                 ✅ 검증 통과 — 사업소득 {result.totals.bizCount}명 {fmt(result.totals.bizAmount)}원 · 일용직 {result.totals.dailyCount}건 {fmt(result.totals.dailyAmount)}원
               </div>
               {(result.warns ?? []).length > 0 && (
-                <div className="text-[11.5px] bg-[#FFFBEB] text-[#B45309] rounded-lg px-3 py-2">
+                <div className="rounded-xl bg-[#FFFBEB] px-3 py-2 text-[11.5px] text-[#B45309]">
                   {result.warns.map((w: any, i: number) => <div key={i}>⚠ [{w.tag}] {w.name} {w.rrn} — {w.msg}</div>)}
                 </div>
               )}
-              {/* 신규 등록 대상 */}
-              <div className="bg-white border border-[#E5E8EB] rounded-lg px-3 py-2.5">
-                <div className="text-xs font-bold text-[#191F28] mb-1">
+              <div className="rounded-xl border border-[#E5E8EB] bg-white px-3 py-2.5">
+                <div className="mb-1 text-xs font-bold text-[#191F28]">
                   ② 위하고에 직접 등록할 일용직: {result.newWorkers.length}명
                 </div>
                 {result.newWorkers.length === 0 ? (
@@ -206,11 +223,10 @@ function DoumConvertSection() {
                   ))
                 )}
               </div>
-              {/* 다운로드 */}
               <div className="grid grid-cols-3 gap-1.5">
                 {result.filesOut?.map((f: any, i: number) => (
                   <button key={f.name} type="button" onClick={() => download(f.name, f.b64)}
-                    className="text-[11px] py-2 rounded-lg border border-[#A3CAFD] bg-white text-[#1B64DA] font-bold hover:bg-[#E8F3FF] transition-colors">
+                    className="rounded-xl border border-[#A3CAFD] bg-white py-2 text-[11px] font-bold text-[#1B64DA] transition-colors hover:bg-[#E8F3FF]">
                     {["② 신규명단", "③ 사업소득", "④ 일용직"][i]} ⬇
                   </button>
                 ))}
@@ -220,7 +236,7 @@ function DoumConvertSection() {
           )}
         </div>
       )}
-    </div>
+    </Section>
   );
 }
 
@@ -238,45 +254,34 @@ function WithholdingNoteSection({ clientId, initialNote }: { clientId: number; i
       await setWithholdingNote(clientId, note);
       setSavedNote(note.trim());
       setNote(note.trim());
+      notify("특이사항을 저장했어요", { type: "success" });
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="border border-[#FECACA] bg-[#FFF9F9] rounded-xl px-4 py-3.5">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-full bg-[#FEF2F2] border border-[#FECACA] text-[#DC2626] text-[9px] font-bold leading-none">!</span>
-        <span className="text-sm font-bold text-[#191F28]">특이사항 (고정)</span>
-        <span className="text-[11px] text-[#8B95A1]">매월 유지 · 원천세 페이지에서 마우스를 올리면 표시됩니다</span>
-      </div>
+    <Section title="특이사항 (고정)" desc="매월 유지 · 원천세 페이지에서 마우스를 올리면 표시됩니다" tone="danger">
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="예: 급여자료 매월 대표에게 직접 요청 / 식대 비과세 20만원 적용 등"
         rows={3}
-        className="w-full border border-[#E5E8EB] rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#DC2626]/40 resize-none"
+        className="w-full resize-none rounded-xl border border-[#E5E8EB] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#DC2626]/50 focus:ring-4 focus:ring-[#DC2626]/10"
       />
       {dirty && (
-        <div className="flex justify-end gap-2 mt-2">
-          <button
-            type="button"
-            onClick={() => setNote(savedNote)}
-            className="text-xs text-[#6B7684] px-3 py-1.5 rounded-lg hover:bg-[#F2F4F6] transition-colors"
-          >
+        <div className="mt-2 flex justify-end gap-2">
+          <button type="button" onClick={() => setNote(savedNote)}
+            className="rounded-xl px-3 py-1.5 text-xs font-bold text-[#6B7684] transition-colors hover:bg-[#F2F4F6]">
             취소
           </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={save}
-            className="text-xs bg-[#DC2626] text-white px-4 py-1.5 rounded-lg hover:bg-[#B91C1C] disabled:opacity-50 transition-colors"
-          >
+          <button type="button" disabled={saving} onClick={save}
+            className="rounded-xl bg-[#DC2626] px-4 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#B91C1C] disabled:opacity-50">
             {saving ? "저장 중..." : "특이사항 저장"}
           </button>
         </div>
       )}
-    </div>
+    </Section>
   );
 }
 
@@ -300,17 +305,28 @@ function DailyWorkReportSkipSection({ clientId, initialSkip }: { clientId: numbe
   }
 
   return (
-    <label className="flex items-center gap-3 border border-[#E5E8EB] bg-white rounded-xl px-4 py-3.5 cursor-pointer hover:bg-[#F9FAFB] transition-colors">
-      <input
-        type="checkbox"
-        checked={skip}
-        onChange={toggle}
+    <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/70 bg-white/60 px-4 py-3.5 transition-colors hover:bg-white/80">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={skip}
+        onClick={toggle}
         disabled={saving}
-        className="accent-[#3182F6] w-4 h-4 cursor-pointer"
+        className={`v3-toggle ${skip ? "on" : ""}`}
       />
-      <span className="text-sm font-bold text-[#191F28]">근로내용확인신고서 미제출</span>
+      <span className="text-[13.5px] font-bold text-[#191F28]">근로내용확인신고서 미제출</span>
       <span className="text-[11px] text-[#8B95A1]">체크하면 원천세 페이지에서 근로내용확인신고서 체크칸이 표시되지 않습니다</span>
     </label>
+  );
+}
+
+function EmptyState({ icon, title, desc }: { icon: string; title: string; desc?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 text-[22px] shadow-sm">{icon}</div>
+      <div className="text-[13.5px] font-bold text-[#4E5968]">{title}</div>
+      {desc && <div className="mt-1 text-[12px] text-[#8B95A1]">{desc}</div>}
+    </div>
   );
 }
 
@@ -349,6 +365,7 @@ export function ClientEditModal({
   }, [onClose]);
 
   function handleSuccess() {
+    notify("거래처 정보를 저장했어요", { type: "success" });
     router.refresh();
     onClose();
   }
@@ -357,18 +374,48 @@ export function ClientEditModal({
   async function handleToggleContract() {
     if (!data?.client) return;
     const next = data.client.contractStatus === "active" ? "terminated" : "active";
-    const msg = next === "terminated"
-      ? `'${data.client.name}'을(를) 해지처리하시겠습니까?\n\n· 삭제가 아니라 '계약종료' 상태로 바뀝니다 (데이터 보존)\n· 종합소득세·채권관리에서는 계속 보입니다\n· 기장대리 목록에서는 '해지 거래처' 그룹으로 접히고 집계에서 빠집니다`
-      : `'${data.client.name}'을(를) 다시 '계약중'으로 되돌리시겠습니까?`;
-    if (!confirm(msg)) return;
+    const ok = await askConfirm(
+      next === "terminated"
+        ? {
+            title: "해지처리할까요?",
+            message: `'${data.client.name}'을(를) 계약종료 상태로 바꿉니다.\n\n· 삭제가 아니라 '계약종료' 상태로 바뀌어 데이터는 보존됩니다\n· 종합소득세·채권관리에서는 계속 보입니다\n· 기장대리 목록에서는 '해지 거래처' 그룹으로 접히고 집계에서 빠집니다`,
+            confirmText: "해지처리",
+            danger: true,
+          }
+        : {
+            title: "해지를 취소할까요?",
+            message: `'${data.client.name}'을(를) 다시 '계약중'으로 되돌립니다.`,
+            confirmText: "계약중으로",
+          }
+    );
+    if (!ok) return;
     setStatusUpdating(true);
     try {
       await setClientContractStatus(data.client.id, next);
       const fresh = await getClientById(clientId);
       setData(fresh);
       router.refresh();
+      notify(next === "terminated" ? "해지처리했어요" : "계약중으로 되돌렸어요", { type: "success" });
     } finally {
       setStatusUpdating(false);
+    }
+  }
+
+  const [deleting, setDeleting] = useState(false);
+  async function handleDelete() {
+    if (!data?.client || deleting) return;
+    const ok = await askConfirm({
+      title: "거래처를 삭제할까요?",
+      message: `'${data.client.name}'을(를) 휴지통으로 보냅니다.\n거래처 목록에서 사라지며, 휴지통에서 복원할 수 있어요.\n\n거래처가 나간 경우라면 삭제 대신 '해지처리'를 써 주세요.`,
+      confirmText: "삭제",
+      danger: true,
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await deleteClient(data.client.id);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -395,164 +442,204 @@ export function ClientEditModal({
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [];
 
+  const client = data?.client;
+  const isActive = client?.contractStatus === "active";
+  const TABS = [
+    { key: "edit", label: "수정" },
+    { key: "history", label: "히스토리" },
+    { key: "vat", label: "부가세" },
+    { key: "incomeTax", label: client?.clientType?.includes("corporate") ? "법인세" : "종합소득세" },
+    { key: "withholding", label: "원천세" },
+  ] as const;
+
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end"
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-[#191F28]/25 p-3 backdrop-blur-[3px]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-xl flex flex-col">
+      <div className="glass-strong flex w-full max-w-2xl flex-col overflow-hidden rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] animate-[dialog-in_.2s_cubic-bezier(.2,.8,.2,1)]">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2F4F6] shrink-0">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-[#191F28]">
-              {data?.client?.name ?? "고객사"}
-            </h2>
-            {tab === "edit" && data?.client && (
-              <>
+        <div className="shrink-0 px-6 pt-5 pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl gradient-blue text-[15px] font-bold text-white shadow-md shadow-[#3182F6]/30">
+                  {(client?.name ?? "고").charAt(0)}
+                </div>
+                <h2 className="truncate text-[19px] font-bold tracking-tight text-[#191F28]">
+                  {client?.name ?? "거래처"}
+                </h2>
+                {client && (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+                    isActive ? "bg-[#E7F7EE] text-[#15803D]" : "bg-[#F2F4F6] text-[#6B7684]"
+                  }`}>
+                    {isActive ? "계약중" : "계약종료"}
+                  </span>
+                )}
+              </div>
+              {client && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-11 text-[11.5px] text-[#8B95A1]">
+                  {client.bizNumber && <span>{client.bizNumber}</span>}
+                  {client.ceoName && <span>· 대표 {client.ceoName}</span>}
+                  {client.assignedUser?.name && <span>· 담당 {client.assignedUser.name}</span>}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#8B95A1] transition hover:bg-white/70 hover:text-[#191F28]"
+              title="닫기 (Esc)"
+            >
+              <svg width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+
+          {/* 탭 + 액션 */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex rounded-xl bg-[#191F28]/[.05] p-[3px]">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={`rounded-[9px] px-3.5 py-1.5 text-[12.5px] font-bold transition-all ${
+                    tab === t.key
+                      ? "bg-white text-[#191F28] shadow-[0_1px_0_rgba(15,23,42,.04),0_2px_8px_-2px_rgba(15,23,42,.12)]"
+                      : "text-[#6B7684] hover:text-[#191F28]"
+                  }`}
+                >
+                  {t.label}
+                  {t.key === "history" && history && (
+                    <span className="ml-1 text-[10.5px] font-bold text-[#8B95A1]">{timeline.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {tab === "edit" && client && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleToggleContract}
+                  disabled={statusUpdating}
+                  className={`h-9 rounded-xl px-3 text-[12.5px] font-bold transition-colors disabled:opacity-50 ${
+                    isActive
+                      ? "bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7]"
+                      : "bg-[#F1FBF4] text-[#15803D] hover:bg-[#DCFCE7]"
+                  }`}
+                >
+                  {statusUpdating ? "처리 중..." : isActive ? "해지처리" : "해지취소"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="h-9 rounded-xl px-3 text-[12.5px] font-bold text-[#E02E2E] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50"
+                >
+                  {deleting ? "삭제 중..." : "삭제"}
+                </button>
+                <span className="mx-0.5 h-5 w-px bg-[#191F28]/10" />
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="h-9 rounded-xl bg-[#F2F4F6] px-3.5 text-[12.5px] font-bold text-[#4E5968] transition-colors hover:bg-[#E5E8EB]"
+                >
+                  취소
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     const form = document.querySelector<HTMLFormElement>('[data-modal-form]');
                     form?.requestSubmit();
                   }}
-                  className="bg-[#3182F6] text-white text-sm px-4 py-1.5 rounded-lg hover:bg-[#1B64DA] transition-colors"
+                  className="h-9 rounded-xl bg-[#3182F6] px-4 text-[12.5px] font-bold text-white shadow-md shadow-[#3182F6]/25 transition-colors hover:bg-[#1B64DA]"
                 >
                   저장
                 </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="border border-[#D1D6DB] text-[#333D4B] text-sm px-4 py-1.5 rounded-lg hover:bg-[#F9FAFB] transition-colors"
-                >
-                  취소
-                </button>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {tab === "edit" && data?.client && (
-              <button
-                type="button"
-                onClick={handleToggleContract}
-                disabled={statusUpdating}
-                className={`text-sm px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
-                  data.client.contractStatus === "active"
-                    ? "text-[#B45309] border-[#FDE68A] hover:bg-[#FFFBEB]"
-                    : "text-[#15803D] border-[#BBF7D0] hover:bg-[#F1FBF4]"
-                }`}
-              >
-                {statusUpdating
-                  ? "처리 중..."
-                  : data.client.contractStatus === "active" ? "해지처리" : "해지취소"}
-              </button>
-            )}
-            {tab === "edit" && data?.client && (
-              <form
-                action={deleteClient.bind(null, data.client.id)}
-                onSubmit={(e) => {
-                  if (!confirm(`'${data.client!.name}'을(를) 삭제하시겠습니까?`))
-                    e.preventDefault();
-                }}
-              >
-                <button
-                  type="submit"
-                  className="text-sm text-[#E02E2E] hover:text-[#B91C1C] border border-[#FECACA] hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  삭제
-                </button>
-              </form>
+              </div>
             )}
           </div>
         </div>
 
-        {/* 탭 */}
-        <div className="flex border-b border-[#F2F4F6] px-6 shrink-0 overflow-x-auto">
-          {([
-            { key: "edit", label: "수정" },
-            { key: "history", label: "히스토리" },
-            { key: "vat", label: "부가세" },
-            { key: "incomeTax", label: data?.client?.clientType?.includes("corporate") ? "법인세" : "종합소득세" },
-            { key: "withholding", label: "원천세" },
-          ] as const).map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                tab === t.key
-                  ? "border-[#3182F6] text-[#191F28]"
-                  : "border-transparent text-[#8B95A1] hover:text-[#4E5968]"
-              }`}
-            >
-              {t.label}
-              {t.key === "history" && history && <span className="ml-1 text-xs text-[#8B95A1]">({timeline.length})</span>}
-            </button>
-          ))}
-        </div>
+        <div className="mx-6 h-px shrink-0 bg-[#191F28]/[.06]" />
 
         {/* 바디 */}
-        <div className="flex-1 px-6 py-5 overflow-y-auto">
+        <div className="form-glass flex-1 overflow-y-auto px-6 py-5">
           {!data ? (
-            <div className="text-center py-16 text-[#8B95A1] text-sm">불러오는 중...</div>
-          ) : !data.client ? (
-            <div className="text-center py-16 text-[#8B95A1] text-sm">고객사를 찾을 수 없습니다</div>
+            <div className="space-y-3 pt-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-11 animate-pulse rounded-xl bg-white/70" style={{ width: `${92 - i * 12}%` }} />
+              ))}
+            </div>
+          ) : !client ? (
+            <EmptyState icon="🔍" title="거래처를 찾을 수 없어요" desc="삭제되었거나 권한이 없는 거래처입니다" />
           ) : tab === "edit" ? (
             <EditClientForm
-              action={updateClientInModal.bind(null, data.client.id)}
-              client={data.client}
+              action={updateClientInModal.bind(null, client.id)}
+              client={client}
               users={data.users}
-              currentTaxTypes={data.client.taxTypes?.split(",").map((t) => t.trim()) ?? []}
-              currentLaborTypes={data.client.laborTypes?.split(",").map((t) => t.trim()) ?? []}
+              currentTaxTypes={client.taxTypes?.split(",").map((t) => t.trim()) ?? []}
+              currentLaborTypes={client.laborTypes?.split(",").map((t) => t.trim()) ?? []}
               currentUserRole={data.currentUserRole}
               affiliationOptions={data.affiliationOptions}
               onSuccess={handleSuccess}
               hideButtons
             />
           ) : tab === "withholding" ? (
-            <div className="space-y-4">
-              {data.client.name.includes("도움컴퍼니") && <DoumConvertSection />}
-              <WithholdingNoteSection clientId={clientId} initialNote={data.client.withholdingNote ?? ""} />
-              <DailyWorkReportSkipSection clientId={clientId} initialSkip={data.client.skipDailyWorkReport ?? false} />
+            <div className="space-y-3">
+              {client.name.includes("도움컴퍼니") && <DoumConvertSection />}
+              <WithholdingNoteSection clientId={clientId} initialNote={client.withholdingNote ?? ""} />
+              <DailyWorkReportSkipSection clientId={clientId} initialSkip={client.skipDailyWorkReport ?? false} />
               <MonthlyMemoArchive clientId={clientId} />
               <InsuranceTab clientId={clientId} />
             </div>
           ) : tab === "vat" || tab === "incomeTax" ? (
-            <div className="text-center py-16 text-[#8B95A1] text-sm">준비 중인 탭입니다</div>
+            <EmptyState
+              icon={tab === "vat" ? "🧾" : "📑"}
+              title="준비 중인 탭이에요"
+              desc={tab === "vat" ? "부가세 메뉴에서 거래처별 현황을 볼 수 있어요" : "종합소득세 메뉴에서 거래처별 현황을 볼 수 있어요"}
+            />
           ) : (
             /* 히스토리 */
             !history ? (
-              <div className="text-center py-16 text-[#8B95A1] text-sm">불러오는 중...</div>
+              <div className="space-y-3 pt-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/70" />
+                ))}
+              </div>
             ) : timeline.length === 0 ? (
-              <div className="text-center py-16 text-[#8B95A1] text-sm">기록이 없습니다</div>
+              <EmptyState icon="📋" title="아직 기록이 없어요" desc="할 일·메모를 등록하면 여기에 시간순으로 쌓입니다" />
             ) : (
-              <div className="relative pl-6 border-l-2 border-[#E5E8EB] space-y-4">
+              <div className="relative space-y-3 border-l-2 border-[#191F28]/[.08] pl-6">
                 {timeline.map((item) => (
                   <div key={`${item.type}-${item.id}`} className="relative">
-                    <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 border-white ${item.type === "task" ? "bg-[#3182F6]" : "bg-[#F59E0B]"}`} />
-                    <div className="bg-[#F9FAFB] rounded-lg px-4 py-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${item.type === "task" ? "bg-[#E8F3FF] text-[#1B64DA]" : "bg-[#FEF3C7] text-[#B45309]"}`}>
+                    <div className={`absolute -left-[31px] top-3.5 h-3 w-3 rounded-full border-2 border-white ${item.type === "task" ? "bg-[#3182F6]" : "bg-[#F59E0B]"}`} />
+                    <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.type === "task" ? "bg-[#E8F3FF] text-[#1B64DA]" : "bg-[#FEF3C7] text-[#B45309]"}`}>
                           {item.type === "task" ? "업무" : "메모"}
                         </span>
                         {item.type === "task" && "status" in item && (
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${STATUS_COLORS[item.status]}`}>{STATUS_LABELS[item.status]}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] ${STATUS_COLORS[item.status]}`}>{STATUS_LABELS[item.status]}</span>
                         )}
                         {item.type === "memo" && "memoType" in item && (
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${MEMO_TYPE_COLORS[item.memoType as string] ?? MEMO_TYPE_COLORS.general}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] ${MEMO_TYPE_COLORS[item.memoType as string] ?? MEMO_TYPE_COLORS.general}`}>
                             {MEMO_TYPE_LABELS[item.memoType as string] ?? item.memoType}
                           </span>
                         )}
-                        <span className="text-xs text-[#8B95A1] ml-auto">
+                        <span className="ml-auto text-[11px] tabular-nums text-[#8B95A1]">
                           {new Date(item.date).toLocaleDateString("ko-KR")}
                         </span>
                       </div>
-                      <div className="text-sm font-medium text-[#191F28]">{item.title}</div>
+                      <div className="text-[13.5px] font-bold text-[#191F28]">{item.title}</div>
                       {item.type === "task" && "dueDate" in item && item.dueDate && (
-                        <div className="text-xs text-[#8B95A1] mt-0.5">마감: {new Date(item.dueDate).toLocaleDateString("ko-KR")}</div>
+                        <div className="mt-0.5 text-xs text-[#8B95A1]">마감: {new Date(item.dueDate).toLocaleDateString("ko-KR")}</div>
                       )}
                       {item.type === "memo" && "content" in item && (
-                        <p className="text-xs text-[#6B7684] mt-1 whitespace-pre-wrap">{item.content}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-[#6B7684]">{item.content}</p>
                       )}
-                      {item.user && <div className="text-[10px] text-[#8B95A1] mt-1">{item.user}</div>}
+                      {item.user && <div className="mt-1 text-[10.5px] text-[#8B95A1]">{item.user}</div>}
                     </div>
                   </div>
                 ))}

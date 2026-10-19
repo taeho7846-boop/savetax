@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { rejectVatReport, getVatRejections } from "@/app/actions/vat";
+import { notify } from "@/components/ui/Dialog";
 
 type Rejection = {
   id: number;
@@ -46,7 +47,7 @@ export function VatRejectModal({
       onRejected?.();
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "반려 실패");
+      notify(e instanceof Error ? e.message : "반려 실패");
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 // ── 헬퍼 ──
 function fmt(n: number): string { return n.toLocaleString("ko-KR"); }
@@ -335,9 +336,9 @@ export function FreelancerCalcBoard() {
     setBusinesses(prev => [...prev, newBusiness()]);
   }
 
-  function removeBusiness(id: string) {
-    if (businesses.length === 1) return alert("최소 1개의 사업장은 있어야 합니다.");
-    if (!confirm("이 사업장을 삭제하시겠습니까?")) return;
+  async function removeBusiness(id: string) {
+    if (businesses.length === 1) return notify("최소 1개의 사업장은 있어야 합니다.");
+    if (!await askConfirm("이 사업장을 삭제하시겠습니까?")) return;
     setBusinesses(prev => prev.filter(b => b.id !== id));
   }
 
@@ -396,11 +397,11 @@ export function FreelancerCalcBoard() {
 
   const handleOptimal = useCallback(() => {
     if (totalRevenue <= 0) {
-      alert("먼저 매출을 입력해주세요.");
+      notify("먼저 매출을 입력해주세요.");
       return;
     }
     if (optimalGakgong <= 0) {
-      alert("이미 단순경비율 한도(-0.5%)에 도달했거나 초과했습니다.");
+      notify("이미 단순경비율 한도(-0.5%)에 도달했거나 초과했습니다.");
       return;
     }
     setExtraExpense(fmt(optimalGakgong));

@@ -16,6 +16,7 @@ import { ScheduleModal, type Schedule, SCHEDULE_COLORS } from "./ScheduleModal";
 import { ClientLink } from "@/app/(main)/clients/ClientLink";
 import { chunkWeeks, layoutWeek, type LaneInput } from "@/lib/calendar-lanes";
 import { TaskEditModal } from "@/components/TaskEditModal";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type TaxEvent = { date: string; title: string; desc: string };
 type LaneItem = LaneInput & (
@@ -192,7 +193,7 @@ export function DiaryView({
       {/* 헤더 */}
       <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium flex items-center gap-1.5">
+          <div className="text-[12.5px] text-[#8B95A1] font-medium flex items-center gap-1.5">
             <span className="live-dot" />
             사무실 일정 · 할 일 · 메모 한 화면
           </div>
@@ -467,7 +468,7 @@ export function DiaryView({
                     → {isSelectedToday ? "오늘" : shortDateLabel(selectedDate)} 할 일로
                   </button>
                   <button
-                    onClick={() => { if (confirm("메모를 삭제할까요?")) run(() => deleteDiaryMemo(m.id)); }}
+                    onClick={async () => { if (await askConfirm("메모를 삭제할까요?")) run(async () => deleteDiaryMemo(m.id)); }}
                     className="opacity-0 group-hover:opacity-100 text-[#8B95A1] hover:text-[#DC2626]"
                     aria-label="메모 삭제"
                   >
@@ -551,7 +552,7 @@ function TaskRow({ task, today, run, overdue, onEdit }: { task: DiaryTask; today
           title="날짜 옮기기"
         />
         <button
-          onClick={() => { if (confirm("이 할 일을 삭제할까요?")) run(() => deleteDiaryTask(task.id)); }}
+          onClick={async () => { if (await askConfirm("이 할 일을 삭제할까요?")) run(async () => deleteDiaryTask(task.id)); }}
           className="opacity-0 group-hover:opacity-100 text-[#8B95A1] hover:text-[#DC2626] text-[12px] px-1"
           aria-label="삭제"
         >

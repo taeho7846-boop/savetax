@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteDataCollection } from "@/app/actions/data-collect";
 import { DOC_TYPES, getDefaultParams, type SettingType } from "@/lib/doc-types";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type DCRecord = { docType: string; status: string; params: string | null };
 
@@ -238,7 +239,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
 
     // 본인인증(인증서)이 필요한 서류는 아이디 로그인만으로 불가 → 안내 후 중단
     if (target.auth === "cert") {
-      alert(
+      notify(
         `"${target.label}"은(는) 아이디 로그인만으로 수집할 수 없습니다.\n\n` +
         `${target.authNote ?? "발급에 거래처 본인인증이 필요합니다."}\n\n` +
         `세무사가 거래처에 직접 요청하거나, 거래처 인증서 등록 후 처리하세요.`
@@ -247,7 +248,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     }
 
     if (!COLLECT_CONFIG[docKey]) {
-      alert(`'${target.label}'의 자동 수집은 아직 지원되지 않습니다.`);
+      notify(`'${target.label}'의 자동 수집은 아직 지원되지 않습니다.`);
       return;
     }
     // 홈택스 세션은 동시에 1건만 — 배치 중이거나 이 서류가 이미 수집 중이면 무시
@@ -258,7 +259,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       const url = await buildCollectUrl(docKey);
       const win = window.open(url, "_blank");
       if (!win) {
-        alert(
+        notify(
           "팝업이 차단되어 수집 창을 열 수 없습니다.\n" +
           "주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트의 팝업을 '항상 허용'으로 설정한 뒤 다시 시도하세요."
         );
@@ -274,7 +275,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
         : prev);
       router.refresh();
     } catch (e) {
-      alert(`오류: ${e instanceof Error ? e.message : String(e)}`);
+      notify(`오류: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -344,7 +345,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     const runnable = all.filter(d => d.auth === "id" && COLLECT_CONFIG[d.key]);
     const skipped = all.filter(d => !(d.auth === "id" && COLLECT_CONFIG[d.key]));
     if (runnable.length === 0) {
-      alert("자동 수집(아이디) 가능한 서류가 없습니다. 본인인증 서류는 일괄 수집 대상이 아닙니다.");
+      notify("자동 수집(아이디) 가능한 서류가 없습니다. 본인인증 서류는 일괄 수집 대상이 아닙니다.");
       return;
     }
     const msg =
@@ -352,7 +353,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       runnable.map(d => "· " + d.label).join("\n") +
       (skipped.length ? `\n\n제외(본인인증/미지원): ${skipped.map(d => d.label).join(", ")}` : "") +
       `\n\n진행 중 열리는 홈택스 창을 닫지 마세요. 계속할까요?`;
-    if (!confirm(msg)) return;
+    if (!await askConfirm(msg)) return;
 
     setBatchRunning(true);
     let win: Window | null = null;
@@ -379,7 +380,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
         const prevWin: Window | null = win;
         win = window.open(url, "_blank");
         if (!win) {
-          alert(
+          notify(
             "팝업이 차단되어 다음 서류 창을 열 수 없습니다.\n" +
             "주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트의 팝업을 '항상 허용'으로 설정한 뒤 다시 시도하세요."
           );
@@ -396,7 +397,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
           ? { ...prev, [doc.key]: { start: prev[doc.key].start, finalSec: Math.max(0, Math.round((Date.now() - prev[doc.key].start) / 1000)) } }
           : prev);
         if (r.aborted) {
-          alert("홈택스 창이 닫혀 일괄 수집을 중단합니다.");
+          notify("홈택스 창이 닫혀 일괄 수집을 중단합니다.");
           break;
         }
         if (r.timedOut) failed.push(doc.label + "(시간초과)");
@@ -411,7 +412,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
       try { if (win && !win.closed) win.close(); } catch {}
       router.refresh();
     }
-    alert(
+    notify(
       `일괄 수집 종료 — 완료 ${done.length}건` +
       (failed.length ? `, 확인 필요 ${failed.length}건: ${failed.join(", ")}` : "")
     );
@@ -437,9 +438,9 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
   }
 
   // 수집 기록 + 업로드 파일 삭제 (재수집을 위한 초기화)
-  function handleDelete(docType: string, docLabel: string) {
+  async function handleDelete(docType: string, docLabel: string) {
     if (!selectedClient) return;
-    if (!confirm(`${selectedClient.name} · ${docLabel}\n수집된 파일과 상태를 삭제하고 처음부터 다시 수집할 수 있게 합니다.\n삭제할까요?`)) return;
+    if (!await askConfirm(`${selectedClient.name} · ${docLabel}\n수집된 파일과 상태를 삭제하고 처음부터 다시 수집할 수 있게 합니다.\n삭제할까요?`)) return;
     startDelete(async () => {
       await deleteDataCollection(selectedClient.id, docType, taxYear);
       router.refresh();
@@ -474,7 +475,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
     <>
       <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">거래처 자료 수령 현황</div>
+          <div className="text-[12.5px] text-[#8B95A1] font-medium">거래처 자료 수령 현황</div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">자료수집 · {taxYear}년 귀속</h1>
         </div>
         <div className="flex items-center gap-1 glass rounded-xl px-1 h-9">
@@ -530,7 +531,7 @@ export function DataCollectBoard({ clients, taxYear }: { clients: Client[]; taxY
         </div>
 
         {/* 우측: 자료 체크리스트 */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm border border-[#F2F4F6] overflow-y-auto">
+        <div className="flex-1 glass rounded-3xl overflow-y-auto">
           {!selectedClient ? (
             <div className="flex items-center justify-center h-full text-[#8B95A1] text-sm">
               좌측에서 거래처를 선택하세요

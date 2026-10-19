@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createStaff, updateStaff, deleteStaff } from "@/app/actions/staff";
+import { askConfirm } from "@/components/ui/Dialog";
 
 interface Staff {
   id: number;
@@ -116,7 +117,7 @@ export default function StaffTable({
   }
 
   async function handleDelete(id: number, name: string) {
-    if (!confirm(`'${name}' 계정을 비활성화하시겠습니까?`)) return;
+    if (!await askConfirm(`'${name}' 계정을 비활성화하시겠습니까?`)) return;
     try {
       await deleteStaff(id);
       router.refresh();

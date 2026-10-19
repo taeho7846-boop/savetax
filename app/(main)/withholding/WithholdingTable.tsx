@@ -6,6 +6,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import { toggleWithholdingTask, markWithholdingDone, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
 import { PinIcon } from "@/components/icons";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 // 프로세스 단계도 withholdingRecords 테이블을 사용
 
 const LABOR_STYLES: Record<string, { border: string; text: string; bg: string }> = {
@@ -332,14 +333,14 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     const msg = clientId
       ? `'${clientName}' 위하고 연동정보를 수집합니다. (약 30초)\n\n시작할까요?`
       : `위하고 연동정보가 없는 ABC그룹 거래처를 일괄 수집합니다.\n(위하고에 로그인해서 자동 조회 — 몇 분 걸릴 수 있어요)\n\n시작할까요?`;
-    if (!confirm(msg)) return;
+    if (!await askConfirm(msg)) return;
     const res = await fetch("/api/wehago/collect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(clientId ? { clientId } : {}),
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.message || "수집 시작 실패"); return; }
+    if (!res.ok) { notify(data.message || "수집 시작 실패"); return; }
     setCollectJob({ total: data.total, current: 0, currentName: "시작 중...", results: [], done: false });
     collectPollRef.current = setInterval(async () => {
       try {
@@ -426,7 +427,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   async function startCloseCheck(silent = false) {
     if (closeCheck && !closeCheck.error && !(closeCheck.income && closeCheck.local)) return;
     const urls = efileUrls(`&stCloseCheck=${year}${String(month).padStart(2, "0")}`);
-    if (!urls) { if (!silent) alert("위하고 연동된 거래처가 없거나 설정에 위하고 아이디가 없습니다"); return; }
+    if (!urls) { if (!silent) notify("위하고 연동된 거래처가 없거나 설정에 위하고 아이디가 없습니다"); return; }
     const startedAt = Date.now();
     setCloseCheck({ startedAt, income: false, local: false });
     const opened = await openEfileWindows(urls);
@@ -495,7 +496,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     if (ids.length === 0) return;
     const chain = chainVerify; // 이번 실행에서 검증까지 이어갈지 (시작 시점의 선택으로 고정)
     if (chain && !(await ensureExtConnected())) return;
-    if (!confirm(chain
+    if (!await askConfirm(chain
       ? `체크한 ${ids.length}개 거래처의 전자신고 파일(원천세·지방소득세)을 위하고에서 제작하고, 이어서 홈택스·위택스에 올려 검증까지 진행합니다.\n마감된 거래처만 포함됩니다. 제출은 검증 결과를 확인하고 [제출]을 눌러야 됩니다.\n\n시작할까요?`
       : `체크한 ${ids.length}개 거래처의 전자신고 파일(원천세·지방소득세)을 위하고에서 제작합니다.\n마감된 거래처만 포함되며, 홈택스·위택스 제출은 아직 하지 않습니다.\n\n시작할까요?`)) return;
     const res = await fetch("/api/withholding/filing/job", {
@@ -505,11 +506,11 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) {
       const skippedMsg = data?.skipped?.length ? `\n\n${data.skipped.map((s: { name: string; reason: string }) => `· ${s.name}: ${s.reason}`).join("\n")}` : "";
-      alert((data?.error || "작업 생성 실패") + skippedMsg);
+      notify((data?.error || "작업 생성 실패") + skippedMsg);
       return;
     }
     const urls = efileUrls(`&stProduce=${data.jobId}`);
-    if (!urls) { alert("위하고 연동된 거래처가 없거나 설정에 위하고 아이디가 없습니다"); return; }
+    if (!urls) { notify("위하고 연동된 거래처가 없거나 설정에 위하고 아이디가 없습니다"); return; }
     setEfileJob({ jobId: data.jobId, kinds: data.kinds, targets: data.targets, progress: {}, done: false, skippedAtStart: data.skipped });
     // 위하고 파일 제작 시 뜨는 '폴더 선택' 창(네이티브)을 로컬 도우미(savetax-app 프로토콜, scripts/launcher)가 대신 확인하고
     // 파일을 C:\savetax-efile\ 로 복사하도록 먼저 실행해 둔다 (도우미 미설치 PC는 창이 그대로 떠서 사람이 확인해야 함)
@@ -552,7 +553,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
               for (const k of kindsDone) fileIds[k] = prog[k].fileId as number;
               setEfileJob(null);
               // 이어서 검증 단계 시작 — 실패하면 조용히 멈추지 않고 알린다
-              startSubmit({ fileIds }).catch(e => alert("검증 단계로 넘어가지 못했습니다: " + (e instanceof Error ? e.message : String(e)) + " — [검증 · 제출] 버튼을 눌러 주세요."));
+              startSubmit({ fileIds }).catch(e => notify("검증 단계로 넘어가지 못했습니다: " + (e instanceof Error ? e.message : String(e)) + " — [검증 · 제출] 버튼을 눌러 주세요."));
             } else {
               setEfileJob(prev => prev ? { ...prev, error: "제작에 실패한 항목이 있어 검증 단계로 넘어가지 않았습니다. 원인을 확인한 뒤 다시 실행해 주세요." } : prev);
             }
@@ -590,9 +591,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     // 페이지가 열릴 때 확장이 남긴 표시가 있는데 응답이 없으면 = 확장이 새로고침되어 연결이 끊긴 경우
     const hadExt = typeof document !== "undefined" && !!document.documentElement.dataset.savetaxExt;
     if (hadExt) {
-      if (confirm("확장 프로그램을 새로고침한 뒤라 이 페이지와 연결이 끊겨 있습니다.\n페이지를 새로고침하면 다시 연결됩니다.\n\n지금 새로고침할까요? (새로고침 후 다시 눌러 주세요)")) window.location.reload();
+      if (await askConfirm("확장 프로그램을 새로고침한 뒤라 이 페이지와 연결이 끊겨 있습니다.\n페이지를 새로고침하면 다시 연결됩니다.\n\n지금 새로고침할까요? (새로고침 후 다시 눌러 주세요)")) window.location.reload();
     } else {
-      alert("크롬 확장 프로그램이 연결되어 있지 않습니다.\n· chrome://extensions 에서 SaveTax 확장이 켜져 있는지, 오류 표시가 없는지 확인해 주세요.\n· 확장을 방금 설치·새로고침했다면 이 페이지를 새로고침(F5)해 주세요.");
+      notify("크롬 확장 프로그램이 연결되어 있지 않습니다.\n· chrome://extensions 에서 SaveTax 확장이 켜져 있는지, 오류 표시가 없는지 확인해 주세요.\n· 확장을 방금 설치·새로고침했다면 이 페이지를 새로고침(F5)해 주세요.");
     }
     return null;
   }
@@ -607,7 +608,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.ok) {
       const why = data?.skipped?.length ? `\n\n${data.skipped.map((s: { reason: string }) => `· ${s.reason}`).join("\n")}` : "";
-      alert((data?.error || "작업 생성 실패") + why);
+      notify((data?.error || "작업 생성 실패") + why);
       return;
     }
     setSubmitJob({ jobId: data.jobId, kinds: data.kinds, files: data.files, progress: {}, done: false, skipped: data.skipped });
@@ -650,7 +651,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       if (v?.taxTotal != null && f?.expectAmount != null && v.taxTotal !== f.expectAmount) warn.push(`⚠ 세액 합계(${v.taxTotal.toLocaleString()}원)가 위하고 금액(${f.expectAmount.toLocaleString()}원)과 다릅니다`);
       if (f?.alreadySubmitted?.length) warn.push(`⚠ 이미 접수 처리된 거래처 포함: ${f.alreadySubmitted.join(", ")}`);
       const msg = `${site}에 ${submitKindLabel(kind).split(" · ")[0]} ${v?.normal ?? f?.expectCount ?? ""}건을 실제로 제출합니다.\n제출한 뒤에는 되돌릴 수 없습니다 (고치려면 수정신고).\n${warn.length ? "\n" + warn.join("\n") + "\n" : ""}\n제출할까요?`;
-      if (!confirm(msg)) return;
+      if (!await askConfirm(msg)) return;
     }
     setSubmitBusy(kind);
     try {
@@ -659,16 +660,16 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         body: JSON.stringify({ jobId: submitJob.jobId, kind, [action]: true }),
       });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j?.ok) alert(j?.error || "처리하지 못했습니다");
+      if (!r.ok || !j?.ok) notify(j?.error || "처리하지 못했습니다");
     } finally { setSubmitBusy(null); }
   }
   async function closeSubmitModal() {
     if (!submitJob) return;
     const states = submitJob.kinds.map(k => submitJob.progress[k]?.state || "wait");
-    if (!submitJob.error && states.includes("submitting")) { alert("제출이 진행 중입니다. 끝난 뒤에 닫아 주세요."); return; }
+    if (!submitJob.error && states.includes("submitting")) { notify("제출이 진행 중입니다. 끝난 뒤에 닫아 주세요."); return; }
     const pending = submitJob.kinds.filter(k => ["wait", "running", "verified"].includes(submitJob.progress[k]?.state || "wait"));
     if (pending.length && !submitJob.error) {
-      if (!confirm("아직 제출하지 않은 항목이 있습니다. 닫으면 그 항목은 취소됩니다 (제출되지 않음).\n\n닫을까요?")) return;
+      if (!await askConfirm("아직 제출하지 않은 항목이 있습니다. 닫으면 그 항목은 취소됩니다 (제출되지 않음).\n\n닫을까요?")) return;
     }
     for (const k of pending) {
       await fetch("/api/withholding/filing/submit", {
@@ -703,7 +704,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       });
       const data = await res.json();
       if (res.ok && data.url) window.open(data.url, "_blank");
-      else alert(data.message || "폴더를 열 수 없습니다");
+      else notify(data.message || "폴더를 열 수 없습니다");
     } finally {
       setFolderOpening(null);
     }
@@ -741,8 +742,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       })
       .filter(t => t.laborList.length > 0);
 
-    if (targets.length === 0) { alert("처리 가능한 거래처가 없습니다 (위하고 연동·인건비 유형 확인)"); return; }
-    if (!confirm(`${targets.length}개 거래처 위멤버스 일괄 처리를 시작할까요?`)) return;
+    if (targets.length === 0) { notify("처리 가능한 거래처가 없습니다 (위하고 연동·인건비 유형 확인)"); return; }
+    if (!await askConfirm(`${targets.length}개 거래처 위멤버스 일괄 처리를 시작할까요?`)) return;
 
     const fails: string[] = [];
     for (let i = 0; i < targets.length; i++) {
@@ -786,14 +787,14 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       const res = await fetch("/api/withholding-verify", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "검증 중 오류가 발생했습니다.");
+        notify(data.error || "검증 중 오류가 발생했습니다.");
       } else {
         setManualChecked(new Set());
         setVerifyResult(data);
         router.refresh(); // 자동 검증 체크 반영
       }
     } catch {
-      alert("검증 중 오류가 발생했습니다.");
+      notify("검증 중 오류가 발생했습니다.");
     }
     setVerifyLoading(false);
     e.target.value = "";
@@ -801,9 +802,10 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
   const month = parseInt(yearMonth.split("-")[1]);
   const extraColumns = getAllExtraColumns();
 
-  // 마지막 선택 월 localStorage에 저장
+  // 마지막 선택 월 저장 — 쿠키는 서버(page.tsx)가 ym 없이 열릴 때 읽고, localStorage는 호환용
   React.useEffect(() => {
     localStorage.setItem("withholding_ym", yearMonth);
+    document.cookie = `withholding_ym=${yearMonth}; path=/; max-age=31536000; SameSite=Lax`;
   }, [yearMonth]);
 
   function handleMonthChange(delta: number) {
@@ -927,7 +929,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       <div ref={stickyHeaderRef} className="sticky top-0 z-30 -mx-6 px-6 pt-4 pb-1 mb-2 bg-[#F9FAFB]/85 backdrop-blur-md">
       <div className="flex items-end justify-between mb-2 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">월별 원천징수</div>
+          <div className="text-[12.5px] text-[#8B95A1] font-medium">월별 원천징수</div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">원천세 · {year}년 {parseInt(mon)}월</h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -1612,7 +1614,7 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
       {/* 원천세 자동신고: 파일 제작 진행 모달 */}
       {efileJob && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => (efileJob.done || efileJob.error) && closeEfileModal()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => (efileJob.done || efileJob.error) && closeEfileModal()}>
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
@@ -1672,8 +1674,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
       {/* 원천세 자동신고: 홈택스·위택스 검증·제출 진행 모달 */}
       {submitJob && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-[#191F28]">자동신고 · 홈택스·위택스 검증·제출</h3>
@@ -1777,8 +1779,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
       {/* 위하고 연동 수집 모달 */}
       {collectJob && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-7">
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-sm p-7">
             <div className="text-center mb-5">
               <div className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-3 bg-gradient-to-br from-[#F59E0B] to-[#D97706] shadow-lg shadow-[#F59E0B]/30">
                 {collectJob.done && !collectJob.fatal ? (
@@ -1846,8 +1848,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
         const running = wmProgress.steps.some(s => s.status === "run");
         const pct = Math.round(((done + (running ? 0.5 : 0)) / total) * 100);
         return (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-7">
+          <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
+            <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-sm p-7">
               {/* 헤더 */}
               <div className="text-center mb-5">
                 <div className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-3 bg-gradient-to-br from-[#3182F6] to-[#1B64DA] shadow-lg shadow-[#3182F6]/30">
@@ -1942,8 +1944,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
 
       {/* 이번달 메모 모달 */}
       {memoModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setMemoModal(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setMemoModal(null)}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-bold text-[#191F28]">이번달 메모</h3>
@@ -1988,8 +1990,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
       )}
 
       {verifyResult && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-[#191F28]">원천세 신고 검증 결과</h3>
               <button onClick={() => setVerifyResult(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>

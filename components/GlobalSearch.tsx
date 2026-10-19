@@ -7,6 +7,7 @@ import { IncomeTaxCalcModal } from "./IncomeTaxCalcModal";
 import { BizTaxCalcModal } from "./BizTaxCalcModal";
 import { BuildingIcon } from "@/components/icons";
 import { openQuickCapture } from "@/components/QuickCapture";
+import { notify } from "@/components/ui/Dialog";
 
 type AssignedUserInfo = {
   id: number;
@@ -239,7 +240,7 @@ export function GlobalSearch() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error ?? "로그인 정보를 가져올 수 없습니다");
+        notify(data.error ?? "로그인 정보를 가져올 수 없습니다");
         return;
       }
       const isCorp = !!data.agentNumber;
@@ -261,7 +262,7 @@ export function GlobalSearch() {
         "_blank"
       );
     } catch {
-      alert("네트워크 오류가 발생했습니다");
+      notify("네트워크 오류가 발생했습니다");
     }
   }
 
@@ -280,10 +281,10 @@ export function GlobalSearch() {
       if (data.url) {
         window.open(data.url, "_blank", "noopener,noreferrer");
       } else {
-        alert("구글드라이브 폴더가 설정되지 않았습니다");
+        notify("구글드라이브 폴더가 설정되지 않았습니다");
       }
     } catch {
-      alert("네트워크 오류");
+      notify("네트워크 오류");
     }
   }
 
@@ -346,9 +347,9 @@ export function GlobalSearch() {
           );
           return;
         }
-        alert("세무대리인 홈택스 계정이 설정되지 않았습니다");
+        notify("세무대리인 홈택스 계정이 설정되지 않았습니다");
       } catch {
-        alert("네트워크 오류");
+        notify("네트워크 오류");
       }
     } else if (site.autoLogin) {
       // 위멤버스 자동 로그인
@@ -428,7 +429,7 @@ export function GlobalSearch() {
         onClick={(e) => e.stopPropagation()}
       >
         <Command
-          className="bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] overflow-hidden"
+          className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] border border-[#E5E8EB] overflow-hidden"
           shouldFilter={false}
           onKeyDown={(e) => {
             // 취득/상실 모드에서 빈 입력창 Backspace → 일반 모드 복귀

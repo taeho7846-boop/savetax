@@ -12,6 +12,7 @@ import {
   deleteInsuranceReport,
   type InsuranceStep,
 } from "@/app/actions/insurance";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type Report = Awaited<ReturnType<typeof getInsuranceReports>>[number];
 
@@ -188,7 +189,7 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
 
   function handleSave() {
     if (!formName.trim()) {
-      alert("근로자 이름을 입력해주세요");
+      notify("근로자 이름을 입력해주세요");
       return;
     }
     const isLabor = formType === "acquisition" && formWorkerType === "근로";
@@ -235,8 +236,8 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
                   <button
                     type="button"
                     title="클릭하면 이 단계를 취소합니다"
-                    onClick={() => {
-                      if (report && confirm(`'${s.label}' 단계를 취소할까요?`)) run(() => undoInsuranceStep(report.id, s.key));
+                    onClick={async () => {
+                      if (report && await askConfirm(`'${s.label}' 단계를 취소할까요?`)) run(() => undoInsuranceStep(report.id, s.key));
                     }}
                     className="w-[22px] h-[22px] rounded-full bg-[#3182F6] hover:bg-[#1B64DA] mx-auto mb-1 flex items-center justify-center transition-colors"
                   >
@@ -560,8 +561,8 @@ export function InsuranceTab({ clientId }: { clientId: number }) {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm(`'${r.employeeName}' ${typeLabel(r)} 건을 삭제할까요?`))
+                onClick={async () => {
+                  if (await askConfirm(`'${r.employeeName}' ${typeLabel(r)} 건을 삭제할까요?`))
                     run(() => deleteInsuranceReport(r.id));
                 }}
                 className="text-[11px] text-[#B0B8C1] hover:text-[#E02E2E]"

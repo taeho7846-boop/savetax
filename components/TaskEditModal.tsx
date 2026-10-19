@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { updateDiaryTask, deleteDiaryTask, getQuickCaptureClients, type DiaryTask } from "@/app/actions/diary";
+import { askConfirm } from "@/components/ui/Dialog";
 
 // 할 일 수정 모달 — 다이어리·홈 공용
 type ClientOpt = { id: number; name: string };
@@ -56,8 +57,8 @@ export function TaskEditModal({ task, onClose, onSaved }: { task: DiaryTask; onC
     });
   }
 
-  function remove() {
-    if (!confirm("이 할 일을 삭제할까요?")) return;
+  async function remove() {
+    if (!await askConfirm("이 할 일을 삭제할까요?")) return;
     startTransition(async () => {
       try {
         await deleteDiaryTask(task.id);
@@ -72,7 +73,7 @@ export function TaskEditModal({ task, onClose, onSaved }: { task: DiaryTask; onC
 
   return (
     <div
-      className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6">

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
 import { VatRejectModal } from "./VatRejectModal";
+import { notify } from "@/components/ui/Dialog";
 
 // 홈택스 부가세 신고자료 업로드 데이터 (모든 금액은 공급가액 기준)
 type HtxData = {
@@ -362,11 +363,11 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
       fd.append("period", period);
       const res = await fetch("/api/vat/import", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "업로드에 실패했습니다."); return; }
+      if (!res.ok) { notify(data.error || "업로드에 실패했습니다."); return; }
       setImportResult(data as ImportResult);
       router.refresh();
     } catch (err) {
-      alert("업로드 중 오류가 발생했습니다.\n\n" + (err instanceof Error ? err.message : String(err)));
+      notify("업로드 중 오류가 발생했습니다.\n\n" + (err instanceof Error ? err.message : String(err)));
     } finally {
       setUploading(false);
     }
@@ -386,14 +387,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
       fd.append("file", f);
       const res = await fetch("/api/vat/import-taxtype", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "업로드에 실패했습니다."); return; }
+      if (!res.ok) { notify(data.error || "업로드에 실패했습니다."); return; }
       const unmatchedMsg = data.unmatchedCount > 0
         ? `\n\n매칭 안 된 거래처 ${data.unmatchedCount}건:\n` + data.unmatched.map((u: { name: string; biz: string }) => `· ${u.name} (${u.biz || "사업자번호 없음"})`).join("\n")
         : "";
-      alert(`✅ 과세유형 상세 업로드 완료${data.sheetTitle ? ` — ${data.sheetTitle}` : ""}\n\n반영된 거래처: ${data.updatedCount}건${unmatchedMsg}`);
+      notify(`✅ 과세유형 상세 업로드 완료${data.sheetTitle ? ` — ${data.sheetTitle}` : ""}\n\n반영된 거래처: ${data.updatedCount}건${unmatchedMsg}`);
       router.refresh();
     } catch (err) {
-      alert("업로드 중 오류가 발생했습니다.\n\n" + (err instanceof Error ? err.message : String(err)));
+      notify("업로드 중 오류가 발생했습니다.\n\n" + (err instanceof Error ? err.message : String(err)));
     } finally {
       setTaxTypeUploading(false);
     }
@@ -423,7 +424,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
         await action();
       } catch (e) {
         console.error("[VAT 저장 실패]", e);
-        alert("저장에 실패했습니다. 새로고침 후 다시 시도해주세요.\n\n" + (e instanceof Error ? e.message : String(e)));
+        notify("저장에 실패했습니다. 새로고침 후 다시 시도해주세요.\n\n" + (e instanceof Error ? e.message : String(e)));
       }
     });
   }
@@ -756,7 +757,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                 disabled={dim}
                 inputMode="numeric"
                 placeholder={activeTab === "bookkeeping" ? "0" : "입력"}
-                className="w-[110px] bg-white/80 rounded-lg px-2 py-1.5 text-[13px] text-right text-[#191F28] outline-none focus:ring-2 focus:ring-purple-200 disabled:opacity-40"
+                className="w-[110px] bg-white/80 rounded-lg px-2 py-1.5 text-[13px] text-right text-[#191F28] outline-none focus:ring-2 focus:ring-[#A855F7]/25 disabled:opacity-40"
               />
               <span className="text-[12px] text-[#8B95A1]">원</span>
             </div>
@@ -773,7 +774,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             onBlur={() => commitMemo(client.id)}
             disabled={dim}
             placeholder="-"
-            className="w-full min-w-[100px] bg-transparent rounded-lg px-2 py-1.5 text-[13px] text-[#191F28] outline-none focus:bg-white/80 focus:ring-2 focus:ring-blue-200 disabled:opacity-40"
+            className="w-full min-w-[100px] bg-transparent rounded-lg px-2 py-1.5 text-[13px] text-[#191F28] outline-none focus:bg-white/80 focus:ring-2 focus:ring-[#3182F6]/25 disabled:opacity-40"
           />
         </td>
 
@@ -1004,8 +1005,8 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
       {/* 업로드 결과 모달 */}
       {importResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setImportResult(null)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-auto p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#191F28]/25 backdrop-blur-[3px] p-4" onClick={() => setImportResult(null)}>
+          <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-lg max-h-[80vh] overflow-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-[18px] font-bold text-[#191F28]">📊 홈택스 자료 업로드 완료</h3>

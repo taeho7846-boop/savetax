@@ -2,12 +2,13 @@
 
 import { useTransition } from "react";
 import { deleteTask } from "@/app/actions/tasks";
+import { askConfirm } from "@/components/ui/Dialog";
 
 export function TaskDeleteButton({ taskId }: { taskId: number }) {
   const [isPending, startTransition] = useTransition();
 
-  function handleDelete() {
-    if (!confirm("이 업무를 삭제하시겠습니까?")) return;
+  async function handleDelete() {
+    if (!await askConfirm("이 업무를 삭제하시겠습니까?")) return;
     startTransition(async () => {
       await deleteTask(taskId);
     });

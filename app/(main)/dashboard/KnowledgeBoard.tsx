@@ -5,6 +5,7 @@ import { createKnowledge, updateKnowledge, deleteKnowledge } from "@/app/actions
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ClipboardListIcon, FileTextIcon } from "@/components/icons";
+import { askConfirm } from "@/components/ui/Dialog";
 
 type KnowledgeItem = {
   id: number;
@@ -135,8 +136,8 @@ export function KnowledgeBoard({
     });
   }
 
-  function handleDelete(id: number) {
-    if (!confirm("삭제하시겠습니까?")) return;
+  async function handleDelete(id: number) {
+    if (!await askConfirm("삭제하시겠습니까?")) return;
     startTransition(async () => { await deleteKnowledge(id); });
   }
 
@@ -171,7 +172,7 @@ export function KnowledgeBoard({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="키워드로 검색 (예: 피부양자, 세율, 간이과세)"
-            className="w-full pl-10 pr-3 py-2 border border-[#D1D6DB] rounded-[14px] text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] bg-white"
+            className="w-full pl-10 pr-3 py-2 border border-[#E5E8EB] rounded-2xl text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] bg-white"
           />
         </div>
 
@@ -199,7 +200,7 @@ export function KnowledgeBoard({
 
         <button
           onClick={() => setShowForm(!showForm)}
-          className="text-xs bg-[#3182F6] text-white px-4 py-2 rounded-[6px] hover:bg-[#1B64DA] transition-colors ml-auto"
+          className="text-xs bg-[#3182F6] text-white px-4 py-2 rounded-xl hover:bg-[#1B64DA] transition-colors ml-auto"
         >
           {showForm ? "취소" : "+ 등록"}
         </button>
@@ -207,31 +208,31 @@ export function KnowledgeBoard({
 
       {/* 등록 폼 */}
       {showForm && (
-        <form action={handleCreate} className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] p-5 mb-5">
+        <form action={handleCreate} className="glass rounded-3xl p-5 mb-5">
           <div className="grid grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-xs text-[#6B7684] mb-1">카테고리</label>
-              <select name="category" defaultValue="기타" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]">
+              <select name="category" defaultValue="기타" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]">
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.icon} {c.value}</option>)}
               </select>
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-[#6B7684] mb-1">제목</label>
-              <input name="title" required placeholder="예: 피부양자 자격 조건" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]" />
+              <input name="title" required placeholder="예: 피부양자 자격 조건" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6]" />
             </div>
             <div>
               <label className="block text-xs text-[#6B7684] mb-1">태그 (검색용)</label>
-              <input name="tags" placeholder="콤마로 구분" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none" />
+              <input name="tags" placeholder="콤마로 구분" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none" />
             </div>
           </div>
           <div className="mb-4">
             <label className="block text-xs text-[#6B7684] mb-1">내용</label>
-            <textarea name="content" required rows={6} placeholder="지식 내용을 정리하세요" className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none" />
+            <textarea name="content" required rows={6} placeholder="지식 내용을 정리하세요" className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] focus:outline-none focus:border-[#3182F6] resize-none" />
           </div>
           <div className="mb-4">
             <label className="block text-xs text-[#6B7684] mb-1">첨부파일</label>
             <div className="flex items-center gap-3">
-              <label className={`text-xs px-3 py-1.5 rounded-[6px] cursor-pointer transition-colors ${uploading ? "bg-[#F9FAFB] text-[#8B95A1]" : "bg-white text-[#4E5968] hover:bg-[#F9FAFB]"}`}>
+              <label className={`text-xs px-3 py-1.5 rounded-xl cursor-pointer transition-colors ${uploading ? "bg-[#F9FAFB] text-[#8B95A1]" : "bg-white text-[#4E5968] hover:bg-[#F9FAFB]"}`}>
                 {uploading ? "업로드 중..." : "📎 파일 추가"}
                 <input type="file" accept="image/*,.pdf,.xlsx,.xls,.doc,.docx,.hwp" className="hidden" onChange={(e) => handleFileUpload(e, "new")} disabled={uploading} />
               </label>
@@ -240,7 +241,7 @@ export function KnowledgeBoard({
             {uploadedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {uploadedFiles.map((f, i) => (
-                  <div key={i} className="flex items-center gap-1.5 bg-[#eff6ff] text-[#1e40af] rounded-[6px] px-2.5 py-1 text-xs">
+                  <div key={i} className="flex items-center gap-1.5 bg-[#eff6ff] text-[#1e40af] rounded-xl px-2.5 py-1 text-xs">
                     {f.name.match(/\.(png|jpg|jpeg|gif|webp)$/i) ? "🖼️" : "📄"} {f.name}
                     <button type="button" onClick={() => setUploadedFiles(prev => prev.filter((_, j) => j !== i))} className="text-[#1e40af] hover:text-[#dc2626] ml-0.5">✕</button>
                   </div>
@@ -248,7 +249,7 @@ export function KnowledgeBoard({
               </div>
             )}
           </div>
-          <button type="submit" disabled={isPending} className="bg-[#3182F6] text-white text-sm px-5 py-2 rounded-[6px] hover:bg-[#1B64DA] disabled:opacity-50">
+          <button type="submit" disabled={isPending} className="bg-[#3182F6] text-white text-sm px-5 py-2 rounded-xl hover:bg-[#1B64DA] disabled:opacity-50">
             등록
           </button>
         </form>
@@ -270,19 +271,19 @@ export function KnowledgeBoard({
             const isEditing = editingId === item.id;
 
             return (
-              <div key={item.id} className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:border-[#D1D6DB] transition-all overflow-hidden">
+              <div key={item.id} className="glass rounded-3xl hover:border-[#D1D6DB] transition-all overflow-hidden">
                 {isEditing ? (
                   <div className="p-5">
                     <div className="grid grid-cols-4 gap-3 mb-3">
-                      <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]">
+                      <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28]">
                         {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.value}</option>)}
                       </select>
-                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="col-span-2 bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]" />
-                      <input value={editTags} onChange={(e) => setEditTags(e.target.value)} placeholder="태그" className="bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28]" />
+                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="col-span-2 bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28]" />
+                      <input value={editTags} onChange={(e) => setEditTags(e.target.value)} placeholder="태그" className="bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28]" />
                     </div>
-                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={6} className="w-full bg-white border border-[#D1D6DB] rounded-[6px] px-3 py-2 text-sm text-[#191F28] resize-none mb-3" />
+                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={6} className="w-full bg-white/80 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm text-[#191F28] resize-none mb-3" />
                     <div className="flex gap-2">
-                      <button onClick={() => handleUpdate(item.id)} disabled={isPending} className="text-xs bg-[#3182F6] text-white px-4 py-1.5 rounded-[6px] hover:bg-[#1B64DA]">저장</button>
+                      <button onClick={() => handleUpdate(item.id)} disabled={isPending} className="text-xs bg-[#3182F6] text-white px-4 py-1.5 rounded-xl hover:bg-[#1B64DA]">저장</button>
                       <button onClick={() => setEditingId(null)} className="text-xs text-[#6B7684] px-4 py-1.5">취소</button>
                     </div>
                   </div>
@@ -318,19 +319,19 @@ export function KnowledgeBoard({
                     </div>
 
                     {isExpanded && (
-                      <div className="px-5 pb-4 border-t border-[#E5E8EB] pt-3">
+                      <div className="px-5 pb-4 border-t border-[#191F28]/[.06] pt-3">
                         {/* 첨부 이미지 */}
                         {item.files && parseFiles(item.files).some(f => f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)) && (
                           <div className="flex flex-wrap gap-3 mb-3">
                             {parseFiles(item.files).filter(f => f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)).map((f, i) => (
                               <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="block">
-                                <img src={f.url} alt={f.name} className="max-h-60 rounded-[6px] border border-[#E5E8EB] hover:border-[#5e6ad2] transition-colors" />
+                                <img src={f.url} alt={f.name} className="max-h-60 rounded-2xl border border-white/70 hover:ring-2 hover:ring-[#3182F6]/30 transition" />
                               </a>
                             ))}
                           </div>
                         )}
 
-                        <div className="bg-[#F9FAFB] rounded-[6px] px-4 py-3 text-sm text-[#4E5968] mb-3 leading-relaxed prose prose-sm prose-invert max-w-none prose-headings:text-[#191F28] prose-headings:font-bold prose-h2:text-base prose-h3:text-sm prose-table:border-collapse prose-th:bg-[#3182F6] prose-th:text-white prose-th:px-4 prose-th:py-2 prose-th:text-sm prose-th:font-[500] prose-td:px-4 prose-td:py-2 prose-td:border prose-td:border-[#E5E8EB] prose-td:text-sm prose-tr:even:bg-[#F9FAFB] prose-strong:text-[#191F28] prose-a:text-[#1e40af] prose-a:no-underline hover:prose-a:underline prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
+                        <div className="bg-[#F9FAFB] rounded-xl px-4 py-3 text-sm text-[#4E5968] mb-3 leading-relaxed prose prose-sm prose-invert max-w-none prose-headings:text-[#191F28] prose-headings:font-bold prose-h2:text-base prose-h3:text-sm prose-table:border-collapse prose-th:bg-[#3182F6] prose-th:text-white prose-th:px-4 prose-th:py-2 prose-th:text-sm prose-th:font-[500] prose-td:px-4 prose-td:py-2 prose-td:border prose-td:border-[#E5E8EB] prose-td:text-sm prose-tr:even:bg-[#F9FAFB] prose-strong:text-[#191F28] prose-a:text-[#1e40af] prose-a:no-underline hover:prose-a:underline prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown>
                         </div>
 
@@ -338,7 +339,7 @@ export function KnowledgeBoard({
                         {item.files && parseFiles(item.files).some(f => !f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)) && (
                           <div className="flex flex-wrap gap-2 mb-3">
                             {parseFiles(item.files).filter(f => !f.url.match(/\.(png|jpg|jpeg|gif|webp)$/i)).map((f, i) => (
-                              <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-white hover:bg-[#F9FAFB] rounded-[6px] px-3 py-1.5 text-xs text-[#4E5968] transition-colors">
+                              <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-white hover:bg-[#F9FAFB] rounded-xl px-3 py-1.5 text-xs text-[#4E5968] transition-colors">
                                 <FileTextIcon width={14} height={14} />
                                 {f.name}
                               </a>
@@ -349,7 +350,7 @@ export function KnowledgeBoard({
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleCopy(item.content)}
-                            className="text-xs px-3 py-1.5 rounded-[6px] bg-[#eff6ff] text-[#1e40af] hover:bg-[rgba(59,130,246,0.18)] font-[500] inline-flex items-center gap-1"
+                            className="text-xs px-3 py-1.5 rounded-xl bg-[#E8F3FF] text-[#1B64DA] hover:bg-[#D2E5FF] font-[500] inline-flex items-center gap-1"
                           >
                             <ClipboardListIcon width={12} height={12} />
                             복사

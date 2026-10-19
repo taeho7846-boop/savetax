@@ -88,7 +88,7 @@ function Header({ year, mon, yearMonth, tab, prevYM, nextYM }: {
     <>
       <div className="flex items-end justify-between mb-3 gap-4 flex-wrap">
         <div>
-          <div className="text-[12.5px] text-[#86868b] font-medium">{year}년 {parseInt(mon)}월 정산</div>
+          <div className="text-[12.5px] text-[#8B95A1] font-medium">{year}년 {parseInt(mon)}월 정산</div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">Savetax 정산</h1>
         </div>
         <div className="flex items-center gap-1 glass rounded-xl px-1 h-10">

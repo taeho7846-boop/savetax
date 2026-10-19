@@ -159,7 +159,7 @@ export function CmsPendingCard({
       {/* 드로어 */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end"
+          className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-start justify-end"
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
           <div className="bg-white w-full max-w-lg h-full overflow-y-auto border-l border-[#E5E8EB] flex flex-col">

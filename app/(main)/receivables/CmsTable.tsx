@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cycleCmsStatus, bulkCmsRegister, getCmsClientDetail, updateClientPaymentMethod } from "@/app/actions/clients";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type CmsClient = {
   id: number;
@@ -195,13 +196,13 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       const res = await fetch("/api/cms/verify-excel", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "엑셀 파싱 실패");
+        notify(data.error || "엑셀 파싱 실패");
         return;
       }
       setVerifyResult(data);
       setUpdatedIds(new Set());
     } catch {
-      alert("업로드 실패");
+      notify("업로드 실패");
     } finally {
       setVerifyLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -381,7 +382,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientIds: [...checkedIds], yearMonth: tiMonth }),
       });
-      if (!res.ok) { alert("다운로드 실패"); return; }
+      if (!res.ok) { notify("다운로드 실패"); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -389,7 +390,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       a.download = `TI_${tiMonth}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { alert("다운로드 실패"); }
+    } catch { notify("다운로드 실패"); }
   }
 
   async function handleBulkRegister() {
@@ -398,10 +399,10 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
     const activeIds = [...checkedIds].filter(id => clients.find(c => c.id === id && !isTerminated(c)));
     const skipped = checkedIds.size - activeIds.length;
     if (activeIds.length === 0) {
-      alert("해지 거래처는 CMS 신규 등록 대상이 아니에요. T/I 발행만 가능합니다.");
+      notify("해지 거래처는 CMS 신규 등록 대상이 아니에요. T/I 발행만 가능합니다.");
       return;
     }
-    if (skipped > 0 && !confirm(`해지 거래처 ${skipped}곳은 CMS 등록에서 제외하고 ${activeIds.length}곳만 진행할까요?`)) return;
+    if (skipped > 0 && !await askConfirm(`해지 거래처 ${skipped}곳은 CMS 등록에서 제외하고 ${activeIds.length}곳만 진행할까요?`)) return;
     startTransition(async () => {
       try {
         const res = await fetch("/api/cms/bulk-download", {
@@ -411,7 +412,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         });
         if (!res.ok) {
           const data = await res.json();
-          alert(data.error || "엑셀 생성 실패");
+          notify(data.error || "엑셀 생성 실패");
           return;
         }
         const blob = await res.blob();
@@ -422,7 +423,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {
-        alert("엑셀 다운로드 실패");
+        notify("엑셀 다운로드 실패");
         return;
       }
       setCheckedIds(new Set());
@@ -434,14 +435,14 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
   return (
     <>
-    <div className="flex items-center gap-3 mb-3">
+    <div className="glass rounded-3xl p-3 mb-4 flex items-center gap-2 flex-wrap">
       <button
         onClick={handleBulkRegister}
         disabled={isPending || checkedIds.size === 0}
-        className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
+        className={`h-10 px-4 rounded-xl text-[13px] font-bold transition-colors ${
           checkedIds.size > 0
-            ? "bg-[#3182F6] text-white hover:bg-[#1B64DA]"
-            : "bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed"
+            ? "bg-[#3182F6] text-white shadow-md shadow-[#3182F6]/25 hover:bg-[#1B64DA]"
+            : "glass-strong text-[#8B95A1] cursor-not-allowed"
         } disabled:opacity-50`}
       >
         {isPending ? "처리 중..." : `일괄등록${checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}`}
@@ -450,13 +451,13 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       {/* 커스터마이징 등록 */}
       <button
         onClick={() => { resetCustom(); setCustomOpen(true); }}
-        className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-white border border-[#3182F6] text-[#3182F6] hover:bg-[#EDF3FF]"
+        className="h-10 px-4 rounded-xl text-[13px] font-bold transition-colors glass-strong text-[#3182F6] hover:bg-white"
       >
         커스터마이징등록
       </button>
 
       {/* CMS 엑셀 검증 업로드 */}
-      <label className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-[#3182F6] text-white hover:bg-[#1B64DA] cursor-pointer">
+      <label className="h-10 px-4 rounded-xl text-[13px] font-bold transition-colors bg-[#191F28] text-white hover:bg-[#333D4B] cursor-pointer inline-flex items-center">
         {verifyLoading ? "분석 중..." : "CMS 검증"}
         <input
           ref={fileInputRef}
@@ -473,15 +474,15 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
           type="month"
           value={tiMonth}
           onChange={(e) => setTiMonth(e.target.value)}
-          className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] px-2 py-1.5 text-sm focus:outline-none focus:border-[#3182F6]"
+          className="h-10 glass-strong rounded-xl px-3 text-[13px] font-bold text-[#4E5968] focus:outline-none focus:border-[#3182F6]"
         />
         <button
           onClick={handleTaxInvoice}
           disabled={isPending || checkedIds.size === 0}
-          className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`h-10 px-4 rounded-xl text-[13px] font-bold transition-colors ${
             checkedIds.size > 0
-              ? "bg-[#16A865] text-white hover:bg-[#15803D]"
-              : "bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed"
+              ? "bg-[#16A865] text-white shadow-md shadow-[#16A865]/25 hover:bg-[#15803D]"
+              : "glass-strong text-[#8B95A1] cursor-not-allowed"
           } disabled:opacity-50`}
         >
           T/I 발행{checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}
@@ -491,13 +492,13 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
     {/* CMS 검증 결과 모달 */}
     {verifyResult && (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
+      <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setVerifyResult(null)}>
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col"
+          className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col animate-[dialog-in_.2s_cubic-bezier(.2,.8,.2,1)]"
           onClick={e => e.stopPropagation()}
         >
           {/* 모달 헤더 */}
-          <div className="px-6 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-[#191F28]/[.06] flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-[#191F28]">CMS 등록 검증 결과</h2>
               <p className="text-sm text-[#6B7684] mt-0.5">
@@ -507,43 +508,34 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleVerifyExcelDownload()}
-                className="text-sm bg-[#16A865] text-white px-3 py-1.5 rounded-lg hover:bg-[#15803D] transition-colors"
+                className="h-9 text-[12.5px] font-bold bg-[#16A865] text-white px-3.5 rounded-xl hover:bg-[#15803D] transition-colors shadow-md shadow-[#16A865]/25"
               >
                 엑셀 다운로드
               </button>
-              <button onClick={() => setVerifyResult(null)} className="text-[#8B95A1] hover:text-[#4E5968] text-2xl leading-none">&times;</button>
+              <button onClick={() => setVerifyResult(null)} className="w-9 h-9 rounded-xl flex items-center justify-center text-[#8B95A1] hover:text-[#191F28] hover:bg-white/70 text-2xl leading-none transition">&times;</button>
             </div>
           </div>
 
           {/* 요약 카드 */}
           <div className="px-6 py-3 grid grid-cols-4 gap-3">
-            <div className="bg-[#FFFBEB] rounded-lg p-3 text-center">
+            <div className="stat-card glass rounded-2xl p-3 text-center border-l-4 border-l-[#F59E0B]">
               <div className="text-2xl font-bold text-[#B45309]">{verifyResult.needsUpdate.length}</div>
               <div className="text-xs text-[#B45309] mt-1">변경 필요</div>
             </div>
-            <div className="bg-[#F1FBF4] rounded-lg p-3 text-center">
+            <div className="stat-card glass rounded-2xl p-3 text-center border-l-4 border-l-[#16A865]">
               <div className="text-2xl font-bold text-[#16A865]">{verifyResult.alreadyDone.length}</div>
               <div className="text-xs text-[#16A865] mt-1">이미 일치</div>
             </div>
-            <div className="bg-[#FEF2F2] rounded-lg p-3 text-center">
+            <div className="stat-card glass rounded-2xl p-3 text-center border-l-4 border-l-[#DC2626]">
               <div className="text-2xl font-bold text-[#DC2626]">{verifyResult.failed.length}</div>
               <div className="text-xs text-[#DC2626] mt-1">등록실패</div>
             </div>
-            <div className="bg-[#F9FAFB] rounded-lg p-3 text-center">
+            <div className="stat-card glass rounded-2xl p-3 text-center border-l-4 border-l-[#8B95A1]">
               <div className="text-2xl font-bold text-[#4E5968]">{verifyResult.notInExcel.length}</div>
               <div className="text-xs text-[#4E5968] mt-1">엑셀에 없음</div>
             </div>
           </div>
 
-          {/* 디버그 정보 (임시) */}
-          {(verifyResult as any).debug && (
-            <div className="mx-6 mt-2 p-3 bg-[#F2F4F6] rounded-lg text-xs text-[#4E5968]">
-              <div><strong>상호 컬럼:</strong> {(verifyResult as any).debug.tradeNameKey || "없음"} / <strong>회원명 컬럼:</strong> {(verifyResult as any).debug.memberNameKey || "없음"} / <strong>상태 컬럼:</strong> {(verifyResult as any).debug.statusKey || "없음"}</div>
-              <div><strong>엑셀 행수:</strong> {(verifyResult as any).debug.totalRows} → <strong>이름 있는 행:</strong> {(verifyResult as any).debug.excelMapSize}</div>
-              <div><strong>엑셀 샘플:</strong> {(verifyResult as any).debug.excelSampleNames?.join(", ")}</div>
-              <div><strong>DB 샘플:</strong> {(verifyResult as any).debug.dbSampleNames?.join(", ")}</div>
-            </div>
-          )}
 
           {/* 상세 목록 */}
           <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -554,9 +546,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                   <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
                   변경 필요 — CMS 등록성공이나 시스템 미반영
                 </h3>
-                <div className="border border-orange-200 rounded-lg overflow-hidden">
+                <div className="rounded-2xl bg-white/70 border border-white/80 overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-[#FFFBEB]">
+                    <thead className="bg-[#FEF3C7]/50 text-[12px]">
                       <tr>
                         <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
                         <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
@@ -565,7 +557,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                         <th className="px-3 py-2 text-center text-[#333D4B]">변경</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-orange-100">
+                    <tbody className="divide-y divide-[#F2F4F6]">
                       {verifyResult.needsUpdate.map(item => (
                         <tr key={item.clientId} className={updatedIds.has(item.clientId) ? "bg-[#F1FBF4]" : ""}>
                           <td className="px-3 py-2 font-medium text-[#191F28]">{item.clientName}</td>
@@ -606,9 +598,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                   <span className="w-2 h-2 rounded-full bg-[#E02E2E]" />
                   등록실패 — CMS 사이트에서 실패 처리된 건
                 </h3>
-                <div className="border border-[#FECACA] rounded-lg overflow-hidden">
+                <div className="rounded-2xl bg-white/70 border border-white/80 overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-[#FEF2F2]">
+                    <thead className="bg-[#FEE2E2]/50 text-[12px]">
                       <tr>
                         <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
                         <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
@@ -664,7 +656,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 </h3>
                 <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-[#F9FAFB]">
+                    <thead className="bg-[#F2F4F6]/70 text-[12px]">
                       <tr>
                         <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
                         <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
@@ -702,9 +694,9 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                   <span className="w-2 h-2 rounded-full bg-[#1AB266]" />
                   이미 일치 — CMS 등록성공 + 시스템 등록 완료
                 </h3>
-                <div className="border border-[#BBF7D0] rounded-lg overflow-hidden">
+                <div className="rounded-2xl bg-white/70 border border-white/80 overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-[#F1FBF4]">
+                    <thead className="bg-[#DCFCE7]/50 text-[12px]">
                       <tr>
                         <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
                         <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
@@ -736,7 +728,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
                 </h3>
                 <div className="border border-[#F2F4F6] bg-[#F9FAFB] rounded-[10px] overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-[#F9FAFB]">
+                    <thead className="bg-[#F2F4F6]/70 text-[12px]">
                       <tr>
                         <th className="px-3 py-2 text-left text-[#333D4B]">거래처명</th>
                         <th className="px-3 py-2 text-center text-[#333D4B]">대표자</th>
@@ -769,23 +761,23 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
 
     {/* 커스터마이징 등록 모달 */}
     {customOpen && (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setCustomOpen(false)}>
+      <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={() => setCustomOpen(false)}>
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-hidden flex flex-col"
+          className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-2xl max-h-[88vh] overflow-hidden flex flex-col animate-[dialog-in_.2s_cubic-bezier(.2,.8,.2,1)]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* 헤더 */}
-          <div className="px-6 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-[#191F28]/[.06] flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-[#191F28]">커스터마이징 CMS 등록</h2>
               <p className="text-sm text-[#6B7684] mt-0.5">양식을 고르고 거래처 1곳을 입력하면 엑셀 + 신청서 PDF가 만들어져요</p>
             </div>
-            <button onClick={() => setCustomOpen(false)} className="text-[#8B95A1] hover:text-[#4E5968] text-2xl leading-none">&times;</button>
+            <button onClick={() => setCustomOpen(false)} className="w-9 h-9 rounded-xl flex items-center justify-center text-[#8B95A1] hover:text-[#191F28] hover:bg-white/70 text-2xl leading-none transition">&times;</button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+          <div className="form-glass flex-1 overflow-y-auto px-6 py-4 space-y-5">
             {customError && (
-              <div className="px-4 py-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[#DC2626] text-sm">{customError}</div>
+              <div className="px-4 py-2.5 bg-[#FEF2F2] rounded-xl text-[#DC2626] text-sm font-medium">{customError}</div>
             )}
 
             {/* 1. 신청서 양식 */}
@@ -956,17 +948,17 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
           </div>
 
           {/* 푸터 */}
-          <div className="px-6 py-4 border-t border-[#F2F4F6] flex justify-end gap-2">
+          <div className="px-6 py-4 border-t border-[#191F28]/[.06] flex justify-end gap-2">
             <button
               onClick={() => setCustomOpen(false)}
-              className="text-sm px-4 py-2 rounded-lg font-medium bg-white border border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB]"
+              className="h-10 px-4 rounded-xl text-[13px] font-bold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors"
             >
               취소
             </button>
             <button
               onClick={handleGenerateCustom}
               disabled={generating || (!autoEnabled && !instantEnabled)}
-              className="text-sm px-5 py-2 rounded-lg font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-5 rounded-xl text-[13px] font-bold bg-[#3182F6] text-white shadow-md shadow-[#3182F6]/25 hover:bg-[#1B64DA] disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
             >
               {generating ? "생성 중..." : "생성"}
             </button>
@@ -975,10 +967,11 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
       </div>
     )}
 
-    <div className="bg-white rounded-lg shadow-sm border border-[#F2F4F6] max-h-[70vh] overflow-auto">
+    <div className="glass rounded-3xl overflow-hidden">
+     <div className="overflow-auto max-h-[70vh]">
       <table className="w-full text-sm">
-        <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-20">
-          <tr>
+        <thead className="sticky top-0 z-20">
+          <tr className="bg-white/90 backdrop-blur-md border-b border-white/60">
             <th className="px-3 py-3 w-10">
               <input
                 type="checkbox"
@@ -1283,6 +1276,7 @@ export function CmsTable({ clients }: { clients: CmsClient[] }) {
           )}
         </tbody>
       </table>
+     </div>
     </div>
     </>
   );

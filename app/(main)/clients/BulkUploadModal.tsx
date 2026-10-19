@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 export function BulkUploadButton() {
   const [open, setOpen] = useState(false);
@@ -52,7 +53,7 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
 
   async function handlePreview() {
     const file = fileRef.current?.files?.[0];
-    if (!file) return alert("파일을 선택해주세요.");
+    if (!file) return notify("파일을 선택해주세요.");
 
     setUploading(true);
     setPreview(null);
@@ -101,10 +102,10 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
           setWithdrawalPreview(data2.changes);
         }
       } else {
-        alert(data.error || "적용 실패");
+        notify(data.error || "적용 실패");
       }
     } catch {
-      alert("네트워크 오류");
+      notify("네트워크 오류");
     } finally {
       setApplying(false);
     }
@@ -112,7 +113,7 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
 
   async function handleApplyWithdrawal() {
     if (!withdrawalPreview) return;
-    if (!confirm(`${withdrawalPreview.length}건의 최초출금월을 덮어쓰시겠습니까?`)) return;
+    if (!await askConfirm(`${withdrawalPreview.length}건의 최초출금월을 덮어쓰시겠습니까?`)) return;
     setApplyingWithdrawal(true);
     try {
       const res = await fetch("/api/clients/bulk-update-preview", {
@@ -122,19 +123,19 @@ function BulkUpdateModal({ onClose }: { onClose: () => void }) {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(`${data.updated}건 최초출금월 업데이트 완료`);
+        notify(`${data.updated}건 최초출금월 업데이트 완료`);
         setWithdrawalPreview(null);
         router.refresh();
       } else {
-        alert(data.error || "오류 발생");
+        notify(data.error || "오류 발생");
       }
-    } catch { alert("네트워크 오류"); }
+    } catch { notify("네트워크 오류"); }
     finally { setApplyingWithdrawal(false); }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-[#191F28]">거래처 일괄수정</h2>
           <button onClick={onClose} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>
@@ -290,7 +291,7 @@ function BulkUploadModal({ onClose }: { onClose: () => void }) {
 
   async function handleUpload() {
     const file = fileRef.current?.files?.[0];
-    if (!file) return alert("파일을 선택해주세요.");
+    if (!file) return notify("파일을 선택해주세요.");
 
     setUploading(true);
     setResult(null);
@@ -318,8 +319,8 @@ function BulkUploadModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-[#191F28]">거래처 대량등록</h2>
           <button onClick={onClose} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>

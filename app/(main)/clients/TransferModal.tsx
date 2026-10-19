@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getTransferUsers, getAssignedClients, transferClients } from "@/app/actions/transfer";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type TransferUser = {
   id: number;
@@ -102,9 +103,9 @@ function TransferModal({ onClose }: { onClose: () => void }) {
   }
 
   async function handleApply() {
-    if (fromId === "" || toId === "") return alert("보내는 담당자와 받는 담당자를 모두 선택하세요.");
-    if (checked.size === 0) return alert("이관할 거래처를 선택하세요.");
-    if (!confirm(`${fromUser?.name} → ${toUser?.name}\n거래처 ${checked.size}건을 이관하시겠습니까?`)) return;
+    if (fromId === "" || toId === "") return notify("보내는 담당자와 받는 담당자를 모두 선택하세요.");
+    if (checked.size === 0) return notify("이관할 거래처를 선택하세요.");
+    if (!await askConfirm(`${fromUser?.name} → ${toUser?.name}\n거래처 ${checked.size}건을 이관하시겠습니까?`)) return;
 
     setApplying(true);
     setError("");
@@ -126,8 +127,8 @@ function TransferModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-2xl p-6 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-[#191F28]">담당자 일괄변경</h2>
           <button onClick={onClose} className="text-[#8B95A1] hover:text-[#333D4B] text-xl">✕</button>

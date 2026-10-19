@@ -144,9 +144,9 @@ export default function TopNav({
   const activeSubs = visibleCategories.find((c) => c.key === activeCat)?.subs ?? [];
 
   return (
-    <header className="sticky top-0 z-30 px-6 pt-4 pb-2 bg-gradient-to-b from-[#f0f4ff]/95 via-[#f0f4ff]/70 to-transparent">
+    <header className="sticky top-0 z-30 px-4 md:px-6 pt-4 pb-2 bg-gradient-to-b from-[#f0f4ff]/95 via-[#f0f4ff]/70 to-transparent">
       {/* Row 1: 3 pills — 카테고리 pill은 화면 정중앙 고정 (서브탭과 세로 정렬) */}
-      <div className="relative flex items-center justify-between gap-3 mb-2.5">
+      <div className="relative flex flex-wrap items-center justify-between gap-3 mb-2.5">
         {/* 좌: 로고 */}
         <Link href="/dashboard" className="glass-strong rounded-2xl px-3 py-2 flex items-center gap-2">
           <div className="w-9 h-9 rounded-xl gradient-blue flex items-center justify-center text-white font-bold text-[15px] shadow-md shadow-[#3182F6]/30">
@@ -159,8 +159,8 @@ export default function TopNav({
         </Link>
 
         {/* 중: 카테고리 — 좌우 pill 폭과 무관하게 화면 정중앙 */}
-        <div className="absolute left-1/2 -translate-x-1/2">
-          <div className="glass-strong rounded-2xl px-2 py-2 flex items-center gap-1">
+        <div className="order-3 w-full flex justify-center xl:order-none xl:w-auto xl:absolute xl:left-1/2 xl:-translate-x-1/2">
+          <div className="glass-strong rounded-2xl px-2 py-2 flex items-center gap-1 flex-wrap justify-center">
             {visibleCategories.map((cat) => {
               const isActive = cat.key === activeCat;
               const defaultHref = cat.subs[0].href;
@@ -194,7 +194,7 @@ export default function TopNav({
       {/* Row 2: 서브탭 (개별 pill) — 화면 기준 정중앙 정렬 */}
       {activeSubs.length > 1 && (
         <div className="flex justify-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
             {activeSubs.map((s) => {
               const active = pathname.startsWith(s.href);
               return (
@@ -221,7 +221,7 @@ export default function TopNav({
 function SearchPill() {
   return (
     <button
-      className="px-3 h-9 rounded-xl flex items-center gap-2 text-[12.5px] text-[#6B7684] hover:text-[#3182F6] hover:bg-white/60 transition w-[200px]"
+      className="px-3 h-9 rounded-xl flex items-center gap-2 text-[12.5px] text-[#6B7684] hover:text-[#3182F6] hover:bg-white/60 transition w-10 justify-center lg:justify-start lg:w-[200px]"
       onClick={() => {
         window.dispatchEvent(new Event("savetax-open-global-search"));
       }}
@@ -231,8 +231,8 @@ function SearchPill() {
         <circle cx={11} cy={11} r={8} />
         <path d="m21 21-4.3-4.3" />
       </svg>
-      <span className="flex-1 text-left">검색</span>
-      <kbd className="text-[10px] px-1.5 py-0.5 bg-white/80 rounded font-bold text-[#4E5968]">/</kbd>
+      <span className="hidden lg:inline flex-1 text-left">검색</span>
+      <kbd className="hidden lg:inline text-[10px] px-1.5 py-0.5 bg-white/80 rounded font-bold text-[#4E5968]">/</kbd>
     </button>
   );
 }
@@ -576,7 +576,7 @@ function TransferDocsBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-[540px] max-h-[640px] overflow-y-auto glass-strong rounded-2xl shadow-2xl z-40 p-3">
+        <div className="absolute right-0 mt-2 w-[min(540px,calc(100vw-2rem))] max-h-[640px] overflow-y-auto glass-strong rounded-2xl shadow-2xl z-40 p-3">
           <TransferDocsCard />
         </div>
       )}

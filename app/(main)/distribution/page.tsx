@@ -19,7 +19,7 @@ export default async function DistributionPage({
     return (
       <div>
         <div className="mb-5">
-          <div className="text-[12.5px] text-[#86868b] font-medium">신규 거래처 배분</div>
+          <div className="text-[12.5px] text-[#8B95A1] font-medium">신규 거래처 배분</div>
           <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">Savetax 배분</h1>
         </div>
         <DistributionBoard

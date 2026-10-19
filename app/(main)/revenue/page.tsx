@@ -46,7 +46,7 @@ export default async function RevenuePage() {
   return (
     <div className="flex flex-col h-full">
       <div className="mb-5">
-        <div className="text-[12.5px] text-[#86868b] font-medium">월별·세목별 수익 분석</div>
+        <div className="text-[12.5px] text-[#8B95A1] font-medium">월별·세목별 수익 분석</div>
         <h1 className="text-[26px] font-bold text-[#191F28] tracking-tight">수익 추이</h1>
       </div>
       <RevenueChart clients={clients} />
