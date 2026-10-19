@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
 import { VatRejectModal } from "./VatRejectModal";
 import { notify } from "@/components/ui/Dialog";
-import { isNoticeType as isNoticeTypeShared } from "@/lib/vat-notice";
+import { isNoticeType as isNoticeTypeShared, inferNoticeFromHtx, NOTICE_BILL_SENT_KEY } from "@/lib/vat-notice";
 
 // 홈택스 부가세 신고자료 업로드 데이터 (모든 금액은 공급가액 기준)
 type HtxData = {
@@ -507,8 +507,12 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
   // 예정고지 거래처: 고지세액 있는 곳은 고지서 안내가 필요하니 펼쳐 두고, 0원인 곳은 볼 게 없으니 접어서 묶음
   const noticeAmt = (c: ClientRow) => { const r = getRec(c.id); return r.noticeTax ?? r.htx?.notice?.amount ?? 0; };
-  const noticeWithTax = stageFilter ? [] : prelimNotice.filter(c => noticeAmt(c) > 0);
+  const noticeTaxed = prelimNotice.filter(c => noticeAmt(c) > 0);
+  const noticeWithTax = stageFilter ? [] : noticeTaxed;
   const noticeZero = stageFilter ? [] : prelimNotice.filter(c => noticeAmt(c) === 0);
+  const billSentCount = noticeTaxed.filter(c => getRec(c.id).checklist[NOTICE_BILL_SENT_KEY]).length;
+  // 홈택스상 예정고지 대상인데 예정신고 하기로 한 곳(3개월 선택) — 신고 대상에 포함되며 따로 표시
+  const switchedToFilingCount = isPrelim ? active.filter(c => inferNoticeFromHtx(getRec(c.id).htx) === true).length : 0;
   const noticeZeroExpanded = noticeZeroOpen || qt !== "";
 
   // 예상세액 합계 (참고용) — 일반과세 + 홈택스 자료 있는 대상만
@@ -534,6 +538,21 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     // 예정 처리: report_notice 토글값 우선, 미설정 시에만 추정(개인=예정고지, 법인=예정신고)
     const isNotice = isNoticeType(client, r); // true=예정고지(확정 6개월) / false=예정신고(확정 3개월)
     const isPrelimNotice = isPrelim && isNotice; // 예정 기간 + 예정고지형 = 신고 불필요
+    const htxSaysNotice = inferNoticeFromHtx(r.htx) === true;
+    const switchedToFiling = isPrelim && !isNotice && htxSaysNotice; // 고지대상이지만 예정신고 하기로 (3개월 선택)
+    const nAmt = r.noticeTax ?? r.htx?.notice?.amount ?? 0;
+    // 예정신고 가능 요건 힌트 (부가세법 48조③: 휴업·사업부진으로 공급가액/납부세액이 직전 과세기간의 1/3 미달, 또는 조기환급)
+    const filingHints: string[] = [];
+    if (isPrelimNotice && r.htx) {
+      const prev = r.htx.notice?.prevSupply || 0;
+      if (prev > 0 && r.htx.sales.supplyTotal < prev / 3) filingHints.push("매출 직전기 1/3 미만");
+      const e = estimateVat(r.htx, isCorp, false);
+      if (e) {
+        if (e.est < 0) filingHints.push("환급 예상");
+        else if (nAmt > 0 && e.est < (nAmt * 2) / 3) filingHints.push("예상세액 < 고지세액×2/3");
+      }
+    }
+    if (isPrelimNotice && r.checklist["early_refund"]) filingHints.push("조기환급");
     const isCorpCollect = r.stage === "collect" && isCorp;
     const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
     const doneN = keys.filter(k => r.checklist[k]).length;
@@ -627,6 +646,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             >
               💧 조기환급{r.checklist["early_refund"] ? "" : "?"}
             </button>
+            {switchedToFiling && (
+              <span
+                className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]"
+                title="홈택스상 예정고지 대상이지만 예정신고 하기로 한 거래처 (3개월 선택). 예정신고를 하면 고지는 취소됩니다"
+              >
+                ↩ 고지대상 → 예정신고
+              </span>
+            )}
           </div>
         </td>
 
@@ -658,6 +685,15 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                 />
                 <span className="text-[11px] text-[#8B95A1] ml-1">원</span>
               </div>
+              {nAmt > 0 && checkChip(NOTICE_BILL_SENT_KEY, "납부서 발송", "#6D28D9", "대표에게 예정고지 납부서를 보냈으면 체크")}
+              {filingHints.length > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C2410C] bg-[#FFF7ED] border border-[#FED7AA] rounded-md px-1.5 py-0.5"
+                  title="예정신고 가능 요건(휴업·사업부진 1/3 미달, 조기환급)에 해당할 수 있어요. 대표가 원하면 거래처 칸에서 3개월(예정신고)로 바꾸면 신고 대상으로 올라갑니다"
+                >
+                  ⚡ 예정신고 가능? <span className="font-medium">{filingHints.join(" · ")}</span>
+                </span>
+              )}
             </div>
           ) : (
           <>
@@ -812,7 +848,13 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           {isPrelimNotice ? (
             <div className="flex flex-col gap-1 items-end">
               <span className="text-[12px] font-bold text-[#6D28D9]">📋 예정고지</span>
-              <span className="text-[10px] text-[#8B95A1]">신고 불필요 · 고지서 확인</span>
+              {nAmt > 0 ? (
+                r.checklist[NOTICE_BILL_SENT_KEY]
+                  ? <span className="text-[10px] font-bold text-[#15803D] bg-[#E7F7EE] rounded-md px-1.5 py-0.5">✓ 납부서 발송</span>
+                  : <span className="text-[10px] font-bold text-[#C2410C] bg-[#FFF7ED] rounded-md px-1.5 py-0.5">납부서 미발송</span>
+              ) : (
+                <span className="text-[10px] text-[#8B95A1]">신고 불필요 · 고지세액 없음</span>
+              )}
             </div>
           ) : (
           <div className="flex flex-col gap-2 items-end">
@@ -901,7 +943,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
         {prelimNotice.length > 0 && (
           <span className="inline-flex items-center gap-1 text-[12px] font-bold text-[#6D28D9] bg-[#F5E8FF] rounded-lg px-2 py-1" title="예정고지형(신고 불필요) 거래처 — 단계 카드·대상 수 집계에서 제외. 고지세액 있는 곳은 표 하단에 펼쳐져 있고, 0원인 곳은 접혀 있어요">
             📋 예정고지 {prelimNotice.length}곳
-            {noticeWithTax.length > 0 && <span className="text-[#8B95A1] font-medium">· 고지세액 {noticeWithTax.length}</span>}
+            {noticeTaxed.length > 0 && (
+              <span className={`font-medium ${billSentCount < noticeTaxed.length ? "text-[#C2410C]" : "text-[#15803D]"}`}>· 납부서 발송 {billSentCount}/{noticeTaxed.length}</span>
+            )}
+          </span>
+        )}
+        {switchedToFilingCount > 0 && (
+          <span className="inline-flex items-center gap-1 text-[12px] font-bold text-[#C2410C] bg-[#FFF7ED] border border-[#FED7AA] rounded-lg px-2 py-1" title="홈택스상 예정고지 대상이지만 예정신고 하기로 한 거래처 (3개월 선택) — 신고 대상에 포함돼 있어요">
+            ↩ 고지→예정신고 {switchedToFilingCount}곳
           </span>
         )}
         {estTotal !== 0 && (
@@ -1011,7 +1060,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               )}
               {shown.map((c) => row(c, false))}
               {noticeWithTax.length > 0 && (
-                <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 예정고지 · 신고 불필요 · 고지서 안내 ({noticeWithTax.length}곳)</td></tr>
+                <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 예정고지 · 신고 불필요 · 납부서 발송 {billSentCount}/{noticeWithTax.length}곳</td></tr>
               )}
               {noticeWithTax.map((c) => row(c, false))}
               {noticeZero.length > 0 && (

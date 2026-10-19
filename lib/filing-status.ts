@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { isPrelimNoticeRecord } from "@/lib/vat-notice";
+import { isPrelimNoticeRecord, noticeAmountOf, isChecklistChecked, NOTICE_BILL_SENT_KEY } from "@/lib/vat-notice";
 import { getClientScopeWhere } from "@/lib/client-scope";
 import { STAGES as BK_STAGES, TARGET_DAY_KEY, DEFAULT_TARGET_DAY, bookkeepingDeadline, addMonths, type BookkeepingStage } from "@/lib/bookkeeping";
 import { TAX_EVENTS } from "@/lib/tax-calendar";
@@ -202,7 +202,7 @@ export async function getFilingSummaries(session: SessionLike, today: string): P
     }),
     prisma.client.findMany({
       where: { ...activeScope, NOT: { taxationType: { in: ["면세", "프리랜서", "폐업"] } } },
-      select: { id: true, clientType: true, vatRecords: { where: { period: vatPeriod }, select: { stage: true, excluded: true, checklist: true, htxData: true } } },
+      select: { id: true, clientType: true, vatRecords: { where: { period: vatPeriod }, select: { stage: true, excluded: true, checklist: true, htxData: true, noticeTax: true } } },
     }),
     prisma.client.findMany({
       // 종소세 페이지와 동일: 개인만, 해지 거래처도 데이터 성격이라 포함
@@ -269,16 +269,25 @@ export async function getFilingSummaries(session: SessionLike, today: string): P
   const vatCounts = new Map<string, number>();
   let vatExcluded = 0;
   let vatPrelimNotice = 0;
+  let vatNoticeTaxed = 0; // 고지세액 있는 곳 (납부서 안내 필요)
+  let vatBillSent = 0;
   for (const c of vatClients) {
     const r = c.vatRecords[0];
     if (r?.excluded) { vatExcluded++; continue; }
-    if (isPrelimNoticeRecord(vatPeriod, c.clientType, r?.checklist, r?.htxData)) { vatPrelimNotice++; continue; }
+    if (isPrelimNoticeRecord(vatPeriod, c.clientType, r?.checklist, r?.htxData)) {
+      vatPrelimNotice++;
+      if (noticeAmountOf(r?.noticeTax, r?.htxData) > 0) {
+        vatNoticeTaxed++;
+        if (isChecklistChecked(r?.checklist, NOTICE_BILL_SENT_KEY)) vatBillSent++;
+      }
+      continue;
+    }
     const st = normalizeVatStage(r?.stage);
     vatCounts.set(st, (vatCounts.get(st) ?? 0) + 1);
   }
   const vatTotal = vatClients.length - vatExcluded - vatPrelimNotice;
   const vatNoteParts = [
-    vatPrelimNotice > 0 ? `예정고지 ${vatPrelimNotice}곳 (신고 불필요)` : null,
+    vatPrelimNotice > 0 ? `예정고지 ${vatPrelimNotice}곳${vatNoticeTaxed > 0 ? ` · 납부서 발송 ${vatBillSent}/${vatNoticeTaxed}` : ""}` : null,
     vatExcluded > 0 ? `제외 ${vatExcluded}곳` : null,
   ].filter(Boolean);
   const vatTypeLabel = vat.type.replace("-", "기 ");

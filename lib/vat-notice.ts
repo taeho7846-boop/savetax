@@ -47,6 +47,20 @@ function parseJson<T>(s: string | null | undefined, fallback: T): T {
   try { return JSON.parse(s) as T; } catch { return fallback; }
 }
 
+/** 체크리스트 키: 대표에게 예정고지 납부서를 보냈는지 */
+export const NOTICE_BILL_SENT_KEY = "notice_bill_sent";
+
+/** 예정고지세액: 수기/자동 입력값(noticeTax) 우선, 없으면 홈택스 자료의 예정고지세액 */
+export function noticeAmountOf(noticeTax: number | null | undefined, htxDataJson: string | null | undefined): number {
+  if (typeof noticeTax === "number") return noticeTax;
+  const h = parseJson<{ notice?: { amount?: number } } | null>(htxDataJson, null);
+  return h?.notice?.amount ?? 0;
+}
+
+export function isChecklistChecked(checklistJson: string | null | undefined, key: string): boolean {
+  return parseJson<Record<string, unknown>>(checklistJson, {})[key] === true;
+}
+
 /** DB 원본(JSON 문자열)으로 바로 판정: 예정 기간 + 예정고지형 → 신고 불필요(단계 없음) */
 export function isPrelimNoticeRecord(
   period: string,
