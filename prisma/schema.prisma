@@ -941,3 +941,18 @@ model TaehoSettlementExclusion {
 
   @@unique([yearMonth, source, refId])
 }
+
+/// 세무회계태호 정산 — 대표가 참여자에게 실제로 보낸 입금 기록 (기납부세액처럼 중간중간 보낸 돈).
+/// 잔액 = 월 합계 입금액 − 이 기록의 합계
+model TaehoSettlementPayment {
+  id              Int      @id @default(autoincrement())
+  yearMonth       String
+  participantId   Int
+  paidOn          String   // YYYY-MM-DD (KST 날짜, 시간대 문제 없이 문자열로)
+  amount          Int
+  note            String?
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+
+  @@index([yearMonth, participantId])
+}

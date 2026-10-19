@@ -179,3 +179,26 @@ export async function cancelLastTaehoRound(yearMonth: string, participantId: num
   revalidatePath(PATH);
   return last.seq;
 }
+
+/* ───────────────────────── 입금 기록 ───────────────────────── */
+
+export type PaymentInput = { paidOn: string; amount: number; note?: string | null };
+
+/** 대표가 참여자에게 실제로 보낸 입금을 기록 (기납부세액처럼 중간중간). 잔액 = 월 합계 입금액 − 기록 합계 */
+export async function addTaehoPayment(yearMonth: string, participantId: number, input: PaymentInput) {
+  const session = await requireOwner();
+  if (!isValidYM(yearMonth)) throw new Error("잘못된 월입니다.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.paidOn)) throw new Error("입금일을 선택하세요.");
+  const amount = Math.round(Number(input.amount) || 0);
+  if (amount === 0) throw new Error("입금액을 입력하세요.");
+  await prisma.taehoSettlementPayment.create({
+    data: { yearMonth, participantId, paidOn: input.paidOn, amount, note: input.note?.trim() || null, createdByUserId: session.id },
+  });
+  revalidatePath(PATH);
+}
+
+export async function deleteTaehoPayment(id: number) {
+  await requireOwner();
+  await prisma.taehoSettlementPayment.delete({ where: { id } });
+  revalidatePath(PATH);
+}

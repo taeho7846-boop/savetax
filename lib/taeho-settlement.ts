@@ -108,6 +108,19 @@ export type RoundView = {
 
 export type MonthPoint = { yearMonth: string; revenue: number; cost: number; profit: number };
 
+/** 대표 → 참여자 실제 입금 기록 */
+export type Payment = { id: number; paidOn: string; amount: number; note: string | null };
+
+/** 아직 안 들어온 돈 — 채권관리 미수(수납 체크 없음) + Savetax 기장 목록 미출금 */
+export type OutstandingRow = { refId: number; name: string; amount: number; source: "client" | "pulled" };
+export type Outstanding = {
+  rows: OutstandingRow[];
+  /** 미수 매출 합계 */
+  total: number;
+  /** 들어오면 참여자에게 갈 예상 추가 입금액 = 미수 × (1 − 기장료 수수료율) */
+  expectedPayout: number;
+};
+
 export type TaehoSettlementData = {
   participant: Participant;
   /** 통합 I/S — 확정 차수 스냅샷 + 미정산 건 + 전체 공통비용 */
@@ -121,6 +134,11 @@ export type TaehoSettlementData = {
   year: MonthPoint[];
   /** 전월에 반복(recurring) 항목이 있고 이번 달 비용이 비어 있을 때 true */
   canCopyRecurring: boolean;
+  /** 이 달 실제 입금 기록 */
+  payments: Payment[];
+  paidTotal: number;
+  /** 기준 월 미수·미출금 (추가 입금 예상) */
+  outstanding: Outstanding;
 };
 
 export function prevYM(ym: string): string {
@@ -195,7 +213,14 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   const prev = prevYM(yearMonth);
   const months = Array.from(new Set([prev, ...yearMonths]));
 
-  const [clients, bookkeepings, oneoffs, refunds, expenses, exclusions, rounds] = await Promise.all([
+  const notSavetax = {
+    AND: [
+      { OR: [{ affiliation: null }, { affiliation: { not: "세이브택스" } }] },
+      { OR: [{ cmsAffiliation: null }, { cmsAffiliation: { not: "세이브택스" } }] },
+    ],
+  };
+
+  const [clients, bookkeepings, oneoffs, refunds, expenses, exclusions, rounds, payments, unpaidClients, unpaidPulled] = await Promise.all([
     // 1) 기장료 입금 — 담당(사수) 거래처 중 해당 월 수납(paid) 체크.
     //    소속이 세이브택스이거나 CMS 청구처가 세이브택스인 거래처는 제외한다.
     //    (소속 세무회계태호 + CMS 세이브택스 = 본점에서 빼온 거래처 → 돈은 Savetax 정산 기장 목록의 출금 체크로 들어오므로
@@ -204,10 +229,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
       where: {
         isDeleted: false,
         assignedUserId: participant.id,
-        AND: [
-          { OR: [{ affiliation: null }, { affiliation: { not: "세이브택스" } }] },
-          { OR: [{ cmsAffiliation: null }, { cmsAffiliation: { not: "세이브택스" } }] },
-        ],
+        ...notSavetax,
         monthlyFee: { gt: 0 },
         feeRecords: { some: { status: "paid", yearMonth: { in: months } } },
       },
@@ -261,6 +283,36 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
       where: { participantId: participant.id, yearMonth: { in: months } },
       include: { items: true },
       orderBy: { seq: "asc" },
+    }),
+    // 7) 기준 월 실제 입금 기록
+    prisma.taehoSettlementPayment.findMany({
+      where: { participantId: participant.id, yearMonth },
+      orderBy: [{ paidOn: "asc" }, { id: "asc" }],
+      select: { id: true, paidOn: true, amount: true, note: true },
+    }),
+    // 8) 기준 월 미수 — 청구 대상(최초출금월 이후, 해지 전)인데 수납·청구제외 기록이 없는 담당 거래처 (신고대리 제외)
+    prisma.client.findMany({
+      where: {
+        isDeleted: false,
+        assignedUserId: participant.id,
+        ...notSavetax,
+        monthlyFee: { gt: 0 },
+        firstWithdrawalMonth: { lte: yearMonth },
+        OR: [{ taxTypes: null }, { NOT: { taxTypes: { contains: "신고대리" } } }],
+        NOT: { feeRecords: { some: { yearMonth, status: { in: ["paid", "exempt"] } } } },
+      },
+      select: { id: true, name: true, monthlyFee: true, contractStatus: true, terminationMonth: true },
+      orderBy: { name: "asc" },
+    }),
+    // 9) 기준 월 미출금 — Savetax 기장 목록(담당자=참여자, 출금시작월 이후)인데 이 달 출금 체크가 없는 건
+    prisma.settlementBookkeeping.findMany({
+      where: {
+        assignedUserName: participant.name,
+        OR: [{ startMonth: null }, { startMonth: { lte: yearMonth } }],
+        NOT: { checks: { some: { yearMonth, withdrawn: true } } },
+      },
+      select: { id: true, clientName: true, monthlyFee: true },
+      orderBy: { clientName: "asc" },
     }),
   ]);
 
@@ -456,6 +508,17 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
 
   const cur = computeMonth(yearMonth);
   const prevRecurring = (expensesByMonth.get(prev) ?? []).some((e) => e.recurring);
+
+  // 미수·미출금 → 추가 입금 예상
+  const outstandingRows: OutstandingRow[] = [
+    ...unpaidClients
+      .filter((c) => c.contractStatus === "active" || (c.terminationMonth && c.terminationMonth >= yearMonth))
+      .map((c) => ({ refId: c.id, name: c.name, amount: c.monthlyFee ?? 0, source: "client" as const })),
+    ...unpaidPulled.map((b) => ({ refId: b.id, name: b.clientName, amount: b.monthlyFee, source: "pulled" as const })),
+  ];
+  const outstandingTotal = outstandingRows.reduce((s, r) => s + r.amount, 0);
+  const paidTotal = payments.reduce((s, p) => s + p.amount, 0);
+
   return {
     participant,
     statement: cur.integrated,
@@ -464,5 +527,12 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     prev: toPoint(computeMonth(prev).integrated),
     year: yearMonths.map((ym) => toPoint(computeMonth(ym).integrated)),
     canCopyRecurring: cur.integrated.cost.expenses.length === 0 && prevRecurring,
+    payments,
+    paidTotal,
+    outstanding: {
+      rows: outstandingRows,
+      total: outstandingTotal,
+      expectedPayout: outstandingTotal - pct(outstandingTotal, participant.feeRate),
+    },
   };
 }

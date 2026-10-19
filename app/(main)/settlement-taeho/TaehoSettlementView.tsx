@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 import {
+  addTaehoPayment,
   cancelLastTaehoRound,
   confirmTaehoRound,
+  deleteTaehoPayment,
   copyRecurringExpenses,
   createTaehoExpense,
   deleteTaehoExpense,
@@ -16,6 +18,8 @@ import {
 import { askConfirm, notify } from "@/components/ui/Dialog";
 import type {
   ExpenseRow,
+  Outstanding,
+  Payment,
   RevenueItem,
   RevenueRow,
   RevenueSource,
@@ -343,6 +347,19 @@ export function TaehoSettlementView({
             </div>
           </section>
 
+          <PaymentCard
+            ym={ym}
+            participant={participant}
+            canEdit={canEdit}
+            payments={data.payments}
+            paidTotal={data.paidTotal}
+            due={month.profit}
+            confirmedDue={rounds.reduce((s, r) => s + r.statement.profit, 0)}
+            today={thisYM === ym ? kstToday() : `${ym}-${String(new Date(Number(ym.slice(0, 4)), Number(ym.slice(5)), 0).getDate()).padStart(2, "0")}`}
+          />
+
+          <OutstandingCard outstanding={data.outstanding} participantName={participant.name} feeRate={participant.feeRate} />
+
           <section className="glass rounded-3xl p-5 stat-card">
             <div className="flex items-start justify-between gap-3 mb-2">
               <div>
@@ -378,6 +395,169 @@ export function TaehoSettlementView({
         </div>
       </div>
     </>
+  );
+}
+
+/* ───────────────────────── 입금 기록 ───────────────────────── */
+
+function kstToday(): string {
+  const d = new Date(Date.now() + 9 * 3600_000);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+const fmtDay = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+
+function PaymentCard({
+  ym,
+  participant,
+  canEdit,
+  payments,
+  paidTotal,
+  due,
+  confirmedDue,
+  today,
+}: {
+  ym: string;
+  participant: { id: number; name: string };
+  canEdit: boolean;
+  payments: Payment[];
+  paidTotal: number;
+  /** 월 합계 입금액 (통합) */
+  due: number;
+  /** 확정 차수 합계 입금액 */
+  confirmedDue: number;
+  today: string;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [paidOn, setPaidOn] = useState(today);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const remain = due - paidTotal;
+  const confirmedRemain = confirmedDue - paidTotal;
+  const amountNum = Number(amount.replace(/[^\d]/g, "")) || 0;
+
+  function submit() {
+    if (amountNum === 0) { notify("입금액을 입력하세요"); return; }
+    startTransition(async () => {
+      try {
+        await addTaehoPayment(ym, participant.id, { paidOn, amount: amountNum, note });
+        notify(`${won(amountNum)}원 입금을 기록했어요`);
+        setAmount(""); setNote(""); setAdding(false);
+      } catch (e) {
+        notify(e instanceof Error && e.message !== "FORBIDDEN" ? e.message : "기록 실패 — 대표만 할 수 있어요", { type: "error" });
+      }
+    });
+  }
+
+  async function remove(p: Payment) {
+    if (!(await askConfirm(`${fmtDay(p.paidOn)} ${won(p.amount)}원 입금 기록을 삭제할까요?`))) return;
+    startTransition(async () => {
+      try { await deleteTaehoPayment(p.id); notify("삭제됐어요"); } catch { notify("삭제 실패", { type: "error" }); }
+    });
+  }
+
+  const input = "border border-[#E5E8EB] bg-white rounded-lg px-2.5 py-1.5 text-[12.5px] focus:outline-none focus:border-[#3182F6]";
+  const remainTone = remain > 0 ? "text-[#3182F6]" : remain < 0 ? "text-[#DC2626]" : "text-[#15803D]";
+  const remainLabel = remain > 0 ? "더 보낼 금액" : remain < 0 ? "초과 입금" : "완납";
+
+  return (
+    <section className={`glass rounded-3xl p-5 stat-card ${isPending ? "opacity-70" : ""}`}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="text-[14px] font-bold text-[#191F28]">{participant.name} 입금 기록</div>
+          <div className="text-[11.5px] text-[#8B95A1] mt-0.5">중간에 보낸 돈을 적어두면 잔액이 계산돼요</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10.5px] font-bold text-[#8B95A1]">{remainLabel}</div>
+          <div className={`text-[22px] font-bold tabular-nums leading-none mt-0.5 ${remainTone}`}>{won(Math.abs(remain))}<span className="text-[13px] ml-0.5">원</span></div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <MiniStat label="월 합계 입금액" value={due} />
+        <MiniStat label="기입금" value={paidTotal} strong />
+        <MiniStat label="확정분 기준 잔액" value={confirmedRemain} />
+      </div>
+
+      {payments.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[#D1D6DB] px-3.5 py-3 text-[12px] text-[#8B95A1]">아직 기록된 입금이 없어요</div>
+      ) : (
+        <div className="rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden">
+          {payments.map((p) => (
+            <div key={p.id} className="group flex items-center justify-between gap-3 px-3.5 py-2 border-b border-[#F2F4F6] last:border-b-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[11.5px] font-bold text-[#4E5968] tabular-nums w-10 shrink-0">{fmtDay(p.paidOn)}</span>
+                <span className="text-[12px] text-[#6B7684] truncate">{p.note || "입금"}</span>
+              </div>
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                {canEdit && (
+                  <button type="button" onClick={() => remove(p)} className="text-[11px] font-bold text-[#DC2626] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-[#FEF2F2]">삭제</button>
+                )}
+                <span className="text-[13px] font-bold text-[#191F28] tabular-nums">{won(p.amount)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {canEdit && (adding ? (
+        <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="mt-2 rounded-2xl bg-white/80 border border-[#A3CAFD] p-3 space-y-2">
+          <div className="grid grid-cols-[auto_1fr] gap-2">
+            <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className={input} />
+            <input inputMode="numeric" autoFocus value={amount === "" ? "" : won(amountNum)} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))} placeholder="입금액" className={`${input} text-right tabular-nums`} />
+          </div>
+          <div className="flex items-center gap-2">
+            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="메모 (선택) 예) 1차 정산분" className={`${input} flex-1`} />
+            <button type="button" onClick={() => setAdding(false)} className="text-[12px] font-bold text-[#6B7684] px-3 py-1.5 rounded-lg hover:bg-[#F2F4F6]">취소</button>
+            <button type="submit" className="text-[12px] font-bold text-white bg-[#3182F6] px-3.5 py-1.5 rounded-lg hover:bg-[#1B64DA]">기록</button>
+          </div>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setAdding(true)} className="mt-2 w-full h-9 rounded-xl text-[12px] font-bold text-[#3182F6] bg-[#E8F3FF] hover:bg-[#D6E8FF] transition">
+          + 입금 기록 추가
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function OutstandingCard({ outstanding, participantName, feeRate }: { outstanding: Outstanding; participantName: string; feeRate: number }) {
+  const [open, setOpen] = useState(false);
+  const n = outstanding.rows.length;
+  return (
+    <section className="glass rounded-3xl p-5 stat-card">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="text-[14px] font-bold text-[#191F28]">{participantName} 미수 · 추가 입금 예상</div>
+          <div className="text-[11.5px] text-[#8B95A1] mt-0.5">이 달 아직 수납·출금 안 된 거래처. 들어오면 다음 차수에 쌓여요</div>
+        </div>
+        <span className={`text-[11px] font-bold rounded-full px-2.5 py-1 ${n > 0 ? "bg-[#FEF2F2] text-[#DC2626]" : "bg-[#E7F7EE] text-[#15803D]"}`}>{n > 0 ? `${n}건 미수` : "미수 없음"}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <MiniStat label="미수 매출" value={outstanding.total} />
+        <MiniStat label={`예상 추가 입금액 (× ${100 - feeRate}%)`} value={outstanding.expectedPayout} strong />
+      </div>
+      {n > 0 && (
+        <>
+          <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 text-[11.5px] font-bold text-[#3182F6] hover:underline">
+            {open ? "거래처 접기" : `거래처 ${n}곳 보기`}
+          </button>
+          {open && (
+            <div className="mt-1.5 rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden max-h-[260px] overflow-y-auto">
+              {outstanding.rows.map((r) => (
+                <div key={`${r.source}-${r.refId}`} className="flex items-center justify-between gap-3 px-3.5 py-2 border-b border-[#F2F4F6] last:border-b-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[12.5px] text-[#191F28] truncate">{r.name}</span>
+                    <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
+                  </div>
+                  <span className="text-[12.5px] font-bold text-[#191F28] tabular-nums">{won(r.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
