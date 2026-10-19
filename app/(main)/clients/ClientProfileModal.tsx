@@ -178,13 +178,13 @@ function Tile({ t, onNavigate }: { t: ProfileTile; onNavigate: () => void }) {
         {t.color && <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />}
       </div>
       <div className="mt-2 flex items-baseline gap-1 min-w-0">
-        <span className={`truncate text-[20px] font-extrabold leading-none tabular-nums tracking-tight ${valueCls}`}>{t.value}</span>
+        <span className={`truncate text-[22px] font-extrabold leading-none tabular-nums tracking-tight ${valueCls}`}>{t.value}</span>
         {t.unit && <span className="text-[12px] font-bold text-[#8B95A1]">{t.unit}</span>}
       </div>
       {t.sub && <div className="mt-1.5 truncate text-[11px] text-[#8B95A1]" title={t.sub}>{t.sub}</div>}
     </>
   );
-  const cls = `stat-card glass-strong block rounded-2xl p-3.5 transition hover:-translate-y-px ${toneCls}`;
+  const cls = `stat-card glass-strong block rounded-2xl p-4 transition hover:-translate-y-px ${toneCls}`;
   return t.href ? <Link href={t.href} onClick={onNavigate} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
@@ -205,7 +205,7 @@ function LedgerChart({ rows, today }: { rows: LedgerMonth[]; today: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const n = rows.length;
   const max = niceCeil(Math.max(0, ...rows.map(r => Math.max(r.saleSupply, r.buySupply))));
-  const H = 168;
+  const H = 260;
   const grid = [0.25, 0.5, 0.75, 1];
 
   const last12 = rows.slice(-12);
@@ -320,7 +320,7 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
   return (
     <div className="rounded-xl bg-[#F9FAFB] px-3 py-2">
       <div className="text-[10.5px] text-[#8B95A1]">{label}</div>
-      <div className="mt-0.5 text-[15px] font-extrabold tabular-nums leading-none" style={{ color }}>{value}</div>
+      <div className="mt-0.5 text-[17px] font-extrabold tabular-nums leading-none" style={{ color }}>{value}</div>
     </div>
   );
 }
@@ -328,7 +328,7 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
 /* ───────── 이력 표 ───────── */
 
 const TH = "px-3 py-2 text-left text-[10.5px] font-bold text-[#8B95A1] whitespace-nowrap";
-const TD = "px-3 py-2 text-[12px] text-[#333D4B] whitespace-nowrap";
+const TD = "px-3 py-2.5 text-[12.5px] text-[#333D4B] whitespace-nowrap";
 const NUM = `${TD} text-right tabular-nums`;
 
 function HistoryCard({ id, title, eyebrow, href, children, empty, count }: { id: string; title: string; eyebrow: string; href: string; children: React.ReactNode; empty: boolean; count: number }) {
@@ -443,9 +443,9 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
   const terminated = c ? c.contractStatus !== "active" : false;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#191F28]/25 p-3 backdrop-blur-[3px] sm:p-5" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#191F28]/25 p-2 backdrop-blur-[3px] sm:p-4" onClick={onClose}>
       <div
-        className="glass-strong flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)]"
+        className="glass-strong flex h-[94vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)]"
         onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -471,7 +471,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <h2 className="mr-1 truncate text-[20px] font-extrabold tracking-tight text-[#191F28]">{c.name}</h2>
+                    <h2 className="mr-1 truncate text-[22px] font-extrabold tracking-tight text-[#191F28]">{c.name}</h2>
                     <Badge tone={isCorp ? "purple" : "blue"}>{isCorp ? "법인" : "개인"}</Badge>
                     {(() => {
                       const detail = cleanVatDetail(c.vatTypeDetail);
@@ -558,7 +558,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
         )}
 
         {/* ── 본문 ── */}
-        <div ref={scrollRef} onScroll={onBodyScroll} className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+        <div ref={scrollRef} onScroll={onBodyScroll} className="flex-1 space-y-6 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
           {error ? (
             <div className="rounded-2xl bg-[#FEF2F2] px-4 py-6 text-center text-[13px] font-bold text-[#DC2626]">{error}</div>
           ) : !data ? (
