@@ -27,6 +27,7 @@ export async function toggleFeeRecord(clientId: number, yearMonth: string) {
   revalidatePath("/receivables");
   revalidatePath("/savetax-receivables");
   revalidatePath("/dashboard");
+  revalidatePath("/settlement-taeho");
 }
 
 /**
@@ -47,4 +48,5 @@ export async function setFeeRecordExempt(clientId: number, yearMonth: string, ex
   revalidatePath("/receivables");
   revalidatePath("/savetax-receivables");
   revalidatePath("/dashboard");
+  revalidatePath("/settlement-taeho");
 }

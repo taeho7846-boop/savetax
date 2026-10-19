@@ -13,6 +13,8 @@ interface Staff {
   isActive: boolean;
   managerId: number | null;
   useSemoReport: boolean;
+  taehoFeeRate: number | null;
+  taehoOneoffRate: number | null;
   bizName1: string | null;
   bizName2: string | null;
   allowedMenus: string | null;
@@ -36,6 +38,7 @@ const ALL_MENUS = [
   { key: "settlement", label: "Savetax 정산" },
   { key: "distribution-taeho", label: "세무회계태호 배분" },
   { key: "revenue", label: "수익추이" },
+  { key: "settlement-taeho", label: "세무회계태호 정산" },
   { key: "diary", label: "다이어리" },
 ];
 
@@ -150,6 +153,11 @@ export default function StaffTable({
           {roleLabels[person.role] || person.role}
         </span>
         {!person.isActive && <span className="text-xs text-[#E02E2E]">비활성</span>}
+        {person.taehoFeeRate != null && (
+          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-[#FFFBEB] text-[#B45309]" title="세무회계태호 정산 참여자 — 기장료 / 단건 수수료율">
+            태호 정산 {person.taehoFeeRate}% · {person.taehoOneoffRate ?? 0}%
+          </span>
+        )}
         <div className="flex gap-2">
           <button onClick={() => setEditId(person.id)} className="text-xs text-[#191F28] hover:underline">수정</button>
           {person.id !== currentUserId && person.isActive && (
@@ -261,6 +269,11 @@ export default function StaffTable({
                   {roleLabels[mgr.role] || mgr.role}
                 </span>
                 {!mgr.isActive && <span className="text-xs text-[#E02E2E]">비활성</span>}
+                {mgr.taehoFeeRate != null && (
+                  <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-[#FFFBEB] text-[#B45309]" title="세무회계태호 정산 참여자 — 기장료 / 단건 수수료율">
+                    태호 정산 {mgr.taehoFeeRate}% · {mgr.taehoOneoffRate ?? 0}%
+                  </span>
+                )}
                 <span className="text-xs text-[#8B95A1]">{emps.length}명</span>
                 <div className="flex gap-2" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                   <button onClick={() => setEditId(mgr.id)} className="text-xs text-[#191F28] hover:underline">수정</button>
@@ -392,6 +405,17 @@ function EditRow({
                 <option value="true">사용</option>
                 <option value="false">사용 안 함</option>
               </select>
+            </div>
+          )}
+          {staff.role !== "readonly" && (
+            <div>
+              <label className="text-xs text-[#6B7684]">태호 정산 수수료율 <span className="text-[#B0B8C1]">기장료 % · 단건 %</span></label>
+              <div className="flex items-center gap-1">
+                <input name="taehoFeeRate" type="number" min={0} max={100} defaultValue={staff.taehoFeeRate ?? ""} placeholder="기장료" title="세무회계태호 정산 참여자: 기장료 매출(기장료 입금+빼온 거래처) 중 대표가 받는 수수료율 %. 비우면 정산 참여자에서 제외" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-[72px] block" />
+                <span className="text-xs text-[#8B95A1]">%</span>
+                <input name="taehoOneoffRate" type="number" min={0} max={100} defaultValue={staff.taehoOneoffRate ?? ""} placeholder="단건" title="단건 수수료 매출 중 대표가 받는 수수료율 %" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-[72px] block" />
+                <span className="text-xs text-[#8B95A1]">%</span>
+              </div>
             </div>
           )}
           <div>

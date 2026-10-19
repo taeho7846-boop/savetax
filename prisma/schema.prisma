@@ -24,6 +24,8 @@ model User {
   googleEmail        String?
   googleCalendarId   String?
   diaryShared        Boolean            @default(false) // 미사용 (다이어리 그룹은 bizName2 기준으로 변경, 2026-10-12)
+  taehoFeeRate       Int?               // 세무회계태호 정산 — 기장료 매출 중 대표 수수료율(%). 값이 있으면 정산 참여자
+  taehoOneoffRate    Int?               // 세무회계태호 정산 — 단건 매출 중 대표 수수료율(%)
   clients            Client[]
   distributions      Distribution[]     @relation("distributions")
   distributionPasses DistributionPass[] @relation("distributionPasses")
@@ -877,4 +879,22 @@ model Bookmark {
   updatedAt DateTime @updatedAt
   user      User?    @relation("bookmarks", fields: [userId], references: [id])
   creator   User     @relation("createdBookmarks", fields: [createdBy], references: [id])
+}
+
+/// 세무회계태호 정산 — 대표가 입력하는 월별 공통비용 (임차료, 회계프로그램 등). 금액은 공급가.
+/// 손익계산서에는 amount × shareRate% (참여자 부담분)만 비용으로 잡힌다.
+model TaehoSettlementExpense {
+  id              Int      @id @default(autoincrement())
+  yearMonth       String
+  label           String
+  amount          Int      @default(0)   // 전체 금액 (공급가)
+  shareRate       Int      @default(50)  // 참여자(이휘언) 부담 비율 %
+  recurring       Boolean  @default(false) // 매월 반복 항목 — 다음 달에 '전월 항목 가져오기'로 복사됨
+  note            String?
+  sortOrder       Int      @default(0)
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([yearMonth])
 }

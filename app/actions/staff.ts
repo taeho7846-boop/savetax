@@ -25,6 +25,8 @@ export async function getStaffList() {
       isActive: true,
       managerId: true,
       useSemoReport: true,
+      taehoFeeRate: true,
+      taehoOneoffRate: true,
       bizName1: true,
       bizName2: true,
       allowedMenus: true,
@@ -92,6 +94,20 @@ export async function updateStaff(id: number, formData: FormData) {
   const data: Record<string, unknown> = { username, name, role, isActive, managerId, bizName1, bizName2, allowedMenus, googleEmail, googleCalendarId };
   // 세모리포트 사용 여부 — 세무사/대표/관리자 행에서만 보내짐 (직원은 소속 세무사 설정을 따름)
   if (formData.has("useSemoReport")) data.useSemoReport = formData.get("useSemoReport") === "true";
+  // 세무회계태호 정산 수수료율(%) — 둘 다 비우면 정산 참여자에서 빠진다. 기장료율만 있으면 단건율은 0 취급.
+  if (formData.has("taehoFeeRate")) {
+    const parseRate = (key: string) => {
+      const raw = String(formData.get(key) ?? "").trim();
+      if (raw === "") return null;
+      const n = Math.round(Number(raw));
+      if (!Number.isFinite(n) || n < 0 || n > 100) throw new Error("수수료율은 0~100 사이 숫자로 입력하세요.");
+      return n;
+    };
+    const feeRate = parseRate("taehoFeeRate");
+    const oneoffRate = parseRate("taehoOneoffRate");
+    data.taehoFeeRate = feeRate ?? (oneoffRate != null ? 0 : null);
+    data.taehoOneoffRate = feeRate == null && oneoffRate == null ? null : (oneoffRate ?? 0);
+  }
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);
   }

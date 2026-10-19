@@ -27,6 +27,7 @@ export async function createBookkeepingSettlement(data: {
     data: { ...data, yearMonth: "", createdByUserId: session.id },
   });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function updateBookkeepingSettlement(
@@ -45,6 +46,7 @@ export async function updateBookkeepingSettlement(
   await requireAuth();
   await prisma.settlementBookkeeping.update({ where: { id }, data });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function toggleBookkeepingField(
@@ -66,12 +68,14 @@ export async function toggleBookkeepingField(
     create: { bookkeepingId: id, yearMonth, [field]: true },
   });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function deleteBookkeepingSettlement(id: number) {
   await requireAuth();
   await prisma.settlementBookkeeping.delete({ where: { id } });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 // === 단건 정산 ===
@@ -91,6 +95,7 @@ export async function createOneoffSettlement(data: {
     data: { ...data, createdByUserId: session.id },
   });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function updateOneoffSettlement(
@@ -108,6 +113,7 @@ export async function updateOneoffSettlement(
   await requireAuth();
   await prisma.settlementOneoff.update({ where: { id }, data });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function toggleOneoffField(
@@ -122,12 +128,14 @@ export async function toggleOneoffField(
     data: { [field]: !existing[field] },
   });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 export async function deleteOneoffSettlement(id: number) {
   await requireAuth();
   await prisma.settlementOneoff.delete({ where: { id } });
   revalidatePath("/settlement");
+  revalidatePath("/settlement-taeho");
 }
 
 // === 환불 정산 ===

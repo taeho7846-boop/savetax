@@ -10,6 +10,7 @@ import { DriveBasePathSync } from "@/components/DriveBasePathSync";
 import { ChatBot } from "@/components/ChatBot";
 import { QuickCapture } from "@/components/QuickCapture";
 import { DialogHost } from "@/components/ui/Dialog";
+import { isTaehoParticipant } from "@/lib/taeho-settlement";
 
 export default async function MainLayout({
   children,
@@ -29,7 +30,7 @@ export default async function MainLayout({
   const isReadonly = session.role === "readonly";
   const myClient = isReadonly ? {} : { assignedUserId: session.id };
 
-  const [distributions, urgentCount, delayedCount] = await Promise.all([
+  const [distributions, urgentCount, delayedCount, taehoParticipant] = await Promise.all([
     // 신규 배분: 김태호 등 일반은 taeho_ 제외, 이휘언은 taeho_만
     prisma.distribution.findMany({
       where: {
@@ -54,6 +55,8 @@ export default async function MainLayout({
     prisma.task.count({
       where: { isDeleted: false, status: "delayed", client: myClient },
     }),
+    // 세무회계태호 정산 참여자 여부 (메뉴 노출용)
+    isTaehoParticipant(session.id),
   ]);
 
   const isTaeho = (session.name || "") === "이휘언";
@@ -69,7 +72,7 @@ export default async function MainLayout({
 
   return (
     <div className="glass-canvas h-screen overflow-hidden flex flex-col">
-      <TopNav user={session} settings={settings} notifications={notifications} />
+      <TopNav user={{ ...session, taehoParticipant }} settings={settings} notifications={notifications} />
       <main className="flex-1 px-4 md:px-6 pb-[100px] overflow-y-auto text-[#4E5968]">{children}</main>
       <DockBar />
       <GlobalSearch />

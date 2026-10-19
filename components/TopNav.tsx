@@ -32,6 +32,8 @@ type User = {
   name: string;
   role: string;
   allowedMenus: string | null;
+  /** 세무회계태호 정산 참여자(직원관리에서 수수료율이 설정된 사용자) — layout에서 내려줌 */
+  taehoParticipant?: boolean;
 };
 
 type SubItem = { href: string; label: string };
@@ -84,6 +86,7 @@ const CATEGORIES: Category[] = [
     icon: <BanknoteIcon width={14} height={14} />,
     subs: [
       { href: "/settlement", label: "Savetax 정산" },
+      { href: "/settlement-taeho", label: "세무회계태호 정산" },
       { href: "/supply-settlement", label: "비품정산" },
       { href: "/revenue", label: "수익추이" },
     ],
@@ -130,6 +133,8 @@ export default function TopNav({
     const subs = cat.subs.filter((s) => {
       if (s.href === "/staff" && !(user.role === "owner" || user.role === "admin")) return false;
       if (s.href === "/savetax-receivables" && !(user.role === "owner" || user.role === "accountant")) return false;
+      // 세무회계태호 정산: 대표/관리자 + 정산 참여자만. 참여자는 메뉴 권한 체크와 무관하게 본인 정산을 본다.
+      if (s.href === "/settlement-taeho") return user.role === "owner" || user.role === "admin" || !!user.taehoParticipant;
       if (allowedHrefs && !allowedHrefs.has(s.href) && s.href !== "/dashboard" && s.href !== "/diary" && s.href !== "/settings" && s.href !== "/freelancer-calc" && s.href !== "/savetax-receivables") return false;
       return true;
     });
