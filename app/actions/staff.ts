@@ -24,6 +24,7 @@ export async function getStaffList() {
       role: true,
       isActive: true,
       managerId: true,
+      useSemoReport: true,
       bizName1: true,
       bizName2: true,
       allowedMenus: true,
@@ -89,6 +90,8 @@ export async function updateStaff(id: number, formData: FormData) {
   const googleEmail = (formData.get("googleEmail") as string) || null;
   const googleCalendarId = (formData.get("googleCalendarId") as string) || null;
   const data: Record<string, unknown> = { username, name, role, isActive, managerId, bizName1, bizName2, allowedMenus, googleEmail, googleCalendarId };
+  // 세모리포트 사용 여부 — 세무사/대표/관리자 행에서만 보내짐 (직원은 소속 세무사 설정을 따름)
+  if (formData.has("useSemoReport")) data.useSemoReport = formData.get("useSemoReport") === "true";
   if (newPassword) {
     data.password = await bcrypt.hash(newPassword, 10);
   }

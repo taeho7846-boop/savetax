@@ -9,6 +9,7 @@ import { TrashBinButton } from "./TrashBin";
 import { TerminatedBinButton } from "./TerminatedBin";
 import { MissingInfoCards } from "./MissingInfoCards";
 import { SemoReportVerifyButton } from "./SemoReportModal";
+import { semoEnabledForSession } from "@/lib/client-scope";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
   "1인사업자": { border: "border-[#A3CAFD]", text: "text-[#3182F6]", bg: "bg-[#F5F9FF]" },
@@ -29,6 +30,8 @@ export default async function ClientsPage({
   const q = params.q || "";
   const clientType = params.type || "all"; // "all" | "individual" | "corporate"
   const isReadonly = session.role === "readonly";
+  // 세무사가 세모리포트를 안 쓰면 세모 열·검증 버튼을 숨긴다 (직원관리에서 설정)
+  const semoEnabled = await semoEnabledForSession(session);
   const isManager = session.role === "accountant" || session.role === "admin" || session.role === "owner";
 
   // 직원: 본인이 사수(담당)이거나 부사수(서브)인 거래처
@@ -166,7 +169,7 @@ export default async function ClientsPage({
               <TerminatedBinButton count={terminatedCount} />
               <TrashBinButton count={trashCount} />
               {(session.role === "owner" || session.role === "admin") && <TransferButton />}
-              <SemoReportVerifyButton />
+              {semoEnabled && <SemoReportVerifyButton />}
               <BulkUpdateButton />
               <BulkUploadButton />
               <ClientCreateButton />
@@ -265,7 +268,7 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser />
+      <ClientsTable clients={clients} readonly={isReadonly} showAssignedUser semoEnabled={semoEnabled} />
     </div>
   );
 }

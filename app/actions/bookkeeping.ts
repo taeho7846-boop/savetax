@@ -3,8 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { getClientScopeWhere } from "@/lib/client-scope";
-import { STAGE_ORDER, TARGET_DAY_KEY, DEFAULT_TARGET_DAY, type BookkeepingStage } from "@/lib/bookkeeping";
+import { getClientScopeWhere, getSemoFlags } from "@/lib/client-scope";
+import { STAGE_ORDER, TARGET_DAY_KEY, DEFAULT_TARGET_DAY, effectiveStage, type BookkeepingStage } from "@/lib/bookkeeping";
 
 const YM = /^\d{4}-\d{2}$/;
 
@@ -20,14 +20,16 @@ export async function setBookkeepingStage(clientId: number, yearMonth: string, s
   if (session.role === "readonly") throw new Error("FORBIDDEN");
   if (!YM.test(yearMonth) || !STAGE_ORDER.includes(stage)) throw new Error("BAD_INPUT");
   await assertInScope(session, [clientId]);
+  const flags = await getSemoFlags([clientId]);
+  const st = effectiveStage(stage, flags.get(clientId) ?? true); // 세모 미적용 거래처는 기장완료가 끝
   await prisma.bookkeepingMonth.upsert({
     where: { clientId_yearMonth: { clientId, yearMonth } },
-    update: { stage, updatedByUserId: session.id },
-    create: { clientId, yearMonth, stage, updatedByUserId: session.id },
+    update: { stage: st, updatedByUserId: session.id },
+    create: { clientId, yearMonth, stage: st, updatedByUserId: session.id },
   });
   revalidatePath("/bookkeeping");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, stage: st };
 }
 
 /** 여러 거래처 같은 달 일괄 단계 변경 */
@@ -36,14 +38,16 @@ export async function bulkSetBookkeepingStage(clientIds: number[], yearMonth: st
   if (session.role === "readonly") throw new Error("FORBIDDEN");
   if (!YM.test(yearMonth) || !STAGE_ORDER.includes(stage) || clientIds.length === 0) throw new Error("BAD_INPUT");
   await assertInScope(session, clientIds);
+  const flags = await getSemoFlags(clientIds);
   await prisma.$transaction(
-    clientIds.map(clientId =>
-      prisma.bookkeepingMonth.upsert({
+    clientIds.map(clientId => {
+      const st = effectiveStage(stage, flags.get(clientId) ?? true);
+      return prisma.bookkeepingMonth.upsert({
         where: { clientId_yearMonth: { clientId, yearMonth } },
-        update: { stage, updatedByUserId: session.id },
-        create: { clientId, yearMonth, stage, updatedByUserId: session.id },
-      })
-    )
+        update: { stage: st, updatedByUserId: session.id },
+        create: { clientId, yearMonth, stage: st, updatedByUserId: session.id },
+      });
+    })
   );
   revalidatePath("/bookkeeping");
   revalidatePath("/dashboard");
@@ -67,13 +71,15 @@ export async function bulkCloseThrough(clientIds: number[], fromYM: string, toYM
     m++; if (m > 12) { m = 1; y++; }
   }
   if (months.length > 36) throw new Error("BAD_INPUT");
+  const flags = await getSemoFlags(clientIds);
   const ops = [];
   for (const clientId of clientIds) {
+    const st = (flags.get(clientId) ?? true) ? "done" : "booked"; // 세모 미적용 거래처는 기장완료가 곧 마감
     for (const yearMonth of months) {
       ops.push(prisma.bookkeepingMonth.upsert({
         where: { clientId_yearMonth: { clientId, yearMonth } },
-        update: { stage: "done", updatedByUserId: session.id },
-        create: { clientId, yearMonth, stage: "done", updatedByUserId: session.id },
+        update: { stage: st, updatedByUserId: session.id },
+        create: { clientId, yearMonth, stage: st, updatedByUserId: session.id },
       }));
     }
   }

@@ -92,7 +92,7 @@ const SORT_COLS: { key: SortCol; label: string }[] = [
 
 type HideCol = "labor" | "monthlyFee" | "affiliation" | "contractDate";
 
-export function ClientsTable({ clients, readonly = false, showAssignedUser = false, showTaxationType = false, hideCols = [] }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean; showTaxationType?: boolean; hideCols?: HideCol[] }) {
+export function ClientsTable({ clients, readonly = false, showAssignedUser = false, showTaxationType = false, hideCols = [], semoEnabled = true }: { clients: Client[]; readonly?: boolean; showAssignedUser?: boolean; showTaxationType?: boolean; hideCols?: HideCol[]; semoEnabled?: boolean }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [laborFilter, setLaborFilter] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -853,7 +853,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
               {!hide.has("affiliation") && (
               <th className="text-center px-4 py-3 text-[#333D4B] font-medium whitespace-nowrap">CMS</th>
               )}
-              {!hide.has("affiliation") && (
+              {!hide.has("affiliation") && semoEnabled && (
               <th className="text-center px-4 py-3 text-[#333D4B] font-medium whitespace-nowrap" title="세모리포트 반영 상태 (클릭 시 사용→미반영→제외 순환)">세모</th>
               )}
               {!hide.has("contractDate") && (
@@ -884,7 +884,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
           <tbody className="divide-y divide-white/40">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={(readonly ? 11 : 12) + (hide.has("affiliation") ? 0 : 1) + (showTaxationType ? 1 : 0) + (showAssignedUser ? 2 : 0)} className="text-center py-12 text-[#6B7684]">
+                <td colSpan={(readonly ? 11 : 12) + (!hide.has("affiliation") && semoEnabled ? 1 : 0) + (showTaxationType ? 1 : 0) + (showAssignedUser ? 2 : 0)} className="text-center py-12 text-[#6B7684]">
                   {laborFilter.length > 0 ? "필터 조건에 맞는 고객사가 없습니다" : "등록된 고객사가 없습니다"}
                 </td>
               </tr>
@@ -1008,7 +1008,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       )}
                     </td>
                     )}
-                    {!hide.has("affiliation") && (
+                    {!hide.has("affiliation") && semoEnabled && (
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const st = semoOverrides[client.id] ?? client.semoReportStatus ?? "none";

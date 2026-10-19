@@ -12,13 +12,31 @@ export const STAGES: { key: BookkeepingStage; label: string; short: string; desc
 
 export const STAGE_ORDER: BookkeepingStage[] = STAGES.map(s => s.key);
 
-export function nextStage(s: BookkeepingStage): BookkeepingStage {
-  const i = STAGE_ORDER.indexOf(s);
-  return STAGE_ORDER[Math.min(i + 1, STAGE_ORDER.length - 1)];
+/** 세모리포트 미적용 거래처는 기장완료(booked)가 마지막 단계 */
+export const STAGES_NO_SEMO = STAGES.filter(s => s.key === "none" || s.key === "input" || s.key === "booked");
+export function stagesFor(semo: boolean) {
+  return semo ? STAGES : STAGES_NO_SEMO;
 }
-export function prevStage(s: BookkeepingStage): BookkeepingStage {
-  const i = STAGE_ORDER.indexOf(s);
-  return STAGE_ORDER[Math.max(i - 1, 0)];
+/** 저장된 단계를 거래처의 세모 적용 여부에 맞게 보정 (미적용인데 세모 단계면 기장완료로) */
+export function effectiveStage(stage: string, semo: boolean): BookkeepingStage {
+  const s = (STAGE_ORDER.includes(stage as BookkeepingStage) ? stage : "none") as BookkeepingStage;
+  if (!semo && (s === "reviewed" || s === "done")) return "booked";
+  return s;
+}
+/** 이 달이 끝났는지 — 세모 적용이면 세모리포트 완료, 미적용이면 기장완료 */
+export function isComplete(stage: string, semo: boolean): boolean {
+  const s = effectiveStage(stage, semo);
+  return s === "done" || (!semo && s === "booked");
+}
+export function nextStage(s: BookkeepingStage, semo = true): BookkeepingStage {
+  const order = stagesFor(semo).map(x => x.key);
+  const i = order.indexOf(effectiveStage(s, semo));
+  return order[Math.min(i + 1, order.length - 1)];
+}
+export function prevStage(s: BookkeepingStage, semo = true): BookkeepingStage {
+  const order = stagesFor(semo).map(x => x.key);
+  const i = order.indexOf(effectiveStage(s, semo));
+  return order[Math.max(i - 1, 0)];
 }
 export function stageIndex(s: string): number {
   const i = STAGE_ORDER.indexOf(s as BookkeepingStage);
@@ -49,8 +67,8 @@ export function bookkeepingDeadline(yearMonth: string, targetDay: number): strin
 }
 
 /** 오늘(YYYY-MM-DD) 기준 지연 여부 — 마감 안 됐고 기한 지남 */
-export function isOverdue(yearMonth: string, stage: string, targetDay: number, today: string): boolean {
-  if (stage === "done") return false;
+export function isOverdue(yearMonth: string, stage: string, targetDay: number, today: string, semo = true): boolean {
+  if (isComplete(stage, semo)) return false;
   return today > bookkeepingDeadline(yearMonth, targetDay);
 }
 

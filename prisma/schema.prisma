@@ -17,6 +17,7 @@ model User {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   managerId          Int?
+  useSemoReport      Boolean            @default(true) // 세무사 단위 세모리포트 사용 여부 (직원은 소속 세무사 설정을 따름)
   bizName1           String?
   bizName2           String?
   allowedMenus       String?

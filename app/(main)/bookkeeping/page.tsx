@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getClientScopeWhere } from "@/lib/client-scope";
+import { getClientScopeWhere, semoAppliesTo, semoEnabledForSession } from "@/lib/client-scope";
 import { getBookkeepingTargetDay } from "@/app/actions/bookkeeping";
 import { kstToday, addMonths } from "@/lib/bookkeeping";
 import { BookkeepingBoard } from "./BookkeepingBoard";
@@ -33,8 +33,8 @@ export default async function BookkeepingPage({
       where: { ...scope, contractStatus: "active" },
       select: {
         id: true, name: true, clientType: true, affiliation: true, accountingProgram: true,
-        assignedUserId: true, subAssignedUserId: true,
-        assignedUser: { select: { name: true } },
+        assignedUserId: true, subAssignedUserId: true, semoReportStatus: true,
+        assignedUser: { select: { name: true, role: true, useSemoReport: true, manager: { select: { useSemoReport: true } } } },
         bookkeepingMonths: {
           where: { yearMonth: { gte: months[0], lte: months[11] } },
           select: { yearMonth: true, stage: true, memo: true, updatedAt: true },
@@ -55,11 +55,13 @@ export default async function BookkeepingPage({
     affiliation: c.affiliation,
     accountingProgram: c.accountingProgram,
     assignedUserName: c.assignedUser?.name ?? null,
+    semo: semoAppliesTo(c), // 세모리포트 단계 적용 여부 (세무사 설정 > 거래처별 제외)
     subAssignedUserName: c.subAssignedUserId != null ? nameById.get(c.subAssignedUserId) ?? null : null,
     months: Object.fromEntries(c.bookkeepingMonths.map(m => [m.yearMonth, { stage: m.stage, memo: m.memo, updatedAt: m.updatedAt.toISOString() }])),
   }));
 
   const canEditTarget = ["owner", "admin", "accountant"].includes(session.role);
+  const semoGlobal = await semoEnabledForSession(session); // 내 세무사가 세모리포트를 안 쓰면 세모 관련 UI 숨김
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -73,6 +75,7 @@ export default async function BookkeepingPage({
         targetDay={targetDay}
         canEditTarget={canEditTarget}
         readonly={session.role === "readonly"}
+        semoGlobal={semoGlobal}
       />
     </div>
   );

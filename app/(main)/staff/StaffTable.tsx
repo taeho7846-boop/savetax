@@ -12,6 +12,7 @@ interface Staff {
   role: string;
   isActive: boolean;
   managerId: number | null;
+  useSemoReport: boolean;
   bizName1: string | null;
   bizName2: string | null;
   allowedMenus: string | null;
@@ -384,6 +385,15 @@ function EditRow({
             <label className="text-xs text-[#6B7684]">사업체명 2 <span className="text-[#B0B8C1]">= 다이어리 그룹</span></label>
             <input name="bizName2" defaultValue={staff.bizName2 ?? ""} placeholder="예) 세무회계태호" title="같은 사무실명끼리 다이어리(일정·할 일)를 함께 봐요. 직원은 비워두면 소속 세무사의 사무실명을 따릅니다" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-32 block" />
           </div>
+          {(staff.role === "owner" || staff.role === "admin" || staff.role === "accountant") && (
+            <div>
+              <label className="text-xs text-[#6B7684]">세모리포트 사용</label>
+              <select name="useSemoReport" defaultValue={String(staff.useSemoReport ?? true)} title="사용 안 함이면 이 세무사(와 소속 직원)의 거래처는 월기장 단계가 기장완료에서 끝나고, 거래처 목록의 세모 열·검증 버튼이 숨겨집니다" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm block">
+                <option value="true">사용</option>
+                <option value="false">사용 안 함</option>
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-xs text-[#6B7684]">구글 이메일</label>
             <input name="googleEmail" defaultValue={staff.googleEmail ?? ""} placeholder="kim@gmail.com" className="border border-[#D1D6DB] rounded px-2 py-1 text-sm w-40 block" />

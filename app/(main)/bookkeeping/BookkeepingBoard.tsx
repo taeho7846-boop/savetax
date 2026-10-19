@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setBookkeepingStage, setBookkeepingMemo, setBookkeepingTargetDay, bulkSetBookkeepingStage, bulkCloseThrough } from "@/app/actions/bookkeeping";
 import {
-  STAGES, STAGE_ORDER, nextStage, prevStage, bookkeepingDeadline, isOverdue, daysUntilDeadline, addMonths,
+  STAGES, stagesFor, effectiveStage, isComplete, nextStage, prevStage, bookkeepingDeadline, isOverdue, daysUntilDeadline, addMonths,
   type BookkeepingStage,
 } from "@/lib/bookkeeping";
 import { notify, askConfirm } from "@/components/ui/Dialog";
@@ -18,6 +18,7 @@ type Client = {
   accountingProgram: string;
   assignedUserName: string | null;
   subAssignedUserName: string | null;
+  semo: boolean; // 세모리포트 단계 적용 여부
   months: Record<string, MonthState>;
 };
 
@@ -33,7 +34,7 @@ const mLabel = (ym: string) => `${parseInt(ym.slice(5, 7))}월`;
 const mdLabel = (d: string) => `${parseInt(d.slice(5, 7))}/${parseInt(d.slice(8, 10))}`;
 
 export function BookkeepingBoard({
-  clients, months, focus, currentYM, today, targetDay, canEditTarget, readonly,
+  clients, months, focus, currentYM, today, targetDay, canEditTarget, readonly, semoGlobal = true,
 }: {
   clients: Client[];
   months: string[];
@@ -44,6 +45,7 @@ export function BookkeepingBoard({
   targetDay: number;
   canEditTarget: boolean;
   readonly: boolean;
+  semoGlobal?: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -69,6 +71,8 @@ export function BookkeepingBoard({
   const affRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLDivElement>(null);
   const [stageFilter, setStageFilter] = useState<"all" | "none" | "input" | "booked" | "reviewed" | "done" | "overdue">("all");
+  const [semoFilter, setSemoFilter] = useState<"all" | "semo" | "nosemo">("all");
+  const hasMixedSemo = useMemo(() => clients.some(c => c.semo) && clients.some(c => !c.semo), [clients]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkStage, setBulkStage] = useState<BookkeepingStage>("booked");
 
@@ -89,18 +93,20 @@ export function BookkeepingBoard({
   const base = useMemo(() => clients.filter(c =>
     (q === "" || c.name.includes(q)) &&
     (userFilter.length === 0 || userFilter.includes(c.assignedUserName ?? "미지정")) &&
-    (affFilter.length === 0 || affFilter.includes(c.affiliation ?? "미지정"))
-  ), [clients, q, userFilter, affFilter]);
+    (affFilter.length === 0 || affFilter.includes(c.affiliation ?? "미지정")) &&
+    (semoFilter === "all" || (semoFilter === "semo" ? c.semo : !c.semo))
+  ), [clients, q, userFilter, affFilter, semoFilter]);
 
-  const focusStage = (c: Client) => getState(c.id, focus).stage as BookkeepingStage;
+  // 거래처의 세모 적용 여부에 맞춰 보정된 기준월 단계
+  const focusStage = (c: Client) => effectiveStage(getState(c.id, focus).stage, c.semo);
   const kpi = useMemo(() => {
     const total = base.length;
-    const done = base.filter(c => focusStage(c) === "done").length;
+    const done = base.filter(c => isComplete(focusStage(c), c.semo)).length; // 세모 적용: 세모 완료 / 미적용: 기장완료
     const none = base.filter(c => focusStage(c) === "none").length;
     const input = base.filter(c => focusStage(c) === "input").length;
-    const booked = base.filter(c => focusStage(c) === "booked").length;
+    const booked = base.filter(c => c.semo && focusStage(c) === "booked").length; // 세모 검토 대기 (미적용 거래처의 기장완료는 '완료'로 집계)
     const reviewed = base.filter(c => focusStage(c) === "reviewed").length;
-    const overdue = base.filter(c => isOverdue(focus, focusStage(c), targetDay, today)).length;
+    const overdue = base.filter(c => isOverdue(focus, focusStage(c), targetDay, today, c.semo)).length;
     return { total, done, none, input, booked, reviewed, overdue };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, local, focus, targetDay, today]);
@@ -111,10 +117,10 @@ export function BookkeepingBoard({
     switch (stageFilter) {
       case "none": return s === "none";
       case "input": return s === "input";
-      case "booked": return s === "booked";
+      case "booked": return c.semo && s === "booked";
       case "reviewed": return s === "reviewed";
-      case "done": return s === "done";
-      case "overdue": return isOverdue(focus, s, targetDay, today);
+      case "done": return isComplete(s, c.semo);
+      case "overdue": return isOverdue(focus, s, targetDay, today, c.semo);
       default: return true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,11 +218,13 @@ export function BookkeepingBoard({
   const allChecked = rows.length > 0 && rows.every(r => selected.has(r.id));
 
   const kpiCards: { key: typeof stageFilter; label: string; value: number; color: string; sub?: string }[] = [
-    { key: "done", label: "세모리포트 완료", value: kpi.done, color: "#16A865", sub: `${doneRate}% · ${kpi.total}곳 중` },
+    { key: "done", label: "마감 완료", value: kpi.done, color: "#16A865", sub: `${doneRate}% · ${kpi.total}곳 중${semoGlobal ? " · 세모 완료 또는 (세모 제외) 기장완료" : ""}` },
     { key: "none", label: "미시작", value: kpi.none, color: "#C4CCD4", sub: "아직 기장 시작 전" },
     { key: "input", label: "기장입력 중", value: kpi.input, color: "#F59E0B", sub: "전표 입력 진행 중" },
-    { key: "booked", label: "기장완료", value: kpi.booked, color: "#3182F6", sub: "세모리포트 검토 대기" },
-    { key: "reviewed", label: "검토완료", value: kpi.reviewed, color: "#8B5CF6", sub: "세모리포트 발송 대기" },
+    ...(semoGlobal ? [
+      { key: "booked" as const, label: "기장완료", value: kpi.booked, color: "#3182F6", sub: "세모리포트 검토 대기" },
+      { key: "reviewed" as const, label: "검토완료", value: kpi.reviewed, color: "#8B5CF6", sub: "세모리포트 발송 대기" },
+    ] : []),
     { key: "overdue", label: "기한 지남", value: kpi.overdue, color: "#DC2626", sub: `기한 ${mdLabel(deadline)} 경과 · 미완료` },
   ];
 
@@ -303,8 +311,8 @@ export function BookkeepingBoard({
         </div>
       </div>
 
-      {/* KPI 6-up 한 줄 (클릭 = 기준월 단계 필터) */}
-      <div className="grid grid-cols-6 gap-2.5 mb-4">
+      {/* KPI 한 줄 (클릭 = 기준월 단계 필터) — 세모 미사용 세무사는 4칸 */}
+      <div className={`grid gap-2.5 mb-4 ${semoGlobal ? "grid-cols-6" : "grid-cols-4"}`}>
         {kpiCards.map(k => {
           const active = stageFilter === k.key;
           return (
@@ -343,12 +351,19 @@ export function BookkeepingBoard({
         </div>
         <FilterDropdown label="담당자" options={userNames} value={userFilter} onChange={setUserFilter} open={userOpen} setOpen={setUserOpen} refEl={userRef} />
         <FilterDropdown label="소속" options={affNames} value={affFilter} onChange={setAffFilter} open={affOpen} setOpen={setAffOpen} refEl={affRef} />
-        {(q || userFilter.length > 0 || affFilter.length > 0 || stageFilter !== "all") && (
-          <button onClick={() => { setQ(""); setUserFilter([]); setAffFilter([]); setStageFilter("all"); }} className="text-[12px] font-bold text-[#6B7684] hover:text-[#191F28] px-2">초기화</button>
+        {hasMixedSemo && (
+          <div className="flex items-center bg-white/70 rounded-2xl h-10 px-1">
+            {([["all", "전체"], ["semo", "세모 사용"], ["nosemo", "세모 제외"]] as const).map(([k, l]) => (
+              <button key={k} onClick={() => setSemoFilter(k)} className={`h-8 px-3 rounded-xl text-[12px] font-bold transition ${semoFilter === k ? "bg-[#191F28] text-white" : "text-[#6B7684] hover:text-[#191F28]"}`}>{l}</button>
+            ))}
+          </div>
+        )}
+        {(q || userFilter.length > 0 || affFilter.length > 0 || stageFilter !== "all" || semoFilter !== "all") && (
+          <button onClick={() => { setQ(""); setUserFilter([]); setAffFilter([]); setStageFilter("all"); setSemoFilter("all"); }} className="text-[12px] font-bold text-[#6B7684] hover:text-[#191F28] px-2">초기화</button>
         )}
         <div className="w-px h-6 bg-[#E5E8EB] mx-1 hidden md:block" />
         <div className="flex items-center gap-1.5 flex-wrap">
-          {STAGES.filter(s => s.key !== "none").map(s => (
+          {stagesFor(semoGlobal).filter(s => s.key !== "none").map(s => (
             <span key={s.key} className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-bold ${STAGE_STYLE[s.key].chip}`} title={s.desc}>
               {s.label}
             </span>
@@ -362,7 +377,7 @@ export function BookkeepingBoard({
           <span className="font-bold">선택 {selected.size}곳</span>
           <span className="text-white/60">{mLabel(focus)}분 단계를</span>
           <select value={bulkStage} onChange={e => setBulkStage(e.target.value as BookkeepingStage)} className="h-7 rounded-lg bg-white/10 text-white text-[12px] px-2 outline-none">
-            {STAGES.map(s => <option key={s.key} value={s.key} className="text-[#191F28]">{s.label}</option>)}
+            {stagesFor(semoGlobal).map(s => <option key={s.key} value={s.key} className="text-[#191F28]">{s.label}</option>)}
           </select>
           <button onClick={applyBulk} className="h-7 px-3 rounded-lg bg-[#3182F6] font-bold hover:bg-[#1B64DA]">적용</button>
           <button onClick={() => setSelected(new Set())} className="ml-auto text-white/60 hover:text-white">선택 해제</button>
@@ -419,24 +434,26 @@ export function BookkeepingBoard({
                         <span>{c.clientType === "corporate" ? "법인" : "개인"}</span>
                         {c.affiliation && <><span className="text-[#D1D6DB]">·</span><span className={c.affiliation === "세이브택스" ? "text-[#3182F6] font-bold" : ""}>{c.affiliation}</span></>}
                         {c.assignedUserName && <><span className="text-[#D1D6DB]">·</span><span>{c.assignedUserName}{c.subAssignedUserName ? ` / ${c.subAssignedUserName}` : ""}</span></>}
+                        {semoGlobal && !c.semo && <span className="ml-0.5 px-1 rounded bg-[#F2F4F6] text-[#8B95A1] font-bold" title="세모리포트 미사용 — 기장완료가 마감">세모 제외</span>}
                       </div>
                     </td>
                     {months.map(m => {
                       const st = getState(c.id, m);
-                      const stage = (STAGE_ORDER.includes(st.stage as BookkeepingStage) ? st.stage : "none") as BookkeepingStage;
+                      const stage = effectiveStage(st.stage, c.semo);
                       const isFocus = m === focus;
                       const future = m >= currentYM;
-                      const overdue = isOverdue(m, stage, targetDay, today);
+                      const overdue = isOverdue(m, stage, targetDay, today, c.semo);
+                      const complete = isComplete(stage, c.semo);
                       const style = STAGE_STYLE[stage];
                       return (
                         <td key={m} className={`px-1.5 py-2 text-center border-b border-[#F2F4F6] ${isFocus ? "bg-[#E8F3FF]/40" : ""}`}>
                           <button
                             onClick={e => openPop(e, c.id, m)}
                             disabled={readonly}
-                            className={`relative inline-flex items-center justify-center min-w-[46px] h-7 rounded-lg px-2 text-[11px] font-bold transition-all ${style.chip} ${future && stage === "none" ? "opacity-40" : ""} ${overdue ? "ring-2 ring-[#FCA5A5]" : ""} ${readonly ? "" : "hover:scale-105 hover:shadow-sm"}`}
+                            className={`relative inline-flex items-center justify-center min-w-[46px] h-7 rounded-lg px-2 text-[11px] font-bold transition-all ${complete ? STAGE_STYLE.done.chip : style.chip} ${future && stage === "none" ? "opacity-40" : ""} ${overdue ? "ring-2 ring-[#FCA5A5]" : ""} ${readonly ? "" : "hover:scale-105 hover:shadow-sm"}`}
                             title={`${c.name} · ${mLabel(m)}분 · ${style.label}${overdue ? " · 기한 지남" : ""}${st.memo ? `\n메모: ${st.memo}` : ""}`}
                           >
-                            {stage === "none" ? "·" : STAGES.find(s => s.key === stage)!.short}
+                            {stage === "none" ? "·" : complete && !c.semo ? "완료" : STAGES.find(s => s.key === stage)!.short}
                             {st.memo && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#F59E0B] border border-white" />}
                             {overdue && <span className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 rounded-full bg-[#DC2626] text-white text-[9px] leading-[14px] font-extrabold border border-white">!</span>}
                           </button>
@@ -456,9 +473,9 @@ export function BookkeepingBoard({
       {pop && (() => {
         const c = clients.find(x => x.id === pop.clientId)!;
         const st = getState(pop.clientId, pop.ym);
-        const stage = (STAGE_ORDER.includes(st.stage as BookkeepingStage) ? st.stage : "none") as BookkeepingStage;
+        const stage = effectiveStage(st.stage, c.semo);
         const dl = bookkeepingDeadline(pop.ym, targetDay);
-        const od = isOverdue(pop.ym, stage, targetDay, today);
+        const od = isOverdue(pop.ym, stage, targetDay, today, c.semo);
         return (
           <div
             ref={popRef}
@@ -471,13 +488,14 @@ export function BookkeepingBoard({
                 <div className="text-[11px] text-[#6B7684]">
                   {pop.ym.slice(0, 4)}년 {mLabel(pop.ym)}분 · 기한 {mdLabel(dl)}
                   {od && <span className="ml-1 text-[#DC2626] font-bold">기한 지남</span>}
+                  {!c.semo && <span className="ml-1 text-[#8B95A1]">· 세모 제외 (기장완료가 마감)</span>}
                 </div>
               </div>
               <button onClick={() => setPop(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-lg leading-none">✕</button>
             </div>
 
             <div className="grid grid-cols-2 gap-1.5 mb-3">
-              {STAGES.map(s => {
+              {stagesFor(c.semo).map(s => {
                 const active = s.key === stage;
                 return (
                   <button
@@ -492,8 +510,8 @@ export function BookkeepingBoard({
               })}
             </div>
             <div className="flex gap-1.5 mb-3">
-              <button onClick={() => applyStage(pop.clientId, pop.ym, prevStage(stage))} disabled={stage === "none"} className="flex-1 h-8 rounded-lg text-[11.5px] font-bold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] disabled:opacity-40">← 이전 단계</button>
-              <button onClick={() => applyStage(pop.clientId, pop.ym, nextStage(stage))} disabled={stage === "done"} className="flex-1 h-8 rounded-lg text-[11.5px] font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-40">다음 단계 →</button>
+              <button onClick={() => applyStage(pop.clientId, pop.ym, prevStage(stage, c.semo))} disabled={stage === "none"} className="flex-1 h-8 rounded-lg text-[11.5px] font-bold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] disabled:opacity-40">← 이전 단계</button>
+              <button onClick={() => applyStage(pop.clientId, pop.ym, nextStage(stage, c.semo))} disabled={isComplete(stage, c.semo)} className="flex-1 h-8 rounded-lg text-[11.5px] font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-40">다음 단계 →</button>
             </div>
 
             <textarea
