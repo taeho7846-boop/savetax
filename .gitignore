@@ -54,3 +54,7 @@ google-credentials.json
 
 # 로컬 도우미 배포본 (scripts/launcher/ 원본에서 predev·prebuild가 자동 복사)
 /public/launcher/
+
+# 파이썬 캐시 / 로컬 임시 파일
+__pycache__/
+/tmp/

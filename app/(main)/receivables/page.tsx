@@ -4,26 +4,14 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ReceivablesTable } from "./ReceivablesTable";
 import { CmsTable } from "./CmsTable";
-import { effectiveWithdrawalDay, effectiveBillingTiming, dueDayOfMonth, lastBillableMonth } from "@/lib/withdrawal";
+import { effectiveWithdrawalDay, effectiveBillingTiming, dueDayOfMonth } from "@/lib/withdrawal";
+import { computeReceivable } from "@/lib/receivables";
 
 /** 해당 연도 12개월 전부 반환 (미래 포함) */
 function getMonthsOfYear(year: number): string[] {
   return Array.from({ length: 12 }, (_, i) =>
     `${year}-${String(i + 1).padStart(2, "0")}`
   );
-}
-
-/** firstWithdrawalMonth 부터 currentYM 까지 모든 월 */
-function getAllMonths(from: string, to: string): string[] {
-  const months: string[] = [];
-  let [y, m] = from.split("-").map(Number);
-  const [ty, tm] = to.split("-").map(Number);
-  while (y < ty || (y === ty && m <= tm)) {
-    months.push(`${y}-${String(m).padStart(2, "0")}`);
-    m++;
-    if (m > 12) { m = 1; y++; }
-  }
-  return months;
 }
 
 export default async function ReceivablesPage({
@@ -77,28 +65,8 @@ export default async function ReceivablesPage({
 
   // 누적 요약 계산 (전체 기간) — 소속별 카드는 ReceivablesTable에서 거래처별 값으로 합산
   const clients = rawClients.map((c) => {
-    // 담당 세무사 (사수가 직원이면 상위 세무사) — 최원석·세이브택스 후불 판정용
-    const au = c.assignedUser;
-    const accountantName = au ? (au.role === "employee" && au.manager ? au.manager.name : au.name) : null;
-    const wt = { withdrawalDay: c.withdrawalDay, billingTiming: c.billingTiming, cmsAffiliation: c.cmsAffiliation, affiliation: c.affiliation, accountantName };
-    // 출금일이 아직 안 지난 당월은 미수로 잡지 않는다 (출금일 다음날부터 미수)
-    const billableEnd = lastBillableMonth(wt);
-    // 해지 거래처는 해지월(마지막 청구월)까지만 채권 집계. 미설정 시 청구 가능월까지.
-    const isTerminated = c.contractStatus !== "active";
-    const endMonth = isTerminated && c.terminationMonth
-      ? (c.terminationMonth < billableEnd ? c.terminationMonth : billableEnd)
-      : billableEnd;
-
-    const allMonths = getAllMonths(c.firstWithdrawalMonth!, endMonth);
-    // 청구 제외(exempt) 달은 청구 예정에서 뺀다 (해지 후 재수임 사이 공백 등)
-    const exemptSet = new Set(c.feeRecords.filter((r) => r.status === "exempt").map((r) => r.yearMonth));
-    const billableMonths = allMonths.filter((m) => !exemptSet.has(m));
-    const expected = (c.monthlyFee ?? 0) * billableMonths.length;
-    const paidCount = c.feeRecords.filter(
-      (r) => r.status === "paid" && r.yearMonth >= c.firstWithdrawalMonth! && r.yearMonth <= endMonth
-    ).length;
-    const paid = (c.monthlyFee ?? 0) * paidCount;
-    const unpaid = expected - paid;
+    // 미수 계산은 공용 로직(lib/receivables) — 출금일·후불·해지월·청구제외 반영
+    const { wt, isTerminated, billableEndMonth: billableEnd, expected, paid, unpaid } = computeReceivable(c);
 
     const allRecords = Object.fromEntries(c.feeRecords.map((r) => [r.yearMonth, r.status]));
     // 해당 연도 기록만 필터

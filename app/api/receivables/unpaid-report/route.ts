@@ -1,26 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { lastBillableMonth } from "@/lib/withdrawal";
+import { computeReceivable } from "@/lib/receivables";
 import { buildUnpaidReportPdf, type UnpaidReportRow } from "@/lib/unpaid-report";
 
 /**
  * 미수금 현황 보고서 PDF — 채권관리(/receivables)와 동일한 범위·판정으로 미수가 있는 거래처만 모아 출력.
  * ?group=save|personal 로 소속 한쪽만, ?users=이름,이름 로 담당자만, ?aff= / ?cmsAff= 로 소속·CMS 청구처만 출력 가능 (기본 전체).
  */
-
-function getAllMonths(from: string, to: string): string[] {
-  const months: string[] = [];
-  let [y, m] = from.split("-").map(Number);
-  const [ty, tm] = to.split("-").map(Number);
-  while (y < ty || (y === ty && m <= tm)) {
-    months.push(`${y}-${String(m).padStart(2, "0")}`);
-    m++;
-    if (m > 12) { m = 1; y++; }
-  }
-  return months;
-}
-
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -70,15 +57,7 @@ export async function GET(req: NextRequest) {
   const rows: UnpaidReportRow[] = [];
   for (const c of clients) {
     const au = c.assignedUser;
-    const accountantName = au ? (au.role === "employee" && au.manager ? au.manager.name : au.name) : null;
-    const wt = { withdrawalDay: c.withdrawalDay, billingTiming: c.billingTiming, cmsAffiliation: c.cmsAffiliation, affiliation: c.affiliation, accountantName };
-    const billableEnd = lastBillableMonth(wt);
-    const isTerminated = c.contractStatus !== "active";
-    const endMonth = isTerminated && c.terminationMonth
-      ? (c.terminationMonth < billableEnd ? c.terminationMonth : billableEnd)
-      : billableEnd;
-    const settled = new Set(c.feeRecords.filter(r => r.status === "paid" || r.status === "exempt").map(r => r.yearMonth));
-    const unpaidMonths = getAllMonths(c.firstWithdrawalMonth!, endMonth).filter(m => !settled.has(m));
+    const { isTerminated, unpaidMonths } = computeReceivable(c);
     // 기장료가 0원이거나 미수 달이 없으면 보고서에서 제외
     if (unpaidMonths.length === 0 || (c.monthlyFee ?? 0) <= 0) continue;
 

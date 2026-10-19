@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
+import { computeReceivable } from "@/lib/receivables";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -611,28 +612,21 @@ async function executeTool(name: string, input: Record<string, unknown>, session
   }
 
   if (name === "get_receivables_status") {
-    const year = (input.year as number) || new Date().getFullYear();
-    const now = new Date();
-    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
+    // 채권관리 페이지와 같은 대상·같은 계산(lib/receivables): 기장료 있는 기장 거래처, 출금일·해지월·청구제외 반영
     const clients = await prisma.client.findMany({
-      where: { isDeleted: false, ...myFilter, monthlyFee: { not: null }, firstWithdrawalMonth: { not: null } },
-      include: { feeRecords: true },
+      where: {
+        isDeleted: false, ...myFilter,
+        monthlyFee: { gt: 0 }, firstWithdrawalMonth: { not: null },
+        OR: [{ taxTypes: null }, { NOT: { taxTypes: { contains: "신고대리" } } }],
+      },
+      include: { feeRecords: true, assignedUser: { select: { name: true, role: true, manager: { select: { name: true } } } } },
     });
 
     let totalUnpaid = 0;
     const unpaidClients: { name: string; unpaid: number }[] = [];
 
     for (const c of clients) {
-      const months: string[] = [];
-      let [y, m] = c.firstWithdrawalMonth!.split("-").map(Number);
-      const [ty, tm] = currentYM.split("-").map(Number);
-      while (y < ty || (y === ty && m <= tm)) {
-        months.push(`${y}-${String(m).padStart(2, "0")}`);
-        m++; if (m > 12) { m = 1; y++; }
-      }
-      const paidCount = c.feeRecords.filter(r => (r.status === "paid" || r.status === "exempt") && months.includes(r.yearMonth)).length; // exempt = 청구 제외
-      const unpaid = (c.monthlyFee ?? 0) * (months.length - paidCount);
+      const { unpaid } = computeReceivable(c);
       if (unpaid > 0) {
         totalUnpaid += unpaid;
         unpaidClients.push({ name: c.name, unpaid });
