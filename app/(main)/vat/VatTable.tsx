@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useTransition } from "react";
+import { useState, useEffect, useRef, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
 import { VatRejectModal } from "./VatRejectModal";
@@ -71,6 +71,25 @@ const STAGES: { key: VatStage; label: string; color: string; tint: string }[] = 
   { key: "done",     label: "신고완료",  color: "#15803D", tint: "#E7F7EE" },
 ];
 const STAGE_INDEX: Record<VatStage, number> = { collect: 0, writing: 1, approval: 2, confirm: 3, done: 4 };
+
+type ListTab = "filing" | "notice" | "excluded";
+type AreaTab = "htx" | "check" | "both";
+const AREA_TAB_KEY = "vat-area-tab";
+
+/** 세그먼트 탭 버튼 */
+function Seg<T extends string>({ value, current, onChange, children, title }: { value: T; current: T; onChange: (v: T) => void; children: ReactNode; title?: string }) {
+  const on = value === current;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(value)}
+      title={title}
+      className={`px-3 h-7 rounded-lg text-[12px] font-bold transition-colors whitespace-nowrap ${on ? "bg-white shadow-sm text-[#191F28]" : "text-[#8B95A1] hover:text-[#4E5968]"}`}
+    >
+      {children}
+    </button>
+  );
+}
 
 // 단계별 체크리스트 (그룹 + 항목). 보수는 confirm 단계에서 별도 입력.
 const CHECKLIST: Record<VatStage, { group?: string; items: { key: string; label: string }[] }[]> = {
@@ -337,6 +356,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const [stageFilter, setStageFilter] = useState<VatStage | null>(null);
   // 예정고지 · 신고 불필요 + 고지세액 0원 묶음 펼침 여부 (기본 접힘, 검색 중엔 자동 펼침)
   const [noticeZeroOpen, setNoticeZeroOpen] = useState(false);
+  // 목록 탭: 신고대상 / 예정고지 / 제외 — 한 화면에 보이는 행 수 줄이기
+  const [listTab, setListTab] = useState<ListTab>("filing");
+  // 영역 탭: 홈택스 자료 / 체크리스트 / 모두 — 행 높이 줄이기 (선택은 브라우저에 기억)
+  const [areaTab, setAreaTab] = useState<AreaTab>("check");
+  useEffect(() => {
+    try { const v = localStorage.getItem(AREA_TAB_KEY); if (v === "htx" || v === "check" || v === "both") setAreaTab(v); } catch { /* 무시 */ }
+  }, []);
+  function changeAreaTab(v: AreaTab) { setAreaTab(v); try { localStorage.setItem(AREA_TAB_KEY, v); } catch { /* 무시 */ } }
 
   // 담당자 필터 (관리자 화면에서만 노출)
   const [assignFilter, setAssignFilter] = useState<string[]>([]);
@@ -509,8 +536,8 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const noticeAmt = (c: ClientRow) => { const r = getRec(c.id); return r.noticeTax ?? r.htx?.notice?.amount ?? 0; };
   const noticeTaxed = prelimNotice.filter(c => noticeAmt(c) > 0);
   // 납부서 발송 완료한 곳은 묶음 맨 아래로 (미발송이 위에 오도록, 원래 순서는 유지)
-  const noticeWithTax = stageFilter ? [] : [...noticeTaxed].sort((a, b) => Number(!!getRec(a.id).checklist[NOTICE_BILL_SENT_KEY]) - Number(!!getRec(b.id).checklist[NOTICE_BILL_SENT_KEY]));
-  const noticeZero = stageFilter ? [] : prelimNotice.filter(c => noticeAmt(c) === 0);
+  const noticeWithTax = [...noticeTaxed].sort((a, b) => Number(!!getRec(a.id).checklist[NOTICE_BILL_SENT_KEY]) - Number(!!getRec(b.id).checklist[NOTICE_BILL_SENT_KEY]));
+  const noticeZero = prelimNotice.filter(c => noticeAmt(c) === 0);
   const billSentCount = noticeTaxed.filter(c => getRec(c.id).checklist[NOTICE_BILL_SENT_KEY]).length;
   // 홈택스상 예정고지 대상인데 예정신고 하기로 한 곳(3개월 선택) — 신고 대상에 포함되며 따로 표시
   const switchedToFilingCount = isPrelim ? active.filter(c => inferNoticeFromHtx(getRec(c.id).htx) === true).length : 0;
@@ -529,7 +556,9 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const e = estimateVat(h, c.clientType === "corporate", isConfirm, true);
     return sum + (e ? e.est : 0);
   }, 0);
-  const colCount = 1 + (showAssignedUser ? 1 : 0) + 5; // 거래처+[담당자]+홈택스자료+체크리스트+메모+제외+진행
+  const showHtx = areaTab !== "check";
+  const showCheck = areaTab !== "htx";
+  const colCount = 1 + (showAssignedUser ? 1 : 0) + (showHtx ? 1 : 0) + (showCheck ? 1 : 0) + 3; // 거래처+[담당자]+[홈택스자료]+[체크리스트]+메모+제외+진행
 
   function row(client: ClientRow, dim: boolean) {
     const r = getRec(client.id);
@@ -664,11 +693,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
         )}
 
         {/* 매출·매입 (홈택스 업로드 자료) */}
+        {showHtx && (
         <td className="px-3 py-3 align-top">
           <HtxSummary htx={r.htx} isCorp={isCorp} isConfirm={isConfirm} />
         </td>
+        )}
 
         {/* 체크리스트 — 예정고지(개인 예정) / 신고 체크리스트 */}
+        {showCheck && (
         <td className="px-3 py-3">
           {isPrelimNotice ? (
             <div className="flex items-center gap-2 flex-wrap py-1">
@@ -824,6 +856,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           </>
           )}
         </td>
+        )}
 
         {/* 메모 */}
         <td className="px-3 py-3">
@@ -920,7 +953,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           return (
             <button
               key={s.key}
-              onClick={() => setStageFilter(activeCard ? null : s.key)}
+              onClick={() => { setStageFilter(activeCard ? null : s.key); setListTab("filing"); }}
               className={`glass rounded-2xl p-4 text-left transition-all hover:-translate-y-0.5 ${activeCard ? "ring-2" : ""}`}
               style={activeCard ? ({ ["--tw-ring-color" as any]: s.color, borderColor: s.color }) : undefined}
             >
@@ -942,12 +975,12 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
         </div>
         <span className="text-[12px] text-[#6B7684] px-1">대상 <b className="text-[#191F28]">{active.length}곳</b> · 신고완료 <b className="text-[#15803D]">{stageCounts.done}</b> · 보수합계 <b className="text-[#191F28]">{fmtWon(feeSum)}</b></span>
         {prelimNotice.length > 0 && (
-          <span className="inline-flex items-center gap-1 text-[12px] font-bold text-[#6D28D9] bg-[#F5E8FF] rounded-lg px-2 py-1" title="예정고지형(신고 불필요) 거래처 — 단계 카드·대상 수 집계에서 제외. 고지세액 있는 곳은 표 하단에 펼쳐져 있고, 0원인 곳은 접혀 있어요">
+          <button type="button" onClick={() => setListTab("notice")} className="inline-flex items-center gap-1 text-[12px] font-bold text-[#6D28D9] bg-[#F5E8FF] hover:bg-[#EDE0FF] rounded-lg px-2 py-1 transition-colors" title="예정고지형(신고 불필요) 거래처 — 단계 카드·대상 수 집계에서 제외. 클릭하면 예정고지 탭으로 이동">
             📋 예정고지 {prelimNotice.length}곳
             {noticeTaxed.length > 0 && (
               <span className={`font-medium ${billSentCount < noticeTaxed.length ? "text-[#C2410C]" : "text-[#15803D]"}`}>· 납부서 발송 {billSentCount}/{noticeTaxed.length}</span>
             )}
-          </span>
+          </button>
         )}
         {switchedToFilingCount > 0 && (
           <span className="inline-flex items-center gap-1 text-[12px] font-bold text-[#C2410C] bg-[#FFF7ED] border border-[#FED7AA] rounded-lg px-2 py-1" title="홈택스상 예정고지 대상이지만 예정신고 하기로 한 거래처 (3개월 선택) — 신고 대상에 포함돼 있어요">
@@ -1005,6 +1038,24 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
 
       {/* 테이블 */}
       <div className="glass rounded-3xl overflow-hidden">
+        {/* 목록 탭(왼쪽) · 영역 탭(오른쪽) */}
+        <div className="flex items-center justify-between gap-3 flex-wrap px-3 py-2 border-b border-white/60 bg-white/50">
+          <div className="inline-flex items-center rounded-xl bg-[#F2F4F6] p-0.5">
+            <Seg value="filing" current={listTab} onChange={setListTab}>신고대상 <span className="text-[#8B95A1] font-medium">{active.length}</span></Seg>
+            {(isPrelim || prelimNotice.length > 0) && (
+              <Seg value="notice" current={listTab} onChange={setListTab} title="예정고지 · 신고 불필요 거래처 (고지세액 있는 곳 → 납부서 발송 체크, 0원인 곳은 접힘)">
+                📋 예정고지 <span className="text-[#8B95A1] font-medium">{prelimNotice.length}</span>
+                {noticeTaxed.length > 0 && billSentCount < noticeTaxed.length && <span className="ml-1 text-[10px] font-bold text-white bg-[#C2410C] rounded-full px-1.5">{noticeTaxed.length - billSentCount}</span>}
+              </Seg>
+            )}
+            <Seg value="excluded" current={listTab} onChange={setListTab}>제외 <span className="text-[#8B95A1] font-medium">{excluded.length}</span></Seg>
+          </div>
+          <div className="inline-flex items-center rounded-xl bg-[#F2F4F6] p-0.5" title="행 높이를 줄이려면 한 영역만 보세요 (선택은 이 브라우저에 기억됩니다)">
+            <Seg value="check" current={areaTab} onChange={changeAreaTab}>체크리스트</Seg>
+            <Seg value="htx" current={areaTab} onChange={changeAreaTab}>홈택스 자료</Seg>
+            <Seg value="both" current={areaTab} onChange={changeAreaTab}>모두</Seg>
+          </div>
+        </div>
         <div className="overflow-auto max-h-[64vh]">
           <table className="text-sm border-collapse w-full">
             <thead className="sticky top-0 z-20">
@@ -1048,43 +1099,58 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                     </div>
                   </th>
                 )}
-                <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[240px]">매출·매입 (홈택스)</th>
-                <th className="text-left px-3 py-3 text-[#333D4B] font-medium min-w-[280px]">체크리스트</th>
+                {showHtx && <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[240px]">매출·매입 (홈택스)</th>}
+                {showCheck && <th className="text-left px-3 py-3 text-[#333D4B] font-medium min-w-[280px]">체크리스트</th>}
                 <th className="text-left px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[100px]">메모</th>
                 <th className="text-center px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap">제외</th>
                 <th className="text-right px-3 py-3 text-[#333D4B] font-medium whitespace-nowrap min-w-[180px]">진행 단계 →</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/40">
-              {shown.length === 0 && noticeWithTax.length === 0 && noticeZero.length === 0 && excluded.length === 0 && (
-                <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">대상 거래처가 없습니다</td></tr>
+              {listTab === "filing" && (
+                <>
+                  {shown.length === 0 && (
+                    <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">{stageFilter ? "이 단계에 해당하는 거래처가 없습니다" : "신고 대상 거래처가 없습니다"}</td></tr>
+                  )}
+                  {shown.map((c) => row(c, false))}
+                </>
               )}
-              {shown.map((c) => row(c, false))}
-              {noticeWithTax.length > 0 && (
-                <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 예정고지 · 신고 불필요 · 납부서 발송 {billSentCount}/{noticeWithTax.length}곳</td></tr>
+              {listTab === "notice" && (
+                <>
+                  {prelimNotice.length === 0 && (
+                    <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">예정고지 거래처가 없습니다</td></tr>
+                  )}
+                  {noticeWithTax.length > 0 && (
+                    <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 고지세액 있음 · 납부서 발송 {billSentCount}/{noticeWithTax.length}곳 <span className="text-[#8B95A1] font-medium">(발송 완료는 아래로)</span></td></tr>
+                  )}
+                  {noticeWithTax.map((c) => row(c, false))}
+                  {noticeZero.length > 0 && (
+                    <tr>
+                      <td colSpan={colCount} className="p-0 bg-[#F5E8FF]/40">
+                        <button
+                          type="button"
+                          onClick={() => setNoticeZeroOpen(o => !o)}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-left text-[11px] font-bold text-[#6D28D9] hover:bg-[#F5E8FF]/70 transition-colors"
+                          title="예정고지 대상인데 고지세액이 0원이라 할 일이 없는 거래처 — 클릭하면 펼쳐요"
+                        >
+                          <span className={`inline-block transition-transform ${noticeZeroExpanded ? "rotate-90" : ""}`}>▸</span>
+                          📋 고지세액 0원 · 할 일 없음 <span className="text-[#8B95A1] font-medium">({noticeZero.length}곳)</span>
+                          <span className="ml-auto text-[10px] text-[#8B95A1] font-medium">{noticeZeroExpanded ? "접기" : "펼치기"}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                  {noticeZeroExpanded && noticeZero.map((c) => row(c, false))}
+                </>
               )}
-              {noticeWithTax.map((c) => row(c, false))}
-              {noticeZero.length > 0 && (
-                <tr>
-                  <td colSpan={colCount} className="p-0 bg-[#F5E8FF]/40">
-                    <button
-                      type="button"
-                      onClick={() => setNoticeZeroOpen(o => !o)}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-left text-[11px] font-bold text-[#6D28D9] hover:bg-[#F5E8FF]/70 transition-colors"
-                      title="예정고지 대상인데 고지세액이 0원이라 할 일이 없는 거래처 — 클릭하면 펼쳐요"
-                    >
-                      <span className={`inline-block transition-transform ${noticeZeroExpanded ? "rotate-90" : ""}`}>▸</span>
-                      📋 예정고지 · 신고 불필요 · 고지세액 0원 <span className="text-[#8B95A1] font-medium">({noticeZero.length}곳)</span>
-                      <span className="ml-auto text-[10px] text-[#8B95A1] font-medium">{noticeZeroExpanded ? "접기" : "펼치기"}</span>
-                    </button>
-                  </td>
-                </tr>
+              {listTab === "excluded" && (
+                <>
+                  {excluded.length === 0 && (
+                    <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">제외한 거래처가 없습니다</td></tr>
+                  )}
+                  {excluded.map((c) => row(c, true))}
+                </>
               )}
-              {noticeZeroExpanded && noticeZero.map((c) => row(c, false))}
-              {!stageFilter && excluded.length > 0 && (
-                <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#8B95A1] bg-[#F9FAFB]/60">제외됨 ({excluded.length}곳)</td></tr>
-              )}
-              {!stageFilter && excluded.map((c) => row(c, true))}
             </tbody>
           </table>
         </div>
