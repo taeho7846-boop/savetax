@@ -42,7 +42,8 @@ export async function GET(
     // - settings: 사용자가 업로드한 템플릿이 갱신될 수 있음
     // - idcards: 수임신청서 PDF가 거래처 정보 수정 후 재생성될 수 있음
     // - data-collect: 재수집 시 같은 이름으로 덮어씀
-    const isMutable = segments[0] === "settings" || segments[0] === "idcards" || segments[0] === "data-collect";
+    // - vat-bills: 예정고지 납부서 재업로드(재발행) 시 같은 이름으로 덮어씀
+    const isMutable = segments[0] === "settings" || segments[0] === "idcards" || segments[0] === "data-collect" || segments[0] === "vat-bills";
     const cacheControl = isMutable
       ? "no-cache, no-store, must-revalidate"
       : "public, max-age=31536000, immutable";

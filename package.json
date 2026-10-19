@@ -30,6 +30,7 @@
     "next": "16.2.1",
     "next-auth": "^5.0.0-beta.30",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38",
     "pg": "^8.20.0",
     "playwright": "^1.59.1",
     "prisma": "^7.5.0",

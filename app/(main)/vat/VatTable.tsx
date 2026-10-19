@@ -6,6 +6,7 @@ import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatF
 import { VatRejectModal } from "./VatRejectModal";
 import { notify } from "@/components/ui/Dialog";
 import { isNoticeType as isNoticeTypeShared, inferNoticeFromHtx, NOTICE_BILL_SENT_KEY } from "@/lib/vat-notice";
+import { parseNoticeBill, buildNoticeBillMessage, noticeBillFileName, formatKoreanDate, type NoticeBill } from "@/lib/vat-notice-bill";
 
 // 홈택스 부가세 신고자료 업로드 데이터 (모든 금액은 공급가액 기준)
 type HtxData = {
@@ -40,6 +41,7 @@ type Rec = {
   excluded: boolean;
   memo: string | null;
   htx: HtxData | null;
+  bill: NoticeBill | null; // 예정고지 납부서 PDF (업로드 시)
   rejectionCount: number;
   lastRejectedAt: Date | string | null;
 };
@@ -53,7 +55,7 @@ type ClientRow = {
   taxationType: string | null;
   vatTypeDetail: string | null;
   assignedUserName: string | null;
-  record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null; htxData: string | null; htxImportedAt: Date | string | null; rejectionCount: number; lastRejectedAt: Date | string | null } | null;
+  record: { stage: string; checklist: string | null; fee: number | null; noticeTax: number | null; excluded: boolean; memo: string | null; htxData: string | null; htxImportedAt: Date | string | null; noticeBill: string | null; rejectionCount: number; lastRejectedAt: Date | string | null } | null;
 };
 
 interface Props {
@@ -180,6 +182,7 @@ function buildMap(clients: ClientRow[], activeTab: string): Map<number, Rec> {
       excluded: c.record?.excluded ?? false,
       memo: c.record?.memo ?? null,
       htx: parseHtx(c.record?.htxData),
+      bill: parseNoticeBill(c.record?.noticeBill),
       rejectionCount: c.record?.rejectionCount ?? 0,
       lastRejectedAt: c.record?.lastRejectedAt ?? null,
     });
@@ -406,6 +409,54 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     }
   }
 
+  // 예정고지 납부서 zip 업로드 (홈택스 일괄다운로드)
+  const billFileRef = useRef<HTMLInputElement>(null);
+  const [billUploading, setBillUploading] = useState(false);
+  const [copiedMsgId, setCopiedMsgId] = useState<number | null>(null);
+
+  async function onBillFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const list = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = "";
+    if (list.length === 0) return;
+    setBillUploading(true);
+    try {
+      const fd = new FormData();
+      for (const f of list) fd.append("file", f);
+      fd.append("period", period);
+      const res = await fetch("/api/vat/notice-bill/import", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { notify(data.error || "업로드에 실패했습니다."); return; }
+      const unmatchedMsg = data.unmatchedCount > 0
+        ? `\n\n매칭 안 된 납부서 ${data.unmatchedCount}건 (거래처 사업자번호 없음):\n` + data.unmatched.map((u: { name: string; biz: string }) => `· ${u.name}`).join("\n")
+        : "";
+      const unreadableMsg = data.unreadableCount > 0
+        ? `\n\n읽지 못한 PDF ${data.unreadableCount}건:\n` + data.unreadable.map((n: string) => `· ${n}`).join("\n")
+        : "";
+      notify(`✅ 예정고지 납부서 업로드 완료\n\nPDF ${data.totalPdfs}건 중 거래처 매칭 ${data.matchedCount}건 — 납부기한·금액을 읽어 고지세액에 반영했습니다.${unmatchedMsg}${unreadableMsg}`);
+      router.refresh();
+    } catch (err) {
+      notify("업로드 중 오류가 발생했습니다.\n\n" + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setBillUploading(false);
+    }
+  }
+
+  // 대표님께 보낼 안내문 복사 (납부기한·납부금액 채워서)
+  function copyNoticeMessage(client: ClientRow, bill: NoticeBill) {
+    const text = buildNoticeBillMessage(period, bill);
+    const fallback = () => {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch { /* 무시 */ }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(fallback);
+    else fallback();
+    setCopiedMsgId(client.id);
+    setTimeout(() => setCopiedMsgId((cur) => (cur === client.id ? null : cur)), 1500);
+  }
+
   // 신고리스트관리 엑셀 업로드 (과세유형 상세)
   const taxTypeFileRef = useRef<HTMLInputElement>(null);
   const [taxTypeUploading, setTaxTypeUploading] = useState(false);
@@ -445,7 +496,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   }, []);
 
   function getRec(id: number): Rec {
-    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, noticeTax: null, excluded: false, memo: null, htx: null, rejectionCount: 0, lastRejectedAt: null };
+    return recMap.get(id) ?? { stage: "collect", checklist: {}, fee: activeTab === "bookkeeping" ? 0 : null, noticeTax: null, excluded: false, memo: null, htx: null, bill: null, rejectionCount: 0, lastRejectedAt: null };
   }
   function update(id: number, patch: Partial<Rec>) {
     setRecMap(prev => { const n = new Map(prev); n.set(id, { ...getRec(id), ...patch }); return n; });
@@ -533,12 +584,13 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const feeSum = active.reduce((s, c) => s + (getRec(c.id).fee ?? 0), 0);
 
   // 예정고지 거래처: 고지세액 있는 곳은 고지서 안내가 필요하니 펼쳐 두고, 0원인 곳은 볼 게 없으니 접어서 묶음
-  const noticeAmt = (c: ClientRow) => { const r = getRec(c.id); return r.noticeTax ?? r.htx?.notice?.amount ?? 0; };
+  const noticeAmt = (c: ClientRow) => { const r = getRec(c.id); return r.noticeTax ?? r.bill?.amount ?? r.htx?.notice?.amount ?? 0; };
   const noticeTaxed = prelimNotice.filter(c => noticeAmt(c) > 0);
   // 납부서 발송 완료한 곳은 묶음 맨 아래로 (미발송이 위에 오도록, 원래 순서는 유지)
   const noticeWithTax = [...noticeTaxed].sort((a, b) => Number(!!getRec(a.id).checklist[NOTICE_BILL_SENT_KEY]) - Number(!!getRec(b.id).checklist[NOTICE_BILL_SENT_KEY]));
   const noticeZero = prelimNotice.filter(c => noticeAmt(c) === 0);
   const billSentCount = noticeTaxed.filter(c => getRec(c.id).checklist[NOTICE_BILL_SENT_KEY]).length;
+  const billAttachedCount = noticeTaxed.filter(c => !!getRec(c.id).bill).length;
   // 홈택스상 예정고지 대상인데 예정신고 하기로 한 곳(3개월 선택) — 신고 대상에 포함되며 따로 표시
   const switchedToFilingCount = isPrelim ? active.filter(c => inferNoticeFromHtx(getRec(c.id).htx) === true).length : 0;
   const noticeZeroExpanded = noticeZeroOpen || qt !== "";
@@ -570,7 +622,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const isPrelimNotice = isPrelim && isNotice; // 예정 기간 + 예정고지형 = 신고 불필요
     const htxSaysNotice = inferNoticeFromHtx(r.htx) === true;
     const switchedToFiling = isPrelim && !isNotice && htxSaysNotice; // 고지대상이지만 예정신고 하기로 (3개월 선택)
-    const nAmt = r.noticeTax ?? r.htx?.notice?.amount ?? 0;
+    const nAmt = r.noticeTax ?? r.bill?.amount ?? r.htx?.notice?.amount ?? 0;
     // 예정신고 가능 요건 힌트 (부가세법 48조③: 휴업·사업부진으로 공급가액/납부세액이 직전 과세기간의 1/3 미달, 또는 조기환급)
     const filingHints: string[] = [];
     if (isPrelimNotice && r.htx) {
@@ -719,6 +771,30 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                 <span className="text-[11px] text-[#8B95A1] ml-1">원</span>
               </div>
               {nAmt > 0 && checkChip(NOTICE_BILL_SENT_KEY, "납부서 발송 완료", "#6D28D9", "대표에게 예정고지 납부서를 보냈으면 체크")}
+              {r.bill ? (
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  <a
+                    href={r.bill.url}
+                    download={noticeBillFileName(client.name, period)}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold bg-white border border-[#E5E8EB] text-[#191F28] hover:border-[#6D28D9] hover:text-[#6D28D9] transition-colors"
+                    title={`납부서 PDF 다운로드 · 기한 ${formatKoreanDate(r.bill.dueDate)} · ${r.bill.amount.toLocaleString("ko-KR")}원`}
+                  >
+                    📄 납부서 PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => copyNoticeMessage(client, r.bill!)}
+                    disabled={dim}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors disabled:opacity-40 ${copiedMsgId === client.id ? "bg-[#E7F7EE] text-[#15803D]" : "bg-[#6D28D9] text-white hover:bg-[#5B21B6]"}`}
+                    title={buildNoticeBillMessage(period, r.bill)}
+                  >
+                    {copiedMsgId === client.id ? "✓ 복사됨" : "💬 안내문 복사"}
+                  </button>
+                  <span className="text-[10px] text-[#8B95A1]">기한 {formatKoreanDate(r.bill.dueDate)}</span>
+                </span>
+              ) : (
+                nAmt > 0 && <span className="text-[10px] text-[#B0B8C1]" title="홈택스 예정고지납부서 일괄다운로드 zip을 올리면 여기 붙습니다">납부서 PDF 없음</span>
+              )}
               {filingHints.length > 0 && (
                 <span
                   className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C2410C] bg-[#FFF7ED] border border-[#FED7AA] rounded-md px-1.5 py-0.5"
@@ -1020,6 +1096,23 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               <>🏷️ 과세유형 업로드</>
             )}
           </button>
+          {isPrelim && (
+            <>
+              <input ref={billFileRef} type="file" accept=".zip,.pdf" multiple onChange={onBillFileSelected} className="hidden" />
+              <button
+                onClick={() => billFileRef.current?.click()}
+                disabled={billUploading}
+                className="flex items-center gap-1.5 rounded-xl px-3.5 h-9 text-[13px] font-bold bg-[#F5E8FF] text-[#6D28D9] hover:bg-[#EDE0FF] transition disabled:opacity-50"
+                title="홈택스 '예정고지납부서 일괄다운로드' zip을 올리면 사업자번호로 거래처에 붙고, 납부기한·금액을 읽어 고지세액에 반영합니다"
+              >
+                {billUploading ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-[#C4B5FD] border-t-[#6D28D9] rounded-full animate-spin" /> 납부서 처리 중…</>
+                ) : (
+                  <>📄 납부서 zip 업로드</>
+                )}
+              </button>
+            </>
+          )}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={onFileSelected} className="hidden" />
           <button
             onClick={() => fileRef.current?.click()}
@@ -1121,7 +1214,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
                     <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">예정고지 거래처가 없습니다</td></tr>
                   )}
                   {noticeWithTax.length > 0 && (
-                    <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 고지세액 있음 · 납부서 발송 {billSentCount}/{noticeWithTax.length}곳 <span className="text-[#8B95A1] font-medium">(발송 완료는 아래로)</span></td></tr>
+                    <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 고지세액 있음 · 납부서 PDF {billAttachedCount}/{noticeWithTax.length} · 발송 완료 {billSentCount}/{noticeWithTax.length}곳 <span className="text-[#8B95A1] font-medium">(발송 완료는 아래로)</span></td></tr>
                   )}
                   {noticeWithTax.map((c) => row(c, false))}
                   {noticeZero.length > 0 && (

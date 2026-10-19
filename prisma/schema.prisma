@@ -494,6 +494,7 @@ model VatRecord {
   memo          String?
   htxData       String?                    // 홈택스 부가세 신고자료 엑셀 업로드 데이터 (JSON)
   htxImportedAt DateTime?                  // 홈택스 자료 마지막 업로드 시각
+  noticeBill    String?                    // 예정고지 납부서 PDF 메타 JSON {file, amount, dueDate, issuedAt, uploadedAt, srcName}
   rejectionCount Int     @default(0)       // 결재 반려 누적 횟수
   lastRejectedAt DateTime?                 // 마지막 반려 시각
   createdAt     DateTime @default(now())
