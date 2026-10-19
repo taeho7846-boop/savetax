@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientLink } from "@/app/(main)/clients/ClientLink";
+
 import Link from "next/link";
 import { useState } from "react";
 
@@ -174,9 +176,9 @@ export function UnpaidCard({ clients }: { clients: UnpaidClient[] }) {
                 className={`rounded-2xl p-3 transition-colors block ${tone.row}`}
               >
                 <div className="flex items-start justify-between gap-1.5 mb-1">
-                  <div className="text-[13px] font-semibold text-[#191F28] truncate">
+                  <ClientLink clientId={client.id} className="block text-[13px] font-semibold text-[#191F28] truncate hover:text-[#3182F6] hover:underline">
                     {client.name}
-                  </div>
+                  </ClientLink>
                   <div className="flex items-center gap-1 shrink-0">
                     {client.unpaidMonths.length > 1 && (
                       <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ${tone.badge}`}>

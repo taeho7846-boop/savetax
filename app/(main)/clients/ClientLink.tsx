@@ -32,6 +32,7 @@ export function ClientLink({
       className={`text-left ${className ?? ""}`}
       title="거래처 프로필 보기"
       onClick={(e) => {
+        e.preventDefault();
         e.stopPropagation();
         openClientProfile(clientId, tab);
       }}

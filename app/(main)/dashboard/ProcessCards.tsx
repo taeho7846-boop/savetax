@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientLink } from "@/app/(main)/clients/ClientLink";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -305,7 +307,7 @@ export function HappyCallCard({ items }: { items: HappyCallItem[] }) {
                 <div key={item.commissionId} className="bg-white/60 rounded-2xl px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-[14px] font-bold text-[#191F28] truncate flex items-center gap-2">
-                      <span className="truncate">{item.clientName}</span>
+                      <ClientLink clientId={item.clientId} className="truncate hover:text-[#3182F6] hover:underline">{item.clientName}</ClientLink>
                       {item.alimtalkCount > 0 && (
                         <span className="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md bg-[#E8F3FF] text-[#3182F6] whitespace-nowrap">
                           {formatSentBadge(item.alimtalkCount, item.alimtalkLastSentAt)}
@@ -409,7 +411,7 @@ export function DataCollectCard({ items }: { items: DataCollectItem[] }) {
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="text-[14px] font-bold text-[#191F28] truncate flex items-center gap-2">
-                        <span className="truncate">{item.clientName}</span>
+                        <ClientLink clientId={item.clientId} className="truncate hover:text-[#3182F6] hover:underline">{item.clientName}</ClientLink>
                         {item.alimtalkCount > 0 && (
                           <span className="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md bg-[#F3E8FF] text-[#8B5CF6] whitespace-nowrap">
                             {formatSentBadge(item.alimtalkCount, item.alimtalkLastSentAt)}

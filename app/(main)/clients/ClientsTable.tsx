@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientLink } from "@/app/(main)/clients/ClientLink";
+
 import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ClientEditModal } from "./ClientEditModal";
@@ -947,7 +949,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
                       />
                     </td>
                     <td className="px-4 py-3 text-left">
-                      <div className="text-[#191F28] font-medium">{client.name}</div>
+                      <ClientLink clientId={client.id} className="text-[#191F28] font-medium hover:text-[#3182F6] hover:underline">{client.name}</ClientLink>
                       <div className="flex items-center gap-1.5 text-xs text-[#6B7684] mt-0.5">
                         <span>
                           {client.clientType === "corporate" ? "법인" : "개인"}

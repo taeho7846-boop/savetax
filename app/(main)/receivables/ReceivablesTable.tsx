@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientLink } from "@/app/(main)/clients/ClientLink";
+
 import React, { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toggleFeeRecord, setFeeRecordExempt } from "@/app/actions/feeRecords";
@@ -841,12 +843,12 @@ export function ReceivablesTable({ clients, months, currentYM }: Props) {
                       onChange={() => toggleOneCheck(client.id)}
                       className="w-4 h-4 accent-[#3182F6] cursor-pointer shrink-0"
                     />
-                    <button
-                      onClick={() => setEditingClientId(client.id)}
-                      className={`hover:underline text-left ${isChecked ? "text-[#191F28]" : "text-[#8B95A1] line-through"}`}
+                    <ClientLink
+                      clientId={client.id}
+                      className={`hover:underline ${isChecked ? "text-[#191F28]" : "text-[#8B95A1] line-through"}`}
                     >
                       {client.name}
-                    </button>
+                    </ClientLink>
                     {client.contractStatus !== "active" && (
                       <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap" title={client.terminationMonth ? `해지 · ${client.terminationMonth}월까지 청구` : "해지 (해지월 미설정 — 거래처 수정에서 지정하세요)"}>
                         해지{client.terminationMonth ? ` ~${client.terminationMonth.slice(5)}월` : ""}

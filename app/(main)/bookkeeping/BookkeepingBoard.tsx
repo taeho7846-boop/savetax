@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientLink } from "@/app/(main)/clients/ClientLink";
+
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setBookkeepingStage, setBookkeepingMemo, setBookkeepingTargetDay, bulkSetBookkeepingStage, bulkCloseThrough } from "@/app/actions/bookkeeping";
@@ -429,7 +431,7 @@ export function BookkeepingBoard({
                       )}
                     </td>
                     <td className="sticky left-10 z-10 bg-white/90 px-3 py-2 border-b border-[#F2F4F6]">
-                      <div className="text-[#191F28] font-medium truncate max-w-[220px]" title={c.name}>{c.name}</div>
+                      <ClientLink clientId={c.id} className="block text-[#191F28] font-medium truncate max-w-[220px] hover:text-[#3182F6] hover:underline">{c.name}</ClientLink>
                       <div className="text-[10.5px] text-[#8B95A1] flex items-center gap-1.5">
                         <span>{c.clientType === "corporate" ? "법인" : "개인"}</span>
                         {c.affiliation && <><span className="text-[#D1D6DB]">·</span><span className={c.affiliation === "세이브택스" ? "text-[#3182F6] font-bold" : ""}>{c.affiliation}</span></>}
@@ -484,7 +486,7 @@ export function BookkeepingBoard({
           >
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="min-w-0">
-                <div className="text-[13px] font-bold text-[#191F28] truncate">{c.name}</div>
+                <ClientLink clientId={c.id} className="block text-[13px] font-bold text-[#191F28] truncate hover:text-[#3182F6] hover:underline">{c.name}</ClientLink>
                 <div className="text-[11px] text-[#6B7684]">
                   {pop.ym.slice(0, 4)}년 {mLabel(pop.ym)}분 · 기한 {mdLabel(dl)}
                   {od && <span className="ml-1 text-[#DC2626] font-bold">기한 지남</span>}
