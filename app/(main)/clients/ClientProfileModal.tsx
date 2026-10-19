@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { ClientProfile, LedgerMonth, ProfileTile, ProfileWarning } from "@/lib/client-profile";
 import { openClientEditModal } from "@/app/(main)/clients/ClientLink";
+import { ClientLedgerModal } from "@/app/(main)/clients/ClientLedgerModal";
 import type { ClientEditModalTab } from "@/app/(main)/clients/ClientEditModal";
 
 /**
@@ -201,7 +202,7 @@ function niceCeil(v: number): number {
   return step * p;
 }
 
-function LedgerChart({ rows, today }: { rows: LedgerMonth[]; today: string }) {
+function LedgerChart({ rows, today, onSelectMonth }: { rows: LedgerMonth[]; today: string; onSelectMonth?: (ym: string) => void }) {
   const [hover, setHover] = useState<number | null>(null);
   const n = rows.length;
   const max = niceCeil(Math.max(0, ...rows.map(r => Math.max(r.saleSupply, r.buySupply))));
@@ -258,8 +259,10 @@ function LedgerChart({ rows, today }: { rows: LedgerMonth[]; today: string }) {
               return (
                 <div
                   key={r.yearMonth}
-                  className="group relative flex h-full flex-1 items-end justify-center gap-px cursor-crosshair"
+                  className={`group relative flex h-full flex-1 items-end justify-center gap-px ${onSelectMonth ? "cursor-pointer" : "cursor-crosshair"}`}
                   onMouseEnter={() => setHover(i)}
+                  onClick={() => onSelectMonth?.(r.yearMonth)}
+                  title={onSelectMonth ? "누르면 이 달 상세" : undefined}
                 >
                   <div className={`absolute inset-x-[-2px] inset-y-0 rounded-md transition-colors ${hover === i ? "bg-[#191F28]/[.04]" : ""}`} />
                   <div className="relative w-[46%] rounded-t-[3px] transition-all duration-200" style={{ height: sh, background: SALE, opacity: dim ? 0.35 : 1 }} />
@@ -365,6 +368,8 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
   const [hometaxBusy, setHometaxBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState("sec-summary");
+  // 매출·매입 상세 모달 (열려 있으면 처음 보여줄 달)
+  const [ledgerOpen, setLedgerOpen] = useState<{ month?: string } | null>(null);
 
   // 스크롤 위치에 따라 활성 탭 갱신 — 보이는 영역 상단(+80px)을 지난 마지막 구역
   const onBodyScroll = useCallback(() => {
@@ -594,8 +599,21 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
 
               {/* 월별 매출·매입 */}
               <section id="sec-ledger" data-section className="glass rounded-2xl p-4 scroll-mt-3">
-                <SectionTitle eyebrow="Monthly ledger" title="월별 매출 · 매입 (공급가액)" right={<span className="text-[11px] text-[#8B95A1]">최근 {data.ledger.length}개월 · 막대에 마우스를 올리면 상세</span>} />
-                <LedgerChart rows={data.ledger} today={data.today} />
+                <SectionTitle
+                  eyebrow="Monthly ledger"
+                  title="월별 매출 · 매입 (공급가액)"
+                  right={
+                    <div className="flex items-center gap-3">
+                      <span className="hidden text-[11px] text-[#8B95A1] sm:inline">최근 {data.ledger.length}개월 · 막대를 누르면 그 달 상세</span>
+                      {data.ledger.length > 0 && (
+                        <button type="button" onClick={() => setLedgerOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">
+                          상세 보기
+                        </button>
+                      )}
+                    </div>
+                  }
+                />
+                <LedgerChart rows={data.ledger} today={data.today} onSelectMonth={ym => setLedgerOpen({ month: ym })} />
               </section>
 
               {/* 부가세 이력 */}
@@ -745,6 +763,9 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
           )}
         </div>
       </div>
+      {ledgerOpen && c && (
+        <ClientLedgerModal clientId={clientId} clientName={c.name} initialMonth={ledgerOpen.month} onClose={() => setLedgerOpen(null)} />
+      )}
     </div>
   );
 }
