@@ -6,6 +6,7 @@ import TopNav from "@/components/TopNav";
 import DockBar from "@/components/DockBar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { GlobalClientEditModal } from "@/components/GlobalClientEditModal";
+import { GlobalClientProfileModal } from "@/components/GlobalClientProfileModal";
 import { DriveBasePathSync } from "@/components/DriveBasePathSync";
 import { ChatBot } from "@/components/ChatBot";
 import { QuickCapture } from "@/components/QuickCapture";
@@ -78,6 +79,7 @@ export default async function MainLayout({
       <GlobalSearch />
       <QuickCapture />
       <GlobalClientEditModal />
+      <GlobalClientProfileModal />
       <ChatBot />
       <DialogHost />
       <DriveBasePathSync value={settings?.driveBasePath ?? null} />
