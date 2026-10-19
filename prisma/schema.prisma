@@ -127,7 +127,7 @@ model Client {
   bookkeepingMonths         BookkeepingMonth[]
 }
 
-// 월기장 진행 상태 — 거래처 × 기장 대상 월. stage: none(미시작) | requested(자료요청) | received(자료수령) | input(입력) | done(마감)
+// 월기장 진행 상태 — 거래처 × 기장 대상 월. stage: none(미시작) | input(기장입력 중) | booked(기장완료) | reviewed(세모리포트 검토완료) | done(세모리포트 완료)
 model BookkeepingMonth {
   id              Int      @id @default(autoincrement())
   clientId        Int

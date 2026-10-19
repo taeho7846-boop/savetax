@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setBookkeepingStage, setBookkeepingMemo, setBookkeepingTargetDay, bulkSetBookkeepingStage, bulkCloseThrough } from "@/app/actions/bookkeeping";
 import {
-  STAGES, STAGE_ORDER, nextStage, prevStage, stageIndex, bookkeepingDeadline, isOverdue, daysUntilDeadline, addMonths,
+  STAGES, STAGE_ORDER, nextStage, prevStage, bookkeepingDeadline, isOverdue, daysUntilDeadline, addMonths,
   type BookkeepingStage,
 } from "@/lib/bookkeeping";
+import { notify, askConfirm } from "@/components/ui/Dialog";
 
 type MonthState = { stage: string; memo: string | null; updatedAt: string };
 type Client = {
@@ -21,11 +22,11 @@ type Client = {
 };
 
 const STAGE_STYLE: Record<BookkeepingStage, { chip: string; dot: string; label: string }> = {
-  none:      { chip: "bg-white/60 text-[#B0B8C1] border border-dashed border-[#D1D6DB]", dot: "#C4CCD4", label: "미시작" },
-  requested: { chip: "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]", dot: "#F59E0B", label: "자료요청" },
-  received:  { chip: "bg-[#EEF4FF] text-[#3B6FD6] border border-[#C7D7FE]", dot: "#6B8CFF", label: "자료수령" },
-  input:     { chip: "bg-[#E8F3FF] text-[#1B64DA] border border-[#A3CAFD]", dot: "#3182F6", label: "입력" },
-  done:      { chip: "bg-[#E7F7EE] text-[#15803D] border border-[#BBF7D0]", dot: "#16A865", label: "마감" },
+  none:     { chip: "bg-white/60 text-[#B0B8C1] border border-dashed border-[#D1D6DB]", dot: "#C4CCD4", label: "미시작" },
+  input:    { chip: "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]", dot: "#F59E0B", label: "기장입력 중" },
+  booked:   { chip: "bg-[#E8F3FF] text-[#1B64DA] border border-[#A3CAFD]", dot: "#3182F6", label: "기장완료" },
+  reviewed: { chip: "bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE]", dot: "#8B5CF6", label: "세모리포트 검토완료" },
+  done:     { chip: "bg-[#E7F7EE] text-[#15803D] border border-[#BBF7D0]", dot: "#16A865", label: "세모리포트 완료" },
 };
 
 const mLabel = (ym: string) => `${parseInt(ym.slice(5, 7))}월`;
@@ -67,9 +68,9 @@ export function BookkeepingBoard({
   const [affOpen, setAffOpen] = useState(false);
   const affRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLDivElement>(null);
-  const [stageFilter, setStageFilter] = useState<"all" | "notReceived" | "received" | "input" | "done" | "overdue">("all");
+  const [stageFilter, setStageFilter] = useState<"all" | "none" | "input" | "booked" | "reviewed" | "done" | "overdue">("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [bulkStage, setBulkStage] = useState<BookkeepingStage>("received");
+  const [bulkStage, setBulkStage] = useState<BookkeepingStage>("booked");
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
@@ -95,11 +96,12 @@ export function BookkeepingBoard({
   const kpi = useMemo(() => {
     const total = base.length;
     const done = base.filter(c => focusStage(c) === "done").length;
-    const notReceived = base.filter(c => stageIndex(focusStage(c)) < stageIndex("received")).length;
-    const received = base.filter(c => focusStage(c) === "received").length;
+    const none = base.filter(c => focusStage(c) === "none").length;
     const input = base.filter(c => focusStage(c) === "input").length;
+    const booked = base.filter(c => focusStage(c) === "booked").length;
+    const reviewed = base.filter(c => focusStage(c) === "reviewed").length;
     const overdue = base.filter(c => isOverdue(focus, focusStage(c), targetDay, today)).length;
-    return { total, done, notReceived, received, input, overdue };
+    return { total, done, none, input, booked, reviewed, overdue };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, local, focus, targetDay, today]);
 
@@ -107,9 +109,10 @@ export function BookkeepingBoard({
   const rows = useMemo(() => base.filter(c => {
     const s = focusStage(c);
     switch (stageFilter) {
-      case "notReceived": return stageIndex(s) < stageIndex("received");
-      case "received": return s === "received";
+      case "none": return s === "none";
       case "input": return s === "input";
+      case "booked": return s === "booked";
+      case "reviewed": return s === "reviewed";
       case "done": return s === "done";
       case "overdue": return isOverdue(focus, s, targetDay, today);
       default: return true;
@@ -134,10 +137,10 @@ export function BookkeepingBoard({
       catch { setLocal(l => ({ ...l, [clientId]: { ...(l[clientId] ?? {}), [ym]: prev } })); }
     });
   }
-  function applyBulk() {
+  async function applyBulk() {
     const ids = [...selected];
     if (ids.length === 0) return;
-    if (!confirm(`선택한 ${ids.length}곳의 ${mLabel(focus)}분 단계를 '${STAGE_STYLE[bulkStage].label}'(으)로 바꿀까요?`)) return;
+    if (!await askConfirm(`선택한 ${ids.length}곳의 ${mLabel(focus)}분 단계를 '${STAGE_STYLE[bulkStage].label}'(으)로 바꿀까요?`)) return;
     ids.forEach(id => {
       const prev = getState(id, focus);
       setLocal(l => ({ ...l, [id]: { ...(l[id] ?? {}), [focus]: { ...prev, stage: bulkStage, updatedAt: new Date().toISOString() } } }));
@@ -157,14 +160,14 @@ export function BookkeepingBoard({
     if (ids.length === 0) return;
     const fromYM = `${closeThrough.slice(0, 4)}-01`;
     const label = `${closeThrough.slice(0, 4)}년 1월분 ~ ${mLabel(closeThrough)}분`;
-    if (!confirm(`표시된 ${ids.length}곳의 ${label}을 모두 '마감'으로 처리할까요?\n(되돌리려면 칸을 눌러 단계를 바꾸면 됩니다)`)) return;
+    if (!await askConfirm(`표시된 ${ids.length}곳의 ${label}을 모두 '세모리포트 완료'로 처리할까요?\n(되돌리려면 칸을 눌러 단계를 바꾸면 됩니다)`)) return;
     setClosing(true);
     try {
       const r = await bulkCloseThrough(ids, fromYM, closeThrough);
       setCloseOpen(false);
       router.refresh();
-      alert(`${r.clients}곳 × ${r.months}개월 마감 처리 완료`);
-    } catch { alert("일괄 마감 실패"); }
+      notify(`${r.clients}곳 × ${r.months}개월 완료 처리됨`);
+    } catch { notify("일괄 마감 실패"); }
     finally { setClosing(false); }
   }
 
@@ -196,10 +199,10 @@ export function BookkeepingBoard({
   const [savingTarget, setSavingTarget] = useState(false);
   async function saveTarget() {
     const d = parseInt(targetDraft);
-    if (!(d >= 1 && d <= 31)) return alert("1~31 사이 숫자를 입력하세요");
+    if (!(d >= 1 && d <= 31)) return notify("1~31 사이 숫자를 입력하세요");
     setSavingTarget(true);
     try { await setBookkeepingTargetDay(d); setEditingTarget(false); router.refresh(); }
-    catch { alert("저장 실패"); }
+    catch { notify("저장 실패"); }
     finally { setSavingTarget(false); }
   }
 
@@ -209,11 +212,12 @@ export function BookkeepingBoard({
   const allChecked = rows.length > 0 && rows.every(r => selected.has(r.id));
 
   const kpiCards: { key: typeof stageFilter; label: string; value: number; color: string; sub?: string }[] = [
-    { key: "done", label: "마감 완료", value: kpi.done, color: "#16A865", sub: `${doneRate}% · ${kpi.total}곳 중` },
-    { key: "notReceived", label: "자료 미수령", value: kpi.notReceived, color: "#F59E0B", sub: "미시작 + 요청만 한 곳" },
-    { key: "received", label: "입력 대기", value: kpi.received, color: "#3182F6", sub: "자료는 받았고 입력 전" },
-    { key: "input", label: "마감 대기", value: kpi.input, color: "#8B5CF6", sub: "입력 끝, 마감(리포트) 전" },
-    { key: "overdue", label: "기한 지남", value: kpi.overdue, color: "#DC2626", sub: `기한 ${mdLabel(deadline)} 경과 · 미마감` },
+    { key: "done", label: "세모리포트 완료", value: kpi.done, color: "#16A865", sub: `${doneRate}% · ${kpi.total}곳 중` },
+    { key: "none", label: "미시작", value: kpi.none, color: "#C4CCD4", sub: "아직 기장 시작 전" },
+    { key: "input", label: "기장입력 중", value: kpi.input, color: "#F59E0B", sub: "전표 입력 진행 중" },
+    { key: "booked", label: "기장완료", value: kpi.booked, color: "#3182F6", sub: "세모리포트 검토 대기" },
+    { key: "reviewed", label: "검토완료", value: kpi.reviewed, color: "#8B5CF6", sub: "세모리포트 발송 대기" },
+    { key: "overdue", label: "기한 지남", value: kpi.overdue, color: "#DC2626", sub: `기한 ${mdLabel(deadline)} 경과 · 미완료` },
   ];
 
   return (
@@ -268,19 +272,19 @@ export function BookkeepingBoard({
             <button
               onClick={() => { setCloseThrough(focus); setCloseOpen(o => !o); }}
               className="h-10 px-4 rounded-2xl text-[12.5px] font-bold glass-strong text-[#15803D] hover:bg-white transition flex items-center gap-1.5"
-              title="부가세 신고가 끝난 기간처럼 이미 마무리된 달을 한 번에 마감 처리"
+              title="부가세 신고가 끝난 기간처럼 이미 마무리된 달을 한 번에 '세모리포트 완료'로 처리"
             >
-              ✓ 기간 일괄 마감
+              ✓ 기간 일괄 완료
             </button>
             {closeOpen && (
-              <div className="absolute right-0 top-12 z-40 w-[280px] bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] p-4">
-                <div className="text-[13px] font-bold text-[#191F28] mb-1">기간 일괄 마감</div>
-                <div className="text-[11px] text-[#6B7684] mb-3">표시된 <b className="text-[#191F28]">{base.length}곳</b>의 1월분부터 아래 달까지 전부 '마감'으로 바꿉니다. 담당자·소속 필터를 걸면 그 거래처만 적용됩니다.</div>
+              <div className="absolute right-0 top-12 z-40 w-[280px] glass-strong rounded-2xl shadow-xl border border-[#E5E8EB] p-4">
+                <div className="text-[13px] font-bold text-[#191F28] mb-1">기간 일괄 완료</div>
+                <div className="text-[11px] text-[#6B7684] mb-3">표시된 <b className="text-[#191F28]">{base.length}곳</b>의 1월분부터 아래 달까지 전부 '세모리포트 완료'로 바꿉니다. 담당자·소속 필터를 걸면 그 거래처만 적용됩니다.</div>
                 <select value={closeThrough} onChange={e => setCloseThrough(e.target.value)} className="w-full h-9 mb-3 rounded-xl border border-[#E5E8EB] bg-[#F9FAFB] px-2 text-[12.5px] font-bold text-[#191F28] outline-none">
                   {months.map(m => <option key={m} value={m}>{m.slice(0, 4)}년 {mLabel(m)}분까지</option>)}
                 </select>
                 <div className="flex gap-2">
-                  <button onClick={applyCloseThrough} disabled={closing || base.length === 0} className="flex-1 h-9 rounded-xl bg-[#16A865] text-white text-[12.5px] font-bold hover:bg-[#15803D] disabled:opacity-40">{closing ? "처리 중..." : "마감 처리"}</button>
+                  <button onClick={applyCloseThrough} disabled={closing || base.length === 0} className="flex-1 h-9 rounded-xl bg-[#16A865] text-white text-[12.5px] font-bold hover:bg-[#15803D] disabled:opacity-40">{closing ? "처리 중..." : "완료 처리"}</button>
                   <button onClick={() => setCloseOpen(false)} className="h-9 px-3 rounded-xl bg-[#F2F4F6] text-[#4E5968] text-[12.5px] font-bold">취소</button>
                 </div>
               </div>
@@ -299,8 +303,8 @@ export function BookkeepingBoard({
         </div>
       </div>
 
-      {/* KPI 5-up 한 줄 (클릭 = 기준월 단계 필터) */}
-      <div className="grid grid-cols-5 gap-2.5 mb-4">
+      {/* KPI 6-up 한 줄 (클릭 = 기준월 단계 필터) */}
+      <div className="grid grid-cols-6 gap-2.5 mb-4">
         {kpiCards.map(k => {
           const active = stageFilter === k.key;
           return (
@@ -461,7 +465,7 @@ export function BookkeepingBoard({
         return (
           <div
             ref={popRef}
-            className="fixed z-50 w-[300px] bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] p-4"
+            className="fixed z-50 w-[300px] glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] border border-[#E5E8EB] p-4"
             style={{ left: pop.x, top: pop.y }}
           >
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -475,7 +479,7 @@ export function BookkeepingBoard({
               <button onClick={() => setPop(null)} className="text-[#8B95A1] hover:text-[#333D4B] text-lg leading-none">✕</button>
             </div>
 
-            <div className="grid grid-cols-5 gap-1 mb-3">
+            <div className="grid grid-cols-2 gap-1.5 mb-3">
               {STAGES.map(s => {
                 const active = s.key === stage;
                 return (
@@ -534,7 +538,7 @@ function FilterDropdown({ label, options, value, onChange, open, setOpen, refEl 
         <span className="text-[10px] opacity-70">▼</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-11 z-40 bg-white rounded-xl shadow-xl border border-[#E5E8EB] p-2 min-w-[160px] max-h-64 overflow-y-auto">
+        <div className="absolute left-0 top-11 z-40 glass-strong rounded-2xl shadow-xl border border-[#E5E8EB] p-2 min-w-[160px] max-h-64 overflow-y-auto">
           {options.map(o => (
             <label key={o} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F9FAFB] cursor-pointer text-[12.5px] text-[#333D4B]">
               <input type="checkbox" checked={value.includes(o)} onChange={() => onChange(value.includes(o) ? value.filter(v => v !== o) : [...value, o])} className="accent-[#3182F6] w-3.5 h-3.5" />

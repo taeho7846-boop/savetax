@@ -1,13 +1,13 @@
 // 월기장 관리 공통 — 단계 정의, 마감 기한 계산 (순수 로직, DB 의존 없음)
 
-export type BookkeepingStage = "none" | "requested" | "received" | "input" | "done";
+export type BookkeepingStage = "none" | "input" | "booked" | "reviewed" | "done";
 
 export const STAGES: { key: BookkeepingStage; label: string; short: string; desc: string }[] = [
-  { key: "none", label: "미시작", short: "·", desc: "아직 자료 요청 전" },
-  { key: "requested", label: "자료요청", short: "요청", desc: "거래처에 자료 요청함" },
-  { key: "received", label: "자료수령", short: "수령", desc: "자료 받음 · 입력 대기" },
-  { key: "input", label: "입력", short: "입력", desc: "전표 입력 완료 · 마감 대기" },
-  { key: "done", label: "마감", short: "마감", desc: "월기장 마감 (리포트 발송)" },
+  { key: "none", label: "미시작", short: "·", desc: "아직 기장 시작 전" },
+  { key: "input", label: "기장입력 중", short: "입력중", desc: "전표 입력 진행 중" },
+  { key: "booked", label: "기장완료", short: "기장", desc: "전표 입력 끝 · 세모리포트 검토 대기" },
+  { key: "reviewed", label: "세모리포트 검토완료", short: "검토", desc: "세모리포트 내용 검토 끝 · 발송 대기" },
+  { key: "done", label: "세모리포트 완료", short: "완료", desc: "세모리포트 발송 완료 (월기장 마감)" },
 ];
 
 export const STAGE_ORDER: BookkeepingStage[] = STAGES.map(s => s.key);

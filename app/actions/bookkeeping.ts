@@ -51,8 +51,8 @@ export async function bulkSetBookkeepingStage(clientIds: number[], yearMonth: st
 }
 
 /**
- * 기간 일괄 마감 — fromYM~toYM 사이 모든 달을 done 으로 (이미 done 인 칸도 done 유지).
- * 예) 부가세 신고가 끝난 상반기(01~06월분)를 한 번에 마감 처리.
+ * 기간 일괄 완료 — fromYM~toYM 사이 모든 달을 done(세모리포트 완료) 으로.
+ * 예) 부가세 신고가 끝난 상반기(01~06월분)를 한 번에 완료 처리.
  */
 export async function bulkCloseThrough(clientIds: number[], fromYM: string, toYM: string) {
   const session = await requireAuth();
