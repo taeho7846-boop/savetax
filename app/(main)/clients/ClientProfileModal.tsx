@@ -562,6 +562,7 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                     <Field label="주민등록번호">{c.residentNumber ? <CopyChip value={c.residentNumber} label={fmtResident(c.residentNumber)} title="누르면 복사" /> : <Empty />}</Field>
                     <Field label="전화">{c.phone ? <CopyChip value={c.phone} label={c.phone} title="누르면 복사" /> : <Empty />}</Field>
                     <Field label="개업일">{c.openDate ? <b className="tabular-nums text-[#191F28]">{c.openDate}</b> : <Empty />}</Field>
+                    {(c.bizType || c.bizItem) && <Field label="업종"><span className="text-[#4E5968]">{[c.bizType, c.bizItem].filter(Boolean).join(" / ")}</span></Field>}
                   </div>
                 </div>
               </div>
