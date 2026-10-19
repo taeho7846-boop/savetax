@@ -42,7 +42,7 @@ export default async function TaehoSettlementPage({
 
   if (!participant) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col pb-4">
         <Header />
         <div className="glass-strong rounded-3xl p-10 text-center max-w-xl mx-auto mt-6">
           <div className="w-12 h-12 rounded-2xl gradient-amber mx-auto mb-4 flex items-center justify-center text-white text-xl font-bold">%</div>
@@ -60,7 +60,7 @@ export default async function TaehoSettlementPage({
   const data = await loadTaehoSettlement(participant, yearMonth);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col pb-4">
       <TaehoSettlementView
         data={data}
         participants={participants.map((p) => ({ id: p.id, name: p.name }))}
