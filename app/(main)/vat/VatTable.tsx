@@ -227,6 +227,28 @@ function estimateVat(htx: HtxData, isCorp: boolean, isConfirm: boolean, best = f
   return { est, salesVat, buyVat, cardCredit, prepaid };
 }
 
+/**
+ * 홈택스 자료로 예정고지형(신고 불필요) 여부 추정. 판단 불가 시 null.
+ * 신고의무 없음(부) → 예정고지형 / 신고의무 있음(여) → 예정신고형 / 신고의무 비어 있으면 고지대상 '여'만 예정고지형으로 봄
+ */
+function inferNoticeFromHtx(htx: HtxData | null): boolean | null {
+  if (!htx?.notice) return null;
+  const yn = (v: string): boolean | null => {
+    const t = (v || "").trim();
+    if (!t) return null;
+    if (/여|있|^Y$/i.test(t)) return true;
+    if (/부|없|^N$/i.test(t)) return false;
+    return null;
+  };
+  const d = (htx.notice.filingDuty || "").trim();
+  const duty = yn(d);
+  if (duty !== null) return !duty;
+  if (d.includes("고지")) return true;
+  if (d.includes("신고")) return false;
+  if (yn(htx.notice.target) === true) return true;
+  return null;
+}
+
 /** 홈택스 업로드 자료 표시 (매출·매입 공급가액 / 예정고지 / 예상세액) */
 function HtxSummary({ htx, isCorp, isConfirm }: { htx: HtxData | null; isCorp: boolean; isConfirm: boolean }) {
   if (!htx) return <span className="text-[11px] text-[#B0B8C1]">자료 없음</span>;
@@ -275,6 +297,9 @@ function HtxSummary({ htx, isCorp, isConfirm }: { htx: HtxData | null; isCorp: b
           예정고지 {isNoticeTarget ? "대상" : "비대상"}
         </span>
         {isNoticeTarget && n.amount > 0 && <span className="text-[11px] font-bold text-[#6D28D9]">{won(n.amount)}원</span>}
+        {n.filingDuty && n.filingDuty !== "없음" && (
+          <span className="text-[10px] text-[#8B95A1]" title="홈택스 '신고의무' 컬럼 값 — 6개월/3개월 토글을 안 건드렸으면 이 값으로 예정고지/예정신고를 판정해요">신고의무 {n.filingDuty}</span>
+        )}
         {!isNoticeTarget && n.excludeReason && n.excludeReason !== "없음" && (
           <span className="text-[10px] text-[#B0B8C1]">{n.excludeReason}</span>
         )}
@@ -331,6 +356,8 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const [, startTransition] = useTransition();
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState<VatStage | null>(null);
+  // 예정고지 · 신고 불필요 + 고지세액 0원 묶음 펼침 여부 (기본 접힘, 검색 중엔 자동 펼침)
+  const [noticeZeroOpen, setNoticeZeroOpen] = useState(false);
 
   // 담당자 필터 (관리자 화면에서만 노출)
   const [assignFilter, setAssignFilter] = useState<string[]>([]);
@@ -488,6 +515,25 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const isPrelim = period.endsWith("예정"); // 1·2기 예정 기간
   const isConfirm = period.endsWith("확정"); // 확정신고 (예정고지 기납부 차감)
 
+  // 예정고지형(6개월) 여부 판정 순서:
+  //  1) 거래처별 토글(report_notice) 값  2) 홈택스 자료의 신고의무/고지대상  3) 마지막에만 개인=예정고지·법인=예정신고 추정
+  function isNoticeType(client: ClientRow, r: Rec) {
+    const rn = r.checklist["report_notice"];
+    if (rn !== undefined) return rn;
+    return inferNoticeFromHtx(r.htx) ?? client.clientType !== "corporate";
+  }
+  // 예정 기간 + 예정고지 신고 불필요 + 고지세액 0원 → 볼 게 없으니 접어서 묶음
+  function isNoticeZero(client: ClientRow) {
+    if (!isPrelim) return false;
+    const r = getRec(client.id);
+    if (!isNoticeType(client, r)) return false;
+    const amt = r.noticeTax ?? r.htx?.notice?.amount ?? 0;
+    return amt === 0;
+  }
+  const shownMain = shown.filter(c => !isNoticeZero(c));
+  const noticeZero = shown.filter(c => isNoticeZero(c));
+  const noticeZeroExpanded = noticeZeroOpen || qt !== "";
+
   // 예상세액 합계 (참고용) — 일반과세 + 홈택스 자료 있는 대상만
   const estTotal = active.reduce((sum, c) => {
     const h = getRec(c.id).htx;
@@ -509,8 +555,7 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     const meta = STAGES[cur];
     const isCorp = client.clientType === "corporate";
     // 예정 처리: report_notice 토글값 우선, 미설정 시에만 추정(개인=예정고지, 법인=예정신고)
-    const rn = r.checklist["report_notice"];
-    const isNotice = rn === undefined ? !isCorp : rn; // true=예정고지(확정 6개월) / false=예정신고(확정 3개월)
+    const isNotice = isNoticeType(client, r); // true=예정고지(확정 6개월) / false=예정신고(확정 3개월)
     const isPrelimNotice = isPrelim && isNotice; // 예정 기간 + 예정고지형 = 신고 불필요
     const isCorpCollect = r.stage === "collect" && isCorp;
     const keys = isCorpCollect ? [] : stageItemKeys(r.stage);
@@ -586,10 +631,10 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
             {/* 예정고지(6개월) / 예정신고(3개월) */}
             <div className="inline-flex rounded-md overflow-hidden border border-[#E5E8EB]">
               <button type="button" disabled={dim} onClick={() => setCheckVal(client.id, "report_notice", true)}
-                title="예정고지 · 확정 6개월"
+                title={`예정고지 · 확정 6개월${r.checklist["report_notice"] === undefined ? " (미설정 — 홈택스 신고의무/고지대상, 없으면 개인·법인으로 추정 중)" : ""}`}
                 className={`px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-40 ${isNotice ? "bg-[#6D28D9] text-white" : "bg-white text-[#8B95A1] hover:bg-[#F9FAFB]"}`}>6개월</button>
               <button type="button" disabled={dim} onClick={() => setCheckVal(client.id, "report_notice", false)}
-                title="예정신고 · 확정 3개월"
+                title={`예정신고 · 확정 3개월${r.checklist["report_notice"] === undefined ? " (미설정 — 홈택스 신고의무/고지대상, 없으면 개인·법인으로 추정 중)" : ""}`}
                 className={`px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-40 border-l border-[#E5E8EB] ${!isNotice ? "bg-[#1B64DA] text-white" : "bg-white text-[#8B95A1] hover:bg-[#F9FAFB]"}`}>3개월</button>
             </div>
             <button
@@ -978,10 +1023,27 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               </tr>
             </thead>
             <tbody className="divide-y divide-white/40">
-              {shown.length === 0 && excluded.length === 0 && (
+              {shownMain.length === 0 && noticeZero.length === 0 && excluded.length === 0 && (
                 <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">대상 거래처가 없습니다</td></tr>
               )}
-              {shown.map((c) => row(c, false))}
+              {shownMain.map((c) => row(c, false))}
+              {noticeZero.length > 0 && (
+                <tr>
+                  <td colSpan={colCount} className="p-0 bg-[#F5E8FF]/40">
+                    <button
+                      type="button"
+                      onClick={() => setNoticeZeroOpen(o => !o)}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-left text-[11px] font-bold text-[#6D28D9] hover:bg-[#F5E8FF]/70 transition-colors"
+                      title="예정고지 대상인데 고지세액이 0원이라 할 일이 없는 거래처 — 클릭하면 펼쳐요"
+                    >
+                      <span className={`inline-block transition-transform ${noticeZeroExpanded ? "rotate-90" : ""}`}>▸</span>
+                      📋 예정고지 · 신고 불필요 · 고지세액 0원 <span className="text-[#8B95A1] font-medium">({noticeZero.length}곳)</span>
+                      <span className="ml-auto text-[10px] text-[#8B95A1] font-medium">{noticeZeroExpanded ? "접기" : "펼치기"}</span>
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {noticeZeroExpanded && noticeZero.map((c) => row(c, false))}
               {!stageFilter && excluded.length > 0 && (
                 <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#8B95A1] bg-[#F9FAFB]/60">제외됨 ({excluded.length}곳)</td></tr>
               )}
