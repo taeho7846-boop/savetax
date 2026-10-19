@@ -389,3 +389,9 @@ body {
   box-shadow: 0 0 0 4px rgba(49, 130, 246, 0.14);
   outline: none;
 }
+
+/* 홈 달력 일정 툴팁 등장 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}

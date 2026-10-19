@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CalendarIcon } from "@/components/icons";
 import { fromKey, WEEKDAY_KO, visibleRange } from "@/lib/diary-dates";
@@ -130,14 +130,14 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
                     const span = seg.end - seg.start + 1;
                     const edge = `${seg.isStart ? "ml-1.5 rounded-l" : "ml-0 rounded-l-none"} ${seg.isEnd ? "mr-1.5 rounded-r" : "mr-0 rounded-r-none"}`;
                     return (
-                      <span
+                      <SegmentPill
                         key={i.key}
+                        item={i}
+                        label={seg.isStart ? i.title : `← ${i.title}`}
+                        alignRight={seg.start >= 4}
                         style={{ gridColumn: `${seg.start + 1} / span ${span}`, gridRow: seg.lane + 1 }}
-                        className={`${edge} text-[11px] px-1.5 leading-[18px] truncate ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`}
-                        title={`${i.who ? i.who + ": " : ""}${i.title}`}
-                      >
-                        {seg.isStart ? i.title : `← ${i.title}`}
-                      </span>
+                        className={`${edge} ${i.done ? DONE_CLS : KIND_CLS[i.kind]}`}
+                      />
                     );
                   })}
                 </div>
@@ -158,5 +158,53 @@ export function MonthScheduleCard({ items, today }: { items: Item[]; today: stri
         </div>
       )}
     </div>
+  );
+}
+
+// 달력 일정 막대. 글자가 잘린 경우에만 마우스를 올리면 전체 내용을 툴팁으로 보여준다.
+function SegmentPill({
+  item, label, alignRight, style, className,
+}: {
+  item: Item;
+  label: string;
+  alignRight: boolean;
+  style: React.CSSProperties;
+  className: string;
+}) {
+  const [show, setShow] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  function onEnter() {
+    const el = textRef.current;
+    if (el && el.scrollWidth > el.clientWidth + 1) setShow(true);
+  }
+
+  const range = item.endDate && item.endDate !== item.date
+    ? `${item.date.slice(5).replace("-", "/")} ~ ${item.endDate.slice(5).replace("-", "/")}`
+    : item.date.slice(5).replace("-", "/");
+  const meta = [range, item.time, item.who].filter(Boolean).join(" · ");
+
+  return (
+    <Link
+      href={`/diary?view=month&d=${item.date}`}
+      style={style}
+      onMouseEnter={onEnter}
+      onMouseLeave={() => setShow(false)}
+      onFocus={onEnter}
+      onBlur={() => setShow(false)}
+      className={`relative pointer-events-auto block text-[11px] px-1.5 leading-[18px] hover:brightness-95 transition ${className}`}
+    >
+      <span ref={textRef} className="block truncate">{label}</span>
+      {show && (
+        <span
+          role="tooltip"
+          className={`absolute bottom-full mb-1.5 z-50 w-max max-w-[280px] rounded-xl bg-[#191F28] text-white px-3 py-2 shadow-lg whitespace-normal break-words leading-snug no-underline pointer-events-none animate-[fadeIn_120ms_ease-out] ${alignRight ? "right-0" : "left-0"}`}
+        >
+          <span className="block text-[12px] font-semibold">{item.title}</span>
+          {meta && <span className="block text-[11px] text-white/70 mt-0.5">{meta}</span>}
+          <span className={`absolute top-full w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-[#191F28] ${alignRight ? "right-3" : "left-3"}`} />
+        </span>
+      )}
+    </Link>
   );
 }
