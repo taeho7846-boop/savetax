@@ -112,6 +112,7 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
   const [loginStatuses, setLoginStatuses] = useState<Record<number, LoginStatus>>({});
   // 세모리포트 상태 뱃지 클릭 순환(사용→미반영→제외) — 낙관적 표시용
   const [semoOverrides, setSemoOverrides] = useState<Record<number, string>>({});
+  const [bulkSemo, setBulkSemo] = useState<"use" | "none" | "excluded">("use");
   async function cycleSemo(id: number, current: string) {
     const next = current === "use" ? "none" : current === "none" ? "excluded" : "use";
     setSemoOverrides(prev => ({ ...prev, [id]: next }));
@@ -120,6 +121,21 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
     } catch {
       setSemoOverrides(prev => ({ ...prev, [id]: current }));
     }
+  }
+  // 선택 거래처 세모리포트 상태 일괄 변경 (전체 선택 → 사용 등)
+  async function handleBulkSemo() {
+    if (checkedIds.size === 0) return;
+    const label = bulkSemo === "use" ? "사용" : bulkSemo === "none" ? "미반영" : "제외";
+    if (!await askConfirm(`선택한 ${checkedIds.size}개 거래처의 세모리포트 상태를 '${label}'(으)로 바꿀까요?`)) return;
+    const ids = [...checkedIds];
+    startTransition(async () => {
+      try {
+        await setSemoReportStatus(ids, bulkSemo);
+        setSemoOverrides(prev => ({ ...prev, ...Object.fromEntries(ids.map(id => [id, bulkSemo])) }));
+        setCheckedIds(new Set());
+        router.refresh();
+      } catch { notify("세모리포트 상태 변경 실패"); }
+    });
   }
   const [loginErrors, setLoginErrors] = useState<Record<number, string>>({});
   const [vncOpen, setVncOpen] = useState(false);
@@ -528,6 +544,27 @@ export function ClientsTable({ clients, readonly = false, showAssignedUser = fal
               >
                 담당자 변경
               </button>
+              {semoEnabled && (
+                <span className="inline-flex items-center gap-1">
+                  <select
+                    value={bulkSemo}
+                    onChange={e => setBulkSemo(e.target.value as "use" | "none" | "excluded")}
+                    className="text-sm h-7 rounded border border-[#D1D6DB] bg-white px-1.5 text-[#333D4B]"
+                    title="선택 거래처의 세모리포트 상태"
+                  >
+                    <option value="use">세모 사용</option>
+                    <option value="none">세모 미반영</option>
+                    <option value="excluded">세모 제외</option>
+                  </select>
+                  <button
+                    onClick={handleBulkSemo}
+                    disabled={isPending}
+                    className="text-sm bg-[#7C3AED] text-white px-3 py-1 rounded hover:bg-[#5B21B6] disabled:opacity-50 transition-colors"
+                  >
+                    세모 변경
+                  </button>
+                </span>
+              )}
               <button
                 onClick={handleBulkDelete}
                 disabled={isPending}

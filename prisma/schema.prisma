@@ -102,7 +102,7 @@ model Client {
   wehagoCdCom               String?
   wehagoCno                 String?
   wehagoColors              String?
-  semoReportStatus          String                     @default("none") // 세모리포트 반영 상태: use(사용) | none(미반영) | excluded(제외·발송 안 함)
+  semoReportStatus          String                     @default("use") // 세모리포트 반영 상태: use(사용, 기본) | none(미반영) | excluded(제외·발송 안 함)
   assignedUser              User?                      @relation(fields: [assignedUserId], references: [id])
   commission                CommissionProcess?
   termination               TerminationProcess?
