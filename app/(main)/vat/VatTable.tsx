@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { setVatStage, toggleVatCheck, setVatCheckValue, setVatNoticeTax, setVatFee, toggleVatExcluded, setVatMemo, type VatStage } from "@/app/actions/vat";
 import { VatRejectModal } from "./VatRejectModal";
 import { notify } from "@/components/ui/Dialog";
+import { isNoticeType as isNoticeTypeShared } from "@/lib/vat-notice";
 
 // 홈택스 부가세 신고자료 업로드 데이터 (모든 금액은 공급가액 기준)
 type HtxData = {
@@ -225,28 +226,6 @@ function estimateVat(htx: HtxData, isCorp: boolean, isConfirm: boolean, best = f
   const prepaid = isConfirm ? (htx.notice?.amount || 0) : 0; // 확정신고 시 예정고지 기납부 차감
   const est = salesVat - buyVat - cardCredit - prepaid;
   return { est, salesVat, buyVat, cardCredit, prepaid };
-}
-
-/**
- * 홈택스 자료로 예정고지형(신고 불필요) 여부 추정. 판단 불가 시 null.
- * 신고의무 없음(부) → 예정고지형 / 신고의무 있음(여) → 예정신고형 / 신고의무 비어 있으면 고지대상 '여'만 예정고지형으로 봄
- */
-function inferNoticeFromHtx(htx: HtxData | null): boolean | null {
-  if (!htx?.notice) return null;
-  const yn = (v: string): boolean | null => {
-    const t = (v || "").trim();
-    if (!t) return null;
-    if (/여|있|^Y$/i.test(t)) return true;
-    if (/부|없|^N$/i.test(t)) return false;
-    return null;
-  };
-  const d = (htx.notice.filingDuty || "").trim();
-  const duty = yn(d);
-  if (duty !== null) return !duty;
-  if (d.includes("고지")) return true;
-  if (d.includes("신고")) return false;
-  if (yn(htx.notice.target) === true) return true;
-  return null;
 }
 
 /** 홈택스 업로드 자료 표시 (매출·매입 공급가액 / 예정고지 / 예상세액) */
@@ -503,8 +482,22 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
     if (assignFilter.length > 0 && !assignFilter.includes(c.assignedUserName || "")) return false;
     return true;
   });
-  const active = searched.filter(c => !getRec(c.id).excluded);
+  const notExcluded = searched.filter(c => !getRec(c.id).excluded);
   const excluded = searched.filter(c => getRec(c.id).excluded);
+
+  const isPrelim = period.endsWith("예정"); // 1·2기 예정 기간
+  const isConfirm = period.endsWith("확정"); // 확정신고 (예정고지 기납부 차감)
+
+  // 예정고지형(6개월) 여부 — lib/vat-notice (토글 → 홈택스 신고의무/고지대상 → 개인·법인 추정 순). 대시보드 집계와 동일 기준
+  function isNoticeType(client: ClientRow, r: Rec) {
+    return isNoticeTypeShared(client.clientType, r.checklist, r.htx);
+  }
+  // 예정 기간 + 예정고지형 = 신고 불필요(단계 없음) → 단계 카드·대상 수·보수/예상세액 집계에서 분리
+  function isPrelimNoticeClient(client: ClientRow) {
+    return isPrelim && isNoticeType(client, getRec(client.id));
+  }
+  const prelimNotice = notExcluded.filter(c => isPrelimNoticeClient(c));
+  const active = notExcluded.filter(c => !isPrelimNoticeClient(c)); // 실제 신고 대상
 
   const stageCounts: Record<VatStage, number> = { collect: 0, writing: 0, approval: 0, confirm: 0, done: 0 };
   for (const c of active) stageCounts[getRec(c.id).stage]++;
@@ -512,26 +505,10 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   const shown = stageFilter ? active.filter(c => getRec(c.id).stage === stageFilter) : active;
   const feeSum = active.reduce((s, c) => s + (getRec(c.id).fee ?? 0), 0);
 
-  const isPrelim = period.endsWith("예정"); // 1·2기 예정 기간
-  const isConfirm = period.endsWith("확정"); // 확정신고 (예정고지 기납부 차감)
-
-  // 예정고지형(6개월) 여부 판정 순서:
-  //  1) 거래처별 토글(report_notice) 값  2) 홈택스 자료의 신고의무/고지대상  3) 마지막에만 개인=예정고지·법인=예정신고 추정
-  function isNoticeType(client: ClientRow, r: Rec) {
-    const rn = r.checklist["report_notice"];
-    if (rn !== undefined) return rn;
-    return inferNoticeFromHtx(r.htx) ?? client.clientType !== "corporate";
-  }
-  // 예정 기간 + 예정고지 신고 불필요 + 고지세액 0원 → 볼 게 없으니 접어서 묶음
-  function isNoticeZero(client: ClientRow) {
-    if (!isPrelim) return false;
-    const r = getRec(client.id);
-    if (!isNoticeType(client, r)) return false;
-    const amt = r.noticeTax ?? r.htx?.notice?.amount ?? 0;
-    return amt === 0;
-  }
-  const shownMain = shown.filter(c => !isNoticeZero(c));
-  const noticeZero = shown.filter(c => isNoticeZero(c));
+  // 예정고지 거래처: 고지세액 있는 곳은 고지서 안내가 필요하니 펼쳐 두고, 0원인 곳은 볼 게 없으니 접어서 묶음
+  const noticeAmt = (c: ClientRow) => { const r = getRec(c.id); return r.noticeTax ?? r.htx?.notice?.amount ?? 0; };
+  const noticeWithTax = stageFilter ? [] : prelimNotice.filter(c => noticeAmt(c) > 0);
+  const noticeZero = stageFilter ? [] : prelimNotice.filter(c => noticeAmt(c) === 0);
   const noticeZeroExpanded = noticeZeroOpen || qt !== "";
 
   // 예상세액 합계 (참고용) — 일반과세 + 홈택스 자료 있는 대상만
@@ -921,6 +898,12 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="거래처명 · 대표자 검색" className="flex-1 bg-transparent outline-none text-[13px] text-[#191F28] placeholder:text-[#8B95A1]" />
         </div>
         <span className="text-[12px] text-[#6B7684] px-1">대상 <b className="text-[#191F28]">{active.length}곳</b> · 신고완료 <b className="text-[#15803D]">{stageCounts.done}</b> · 보수합계 <b className="text-[#191F28]">{fmtWon(feeSum)}</b></span>
+        {prelimNotice.length > 0 && (
+          <span className="inline-flex items-center gap-1 text-[12px] font-bold text-[#6D28D9] bg-[#F5E8FF] rounded-lg px-2 py-1" title="예정고지형(신고 불필요) 거래처 — 단계 카드·대상 수 집계에서 제외. 고지세액 있는 곳은 표 하단에 펼쳐져 있고, 0원인 곳은 접혀 있어요">
+            📋 예정고지 {prelimNotice.length}곳
+            {noticeWithTax.length > 0 && <span className="text-[#8B95A1] font-medium">· 고지세액 {noticeWithTax.length}</span>}
+          </span>
+        )}
         {estTotal !== 0 && (
           <span className="text-[12px] text-[#6B7684] px-1" title="일반과세 + 홈택스 자료 있는 거래처의 예상세액 합계 (참고용 추정치)">
             예상세액 합계 <b className={estTotal >= 0 ? "text-[#C2410C]" : "text-[#047857]"}>{estTotal >= 0 ? fmtWon(estTotal) : `환급 ${fmtWon(-estTotal)}`}</b> <span className="text-[#B0B8C1]">참고</span>
@@ -1023,10 +1006,14 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
               </tr>
             </thead>
             <tbody className="divide-y divide-white/40">
-              {shownMain.length === 0 && noticeZero.length === 0 && excluded.length === 0 && (
+              {shown.length === 0 && noticeWithTax.length === 0 && noticeZero.length === 0 && excluded.length === 0 && (
                 <tr><td colSpan={colCount} className="text-center py-12 text-[#8B95A1]">대상 거래처가 없습니다</td></tr>
               )}
-              {shownMain.map((c) => row(c, false))}
+              {shown.map((c) => row(c, false))}
+              {noticeWithTax.length > 0 && (
+                <tr><td colSpan={colCount} className="px-4 py-2 text-[11px] font-bold text-[#6D28D9] bg-[#F5E8FF]/40">📋 예정고지 · 신고 불필요 · 고지서 안내 ({noticeWithTax.length}곳)</td></tr>
+              )}
+              {noticeWithTax.map((c) => row(c, false))}
               {noticeZero.length > 0 && (
                 <tr>
                   <td colSpan={colCount} className="p-0 bg-[#F5E8FF]/40">
