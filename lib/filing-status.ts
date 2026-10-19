@@ -33,6 +33,8 @@ export type FilingSummary = {
   stages: StageBucket[];
   /** 짧은 보조 설명 */
   note?: string;
+  /** 시즌 외(마감 지난 뒤): 지난 시즌 결과를 참고용으로만 조용히 보여준다. nextLabel 예: "2027년 5월" */
+  offSeason?: { nextLabel: string };
 };
 
 type SessionLike = { id: number; role: string };
@@ -164,10 +166,19 @@ export function deriveIncomeTaxStage(r: {
   return "collect";
 }
 
-/** 종소세 귀속연도: 1~6월은 전년 귀속 신고 시즌, 7월 이후도 직전 귀속분을 보여준다(페이지 기본값과 동일) */
+/**
+ * 종소세 귀속연도: 1~6월은 전년 귀속 신고 시즌, 7월 이후도 직전 귀속분을 보여준다(페이지 기본값과 동일).
+ * 7월 이후는 offSeason — 홈 카드에서 마감 경고 대신 "다음 시즌" 안내로 조용히 표시.
+ */
 export function pickIncomeTaxYear(today: string) {
   const y = parseInt(today.slice(0, 4));
-  return { taxYear: String(y - 1), deadline: findEventDate(y, 6, "종합소득세 확정신고") };
+  const m = parseInt(today.slice(5, 7));
+  return {
+    taxYear: String(y - 1),
+    deadline: findEventDate(y, 6, "종합소득세 확정신고"),
+    offSeason: m >= 7,
+    nextLabel: `${y + 1}년 5월`,
+  };
 }
 
 /* ───────────── 집계 ───────────── */
@@ -312,17 +323,31 @@ export async function getFilingSummaries(session: SessionLike, today: string): P
     const st = deriveIncomeTaxStage(r);
     itCounts.set(st, (itCounts.get(st) ?? 0) + 1);
   }
-  const incomeTax: FilingSummary = {
-    key: "incomeTax",
-    title: "종합소득세",
-    periodLabel: `${it.taxYear}년 귀속`,
-    href: `/income-tax?year=${it.taxYear}`,
-    deadline: it.deadline,
-    total: itClients.length - itExcluded,
-    done: itCounts.get("done") ?? 0,
-    stages: bucketize(INCOME_TAX_STAGES, itCounts),
-    note: itExcluded > 0 ? `제외 ${itExcluded}곳` : undefined,
-  };
+  const itDone = itCounts.get("done") ?? 0;
+  const incomeTax: FilingSummary = it.offSeason
+    ? {
+        // 시즌 외: 분모(현재 거래처 수)는 당시 기준이 아니므로 쓰지 않고, 신고완료 건수만 참고용으로 남긴다
+        key: "incomeTax",
+        title: "종합소득세",
+        periodLabel: `${it.taxYear}년 귀속 · 지난 시즌`,
+        href: `/income-tax?year=${it.taxYear}`,
+        deadline: null,
+        total: itDone,
+        done: itDone,
+        stages: bucketize(INCOME_TAX_STAGES, new Map([["done", itDone]])),
+        offSeason: { nextLabel: it.nextLabel },
+      }
+    : {
+        key: "incomeTax",
+        title: "종합소득세",
+        periodLabel: `${it.taxYear}년 귀속`,
+        href: `/income-tax?year=${it.taxYear}`,
+        deadline: it.deadline,
+        total: itClients.length - itExcluded,
+        done: itDone,
+        stages: bucketize(INCOME_TAX_STAGES, itCounts),
+        note: itExcluded > 0 ? `제외 ${itExcluded}곳` : undefined,
+      };
 
   return [bookkeeping, withholding, vatSummary, incomeTax];
 }

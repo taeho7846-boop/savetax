@@ -58,11 +58,12 @@ export function FilingStatusCard({ items, today }: { items: FilingSummary[]; tod
           const complete = it.total > 0 && it.done === it.total;
           const icon = ICONS[it.key];
           const visibleStages = it.stages.filter((s) => s.count > 0);
+          const off = it.offSeason;
           return (
             <Link
               key={it.key}
               href={it.href}
-              className="stat-card glass-strong group block rounded-2xl p-4 transition hover:-translate-y-px"
+              className={`stat-card glass-strong group block rounded-2xl p-4 transition hover:-translate-y-px ${off ? "opacity-75 hover:opacity-100" : ""}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5">
@@ -74,17 +75,29 @@ export function FilingStatusCard({ items, today }: { items: FilingSummary[]; tod
                     <div className="truncate text-[11.5px] text-[#6B7684]">{it.periodLabel}</div>
                   </div>
                 </div>
-                {deadlineChip(it.deadline, today, complete)}
+                {off ? (
+                  <span className="rounded-full bg-[#F2F4F6] px-2 py-0.5 text-[10.5px] font-bold text-[#6B7684]">다음 시즌 {off.nextLabel}</span>
+                ) : (
+                  deadlineChip(it.deadline, today, complete)
+                )}
               </div>
 
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-[26px] font-bold leading-none tabular-nums text-[#191F28]">{it.done}</span>
-                <span className="text-[13px] font-bold text-[#8B95A1]">/ {it.total}곳</span>
-                <span className={`ml-auto text-[13px] font-bold tabular-nums ${complete ? "text-[#15803D]" : "text-[#3182F6]"}`}>{pct}%</span>
-              </div>
+              {off ? (
+                <div className="mt-4 flex items-baseline gap-1.5">
+                  <span className="text-[26px] font-bold leading-none tabular-nums text-[#4E5968]">{it.done}</span>
+                  <span className="text-[13px] font-bold text-[#8B95A1]">곳 신고완료</span>
+                  <span className="ml-auto text-[11px] font-medium text-[#B0B8C1]">지난 시즌 결과</span>
+                </div>
+              ) : (
+                <div className="mt-4 flex items-baseline gap-1.5">
+                  <span className="text-[26px] font-bold leading-none tabular-nums text-[#191F28]">{it.done}</span>
+                  <span className="text-[13px] font-bold text-[#8B95A1]">/ {it.total}곳</span>
+                  <span className={`ml-auto text-[13px] font-bold tabular-nums ${complete ? "text-[#15803D]" : "text-[#3182F6]"}`}>{pct}%</span>
+                </div>
+              )}
 
-              {/* 단계별 분포 바 */}
-              <div className="mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full bg-[#191F28]/[.06]">
+              {/* 단계별 분포 바 (시즌 외엔 흐리게) */}
+              <div className={`mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full bg-[#191F28]/[.06] ${off ? "opacity-40" : ""}`}>
                 {it.total > 0 &&
                   it.stages
                     .filter((s) => s.count > 0)
@@ -99,7 +112,9 @@ export function FilingStatusCard({ items, today }: { items: FilingSummary[]; tod
               </div>
 
               <div className="mt-2.5 flex flex-wrap gap-x-2.5 gap-y-1">
-                {it.total === 0 ? (
+                {off ? (
+                  <span className="text-[11px] text-[#B0B8C1]">{it.done === 0 ? "지난 시즌 기록이 없어요" : "마감 지남 · 신고 시즌에 다시 집계돼요"}</span>
+                ) : it.total === 0 ? (
                   <span className="text-[11px] text-[#B0B8C1]">대상 거래처가 없어요</span>
                 ) : (
                   visibleStages.map((s) => (
