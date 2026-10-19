@@ -9,6 +9,7 @@ import { TrashBinButton } from "./TrashBin";
 import { TerminatedBinButton } from "./TerminatedBin";
 import { MissingInfoCards } from "./MissingInfoCards";
 import { SemoReportVerifyButton } from "./SemoReportModal";
+import { SemoLedgerCollectButton } from "./SemoLedgerModal";
 import { semoEnabledForSession } from "@/lib/client-scope";
 
 const LABOR_TYPE_STYLES: Record<string, { border: string; text: string; bg: string }> = {
@@ -170,6 +171,7 @@ export default async function ClientsPage({
               <TrashBinButton count={trashCount} />
               {(session.role === "owner" || session.role === "admin") && <TransferButton />}
               {semoEnabled && <SemoReportVerifyButton />}
+              {semoEnabled && <SemoLedgerCollectButton />}
               <BulkUpdateButton />
               <BulkUploadButton />
               <ClientCreateButton />

@@ -516,6 +516,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
+  // 세모리포트 수집(content-semoreport.js) → 앱 API 전달. 수집을 시작한 앱 주소(base)를 먼저 쓰고, 안 되면 로컬→운영 순으로 폴백
+  if (msg.type === "semo-api") {
+    (async () => {
+      const bases = [msg.base, "http://localhost:3000", "https://app.savetaxnh.com"].filter((b, i, a) => b && a.indexOf(b) === i);
+      let result = null, lastErr = "";
+      for (const base of bases) {
+        try {
+          const res = await fetch(base + msg.path, {
+            method: msg.method || "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: msg.body ? JSON.stringify(msg.body) : undefined,
+          });
+          if (res.status === 401) { lastErr = base + " 401(로그인 필요)"; continue; }
+          const text = await res.text();
+          try { result = JSON.parse(text); } catch { lastErr = base + " 응답이 JSON이 아님(" + res.status + ")"; continue; }
+          if (!res.ok && !result.error) result = { ok: false, error: base + " " + res.status };
+          break;
+        } catch (e) { lastErr = e.message; }
+      }
+      sendResponse(result || { ok: false, error: "앱 서버 연결 실패 (사이트 로그인 상태 확인): " + lastErr });
+    })();
+    return true;
+  }
   // 서버 API 호출 대행 (로컬 → 운영 폴백, 사이트 쿠키 사용): 확장 content script가 작업 상세/결과를 주고받을 때
   if (msg.type === "efile-api") {
     (async () => {

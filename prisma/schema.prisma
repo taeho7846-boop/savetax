@@ -129,6 +129,7 @@ model Client {
   vatRejections             VatRejection[]
   collectionContacts        CollectionContact[]
   bookkeepingMonths         BookkeepingMonth[]
+  semoLedgerMonths          SemoLedgerMonth[]
 }
 
 // 월기장 진행 상태 — 거래처 × 기장 대상 월. stage: none(미시작) | input(기장입력 중) | booked(기장완료) | reviewed(세모리포트 검토완료) | done(세모리포트 완료)
@@ -957,4 +958,30 @@ model TaehoSettlementPayment {
   createdAt       DateTime @default(now())
 
   @@index([yearMonth, participantId])
+}
+
+/// 세모리포트 '고객 매입매출장' 월별 요약 — 크롬 확장(content-semoreport.js)이 세모리포트 JSON을 수집해 /api/semo-ledger/import 로 저장.
+/// 금액은 원 단위, 공급가액·세액 분리. detail 에 증빙 유형별(전자세금계산서·카드·현금영수증 등) 원본 필드를 JSON으로 보관.
+model SemoLedgerMonth {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  yearMonth      String   // "YYYY-MM"
+  saleCount      Int      @default(0)
+  saleTotal      BigInt   @default(0) // 매출 합계(공급가액+세액)
+  saleSupply     BigInt   @default(0) // 매출 공급가액
+  saleVat        BigInt   @default(0) // 매출 세액
+  buyCount       Int      @default(0)
+  buyTotal       BigInt   @default(0)
+  buySupply      BigInt   @default(0)
+  buyVat         BigInt   @default(0)
+  purchasingRate Float?               // 매입률(%) = 매입/매출
+  detail         String               // 세모리포트 원본 필드 JSON (S_*/B_*/HE_* 등)
+  semoBzaqKey    String?              // 세모리포트 거래처 키(TXOF_BZAQ_KEY)
+  collectedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  client         Client   @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, yearMonth])
+  @@index([yearMonth])
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "4.57",
+  "version": "4.58",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": [
     "contentSettings",
@@ -25,7 +25,8 @@
     "https://www.wemembers.net/*",
     "https://tax.appplay.co.kr/*",
     "http://localhost:3000/*",
-    "http://localhost:9000/*"
+    "http://localhost:9000/*",
+    "https://reportmgmt.appplay.co.kr/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -136,6 +137,15 @@
       "js": [
         "efile-submit-common.js",
         "content-wetax-efile.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://reportmgmt.appplay.co.kr/*"
+      ],
+      "js": [
+        "content-semoreport.js"
       ],
       "run_at": "document_idle"
     }
