@@ -52,7 +52,7 @@ export async function GET() {
 
   const [run, agg, latest] = await Promise.all([
     readRun(),
-    prisma.semoLedgerMonth.groupBy({ by: ["yearMonth"], _count: { _all: true }, orderBy: { yearMonth: "desc" }, take: 24 }),
+    prisma.semoLedgerMonth.groupBy({ by: ["yearMonth"], _count: { _all: true }, orderBy: { yearMonth: "desc" }, take: 48 }),
     prisma.semoLedgerMonth.findFirst({ orderBy: { collectedAt: "desc" }, select: { collectedAt: true } }),
   ]);
   const clientCount = await prisma.semoLedgerMonth.findMany({ distinct: ["clientId"], select: { clientId: true } });
