@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { canEditTaehoSettlement, isValidYM, prevYM } from "@/lib/taeho-settlement";
+import { canEditTaehoSettlement, isValidYM, prevYM, type RevenueSource } from "@/lib/taeho-settlement";
 
 const PATH = "/settlement-taeho";
 
@@ -89,4 +89,31 @@ export async function copyRecurringExpenses(yearMonth: string): Promise<number> 
   });
   revalidatePath(PATH);
   return toCreate.length;
+}
+
+/**
+ * 매출 행 하나를 이 달 계산에서 제외/다시 포함. 원본(채권관리 수납 체크·Savetax 출금 체크·단건 행)은 건드리지 않는다.
+ * @param source client(refId=clientId) | pulled(refId=bookkeepingId) | oneoff(refId=oneoffId)
+ */
+export async function setTaehoRevenueExcluded(
+  yearMonth: string,
+  source: RevenueSource,
+  refId: number,
+  excluded: boolean,
+  label?: string
+) {
+  const session = await requireOwner();
+  if (!isValidYM(yearMonth)) throw new Error("잘못된 월입니다.");
+  if (!["client", "pulled", "oneoff"].includes(source)) throw new Error("잘못된 출처입니다.");
+  const where = { yearMonth_source_refId: { yearMonth, source, refId } };
+  if (excluded) {
+    await prisma.taehoSettlementExclusion.upsert({
+      where,
+      update: { label: label ?? undefined },
+      create: { yearMonth, source, refId, label: label ?? null, createdByUserId: session.id },
+    });
+  } else {
+    await prisma.taehoSettlementExclusion.deleteMany({ where: { yearMonth, source, refId } });
+  }
+  revalidatePath(PATH);
 }

@@ -24,18 +24,24 @@ export type Participant = {
 export type RevenueSource = "client" | "pulled" | "oneoff";
 
 export type RevenueRow = {
+  /** 원본 행 식별자 — client: clientId / pulled: bookkeepingId / oneoff: oneoffId */
+  refId: number;
   name: string; // 거래처명
   yearMonth: string;
   amount: number; // 공급대가(부가세 포함)
   source: RevenueSource;
   note?: string | null;
+  /** 이 달 계산에서 제외됨 (원본은 그대로, TaehoSettlementExclusion) */
+  excluded: boolean;
 };
 
 export type RevenueItem = {
   key: RevenueSource;
   label: string;
   hint: string;
+  /** 제외된 행을 뺀 합계 */
   total: number;
+  excludedCount: number;
   rows: RevenueRow[];
 };
 
@@ -138,7 +144,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   const prev = prevYM(yearMonth);
   const months = Array.from(new Set([prev, ...yearMonths]));
 
-  const [clients, bookkeepings, oneoffs, expenses] = await Promise.all([
+  const [clients, bookkeepings, oneoffs, expenses, exclusions] = await Promise.all([
     // 1) 기장료 입금 — 담당(사수) 거래처 중 세이브택스 소속 제외, 해당 월 수납(paid) 체크
     prisma.client.findMany({
       where: {
@@ -149,6 +155,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
         feeRecords: { some: { status: "paid", yearMonth: { in: months } } },
       },
       select: {
+        id: true,
         name: true,
         monthlyFee: true,
         feeRecords: { where: { status: "paid", yearMonth: { in: months } }, select: { yearMonth: true } },
@@ -162,6 +169,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
         checks: { some: { withdrawn: true, yearMonth: { in: months } } },
       },
       select: {
+        id: true,
         clientName: true,
         monthlyFee: true,
         notes: true,
@@ -172,7 +180,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     // 3) 단건 수수료 — 출금 체크된 건
     prisma.settlementOneoff.findMany({
       where: { assignedUserName: participant.name, withdrawn: true, yearMonth: { in: months } },
-      select: { clientName: true, fee: true, yearMonth: true, notes: true },
+      select: { id: true, clientName: true, fee: true, yearMonth: true, notes: true },
       orderBy: { createdAt: "asc" },
     }),
     // 4) 공통비용
@@ -180,7 +188,15 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
       where: { yearMonth: { in: months } },
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
     }),
+    // 5) 이 달 계산에서 제외한 매출 행
+    prisma.taehoSettlementExclusion.findMany({
+      where: { yearMonth: { in: months } },
+      select: { yearMonth: true, source: true, refId: true },
+    }),
   ]);
+
+  const excludedKeys = new Set(exclusions.map((e) => `${e.yearMonth}|${e.source}|${e.refId}`));
+  const isExcluded = (ym: string, source: RevenueSource, refId: number) => excludedKeys.has(`${ym}|${source}|${refId}`);
 
   // 월별 매출 행 모으기
   const byMonth = new Map<string, { client: RevenueRow[]; pulled: RevenueRow[]; oneoff: RevenueRow[] }>();
@@ -195,27 +211,38 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
   for (const c of clients) {
     const fee = c.monthlyFee ?? 0;
     for (const r of c.feeRecords) {
-      bucket(r.yearMonth).client.push({ name: c.name, yearMonth: r.yearMonth, amount: fee, source: "client" });
+      bucket(r.yearMonth).client.push({
+        refId: c.id,
+        name: c.name,
+        yearMonth: r.yearMonth,
+        amount: fee,
+        source: "client",
+        excluded: isExcluded(r.yearMonth, "client", c.id),
+      });
     }
   }
   for (const b of bookkeepings) {
     for (const chk of b.checks) {
       bucket(chk.yearMonth).pulled.push({
+        refId: b.id,
         name: b.clientName,
         yearMonth: chk.yearMonth,
         amount: b.monthlyFee,
         source: "pulled",
         note: b.notes,
+        excluded: isExcluded(chk.yearMonth, "pulled", b.id),
       });
     }
   }
   for (const o of oneoffs) {
     bucket(o.yearMonth).oneoff.push({
+      refId: o.id,
       name: o.clientName,
       yearMonth: o.yearMonth,
       amount: o.fee,
       source: "oneoff",
       note: o.notes,
+      excluded: isExcluded(o.yearMonth, "oneoff", o.id),
     });
   }
 
@@ -226,7 +253,9 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
     expensesByMonth.set(e.yearMonth, list);
   }
 
-  const sum = (rows: { amount: number }[]) => rows.reduce((s, r) => s + r.amount, 0);
+  // 합계는 제외(excluded)되지 않은 행만
+  const sum = (rows: RevenueRow[]) => rows.reduce((s, r) => (r.excluded ? s : s + r.amount), 0);
+  const nExcluded = (rows: RevenueRow[]) => rows.filter((r) => r.excluded).length;
 
   function buildStatement(ym: string): MonthStatement {
     const b = byMonth.get(ym) ?? { client: [], pulled: [], oneoff: [] };
@@ -236,6 +265,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
         label: "기장료 입금",
         hint: "채권관리에서 수납 체크된 담당 거래처 (세이브택스 소속 제외)",
         total: sum(b.client),
+        excludedCount: nExcluded(b.client),
         rows: b.client,
       },
       {
@@ -243,6 +273,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
         label: "빼온 거래처 입금",
         hint: "Savetax 정산 기장 목록에서 이번 달 출금 체크된 건",
         total: sum(b.pulled),
+        excludedCount: nExcluded(b.pulled),
         rows: b.pulled,
       },
       {
@@ -250,6 +281,7 @@ export async function loadTaehoSettlement(participant: Participant, yearMonth: s
         label: "단건 수수료",
         hint: "Savetax 정산 단건에서 출금 체크된 건의 수수료",
         total: sum(b.oneoff),
+        excludedCount: nExcluded(b.oneoff),
         rows: b.oneoff,
       },
     ];

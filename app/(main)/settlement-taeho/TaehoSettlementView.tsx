@@ -7,11 +7,12 @@ import {
   copyRecurringExpenses,
   createTaehoExpense,
   deleteTaehoExpense,
+  setTaehoRevenueExcluded,
   updateTaehoExpense,
   type ExpenseInput,
 } from "@/app/actions/taeho-settlement";
 import { askConfirm, notify } from "@/components/ui/Dialog";
-import type { ExpenseRow, RevenueItem, RevenueSource, TaehoSettlementData } from "@/lib/taeho-settlement";
+import type { ExpenseRow, RevenueItem, RevenueRow, RevenueSource, TaehoSettlementData } from "@/lib/taeho-settlement";
 import { SERIES, TaehoTrendChart } from "./TaehoTrendChart";
 
 const won = (n: number) => n.toLocaleString("ko-KR");
@@ -116,7 +117,7 @@ export function TaehoSettlementView({
             {/* 매출 */}
             <SectionTitle color={SERIES.revenue.color}>매출</SectionTitle>
             {st.revenue.items.map((item) => (
-              <RevenueLine key={item.key} item={item} />
+              <RevenueLine key={item.key} item={item} ym={ym} canEdit={canEdit} />
             ))}
             <TotalLine label="매출 합계" value={st.revenue.total} />
 
@@ -325,9 +326,23 @@ function TotalLine({ label, value }: { label: string; value: number }) {
   );
 }
 
-function RevenueLine({ item }: { item: RevenueItem }) {
+function RevenueLine({ item, ym, canEdit }: { item: RevenueItem; ym: string; canEdit: boolean }) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const count = item.rows.length;
+  const included = count - item.excludedCount;
+
+  function toggleExcluded(r: RevenueRow) {
+    startTransition(async () => {
+      try {
+        await setTaehoRevenueExcluded(ym, r.source, r.refId, !r.excluded, r.name);
+        notify(r.excluded ? `'${r.name}' 다시 계산에 포함했어요` : `'${r.name}' 이번 달 계산에서 제외했어요`);
+      } catch {
+        notify("변경 실패 — 대표만 바꿀 수 있어요", { type: "error" });
+      }
+    });
+  }
+
   return (
     <div>
       <button
@@ -339,21 +354,44 @@ function RevenueLine({ item }: { item: RevenueItem }) {
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-[10px] text-[#8B95A1] transition-transform ${open ? "rotate-90" : ""} ${count === 0 ? "opacity-0" : ""}`}>▶</span>
           <span className="text-[13px] font-medium text-[#191F28]">{item.label}</span>
-          <span className={`text-[10.5px] font-bold rounded-full px-1.5 py-0.5 ${count > 0 ? SOURCE_CHIP[item.key].cls : "bg-[#F2F4F6] text-[#B0B8C1]"}`}>{count}건</span>
+          <span className={`text-[10.5px] font-bold rounded-full px-1.5 py-0.5 ${count > 0 ? SOURCE_CHIP[item.key].cls : "bg-[#F2F4F6] text-[#B0B8C1]"}`}>{included}건</span>
+          {item.excludedCount > 0 && (
+            <span className="text-[10.5px] font-bold rounded-full px-1.5 py-0.5 bg-[#F2F4F6] text-[#8B95A1]" title="이번 달 계산에서 제외한 건수">제외 {item.excludedCount}</span>
+          )}
         </div>
-        <div className={`text-[13.5px] font-bold tabular-nums ${count > 0 ? "text-[#191F28]" : "text-[#B0B8C1]"}`}>{won(item.total)}</div>
+        <div className={`text-[13.5px] font-bold tabular-nums ${included > 0 ? "text-[#191F28]" : "text-[#B0B8C1]"}`}>{won(item.total)}</div>
       </button>
       {open && count > 0 && (
-        <div className="ml-7 mr-1 mb-2 rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden">
+        <div className={`ml-7 mr-1 mb-2 rounded-2xl bg-white/60 border border-[#E5E8EB]/60 overflow-hidden ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
           {item.rows.map((r, i) => (
-            <div key={`${r.name}-${r.yearMonth}-${i}`} className="flex items-center justify-between gap-3 px-3.5 py-2 border-b border-[#F2F4F6] last:border-b-0">
+            <div
+              key={`${r.source}-${r.refId}-${r.yearMonth}-${i}`}
+              className={`group flex items-center justify-between gap-3 px-3.5 py-2 border-b border-[#F2F4F6] last:border-b-0 ${r.excluded ? "bg-[#F9FAFB]" : ""}`}
+            >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[12.5px] text-[#191F28] truncate">{r.name}</span>
+                <span className={`text-[12.5px] truncate ${r.excluded ? "text-[#B0B8C1] line-through" : "text-[#191F28]"}`}>{r.name}</span>
                 <span className="text-[10.5px] text-[#8B95A1] tabular-nums">{ymLabel(r.yearMonth)}</span>
-                <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
+                <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${r.excluded ? "bg-[#F2F4F6] text-[#B0B8C1]" : SOURCE_CHIP[r.source].cls}`}>{SOURCE_CHIP[r.source].label}</span>
+                {r.excluded && <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-[#FEF2F2] text-[#DC2626]" title="원본 행은 그대로 있고, 이번 달 정산 계산에서만 빠져 있어요">계산 제외</span>}
                 {r.note && <span className="text-[10.5px] text-[#8B95A1] truncate" title={r.note}>{r.note}</span>}
               </div>
-              <div className="text-[12.5px] font-bold text-[#191F28] tabular-nums whitespace-nowrap">{won(r.amount)}</div>
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExcluded(r)}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-lg transition ${
+                      r.excluded
+                        ? "text-[#3182F6] bg-[#E8F3FF] hover:bg-[#D6E8FF]"
+                        : "text-[#6B7684] opacity-0 group-hover:opacity-100 hover:bg-[#F2F4F6]"
+                    }`}
+                    title={r.excluded ? "이번 달 계산에 다시 넣기" : "원본은 두고 이번 달 계산에서만 빼기"}
+                  >
+                    {r.excluded ? "다시 포함" : "계산에서 제외"}
+                  </button>
+                )}
+                <span className={`text-[12.5px] font-bold tabular-nums ${r.excluded ? "text-[#B0B8C1] line-through" : "text-[#191F28]"}`}>{won(r.amount)}</span>
+              </div>
             </div>
           ))}
         </div>

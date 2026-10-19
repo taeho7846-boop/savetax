@@ -898,3 +898,17 @@ model TaehoSettlementExpense {
 
   @@index([yearMonth])
 }
+
+/// 세무회계태호 정산 — 특정 월 계산에서 매출 행 하나를 제외 (원본 수납 체크·출금 체크·단건 행은 그대로 둔다).
+/// source: client(채권관리 FeeRecord, refId=clientId) | pulled(Savetax 기장, refId=bookkeepingId) | oneoff(단건, refId=oneoffId)
+model TaehoSettlementExclusion {
+  id              Int      @id @default(autoincrement())
+  yearMonth       String
+  source          String
+  refId           Int
+  label           String?  // 거래처명 (조회 편의용 스냅샷)
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+
+  @@unique([yearMonth, source, refId])
+}
