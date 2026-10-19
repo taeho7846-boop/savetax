@@ -1,3 +1,4 @@
+import "@/lib/polyfills-node"; // Promise.withResolvers (Node 20 호환) — pdfjs보다 먼저
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 /**

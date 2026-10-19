@@ -20,6 +20,19 @@ const digits = (s: unknown) => String(s ?? "").replace(/[^0-9]/g, "");
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    return await handle(req, session);
+  } catch (e) {
+    // 원인이 화면에 보이도록 (pdfjs 로드 실패, 파일 저장 권한 등)
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("[예정고지 납부서 업로드 실패]", e);
+    return NextResponse.json({ error: `납부서 처리 중 서버 오류가 났습니다.
+
+${msg}` }, { status: 500 });
+  }
+}
+
+async function handle(req: NextRequest, session: { id: number; role: string }) {
 
   const formData = await req.formData();
   const period = formData.get("period") as string | null; // "2026-2-예정"
