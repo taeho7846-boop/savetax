@@ -221,7 +221,7 @@ export function BookkeepingBoard({
   ];
 
   return (
-    <div>
+    <div className="flex flex-col h-full min-h-0">
       {/* 헤더 */}
       <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
         <div>
@@ -369,18 +369,18 @@ export function BookkeepingBoard({
         </div>
       )}
 
-      {/* 표 */}
-      <div className="glass rounded-3xl overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* 표 — 남은 화면 높이를 꽉 채우고 안에서 스크롤 (머리글·거래처명 고정) */}
+      <div className="glass rounded-3xl overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm border-separate border-spacing-0">
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className="bg-white/90 backdrop-blur-md">
                 <th className="sticky left-0 z-30 bg-white/95 px-3 py-3 w-10 border-b border-[#E5E8EB]">
                   {!readonly && (
                     <input type="checkbox" checked={allChecked} onChange={() => setSelected(allChecked ? new Set() : new Set(rows.map(r => r.id)))} className="w-4 h-4 accent-[#3182F6] cursor-pointer" />
                   )}
                 </th>
-                <th className="sticky left-10 z-30 bg-white/95 text-left px-3 py-3 text-[#333D4B] font-medium min-w-[200px] border-b border-[#E5E8EB]">
+                <th className="sticky left-10 z-30 bg-white/95 text-left px-3 py-3 text-[#333D4B] font-medium min-w-[200px] border-b border-[#E5E8EB]" title="칸을 클릭하면 단계를 바꾸고 메모를 남길 수 있습니다. 왼쪽 체크로 여러 거래처를 고르면 기준월 단계를 한 번에 바꿀 수 있고, 위 카드를 누르면 해당 단계만 걸러집니다.">
                   거래처 <span className="text-[#8B95A1] font-normal">{rows.length}곳</span>
                 </th>
                 {months.map(m => {
@@ -451,9 +451,6 @@ export function BookkeepingBoard({
         </div>
       </div>
 
-      <p className="text-[11px] text-[#8B95A1] mt-3 px-1">
-        칸을 클릭하면 단계를 바꾸고 메모를 남길 수 있습니다. 왼쪽 체크로 여러 거래처를 고르면 기준월 단계를 한 번에 바꿀 수 있고, 위 카드를 누르면 해당 단계만 걸러집니다.
-      </p>
 
       {/* 팝오버 */}
       {pop && (() => {
