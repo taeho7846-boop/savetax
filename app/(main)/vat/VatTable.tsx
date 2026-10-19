@@ -508,7 +508,8 @@ export function VatTable({ clients, period, activeTab, showAssignedUser }: Props
   // 예정고지 거래처: 고지세액 있는 곳은 고지서 안내가 필요하니 펼쳐 두고, 0원인 곳은 볼 게 없으니 접어서 묶음
   const noticeAmt = (c: ClientRow) => { const r = getRec(c.id); return r.noticeTax ?? r.htx?.notice?.amount ?? 0; };
   const noticeTaxed = prelimNotice.filter(c => noticeAmt(c) > 0);
-  const noticeWithTax = stageFilter ? [] : noticeTaxed;
+  // 납부서 발송 완료한 곳은 묶음 맨 아래로 (미발송이 위에 오도록, 원래 순서는 유지)
+  const noticeWithTax = stageFilter ? [] : [...noticeTaxed].sort((a, b) => Number(!!getRec(a.id).checklist[NOTICE_BILL_SENT_KEY]) - Number(!!getRec(b.id).checklist[NOTICE_BILL_SENT_KEY]));
   const noticeZero = stageFilter ? [] : prelimNotice.filter(c => noticeAmt(c) === 0);
   const billSentCount = noticeTaxed.filter(c => getRec(c.id).checklist[NOTICE_BILL_SENT_KEY]).length;
   // 홈택스상 예정고지 대상인데 예정신고 하기로 한 곳(3개월 선택) — 신고 대상에 포함되며 따로 표시
