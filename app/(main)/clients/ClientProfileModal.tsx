@@ -7,6 +7,7 @@ import { openClientEditModal } from "@/app/(main)/clients/ClientLink";
 import { ClientLedgerModal } from "@/app/(main)/clients/ClientLedgerModal";
 import { ClientPayrollModal } from "@/app/(main)/clients/ClientPayrollModal";
 import { YearBarLineChart } from "@/app/(main)/clients/YearBarLineChart";
+import { PnlSection } from "@/app/(main)/clients/PnlSection";
 import type { ClientEditModalTab } from "@/app/(main)/clients/ClientEditModal";
 
 /**
@@ -621,11 +622,12 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
           <SectionTabs
             tabs={[
               { id: "sec-summary", label: "요약" },
+              { id: "sec-notes", label: "메모" },
+              { id: "sec-pnl", label: "손익" },
               { id: "sec-ledger", label: "매출·매입" },
+              ...(c?.withholdingType !== "D" ? [{ id: "sec-wh", label: "원천세·인건비" }] : []),
               { id: "sec-vat", label: "부가세" },
               ...(!isCorp ? [{ id: "sec-income", label: "종소세" }] : []),
-              ...(c?.withholdingType !== "D" ? [{ id: "sec-wh", label: "원천세·인건비" }] : []),
-              { id: "sec-notes", label: "메모" },
             ]}
             active={activeSection}
             onSelect={jumpTo}
@@ -667,6 +669,38 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
 
               </div>
 
+              {/* 메모 + 특이사항 */}
+              <section id="sec-notes" data-section className="glass rounded-2xl p-4 scroll-mt-3">
+                <SectionTitle eyebrow="Notes" title="메모 · 특이사항" right={<MoreLink onClick={() => openEdit("history")}>이력 전체</MoreLink>} />
+                {c?.notes && (
+                  <div className="mb-3 whitespace-pre-wrap rounded-xl bg-[#FFFBEB] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-[#78350F]">
+                    <span className="mr-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#B45309]">거래처 특이사항</span>{c.notes}
+                  </div>
+                )}
+                {data.memos.length === 0 && !c?.notes ? (
+                  <div className="py-4 text-center text-[12px] text-[#B0B8C1]">아직 메모가 없어요</div>
+                ) : (
+                  <ul className="divide-y divide-[#F2F4F6]">
+                    {data.memos.map(m => (
+                      <li key={m.id} className="flex items-start gap-3 py-2">
+                        <div className="w-[70px] shrink-0 text-[11px] tabular-nums text-[#8B95A1]">{fmtDate(m.createdAt)}</div>
+                        <div className="min-w-0 flex-1">
+                          {m.title && <div className="truncate text-[12.5px] font-bold text-[#191F28]">{m.title}</div>}
+                          <div className="line-clamp-2 whitespace-pre-wrap text-[12px] leading-relaxed text-[#4E5968]">{m.content}</div>
+                        </div>
+                        <div className="shrink-0 text-[11px] text-[#8B95A1]">{m.author}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {/* 손익: 매출(A) − 매입(B) − 인건비(C) */}
+              <section id="sec-pnl" data-section className="glass rounded-2xl p-4 scroll-mt-3">
+                <SectionTitle eyebrow="Profit & loss" title="손익 (매출 − 매입 − 인건비)" right={<span className="text-[11px] text-[#8B95A1]">{data.pnl.year}년 누적 · 카드를 누르면 상세</span>} />
+                <PnlSection pnl={data.pnl} onOpenLedger={ym => setLedgerOpen({ month: ym })} onOpenPayroll={ym => setPayrollOpen({ month: ym })} />
+              </section>
+
               {/* 월별 매출·매입 */}
               <section id="sec-ledger" data-section className="glass rounded-2xl p-4 scroll-mt-3">
                 <SectionTitle
@@ -684,68 +718,6 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 />
                 <LedgerChart rows={data.ledger} today={data.today} onSelectMonth={ym => setLedgerOpen({ month: ym })} />
               </section>
-
-              {/* 부가세 이력 */}
-              <HistoryCard id="sec-vat" eyebrow="VAT" title="부가가치세 이력" href={data.links.vat} empty={data.vatHistory.length === 0} count={data.vatHistory.length}>
-                <thead>
-                  <tr className="border-b border-[#F2F4F6]">
-                    <th className={TH}>기간</th><th className={TH}>단계</th>
-                    <th className={`${TH} text-right`}>매출 공급가액</th><th className={`${TH} text-right`}>매입 공급가액</th>
-                    <th className={`${TH} text-right`}>예정고지</th><th className={`${TH} text-right`}>신고수수료</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.vatHistory.map(r => (
-                    <tr key={r.period} className={rowCls(r.isCurrent)}>
-                      <td className={`${TD} font-bold text-[#191F28]`}>{r.label}{r.isCurrent && <span className="ml-1.5 text-[10px] font-bold text-[#3182F6]">진행중</span>}</td>
-                      <td className={TD}>
-                        {r.excluded ? <Pill color="#8B95A1" muted>제외</Pill> : r.prelimNotice ? <Pill color="#8B95A1">예정고지 · 신고 불필요</Pill> : <Pill color={r.stageColor}>{r.stageLabel}</Pill>}
-                      </td>
-                      <td className={NUM}>{r.hasHtx ? won(r.salesSupply) : <span className="text-[#B0B8C1]">자료 없음</span>}</td>
-                      <td className={NUM}>{r.hasHtx ? won(r.buySupply) : <span className="text-[#B0B8C1]">-</span>}</td>
-                      <td className={NUM}>{r.noticeAmount > 0 ? won(r.noticeAmount) : <span className="text-[#B0B8C1]">-</span>}</td>
-                      <td className={NUM}>{r.fee ? won(r.fee) : <span className="text-[#B0B8C1]">-</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </HistoryCard>
-
-              {/* 종소세 이력 */}
-              {!isCorp && (
-                <HistoryCard id="sec-income" eyebrow="Income tax" title="종합소득세 이력" href={data.links.incomeTax} empty={data.incomeTaxHistory.length === 0} count={data.incomeTaxHistory.length}>
-                  <thead>
-                    <tr className="border-b border-[#F2F4F6]">
-                      <th className={TH}>귀속</th><th className={TH}>단계</th><th className={TH}>유형</th>
-                      <th className={`${TH} text-right`}>매출</th><th className={`${TH} text-right`}>소득금액</th><th className={`${TH} text-right`}>결정세액</th>
-                      <th className={TH}>감면·공제</th><th className={`${TH} text-right`}>조정료</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.incomeTaxHistory.map(r => {
-                      const diff = r.currTax != null && r.prevTax != null && r.prevTax > 0 ? Math.round(((r.currTax - r.prevTax) / r.prevTax) * 100) : null;
-                      return (
-                        <tr key={r.taxYear} className={rowCls(r.isCurrent)}>
-                          <td className={`${TD} font-bold text-[#191F28]`}>{r.taxYear}년</td>
-                          <td className={TD}>{r.excluded ? <Pill color="#8B95A1" muted>제외</Pill> : <Pill color={r.stageColor}>{r.stageLabel}</Pill>}</td>
-                          <td className={`${TD} text-[#6B7684]`}>{[r.bookkeepingDuty, r.filingType].filter(Boolean).join(" · ") || "-"}</td>
-                          <td className={NUM}>{won(r.currSales)}</td>
-                          <td className={NUM}>{won(r.currIncome)}</td>
-                          <td className={`${NUM} font-bold text-[#191F28]`}>
-                            {won(r.currTax)}
-                            {diff != null && <span className={`ml-1 text-[10px] font-bold ${diff > 0 ? "text-[#DC2626]" : "text-[#15803D]"}`}>{diff > 0 ? "+" : ""}{diff}%</span>}
-                          </td>
-                          <td className={TD}>
-                            {r.reductions.length === 0 ? <span className="text-[#B0B8C1]">-</span> : (
-                              <span className="flex flex-wrap gap-1">{r.reductions.map(x => <Badge key={x} tone="blue">{x.replace("세액공제", "").replace(" 감면", "")}</Badge>)}</span>
-                            )}
-                          </td>
-                          <td className={NUM}>{r.adjustmentFee ? won(r.adjustmentFee) : <span className="text-[#B0B8C1]">-</span>}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </HistoryCard>
-              )}
 
               {/* 원천세 · 인건비 (원천세가 메인, 급여 데이터는 그 안에) */}
               {c && c.withholdingType !== "D" && (() => {
@@ -851,31 +823,67 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 );
               })()}
 
-              {/* 메모 + 특이사항 */}
-              <section id="sec-notes" data-section className="glass rounded-2xl p-4 scroll-mt-3">
-                <SectionTitle eyebrow="Notes" title="메모 · 특이사항" right={<MoreLink onClick={() => openEdit("history")}>이력 전체</MoreLink>} />
-                {c?.notes && (
-                  <div className="mb-3 whitespace-pre-wrap rounded-xl bg-[#FFFBEB] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-[#78350F]">
-                    <span className="mr-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#B45309]">거래처 특이사항</span>{c.notes}
-                  </div>
-                )}
-                {data.memos.length === 0 && !c?.notes ? (
-                  <div className="py-4 text-center text-[12px] text-[#B0B8C1]">아직 메모가 없어요</div>
-                ) : (
-                  <ul className="divide-y divide-[#F2F4F6]">
-                    {data.memos.map(m => (
-                      <li key={m.id} className="flex items-start gap-3 py-2">
-                        <div className="w-[70px] shrink-0 text-[11px] tabular-nums text-[#8B95A1]">{fmtDate(m.createdAt)}</div>
-                        <div className="min-w-0 flex-1">
-                          {m.title && <div className="truncate text-[12.5px] font-bold text-[#191F28]">{m.title}</div>}
-                          <div className="line-clamp-2 whitespace-pre-wrap text-[12px] leading-relaxed text-[#4E5968]">{m.content}</div>
-                        </div>
-                        <div className="shrink-0 text-[11px] text-[#8B95A1]">{m.author}</div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              {/* 부가세 이력 */}
+              <HistoryCard id="sec-vat" eyebrow="VAT" title="부가가치세 이력" href={data.links.vat} empty={data.vatHistory.length === 0} count={data.vatHistory.length}>
+                <thead>
+                  <tr className="border-b border-[#F2F4F6]">
+                    <th className={TH}>기간</th><th className={TH}>단계</th>
+                    <th className={`${TH} text-right`}>매출 공급가액</th><th className={`${TH} text-right`}>매입 공급가액</th>
+                    <th className={`${TH} text-right`}>예정고지</th><th className={`${TH} text-right`}>신고수수료</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.vatHistory.map(r => (
+                    <tr key={r.period} className={rowCls(r.isCurrent)}>
+                      <td className={`${TD} font-bold text-[#191F28]`}>{r.label}{r.isCurrent && <span className="ml-1.5 text-[10px] font-bold text-[#3182F6]">진행중</span>}</td>
+                      <td className={TD}>
+                        {r.excluded ? <Pill color="#8B95A1" muted>제외</Pill> : r.prelimNotice ? <Pill color="#8B95A1">예정고지 · 신고 불필요</Pill> : <Pill color={r.stageColor}>{r.stageLabel}</Pill>}
+                      </td>
+                      <td className={NUM}>{r.hasHtx ? won(r.salesSupply) : <span className="text-[#B0B8C1]">자료 없음</span>}</td>
+                      <td className={NUM}>{r.hasHtx ? won(r.buySupply) : <span className="text-[#B0B8C1]">-</span>}</td>
+                      <td className={NUM}>{r.noticeAmount > 0 ? won(r.noticeAmount) : <span className="text-[#B0B8C1]">-</span>}</td>
+                      <td className={NUM}>{r.fee ? won(r.fee) : <span className="text-[#B0B8C1]">-</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </HistoryCard>
+
+              {/* 종소세 이력 */}
+              {!isCorp && (
+                <HistoryCard id="sec-income" eyebrow="Income tax" title="종합소득세 이력" href={data.links.incomeTax} empty={data.incomeTaxHistory.length === 0} count={data.incomeTaxHistory.length}>
+                  <thead>
+                    <tr className="border-b border-[#F2F4F6]">
+                      <th className={TH}>귀속</th><th className={TH}>단계</th><th className={TH}>유형</th>
+                      <th className={`${TH} text-right`}>매출</th><th className={`${TH} text-right`}>소득금액</th><th className={`${TH} text-right`}>결정세액</th>
+                      <th className={TH}>감면·공제</th><th className={`${TH} text-right`}>조정료</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.incomeTaxHistory.map(r => {
+                      const diff = r.currTax != null && r.prevTax != null && r.prevTax > 0 ? Math.round(((r.currTax - r.prevTax) / r.prevTax) * 100) : null;
+                      return (
+                        <tr key={r.taxYear} className={rowCls(r.isCurrent)}>
+                          <td className={`${TD} font-bold text-[#191F28]`}>{r.taxYear}년</td>
+                          <td className={TD}>{r.excluded ? <Pill color="#8B95A1" muted>제외</Pill> : <Pill color={r.stageColor}>{r.stageLabel}</Pill>}</td>
+                          <td className={`${TD} text-[#6B7684]`}>{[r.bookkeepingDuty, r.filingType].filter(Boolean).join(" · ") || "-"}</td>
+                          <td className={NUM}>{won(r.currSales)}</td>
+                          <td className={NUM}>{won(r.currIncome)}</td>
+                          <td className={`${NUM} font-bold text-[#191F28]`}>
+                            {won(r.currTax)}
+                            {diff != null && <span className={`ml-1 text-[10px] font-bold ${diff > 0 ? "text-[#DC2626]" : "text-[#15803D]"}`}>{diff > 0 ? "+" : ""}{diff}%</span>}
+                          </td>
+                          <td className={TD}>
+                            {r.reductions.length === 0 ? <span className="text-[#B0B8C1]">-</span> : (
+                              <span className="flex flex-wrap gap-1">{r.reductions.map(x => <Badge key={x} tone="blue">{x.replace("세액공제", "").replace(" 감면", "")}</Badge>)}</span>
+                            )}
+                          </td>
+                          <td className={NUM}>{r.adjustmentFee ? won(r.adjustmentFee) : <span className="text-[#B0B8C1]">-</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </HistoryCard>
+              )}
 
               {/* 바로가기 */}
               <div className="flex flex-wrap items-center gap-2 pb-1 text-[12px]">

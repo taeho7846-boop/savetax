@@ -12,6 +12,7 @@ import {
   VAT_STAGES, INCOME_TAX_STAGES, type WithholdingStatus, type IncomeTaxStage,
 } from "@/lib/filing-status";
 import { isPrelimNoticeRecord, noticeAmountOf } from "@/lib/vat-notice";
+import { parseLedgerDetail } from "@/lib/semo-ledger";
 
 /**
  * 거래처 프로필 — 거래처 한 곳에 흩어진 정보를 한 번에 모아 모달(ClientProfileModal)에 보여준다.
@@ -122,6 +123,26 @@ export type PayrollSummaryMonth = {
   daily: { headcount: number; gross: number };
 };
 
+/* ── 손익(매출 − 매입 − 인건비) ── */
+export type PnlBreakdown = { key: string; label: string; count: number; amount: number };
+export type PnlPeriod = {
+  key: string;            // "ytd" | "YYYY-MM"
+  label: string;          // "올해 누적" | "2026년 09월"
+  months: number;         // 포함된 달 수 (자료 있는 달)
+  days: number | null;    // 한 달 기간이면 그 달의 일수
+  sale: { count: number; supply: number; items: PnlBreakdown[] };
+  buy: { count: number; supply: number; items: PnlBreakdown[] };
+  payroll: { headcount: number; gross: number; items: PnlBreakdown[] }; // items.count = 인원
+  profit: number;         // sale.supply − buy.supply − payroll.gross
+};
+export type PnlData = {
+  year: number;
+  throughMonth: string | null;   // 올해 누적의 마지막 달 (자료 기준)
+  ytd: PnlPeriod;
+  prevYtd: PnlPeriod | null;     // 작년 같은 기간(1월~같은 달)
+  months: PnlPeriod[];           // 최근 24개월 중 자료 있는 달, 최근 → 과거
+};
+
 export type ProfileMemo = { id: number; title: string | null; content: string; memoType: string; createdAt: string; author: string };
 
 export type ClientProfile = {
@@ -188,6 +209,7 @@ export type ClientProfile = {
   };
   ledger: LedgerMonth[];       // 오래된→최근, 최대 24개월
   payroll: PayrollSummaryMonth[]; // 오래된→최근, 최근 13개월 (PayrollMonth — 위하고 급여 엑셀에서 저장)
+  pnl: PnlData;                   // 손익: 세모리포트 매출·매입(공급가액) − 급여대장 인건비
   vatHistory: VatHistoryRow[];
   incomeTaxHistory: IncomeTaxHistoryRow[];
   withholdingHistory: WithholdingHistoryRow[];
@@ -278,7 +300,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
   const wh12Start = addMonths(whMonth, -11);
   const bk6Start = addMonths(bkMonth, -5);
 
-  const payrollStart = addMonths(today.slice(0, 7), -12);
+  const payrollStart = addMonths(today.slice(0, 7), -23);
   const [subUser, targetCfg, bkRows, whRecords, whFilings, vatRows, itRows, ledgerRows, dataCollections, memoRows, wehagoUrl, payrollRows] = await Promise.all([
     client.subAssignedUserId ? prisma.user.findUnique({ where: { id: client.subAssignedUserId }, select: { name: true } }) : null,
     prisma.appConfig.findUnique({ where: { key: TARGET_DAY_KEY } }),
@@ -302,7 +324,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     }),
     prisma.semoLedgerMonth.findMany({
       where: { clientId }, orderBy: { yearMonth: "desc" }, take: 24,
-      select: { yearMonth: true, saleSupply: true, saleVat: true, saleCount: true, buySupply: true, buyVat: true, buyCount: true, purchasingRate: true },
+      select: { yearMonth: true, saleSupply: true, saleVat: true, saleCount: true, buySupply: true, buyVat: true, buyCount: true, purchasingRate: true, detail: true },
     }),
     prisma.dataCollection.findMany({ where: { clientId, taxYear: it.taxYear }, select: { status: true, docType: true } }),
     prisma.memo.findMany({
@@ -312,7 +334,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     buildWehagoUrl(session, client, today),
     prisma.payrollMonth.findMany({
       where: { clientId, yearMonth: { gte: payrollStart } }, orderBy: { yearMonth: "asc" },
-      select: { yearMonth: true, incomeType: true, headcount: true, gross: true, net: true },
+      select: { yearMonth: true, incomeType: true, headcount: true, gross: true, net: true, employees: true },
     }),
   ]);
 
@@ -412,8 +434,10 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 
   /* ── 인건비 (최근 13개월) ── */
+  const payroll13Start = addMonths(today.slice(0, 7), -12);
   const payrollMap = new Map<string, PayrollSummaryMonth>();
   for (const r of payrollRows) {
+    if (r.yearMonth < payroll13Start) continue;
     let m = payrollMap.get(r.yearMonth);
     if (!m) {
       m = { yearMonth: r.yearMonth, headcount: 0, gross: 0, net: 0, salary: { headcount: 0, gross: 0 }, business: { headcount: 0, gross: 0 }, daily: { headcount: 0, gross: 0 } };
@@ -425,6 +449,73 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     t.headcount += r.headcount; t.gross += g;
   }
   const payroll = [...payrollMap.values()].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+
+  /* ── 손익 (매출 − 매입 − 인건비) ── */
+  const PAY_LABEL: Record<string, string> = { salary: "근로소득", daily: "일용소득", business: "사업소득" };
+  const PAY_ORDER = ["salary", "daily", "business"];
+  const thisMonth = today.slice(0, 7);
+  const ledgerByYm = new Map(ledgerRows.map(r => [r.yearMonth, r]));
+  const payByYm = new Map<string, typeof payrollRows>();
+  for (const r of payrollRows) { const a = payByYm.get(r.yearMonth) ?? []; a.push(r); payByYm.set(r.yearMonth, a); }
+  const hasData = (ym: string) => ledgerByYm.has(ym) || payByYm.has(ym);
+  const daysIn = (ym: string) => { const [y, m] = ym.split("-").map(Number); return new Date(y, m, 0).getDate(); };
+
+  function buildPeriod(key: string, label: string, yms: string[], days: number | null): PnlPeriod {
+    const saleItems = new Map<string, PnlBreakdown>(), buyItems = new Map<string, PnlBreakdown>();
+    let saleCount = 0, saleSupply = 0, buyCount = 0, buySupply = 0, monthsWithData = 0;
+    const payNames = new Map<string, Set<string>>(); // 유형별 사람(이름) — 누적 인원
+    const payGross = new Map<string, number>();
+    const payHead = new Map<string, number>();  // 한 달 기간일 때 인원 (행의 headcount)
+    for (const ym of yms) {
+      if (!hasData(ym)) continue;
+      monthsWithData++;
+      const L = ledgerByYm.get(ym);
+      if (L) {
+        saleCount += L.saleCount; saleSupply += Number(L.saleSupply); buyCount += L.buyCount; buySupply += Number(L.buySupply);
+        const d = parseLedgerDetail(L.detail);
+        for (const c of d.sale) { const cur = saleItems.get(c.key) ?? { key: c.key, label: c.label, count: 0, amount: 0 }; cur.count += c.count; cur.amount += c.supply; saleItems.set(c.key, cur); }
+        for (const c of d.buy) { const cur = buyItems.get(c.key) ?? { key: c.key, label: c.label, count: 0, amount: 0 }; cur.count += c.count; cur.amount += c.supply; buyItems.set(c.key, cur); }
+      }
+      for (const r of payByYm.get(ym) ?? []) {
+        payGross.set(r.incomeType, (payGross.get(r.incomeType) ?? 0) + Number(r.gross));
+        payHead.set(r.incomeType, (payHead.get(r.incomeType) ?? 0) + r.headcount);
+        let names: { name?: string }[] = [];
+        try { names = JSON.parse(r.employees) as { name?: string }[]; } catch { names = []; }
+        const set = payNames.get(r.incomeType) ?? new Set<string>();
+        for (const e of names) if (e?.name) set.add(e.name);
+        payNames.set(r.incomeType, set);
+      }
+    }
+    const single = yms.length === 1;
+    const payItems: PnlBreakdown[] = PAY_ORDER.map(k => ({
+      key: k, label: PAY_LABEL[k],
+      count: single ? (payHead.get(k) ?? 0) : (payNames.get(k)?.size ?? 0),
+      amount: payGross.get(k) ?? 0,
+    }));
+    const payrollGross = payItems.reduce((a, i) => a + i.amount, 0);
+    return {
+      key, label, months: monthsWithData, days,
+      sale: { count: saleCount, supply: saleSupply, items: [...saleItems.values()] },
+      buy: { count: buyCount, supply: buySupply, items: [...buyItems.values()] },
+      payroll: { headcount: payItems.reduce((a, i) => a + i.count, 0), gross: payrollGross, items: payItems },
+      profit: saleSupply - buySupply - payrollGross,
+    };
+  }
+
+  const year = parseInt(today.slice(0, 4));
+  const yearMonths = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+  const through = [...yearMonths].reverse().find(ym => ym <= thisMonth && hasData(ym)) ?? null;
+  const ytdMonths = through ? yearMonths.filter(ym => ym <= through) : [];
+  const prevMonthsRange = through ? ytdMonths.map(ym => `${year - 1}${ym.slice(4)}`) : [];
+  const prevHas = prevMonthsRange.some(hasData);
+  const allMonths = Array.from(new Set([...ledgerRows.map(r => r.yearMonth), ...payrollRows.map(r => r.yearMonth)])).sort((a, b) => b.localeCompare(a));
+  const pnl: PnlData = {
+    year,
+    throughMonth: through,
+    ytd: buildPeriod("ytd", `${year}년 누적`, ytdMonths, null),
+    prevYtd: prevHas ? buildPeriod("prev-ytd", `${year - 1}년 ${through ? parseInt(through.slice(5, 7)) : 12}월까지`, prevMonthsRange, null) : null,
+    months: allMonths.map(ym => buildPeriod(ym, `${ym.slice(0, 4)}년 ${ym.slice(5, 7)}월`, [ym], daysIn(ym))),
+  };
 
   /* ── 경고 ── */
   const warnings: ProfileWarning[] = [];
@@ -527,6 +618,7 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     bookkeeping: { month: bkMonth, stage: bkStage, deadline: bookkeepingDeadline(bkMonth, targetDay), overdue: bkOverdue, semo, recent: bkRecent },
     ledger,
     payroll,
+    pnl,
     vatHistory,
     incomeTaxHistory: itHistory,
     withholdingHistory: whHistory,
