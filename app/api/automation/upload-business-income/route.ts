@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createFolder, uploadFile } from "@/lib/google-drive";
 import { readFile } from "fs/promises";
+import { parsePayrollBuffer, savePayrollMonth } from "@/lib/payroll";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -49,6 +50,16 @@ export async function POST(req: NextRequest) {
       fileBuffer,
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
+
+    // 거래처 프로필 > 원천세·인건비: 사업소득 지급 내역을 월별 인건비로 바로 저장 (실패해도 업로드 결과엔 영향 없음)
+    if (year && month) {
+      try {
+        const employees = parsePayrollBuffer("business", fileBuffer);
+        if (employees.length > 0) await savePayrollMonth(client.id, `${year}-${String(month).padStart(2, "0")}`, "business", employees, fileName);
+      } catch (e) {
+        console.error("[Upload Business Income] 인건비 저장 실패:", e);
+      }
+    }
 
     return NextResponse.json({
       ok: true,

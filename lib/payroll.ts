@@ -158,6 +158,23 @@ export async function findPayrollFile(
   return { file: null, searched: fileName, sample };
 }
 
+/* ───────── 저장 ───────── */
+
+/** 직원 목록을 합산해 PayrollMonth 한 행으로 저장(덮어쓰기). 업로드 API·드라이브 수집이 공용으로 쓴다. */
+export async function savePayrollMonth(clientId: number, yearMonth: string, type: PayrollType, employees: PayrollEmployee[], sourceFile: string | null) {
+  const sum = employees.reduce((a, e) => ({ gross: a.gross + e.gross, ded: a.ded + e.deductions, net: a.net + e.net }), { gross: 0, ded: 0, net: 0 });
+  const data = {
+    headcount: employees.length, gross: BigInt(Math.round(sum.gross)), deductions: BigInt(Math.round(sum.ded)), net: BigInt(Math.round(sum.net)),
+    employees: JSON.stringify(employees), sourceFile, collectedAt: new Date(),
+  };
+  await prisma.payrollMonth.upsert({
+    where: { clientId_yearMonth_incomeType: { clientId, yearMonth, incomeType: type } },
+    create: { clientId, yearMonth, incomeType: type, ...data },
+    update: data,
+  });
+  return sum;
+}
+
 /* ───────── 드라이브에서 한 달 수집 ───────── */
 
 /** 드라이브에 있는 3종 파일을 읽어 PayrollMonth 에 저장. 파일이 없는 유형은 건너뛴다(기존 데이터 유지). */
@@ -175,16 +192,7 @@ export async function collectPayrollMonth(client: { id: number; name: string; dr
       const buf = await downloadFile(file.id);
       const employees = parsePayrollBuffer(type, buf);
       if (employees.length === 0) { result.types.push({ incomeType: type, status: "empty", message: "파일은 있지만 지급 내역이 없음" }); continue; }
-      const sum = employees.reduce((a, e) => ({ gross: a.gross + e.gross, ded: a.ded + e.deductions, net: a.net + e.net }), { gross: 0, ded: 0, net: 0 });
-      const data = {
-        headcount: employees.length, gross: BigInt(Math.round(sum.gross)), deductions: BigInt(Math.round(sum.ded)), net: BigInt(Math.round(sum.net)),
-        employees: JSON.stringify(employees), sourceFile: file.name, collectedAt: new Date(),
-      };
-      await prisma.payrollMonth.upsert({
-        where: { clientId_yearMonth_incomeType: { clientId: client.id, yearMonth, incomeType: type } },
-        create: { clientId: client.id, yearMonth, incomeType: type, ...data },
-        update: data,
-      });
+      const sum = await savePayrollMonth(client.id, yearMonth, type, employees, file.name);
       result.types.push({ incomeType: type, status: "saved", headcount: employees.length, gross: sum.gross });
     } catch (e) {
       result.types.push({ incomeType: type, status: "error", message: `${fileName}: ${e instanceof Error ? e.message : String(e)}` });

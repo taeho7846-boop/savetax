@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createFolder, uploadFile, listFiles, deleteFile } from "@/lib/google-drive";
 import { parseWehagoSalaryGrid, buildPayslipXlsx } from "@/lib/payslip-xlsx";
+import { savePayrollMonth } from "@/lib/payroll";
 
 // POST /api/automation/upload-salary
 // { clientName, year: "2026", month: "09", payDate?: "2026.09.30", fileBase64 }
@@ -57,6 +58,16 @@ export async function POST(req: NextRequest) {
       buf,
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
+
+    // 거래처 프로필 > 원천세·인건비: 내려받은 급여를 월별 인건비로 바로 저장 (실패해도 업로드 결과엔 영향 없음)
+    try {
+      await savePayrollMonth(client.id, `${year}-${monthPadded}`, "salary", employees.map(e => ({
+        name: e.name, gross: e.paymentTotal, deductions: e.deductionTotal, net: e.net,
+        dept: e.dept || undefined, rank: e.rank || undefined, items: e.payments.filter(p => p.amount !== 0),
+      })), fileName);
+    } catch (e) {
+      console.error("[Upload Salary] 인건비 저장 실패:", e);
+    }
 
     return NextResponse.json({
       ok: true,

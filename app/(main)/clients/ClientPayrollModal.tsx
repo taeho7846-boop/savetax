@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PAYROLL_TYPES, type PayrollMonthData, type PayrollType, type CollectResult, type PayrollFilingMonth, type PayrollWehago } from "@/lib/payroll-types";
-import { extAvailable, openHiddenOrTab } from "@/lib/ext-bridge";
 
 /**
  * 거래처 인건비(급여) 상세 모달 — 세모리포트 '급여' 화면 구성을 따른다.
@@ -346,7 +345,10 @@ function CollectPanel({ clientId, thisMonth, onDone }: { clientId: number; thisM
 }
 
 
-/* ───────── 위하고에서 가져오기 (확장이 위하고 급여 화면을 열어 자료를 내려받아 드라이브에 올림 → 서버가 읽어 저장) ───────── */
+/* ───────── 지난 달 급여 일괄 처리 — 원천세 페이지 '위멤버스' 버튼과 같은 순서를 월 범위로 연달아 돌린다
+ *  (1) 위하고 급여 화면을 새 탭으로 열어 자료 내려받기(확장이 드라이브 5. 위멤버스에 저장 → 서버가 인건비로 즉시 저장)
+ *  (2) 위멤버스 업로드(선택)  (3) 급여명세서·사업소득지급대장 생성·드라이브 저장(선택)
+ * ───────── */
 
 const WEHAGO_BASE = "https://smarta.wehago.com/#/smarta/humanresource";
 function wehagoDownloadUrl(w: PayrollWehago, clientName: string, type: PayrollType, yearMonth: string): string {
@@ -359,29 +361,36 @@ function wehagoDownloadUrl(w: PayrollWehago, clientName: string, type: PayrollTy
   return `${WEHAGO_BASE}/TWSA0107?${params}&autoDailyWorker=${month}`;
 }
 
-function WehagoPanel({ clientId, clientName, wehago, types, thisMonth, onDone }: {
-  clientId: number; clientName: string; wehago: PayrollWehago; types: PayrollType[]; thisMonth: string; onDone: (months: PayrollMonthData[]) => void;
+function WmBatchPanel({ clientId, clientName, wehago, types, thisMonth, onRefresh }: {
+  clientId: number; clientName: string; wehago: PayrollWehago; types: PayrollType[]; thisMonth: string; onRefresh: () => Promise<void>;
 }) {
   const [range, setRange] = useState<3 | 6 | 12>(6);
   const [picked, setPicked] = useState<PayrollType[]>(types.filter(t => t !== "daily"));
+  const [doUpload, setDoUpload] = useState(true);
+  const [doDocs, setDoDocs] = useState(true);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; current: string; log: string[] } | null>(null);
   const stop = useRef(false);
   const skip = useRef(false);
 
-  async function waitForFile(ym: string, type: PayrollType): Promise<"found" | "timeout" | "skip"> {
+  const say = (prog: { done: number; total: number; current: string; log: string[] }, line?: string, current?: string) => {
+    if (line) prog.log.unshift(line);
+    if (current !== undefined) prog.current = current;
+    setProgress({ ...prog, log: [...prog.log] });
+  };
+
+  async function waitForFile(ym: string, type: PayrollType, prog: { done: number; total: number; current: string; log: string[] }): Promise<"found" | "timeout" | "skip"> {
     const [year, month] = ym.split("-");
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 90; i++) {
       if (stop.current || skip.current) return "skip";
       try {
         const res = await fetch("/api/automation/check-file", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientName, year, month, type }),
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientName, year, month, type }),
         });
         const d = await res.json();
         if (d.exists) return "found";
       } catch { /* 다음 시도 */ }
-      setProgress(p => p ? { ...p, current: `${ym} ${typeOf(type).short} · 위하고에서 내려받는 중… ${(i + 1) * 2}초 (자료 없는 달이면 건너뛰기)` } : p);
+      say(prog, undefined, `${ym} ${typeOf(type).label} · 위하고에서 내려받는 중… ${(i + 1) * 2}초 (자료 없는 달이면 '이 유형 건너뛰기')`);
       await new Promise(r => setTimeout(r, 2000));
     }
     return "timeout";
@@ -390,88 +399,111 @@ function WehagoPanel({ clientId, clientName, wehago, types, thisMonth, onDone }:
   async function run() {
     if (busy || picked.length === 0) return;
     setBusy(true); stop.current = false;
-    const ext = await extAvailable();
     const list = Array.from({ length: range }, (_, i) => addMonths(thisMonth, -1 - i));
     const prog = { done: 0, total: list.length, current: "", log: [] as string[] };
     setProgress({ ...prog });
-    let latest: PayrollMonthData[] | null = null;
     try {
       for (const ym of list) {
         if (stop.current) break;
-        const got: PayrollType[] = [];
+        const [year, month] = ym.split("-");
+        // (1) 위하고 다운로드 — 원천세 페이지와 같이 새 탭으로 연다 (확장 content script 가 자료를 받아 서버로 보냄)
+        const collected: PayrollType[] = [];
         for (const type of picked) {
           if (stop.current) break;
           skip.current = false;
-          const url = wehagoDownloadUrl(wehago, clientName, type, ym);
-          const opened = await openHiddenOrTab([url]);
-          if (!opened.ok) { prog.log.unshift(`${ym} · 팝업이 차단됐어요. 이 사이트의 팝업을 허용해주세요`); setProgress({ ...prog, log: [...prog.log] }); stop.current = true; break; }
-          const r = await waitForFile(ym, type);
-          opened.tabs.forEach(t => { try { t.close(); } catch { /* 이미 닫힘 */ } });
-          if (r === "found") got.push(type);
-          else prog.log.unshift(`${ym} · ${typeOf(type).short} ${r === "skip" ? "건너뜀" : "시간 초과(자료 없는 달로 처리)"}`);
+          const tab = window.open(wehagoDownloadUrl(wehago, clientName, type, ym), "_blank");
+          if (!tab) { say(prog, `${ym} · 팝업이 차단됐어요. 이 사이트의 팝업을 허용한 뒤 다시 시작하세요`); stop.current = true; break; }
+          const r = await waitForFile(ym, type, prog);
+          try { tab.close(); } catch { /* 이미 닫힘 */ }
+          if (r === "found") collected.push(type);
+          else say(prog, `${ym} · ${typeOf(type).label} ${r === "skip" ? "건너뜀" : "시간 초과 — 자료 없는 달로 처리"}`);
         }
-        if (got.length > 0) {
-          const res = await fetch(`/api/clients/${clientId}/payroll`, {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ yearMonths: [ym], types: got }),
-          });
-          const j = await res.json();
-          if (res.ok) {
-            latest = j.months as PayrollMonthData[];
-            for (const rr of (j.results as CollectResult[])) {
-              const saved = rr.types.filter(t => t.status === "saved");
-              prog.log.unshift(saved.length ? `${ym} · 저장: ${saved.map(t => `${typeOf(t.incomeType).short} ${t.headcount}명 ${short(t.gross ?? 0)}`).join(", ")}` : `${ym} · 내려받았지만 읽지 못함: ${rr.types.map(t => t.message ?? t.status).join(" / ")}`);
-            }
-          } else prog.log.unshift(`${ym} · 저장 오류: ${j.error ?? res.status}`);
+        if (stop.current) break;
+        if (collected.length === 0) { say(prog, `${ym} · 내려받은 자료 없음`, ""); prog.done++; say(prog); continue; }
+        say(prog, `${ym} · 내려받음: ${collected.map(t => typeOf(t).label).join(", ")} (인건비 저장됨)`);
+        await onRefresh();
+
+        // (2) 위멤버스 업로드
+        if (doUpload) {
+          say(prog, undefined, `${ym} · 위멤버스에 업로드 중… (1~2분)`);
+          try {
+            const res = await fetch("/api/automation/wemembers-process", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ clientName, year, month, incomeTypes: collected }),
+            });
+            const j = await res.json();
+            say(prog, j.success ? `${ym} · 위멤버스 업로드 완료` : `${ym} · 위멤버스 업로드 실패: ${j.message ?? res.status}`);
+          } catch (e) { say(prog, `${ym} · 위멤버스 업로드 실패: ${String(e)}`); }
+        }
+
+        // (3) 문서 생성·드라이브 저장
+        if (doDocs) {
+          const docs: { docType: "payslip" | "ledger"; label: string }[] = [];
+          if (collected.includes("salary")) docs.push({ docType: "payslip", label: "급여명세서" });
+          if (collected.includes("business")) docs.push({ docType: "ledger", label: "사업소득지급대장" });
+          for (const d of docs) {
+            say(prog, undefined, `${ym} · ${d.label} 생성 중…`);
+            try {
+              const res = await fetch("/api/withholding/generate-doc", {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId, yearMonth: ym, docType: d.docType }),
+              });
+              if (res.ok) say(prog, `${ym} · ${d.label} 생성·드라이브 저장${res.headers.get("X-Drive-Saved") === "0" ? " (드라이브 폴더 미연결로 저장 생략)" : ""}`);
+              else { const j = await res.json().catch(() => null); say(prog, `${ym} · ${d.label} 실패: ${j?.message ?? res.status}`); }
+            } catch (e) { say(prog, `${ym} · ${d.label} 실패: ${String(e)}`); }
+          }
         }
         prog.done++;
-        setProgress({ ...prog, current: "", log: [...prog.log] });
+        say(prog, undefined, "");
       }
     } finally {
       setBusy(false);
-      setProgress(p => p ? { ...p, current: ext.ok ? "" : "확장 프로그램이 없어 새 탭 방식으로 진행했어요" } : p);
-      if (latest) onDone(latest);
+      say(prog, undefined, stop.current ? "중지됨" : "완료");
+      await onRefresh();
     }
   }
+
+  const chip = (on: boolean, extra = "") => `h-8 rounded-lg px-3 text-[12px] font-bold border transition-colors ${on ? "bg-[#191F28] border-[#191F28] text-white" : "bg-white border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB]"} disabled:opacity-40 ${extra}`;
 
   return (
     <div className="rounded-2xl border border-[#D1FAE5] bg-[#ECFDF5]/60 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="mr-2">
-          <div className="text-[13px] font-bold text-[#191F28]">위하고에서 가져오기</div>
-          <div className="text-[11.5px] text-[#6B7684]">크롬 확장이 위하고 급여 화면을 열어 자료를 내려받고(드라이브 5. 위멤버스에 저장) 바로 읽어 저장해요 · 위하고 로그인 필요</div>
+          <div className="text-[13px] font-bold text-[#191F28]">지난 달 급여 일괄 처리</div>
+          <div className="text-[11.5px] text-[#6B7684]">원천세 페이지의 위멤버스 버튼과 같은 순서로, 고른 달을 연달아 돌려요: 위하고 다운로드 → 드라이브 저장(인건비 자동 저장) → 위멤버스 업로드 → 명세서 생성</div>
         </div>
         {!wehago.ready && <div className="w-full rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#DC2626]">아직 쓸 수 없어요: {wehago.reason}</div>}
-        {([3, 6, 12] as const).map(r => (
-          <button key={r} type="button" disabled={busy} onClick={() => setRange(r)} className={`h-8 rounded-lg px-3 text-[12px] font-bold border transition-colors ${range === r ? "bg-[#191F28] border-[#191F28] text-white" : "bg-white border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB]"} disabled:opacity-60`}>최근 {r}개월</button>
-        ))}
+        {([3, 6, 12] as const).map(r => <button key={r} type="button" disabled={busy} onClick={() => setRange(r)} className={chip(range === r)}>최근 {r}개월</button>)}
         <span className="mx-1 text-[#D1D6DB]">|</span>
         {types.map(t => {
           const on = picked.includes(t);
-          const disabled = busy || t === "daily";
           return (
-            <button key={t} type="button" disabled={disabled} title={t === "daily" ? "일용직은 PC 저장 방식이라 여기서는 지원하지 않아요" : undefined} onClick={() => setPicked(p => on ? p.filter(x => x !== t) : [...p, t])}
+            <button key={t} type="button" disabled={busy} onClick={() => setPicked(p => on ? p.filter(x => x !== t) : [...p, t])}
               className={`h-8 rounded-lg px-3 text-[12px] font-bold border transition-colors ${on ? "border-[#0F9D77] bg-[#0F9D77] text-white" : "bg-white border-[#D1D6DB] text-[#4E5968] hover:bg-[#F9FAFB]"} disabled:opacity-40`}>
               {typeOf(t).label}
             </button>
           );
         })}
+        <span className="mx-1 text-[#D1D6DB]">|</span>
+        <button type="button" disabled={busy} onClick={() => setDoUpload(v => !v)} className={chip(doUpload)} title="이미 위멤버스에 올린 달이면 끄세요">{doUpload ? "✓ " : ""}위멤버스 업로드</button>
+        <button type="button" disabled={busy} onClick={() => setDoDocs(v => !v)} className={chip(doDocs)}>{doDocs ? "✓ " : ""}명세서·대장 생성</button>
         {busy ? (
           <div className="ml-auto flex items-center gap-2">
-            <button type="button" onClick={() => { skip.current = true; }} className="h-8 rounded-xl border border-[#E5E8EB] bg-white px-3 text-[12px] font-bold text-[#4E5968]">이 달 건너뛰기</button>
+            <button type="button" onClick={() => { skip.current = true; }} className="h-8 rounded-xl border border-[#E5E8EB] bg-white px-3 text-[12px] font-bold text-[#4E5968]">이 유형 건너뛰기</button>
             <button type="button" onClick={() => { stop.current = true; skip.current = true; }} className="h-8 rounded-xl border border-[#E5E8EB] bg-white px-3 text-[12px] font-bold text-[#DC2626]">중지</button>
           </div>
         ) : (
-          <button type="button" disabled={!wehago.ready || picked.length === 0} onClick={run} className="ml-auto h-8 rounded-xl px-4 text-[12.5px] font-bold text-white hover:opacity-90 disabled:opacity-40" style={{ background: GREEN }}>가져오기 시작</button>
+          <button type="button" disabled={!wehago.ready || picked.length === 0} onClick={run} className="ml-auto h-8 rounded-xl px-4 text-[12.5px] font-bold text-white hover:opacity-90 disabled:opacity-40" style={{ background: GREEN }}>시작</button>
         )}
       </div>
+      <div className="mt-2 text-[11px] text-[#8B95A1]">위하고에 로그인된 크롬에서 실행하세요. 다운로드 탭이 잠깐 열렸다 닫히며, 자료가 없는 달은 ‘이 유형 건너뛰기’를 누르면 바로 넘어가요.</div>
       {progress && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-[11.5px] text-[#6B7684]">
-            <span className="truncate">{busy ? (progress.current || "진행 중…") : (progress.current || "완료")}</span>
+            <span className="truncate">{progress.current || (busy ? "진행 중…" : "")}</span>
             <span className="tabular-nums shrink-0">{progress.done} / {progress.total}개월</span>
           </div>
           <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#191F28]/[.06]"><div className="h-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%`, background: GREEN }} /></div>
-          <ul className="mt-2 max-h-40 overflow-y-auto space-y-0.5 text-[11.5px] text-[#4E5968]">
+          <ul className="mt-2 max-h-44 overflow-y-auto space-y-0.5 text-[11.5px] text-[#4E5968]">
             {progress.log.map((l, i) => <li key={i} className="break-all">{l}</li>)}
           </ul>
         </div>
@@ -564,6 +596,12 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
   const selChipRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { selChipRef.current?.scrollIntoView({ inline: "center", block: "nearest" }); }, [selected, data]);
   const onCollected = useCallback((ms: PayrollMonthData[]) => { setData(d => d ? { ...d, months: ms } : d); }, []);
+  const refresh = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/clients/${clientId}/payroll`, { cache: "no-store" });
+      if (r.ok) setData(await r.json() as PayrollResponse);
+    } catch { /* 무시 */ }
+  }, [clientId]);
 
   const diff = m && prevM ? m.total.gross - prevM.total.gross : null;
   const filings = useMemo(() => data?.filings ?? [], [data]);
@@ -583,7 +621,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
             </div>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => { setShowWehago(v => !v); setShowCollect(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showWehago ? "border-[#0F9D77] bg-[#0F9D77] text-white" : "border-[#0F9D77] bg-white/80 text-[#0B7A5C] hover:bg-[#ECFDF5]"}`}>
-                위하고에서 가져오기
+                지난 달 일괄 처리
               </button>
               <button type="button" onClick={() => { setShowCollect(v => !v); setShowWehago(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showCollect ? "border-[#191F28] bg-[#191F28] text-white" : "border-[#E5E8EB] bg-white/80 text-[#4E5968] hover:bg-[#F2F4F6]"}`}>
                 드라이브에서 가져오기
@@ -614,7 +652,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
 
         {/* 본문 */}
         <div className="flex-1 space-y-7 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
-          {showWehago && data && <WehagoPanel clientId={clientId} clientName={data.client.name} wehago={data.wehago} types={data.client.types} thisMonth={thisMonth} onDone={onCollected} />}
+          {showWehago && data && <WmBatchPanel clientId={clientId} clientName={data.client.name} wehago={data.wehago} types={data.client.types} thisMonth={thisMonth} onRefresh={refresh} />}
           {showCollect && data && <CollectPanel clientId={clientId} thisMonth={thisMonth} onDone={onCollected} />}
           {error ? (
             <div className="rounded-2xl bg-[#FEF2F2] px-4 py-6 text-center text-[13px] font-bold text-[#DC2626]">{error}</div>
@@ -623,8 +661,8 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
           ) : months.length === 0 || !m || !sel ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <div className="text-[15px] font-bold text-[#4E5968]">아직 저장된 급여 자료가 없어요</div>
-              <div className="text-[12.5px] text-[#8B95A1]">원천세 위멤버스 업로드가 끝나면 자동으로 쌓여요. 과거분은 ‘위하고에서 가져오기’(권장)나 ‘드라이브에서 가져오기’로 채울 수 있어요</div>
-              {!showWehago && !showCollect && <button type="button" onClick={() => setShowWehago(true)} className="mt-2 h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: GREEN }}>위하고에서 가져오기</button>}
+              <div className="text-[12.5px] text-[#8B95A1]">매달 원천세 페이지에서 위멤버스 버튼을 돌리면 자동으로 쌓여요. 지난 달들은 ‘지난 달 일괄 처리’로 같은 루틴을 연달아 돌리면 돼요</div>
+              {!showWehago && !showCollect && <button type="button" onClick={() => setShowWehago(true)} className="mt-2 h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: GREEN }}>지난 달 일괄 처리</button>}
             </div>
           ) : (
             <>
