@@ -337,9 +337,11 @@ export async function getClientProfile(session: SessionLike, clientId: number, t
     const doneSet = new Set(recs.filter(r => r.done).map(r => r.taskType));
     const fIncome = whFilings.find(f => f.yearMonth === ym && f.kind === "income") ?? null;
     const fLocal = whFilings.find(f => f.yearMonth === ym && f.kind === "local") ?? null;
+    // 지난 달인데 체크 기록도 신고 기록도 전혀 없으면 '미시작'이 아니라 당시 기록이 없는 것
+    const noRecord = i > 0 && recs.length === 0 && !fIncome && steps.length > 0;
     whHistory.push({
       yearMonth: ym, label: ymLabel(ym), steps, doneSteps: steps.filter(s => doneSet.has(s)),
-      status, statusLabel: WH_STATUS[status].label, statusColor: WH_STATUS[status].color,
+      status, statusLabel: noRecord ? "기록 없음" : WH_STATUS[status].label, statusColor: noRecord ? "#D1D6DB" : WH_STATUS[status].color,
       incomeAmount: fIncome?.amount ?? null, localAmount: fLocal?.amount ?? null,
       reportType: fIncome?.reportType ?? null, receiptNo: fIncome?.receiptNo ?? null, filingStatus: fIncome?.status ?? null,
       isCurrent: i === 0,
