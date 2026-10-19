@@ -583,7 +583,15 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                         );
                       })()}
                     </Field>
-                    <Field label="업종">{c.bizType || c.bizCategory || c.bizItem ? <span className="text-[#4E5968]">{[c.bizType, c.bizCategory, c.bizItem].filter(Boolean).join(" / ")}</span> : <Empty text="미입력" />}</Field>
+                    {/* 수정 모달 기준: bizType=업종코드, bizCategory=업태, bizItem=종목 */}
+                    <Field label="업종">
+                      {c.bizCategory || c.bizItem || c.bizType ? (
+                        <span className="text-[#4E5968]">
+                          {[c.bizCategory, c.bizItem].filter(Boolean).join(" / ") || <span className="text-[#B0B8C1]">업태·종목 미입력</span>}
+                          {c.bizType && <span className="ml-1 text-[11px] text-[#8B95A1]">({c.bizType})</span>}
+                        </span>
+                      ) : <Empty text="미입력" />}
+                    </Field>
                   </div>
                 </div>
               </div>
