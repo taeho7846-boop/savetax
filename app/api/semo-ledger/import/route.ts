@@ -17,7 +17,7 @@ import { SEMO_LEDGER_RUN_KEY as RUN_KEY, type SemoLedgerRun } from "@/lib/semo-l
  */
 
 type IncomingRow = Record<string, unknown> & { yearMonth: string };
-type IncomingClient = { name: string; bizNo: string; semoKey?: string | null; rows: IncomingRow[] };
+type IncomingClient = { name: string; bizNo: string; semoKey?: string | null; industryCode?: string | null; industryName?: string | null; rows: IncomingRow[] };
 
 function toInt(v: unknown): number {
   if (v == null || v === "" || v === "-") return 0;
@@ -107,12 +107,12 @@ export async function POST(req: NextRequest) {
   const scope = await getClientScopeWhere(session);
   const dbClients = await prisma.client.findMany({
     where: { ...scope, bizNumber: { not: null } },
-    select: { id: true, name: true, bizNumber: true },
+    select: { id: true, name: true, bizNumber: true, bizType: true, bizCategory: true },
   });
-  const byBiz = new Map<string, { id: number; name: string }>();
+  const byBiz = new Map<string, { id: number; name: string; bizType: string | null; bizCategory: string | null }>();
   for (const c of dbClients) {
     const b = normalizeBizNumber(c.bizNumber);
-    if (b && !byBiz.has(b)) byBiz.set(b, { id: c.id, name: c.name });
+    if (b && !byBiz.has(b)) byBiz.set(b, { id: c.id, name: c.name, bizType: c.bizType, bizCategory: c.bizCategory });
   }
 
   const collectedAt = new Date();
@@ -124,6 +124,16 @@ export async function POST(req: NextRequest) {
     const target = biz ? byBiz.get(biz) : undefined;
     if (!target) { unmatched.push({ name: String(c.name ?? ""), bizNo: biz }); continue; }
     matched++;
+
+    // 세모리포트의 업종코드·업태명으로 거래처의 빈 칸만 채운다 (수정 모달에서 입력한 값은 보존)
+    const fill: { bizType?: string; bizCategory?: string } = {};
+    const code = String(c.industryCode ?? "").trim(), nameKo = String(c.industryName ?? "").trim();
+    if (!target.bizType && code) fill.bizType = code;
+    if (!target.bizCategory && nameKo) fill.bizCategory = nameKo;
+    if (Object.keys(fill).length) {
+      await prisma.client.update({ where: { id: target.id }, data: fill }).catch(() => {});
+      target.bizType = fill.bizType ?? target.bizType; target.bizCategory = fill.bizCategory ?? target.bizCategory;
+    }
 
     const ops = [];
     for (const r of c.rows || []) {

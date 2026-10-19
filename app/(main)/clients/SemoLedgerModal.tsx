@@ -107,7 +107,7 @@ function SemoLedgerModal({ onClose }: { onClose: () => void }) {
     try {
       const ping = await extCall<{ ok: boolean; version?: string }>("ping", {}, 1500);
       if (!ping?.ok) {
-        setError("SaveTax 크롬 확장 프로그램이 필요합니다. 확장을 설치·업데이트(4.58 이상)한 뒤 다시 시도하세요.");
+        setError("SaveTax 크롬 확장 프로그램이 필요합니다. 확장을 설치·업데이트(4.59 이상)한 뒤 다시 시도하세요.");
         return;
       }
       const url = `${SEMO_LEDGER_PAGE}#autoSemoLedger=1&years=${years.join(",")}&origin=${encodeURIComponent(window.location.origin)}`;
@@ -149,7 +149,8 @@ function SemoLedgerModal({ onClose }: { onClose: () => void }) {
           <div className="rounded-2xl border border-[#E5E8EB] bg-white/70 p-4">
             <div className="text-[13px] text-[#4E5968] leading-relaxed">
               세모리포트 <b>고객 분석 &gt; 고객 매입매출장</b>의 월별 요약(매출·매입 건수, 합계, 공급가액, 세액, 증빙 유형별 내역)을
-              거래처 전체에 대해 자동으로 읽어와 사업자번호로 매칭해 저장합니다. 크롬에 세모리포트가 로그인돼 있어야 합니다.
+              거래처 전체에 대해 자동으로 읽어와 사업자번호로 매칭해 저장합니다. 거래처의 업종코드·업태가 비어 있으면 세모리포트 값으로 채웁니다.
+              크롬에 세모리포트가 로그인돼 있어야 합니다.
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="text-[12px] font-bold text-[#6B7684] mr-1">수집 연도</span>

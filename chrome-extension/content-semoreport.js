@@ -100,7 +100,8 @@
           failed++;
           log(`실패 ${c.BZAQ_NM}: ${e.message}`);
         }
-        pending.push({ name: c.BZAQ_NM, bizNo: c.BIZ_NO, semoKey: c.TXOF_BZAQ_KEY, rows });
+        // 업종코드(INDSTRY_CD)·업태명(LTYPE_NM)도 보낸다 — 앱 거래처의 업종코드·업태가 비어 있으면 채워준다
+        pending.push({ name: c.BZAQ_NM, bizNo: c.BIZ_NO, semoKey: c.TXOF_BZAQ_KEY, industryCode: c.INDSTRY_CD || null, industryName: c.LTYPE_NM || null, rows });
         if (pending.length >= BATCH) await flush();
       }
     };
