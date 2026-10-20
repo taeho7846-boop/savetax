@@ -106,6 +106,7 @@ model Client {
   wehagoCno                 String?
   wehagoColors              String?
   semoReportStatus          String                     @default("use") // 세모리포트 반영 상태: use(사용, 기본) | none(미반영) | excluded(제외·발송 안 함)
+  sincereGroup              String?                    // 성실신고확인대상 업종 그룹 수동 지정: A(15억)|B(7.5억)|C(5억). 비우면 업태·업종코드로 추정
   ntsStatusCode             String?                    // 국세청 상태조회 결과 — 사업자 상태 코드(01 계속 | 02 휴업 | 03 폐업 | "" 미등록)
   ntsTaxTypeCode            String?                    // 국세청 상태조회 결과 — 과세유형 코드(01 일반 | 02 간이 | 03 면세 | 04~06 비영리 등 | 07 간이(세금계산서 발급))
   ntsCheckedAt              DateTime?                  // 국세청 상태조회 마지막 확인 시각

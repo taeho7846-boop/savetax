@@ -59,6 +59,7 @@ const CATEGORIES: Category[] = [
       { href: "/distribution-taeho", label: "세무회계태호 배분" },
       { href: "/commission", label: "신규수임" },
       { href: "/receivables", label: "채권관리" },
+      { href: "/insights", label: "인사이트" },
     ],
   },
   {
