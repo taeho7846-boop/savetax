@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { logout } from "@/app/actions/auth";
 import { TransferDocsCard } from "@/app/(main)/dashboard/TransferDocsCard";
+import { NtsAlertBell } from "@/components/NtsAlertBell";
 import {
   LayoutDashboardIcon,
   BuildingIcon,
@@ -187,8 +188,9 @@ export default function TopNav({
           </div>
         </div>
 
-        {/* 우: 이관자료 + 검색 + 알림 + 프로필 */}
+        {/* 우: 국세청 변동 + 이관자료 + 검색 + 알림 + 프로필 */}
         <div className="glass-strong rounded-2xl px-2 py-2 flex items-center gap-1.5">
+          <NtsAlertBell />
           <TransferDocsBell />
           <SearchPill />
           <NotificationBell notifications={notifications} />
