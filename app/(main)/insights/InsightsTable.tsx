@@ -5,6 +5,7 @@ import { ClientLink } from "@/app/(main)/clients/ClientLink";
 import { SINCERE_GROUPS, type InsightsData, type InsightRow, type SincereGroup } from "@/lib/insights-types";
 import { setSincereGroup } from "@/app/actions/insights";
 import { notify } from "@/components/ui/Dialog";
+import { calcAdjustmentFee } from "@/lib/adjustment-fee";
 
 /**
  * 거래처 인사이트 표 — 성실신고확인대상 달성률.
@@ -38,6 +39,25 @@ function level(r: InsightRow): Filter {
   if (r.paceRate >= 80) return "warn";
   return "safe";
 }
+// 헤더 정렬 — 클릭: 기본 방향 → 반대 방향 → 해제(위험순). null은 방향과 무관하게 맨 아래
+type SortKey = "biz" | "group" | "ytd" | "proj" | "annual" | "pace" | "prev" | "margin" | "fee";
+type SortDir = "asc" | "desc";
+type Column = { key: string; label: string; align: "left" | "right"; sort?: SortKey; defaultDir?: SortDir; title?: string };
+const GROUP_ORDER: Record<string, number> = { A: 0, B: 1, C: 2 };
+function sortValue(r: InsightRow & { fee: number | null }, key: SortKey): number | string | null {
+  switch (key) {
+    case "biz": { const t = [r.bizCategory, r.bizItem].filter(Boolean).join(" / "); return t || null; }
+    case "group": return r.group ? GROUP_ORDER[r.group] : null;
+    case "ytd": return r.hasLedger ? r.ytdSale : null;
+    case "proj": return r.projectedSale ?? r.avgSale;
+    case "annual": return r.annualRate;
+    case "pace": return r.paceRate;
+    case "prev": return r.saleDeltaPct;
+    case "margin": return r.marginPct;
+    case "fee": return r.fee;
+  }
+}
+
 const LEVEL_COLOR: Record<Filter, string> = { all: "#8B95A1", danger: "#DC2626", warn: "#F59E0B", safe: "#10B981", unknown: "#8B95A1", nodata: "#D1D6DB" };
 
 function RateBar({ pct, color }: { pct: number | null; color: string }) {
@@ -58,6 +78,7 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
   const [q, setQ] = useState("");
   const [onlyIndiv, setOnlyIndiv] = useState(true);
   const [groups, setGroups] = useState<Record<number, SincereGroup | null>>({});
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
   const [, startTransition] = useTransition();
 
   // 그룹을 바꾸면 달성률도 즉시 다시 계산 (서버 저장은 백그라운드)
@@ -80,15 +101,40 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
     return c;
   }, [rows, onlyIndiv]);
 
+  // 예상 조정료 = 연말 추정 매출(없으면 누적 매출)을 조정 보수표에 적용 (개인·법인 표 구분)
   const visible = useMemo(() => {
-    const list = rows.filter(r => (!onlyIndiv || r.clientType !== "corporate") && (filter === "all" || level(r) === filter) && (!q || r.name.includes(q) || (r.assignedUser ?? "").includes(q)));
+    const list = rows
+      .filter(r => (!onlyIndiv || r.clientType !== "corporate") && (filter === "all" || level(r) === filter) && (!q || r.name.includes(q) || (r.assignedUser ?? "").includes(q)))
+      .map(r => ({ ...r, fee: r.hasLedger ? calcAdjustmentFee(r.projectedSale ?? r.ytdSale, r.clientType) : null }));
     const order: Record<Filter, number> = { danger: 0, warn: 1, safe: 2, unknown: 3, nodata: 4, all: 5 };
+    if (!sort) {
+      return list.sort((a, b) => {
+        const la = order[level(a)], lb = order[level(b)];
+        if (la !== lb) return la - lb;
+        return (b.paceRate ?? -1) - (a.paceRate ?? -1);
+      });
+    }
+    const { key, dir } = sort;
+    const m = dir === "asc" ? 1 : -1;
     return list.sort((a, b) => {
-      const la = order[level(a)], lb = order[level(b)];
-      if (la !== lb) return la - lb;
-      return (b.paceRate ?? -1) - (a.paceRate ?? -1);
+      const va = sortValue(a, key), vb = sortValue(b, key);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === "string" || typeof vb === "string") return String(va).localeCompare(String(vb), "ko") * m;
+      return (va - vb) * m;
     });
-  }, [rows, filter, q, onlyIndiv]);
+  }, [rows, filter, q, onlyIndiv, sort]);
+
+  function clickSort(col: Column) {
+    if (!col.sort) return;
+    const def = col.defaultDir ?? "desc";
+    setSort(prev => {
+      if (!prev || prev.key !== col.sort) return { key: col.sort!, dir: def };
+      if (prev.dir === def) return { key: col.sort!, dir: def === "asc" ? "desc" : "asc" };
+      return null;
+    });
+  }
 
   function changeGroup(r: InsightRow, v: string) {
     if (!canEdit) return;
@@ -100,6 +146,19 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
   }
 
   const through = `${parseInt(data.throughMonth.slice(5, 7))}월`;
+  const columns: Column[] = [
+    { key: "name", label: "거래처", align: "left" },
+    { key: "biz", label: "업종", align: "left", sort: "biz", defaultDir: "asc" },
+    { key: "group", label: "그룹 · 기준", align: "left", sort: "group", defaultDir: "asc", title: "A → B → C 순으로 묶어 보기" },
+    { key: "ytd", label: `1~${through} 누적 매출`, align: "right", sort: "ytd" },
+    { key: "proj", label: "월평균 · 연말 추정", align: "right", sort: "proj" },
+    { key: "annual", label: "연간 달성률", align: "left", sort: "annual" },
+    { key: "pace", label: "월 달성률", align: "left", sort: "pace" },
+    { key: "prev", label: "전년 동기", align: "right", sort: "prev" },
+    { key: "margin", label: "손익 · 이익률", align: "right", sort: "margin", title: "이익률 기준 정렬" },
+    { key: "fee", label: "예상 조정료", align: "right", sort: "fee", title: "연말 추정 매출을 조정 보수표(개인·법인)에 적용한 금액 · 공급가액" },
+    { key: "docs", label: "자료", align: "left" },
+  ];
 
   return (
     <div className="space-y-4">
@@ -140,17 +199,28 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
 
       <section className="glass overflow-hidden rounded-3xl">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-separate border-spacing-0">
+          <table className="w-full min-w-[1250px] border-separate border-spacing-0">
             <thead>
               <tr className="bg-white/60">
-                {["거래처", "업종", "그룹 · 기준", `1~${through} 누적 매출`, "월평균 · 연말 추정", "연간 달성률", "월 달성률", "전년 동기", "손익 · 이익률", "자료"].map((h, i) => (
-                  <th key={h} className={`px-3 py-2.5 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap ${i >= 3 && i <= 8 ? "text-right" : "text-left"} ${i === 5 || i === 6 ? "!text-left" : ""}`}>{h}</th>
-                ))}
+                {columns.map(col => {
+                  const active = !!col.sort && sort?.key === col.sort;
+                  return (
+                    <th key={col.key} className={`px-3 py-2.5 text-[11px] font-bold whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"} ${active ? "text-[#191F28]" : "text-[#8B95A1]"}`}>
+                      {col.sort ? (
+                        <button type="button" onClick={() => clickSort(col)} title={col.title ?? "클릭: 정렬 · 다시 클릭: 반대 방향 · 한 번 더: 해제"}
+                          className={`inline-flex items-center gap-1 rounded-md px-1 -mx-1 transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] ${col.align === "right" ? "flex-row-reverse" : ""}`}>
+                          {col.label}
+                          <span className={`text-[9px] leading-none ${active ? "text-[#3182F6]" : "text-[#D1D6DB]"}`}>{active ? (sort!.dir === "asc" ? "▲" : "▼") : "⇅"}</span>
+                        </button>
+                      ) : col.label}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={10} className="py-12 text-center text-[13px] text-[#B0B8C1]">해당하는 거래처가 없어요</td></tr>
+                <tr><td colSpan={11} className="py-12 text-center text-[13px] text-[#B0B8C1]">해당하는 거래처가 없어요</td></tr>
               )}
               {visible.map(r => {
                 const lv = level(r);
@@ -199,8 +269,17 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
                       {r.saleDeltaPct == null ? <span className="text-[#B0B8C1]">-</span> : <span className={`font-bold ${r.saleDeltaPct >= 0 ? "text-[#DC2626]" : "text-[#1B64DA]"}`}>{r.saleDeltaPct >= 0 ? "+" : ""}{r.saleDeltaPct}%</span>}
                       {r.prevSale != null && <div className="text-[10.5px] text-[#8B95A1]">작년 {eokMan(r.prevSale)}</div>}
                     </td>
-                    <td className="px-3 py-2.5 border-t border-[#F2F4F6] text-right tabular-nums text-[12px]">
-                      {r.hasLedger ? <><span className={`font-bold ${r.profit < 0 ? "text-[#DC2626]" : "text-[#191F28]"}`}>{eokMan(r.profit)}</span>{r.marginPct != null && <span className="ml-1 text-[#8B95A1]">{r.marginPct}%</span>}</> : <span className="text-[#B0B8C1]">-</span>}
+                    <td className="px-3 py-2.5 border-t border-[#F2F4F6] text-right tabular-nums text-[12px] whitespace-nowrap">
+                      {r.hasLedger ? <>
+                        <span className={`font-bold ${r.profit < 0 ? "text-[#DC2626]" : "text-[#191F28]"}`}>{eokMan(r.profit)}</span>
+                        <div className="text-[10.5px] text-[#8B95A1]">{r.marginPct != null ? `이익률 ${r.marginPct}%` : "이익률 -"}</div>
+                      </> : <span className="text-[#B0B8C1]">-</span>}
+                    </td>
+                    <td className="px-3 py-2.5 border-t border-[#F2F4F6] text-right tabular-nums text-[12px] whitespace-nowrap">
+                      {r.fee == null ? <span className="text-[#B0B8C1]">-</span> : <>
+                        <span className="font-bold text-[#7C3AED]">{won(r.fee)}원</span>
+                        <div className="text-[10.5px] text-[#8B95A1]">{r.projectedSale != null ? "연말 추정" : "누적"} 기준</div>
+                      </>}
                     </td>
                     <td className="px-3 py-2.5 border-t border-[#F2F4F6]">
                       <div className="flex items-center gap-1" title={`세모리포트 ${r.hasLedger ? "있음" : "없음"} · 급여대장 ${r.hasPayroll ? "있음" : "없음"}`}>
@@ -215,7 +294,7 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
           </table>
         </div>
         <div className="px-4 py-2.5 text-[11px] text-[#8B95A1]">
-          그룹 기준: A 15억 · B 7.5억 · C 5억 (성실신고확인대상 업종별 수입금액). 자동 추정은 업태·종목·홈택스 업종코드 앞 두 자리로 판단하니, 애매한 거래처는 그룹을 직접 지정하세요. 손익 = 매출 − 매입 − 급여대장 인건비.
+          그룹 기준: A 15억 · B 7.5억 · C 5억 (성실신고확인대상 업종별 수입금액). 자동 추정은 업태·종목·홈택스 업종코드 앞 두 자리로 판단하니, 애매한 거래처는 그룹을 직접 지정하세요. 손익 = 매출 − 매입 − 급여대장 인건비. 예상 조정료 = 연말 추정 매출 × 조정 보수표(개인·법인 구분, 공급가액 기준) — 신고 매출 확정 후 종소세 페이지에서 최종 확인.
         </div>
       </section>
     </div>
