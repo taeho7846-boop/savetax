@@ -20,7 +20,7 @@ type ClientLite = {
   openDate?: string | null; // 개업일 → 위하고 기수(gisu) = 연도 - 개업연도 + 1
 };
 
-/** 위하고 기수. 기수가 틀리면 사업소득조회 화면의 기간 칸이 입력을 안 받는다(2026-10-22 실측) */
+/** 위하고 기수 (개업일 기준). 조회 결과에는 영향이 없었지만 화면 표시를 맞추려고 넣는다 */
 function wehagoGisu(openDate: string | null | undefined, year: number): number {
   const m = String(openDate ?? "").match(/(\d{4})/);
   if (!m) return 1;
@@ -29,7 +29,7 @@ function wehagoGisu(openDate: string | null | undefined, year: number): number {
 
 const WEHAGO_BASE = "https://smarta.wehago.com/#/smarta/humanresource";
 
-function extCall<T = { ok: boolean; error?: string }>(type: string, payload?: Record<string, unknown>, timeoutMs = 4000): Promise<T | null> {
+export function extCall<T = { ok: boolean; error?: string }>(type: string, payload?: Record<string, unknown>, timeoutMs = 4000): Promise<T | null> {
   return new Promise((resolve) => {
     if (typeof window === "undefined") { resolve(null); return; }
     const id = `app${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
@@ -49,6 +49,31 @@ function fmtTime(iso: string | null | undefined) {
   if (!iso) return "-";
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** 확장 최소 버전 — 사업소득 기간 입력이 포커스된 창에서만 되는 문제 수정본 */
+export const PAYROLL_BACKFILL_MIN_EXT = 4.65;
+
+/** 위하고 연간 조회 화면 주소 (확장 content-wehago-payroll-year.js 가 stPayrollYear=1 을 보고 동작) */
+export function payrollYearUrl(
+  c: { id: number; name: string; wehagoCno: string | null; wehagoCdCom: string | null; colors: Record<string, string>; openDate?: string | null },
+  year: number,
+  type: "salary" | "business",
+  opt: { companyId: string; taxNum: string; overwrite: boolean },
+): string {
+  const color = c.colors[String(year)] || "#D0BA00";
+  const q = [
+    "sao", `cno=${c.wehagoCno}`, `cd_com=${c.wehagoCdCom}`, `gisu=${wehagoGisu(c.openDate, year)}`, `yminsa=${year}`, `searchData=${year}0101${year}1231`,
+    `color=${encodeURIComponent(color)}`, `companyName=${encodeURIComponent(c.name)}`, `companyID=${opt.companyId}`, `taxNum=${opt.taxNum}`, "yn_private=1", "wehagoT",
+    "stPayrollYear=1", `incomeType=${type}`, `clientId=${c.id}`, `origin=${encodeURIComponent(window.location.origin)}`, `overwrite=${opt.overwrite ? 1 : 0}`,
+  ].join("&");
+  return `${WEHAGO_BASE}/${type === "business" ? "SWBU0103" : "SWSA0105"}?${q}`;
+}
+
+/** 다른 수집이 돌고 있는지 (끝 표시가 없고 시작한 지 2시간 안) */
+export function backfillBusy(run: PayrollBackfillRun | null): boolean {
+  if (!run || run.finishedAt) return false;
+  return Date.now() - new Date(run.startedAt).getTime() < 2 * 60 * 60 * 1000;
 }
 
 export function PayrollBackfillButton({ clients, wehagoCompanyId, wehagoTaxNum }: { clients: ClientLite[]; wehagoCompanyId: string; wehagoTaxNum: string }) {
@@ -116,13 +141,9 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
   }, [inProgress, load]);
 
   function buildUrl(c: ClientLite, year: number, type: "salary" | "business") {
-    const color = (() => { try { const m = JSON.parse(c.wehagoColors || "{}"); return m[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })();
-    const q = [
-      "sao", `cno=${c.wehagoCno}`, `cd_com=${c.wehagoCdCom}`, `gisu=${wehagoGisu(c.openDate, year)}`, `yminsa=${year}`, `searchData=${year}0101${year}1231`,
-      `color=${color}`, `companyName=${encodeURIComponent(c.name)}`, `companyID=${wehagoCompanyId}`, `taxNum=${wehagoTaxNum}`, "yn_private=1", "wehagoT",
-      "stPayrollYear=1", `incomeType=${type}`, `clientId=${c.id}`, `origin=${encodeURIComponent(window.location.origin)}`, `overwrite=${overwrite ? 1 : 0}`,
-    ].join("&");
-    return `${WEHAGO_BASE}/${type === "business" ? "SWBU0103" : "SWSA0105"}?${q}`;
+    let colors: Record<string, string> = {};
+    try { colors = JSON.parse(c.wehagoColors || "{}"); } catch { /* 기본색 */ }
+    return payrollYearUrl({ ...c, colors }, year, type, { companyId: wehagoCompanyId, taxNum: wehagoTaxNum, overwrite });
   }
 
   async function start() {
@@ -136,7 +157,9 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
       const ping = await extCall<{ ok: boolean; version?: string }>("ping", {}, 1500);
       if (!ping?.ok) { setError("SaveTax 크롬 확장 프로그램이 필요합니다. 확장을 4.60 이상으로 업데이트한 뒤 다시 시도하세요."); return; }
       const v = parseFloat(ping.version || "0");
-      if (v < 4.65) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 4.65 이상으로 올려주세요.`); return; }
+      if (v < PAYROLL_BACKFILL_MIN_EXT) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 ${PAYROLL_BACKFILL_MIN_EXT} 이상으로 올려주세요.`); return; }
+      const cur = await load();
+      if (backfillBusy(cur)) { setError("다른 인건비 수집이 진행 중입니다. 끝난 뒤 다시 시작하세요."); return; }
 
       const urls: string[] = [];
       for (const t of types) for (const c of targetsByType[t]) for (const y of [...years].sort()) urls.push(buildUrl(c, y, t));

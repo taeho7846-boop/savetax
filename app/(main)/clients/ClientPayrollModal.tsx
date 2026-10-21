@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MonthGrid } from "@/app/(main)/clients/MonthGrid";
-import { PAYROLL_TYPES, type PayrollMonthData, type PayrollType, type CollectResult, type PayrollFilingMonth, type PayrollWehago } from "@/lib/payroll-types";
+import { PAYROLL_TYPES, type PayrollMonthData, type PayrollType, type CollectResult, type PayrollFilingMonth, type PayrollWehago, type PayrollBackfillRun } from "@/lib/payroll-types";
+import { extCall, payrollYearUrl, backfillBusy, PAYROLL_BACKFILL_MIN_EXT } from "@/app/(main)/withholding/PayrollBackfillModal";
 
 /**
  * 거래처 인건비(급여) 상세 모달 — 세모리포트 '급여' 화면 구성을 따른다.
@@ -633,6 +634,130 @@ function FilingCard({ f }: { f: PayrollFilingMonth | null }) {
   );
 }
 
+/* ───────── 위하고 연간 조회로 1년치 채우기 (이 거래처만) ─────────
+ * 원천세 페이지 '과거 인건비 일괄 수집'과 같은 경로: 확장이 위하고 연간 조회 화면(근로 SWSA0105 / 사업 SWBU0103)을 열어
+ * 응답을 /api/payroll/backfill 로 보낸다. 월마다 엑셀을 받는 '지난 달 일괄 처리'보다 훨씬 빠르다(1년치 10초 안팎).
+ */
+function YearCollectPanel({ clientId, clientName, wehago, types, thisYear, onRefresh }: {
+  clientId: number; clientName: string; wehago: PayrollWehago; types: PayrollType[]; thisYear: number; onRefresh: () => Promise<void>;
+}) {
+  const avail = (["salary", "business"] as const).filter(t => types.length === 0 || types.includes(t));
+  const [years, setYears] = useState<number[]>([thisYear - 1, thisYear]);
+  const [picked, setPicked] = useState<("salary" | "business")[]>(avail.length ? [...avail] : ["salary"]);
+  const [overwrite, setOverwrite] = useState(false);
+  const [run, setRun] = useState<PayrollBackfillRun | null>(null);
+  const [mine, setMine] = useState<string | null>(null); // 내가 시작한 수집의 startedAt
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/payroll/backfill", { cache: "no-store" });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { run: PayrollBackfillRun | null };
+      setRun(j.run);
+      return j.run;
+    } catch { return null; }
+  }, []);
+
+  // 내가 시작한 수집이 끝날 때까지 2초마다 갱신, 끝나면 표를 새로 읽는다
+  const running = !!mine && !!run && run.startedAt === mine && !run.finishedAt;
+  useEffect(() => {
+    if (!mine) return;
+    let stop = false;
+    const tick = async () => {
+      if (stop) return;
+      const r = await load();
+      if (r && r.startedAt === mine && r.finishedAt) { await onRefresh(); return; }
+      setTimeout(tick, 2000);
+    };
+    const t = setTimeout(tick, 2000);
+    return () => { stop = true; clearTimeout(t); };
+  }, [mine, load, onRefresh]);
+
+  async function start() {
+    setErr(null);
+    if (!wehago.ready) { setErr(`아직 쓸 수 없어요: ${wehago.reason ?? "위하고 연동정보 없음"}`); return; }
+    if (years.length === 0 || picked.length === 0) { setErr("연도와 소득을 하나 이상 고르세요"); return; }
+    setBusy(true);
+    try {
+      const ping = await extCall<{ ok: boolean; version?: string }>("ping", {}, 1500);
+      if (!ping?.ok) { setErr("SaveTax 크롬 확장 프로그램이 필요합니다."); return; }
+      if (parseFloat(ping.version || "0") < PAYROLL_BACKFILL_MIN_EXT) { setErr(`확장 프로그램을 ${PAYROLL_BACKFILL_MIN_EXT} 이상으로 새로고침하세요 (지금 ${ping.version})`); return; }
+      const cur = await load();
+      if (backfillBusy(cur)) { setErr("다른 인건비 수집(원천세 페이지 일괄 수집 등)이 진행 중입니다. 끝난 뒤 다시 시도하세요."); return; }
+
+      const c = { id: clientId, name: clientName, wehagoCno: wehago.cno, wehagoCdCom: wehago.cdCom, colors: wehago.colors };
+      const urls: string[] = [];
+      for (const t of picked) for (const y of [...years].sort()) urls.push(payrollYearUrl(c, y, t, { companyId: wehago.companyId, taxNum: wehago.taxNum, overwrite }));
+      const res = await fetch("/api/payroll/backfill", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase: "start", total: urls.length, years: years.map(String) }),
+      });
+      const j = await res.json().catch(() => null) as { run?: PayrollBackfillRun } | null;
+      if (!res.ok || !j?.run) { setErr("시작 기록에 실패했습니다"); return; }
+      setRun(j.run); setMine(j.run.startedAt);
+      const opened = await extCall("open-hidden", { urls, sequential: true });
+      if (!opened?.ok) {
+        setErr("확장이 위하고 창을 열지 못했습니다: " + (opened?.error ?? "응답 없음"));
+        await fetch("/api/payroll/backfill", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phase: "finish" }) });
+        await load();
+      }
+    } finally { setBusy(false); }
+  }
+
+  const myRun = mine && run && run.startedAt === mine ? run : null;
+  const pctDone = myRun && myRun.total > 0 ? Math.round((myRun.done / myRun.total) * 100) : 0;
+  const chip = (on: boolean) => `h-8 rounded-lg border px-3 text-[12.5px] font-bold transition-colors ${on ? "border-[#6D28D9] bg-[#6D28D9] text-white" : "border-[#D1D6DB] bg-white text-[#4E5968] hover:bg-[#F9FAFB]"} disabled:opacity-50`;
+
+  return (
+    <section className="rounded-2xl border border-[#DDD6FE] bg-[#F5F3FF]/60 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="mr-1 text-[13px] font-bold text-[#191F28]">위하고에서 1년치 가져오기</div>
+        <span className="text-[11.5px] text-[#6B7684]">연간 조회 한 번으로 직원별 월 급여(세전·세후)를 채워요 · 1년치 10초 안팎</span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-[12px] font-bold text-[#6B7684]">연도</span>
+        {[thisYear - 2, thisYear - 1, thisYear].map(y => {
+          const on = years.includes(y);
+          return <button key={y} type="button" disabled={running} className={chip(on)} onClick={() => setYears(p => on ? p.filter(v => v !== y) : [...p, y].sort())}>{y}년</button>;
+        })}
+        <span className="ml-2 text-[12px] font-bold text-[#6B7684]">소득</span>
+        {(["salary", "business"] as const).map(t => {
+          const on = picked.includes(t);
+          return <button key={t} type="button" disabled={running} className={chip(on)} onClick={() => setPicked(p => on ? p.filter(v => v !== t) : [...p, t])}>{t === "salary" ? "근로" : "사업"}</button>;
+        })}
+        <label className="ml-2 inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-[#4E5968]" title="켜면 이미 저장된 달도 위하고 값으로 덮어씁니다">
+          <input type="checkbox" checked={overwrite} disabled={running} onChange={e => setOverwrite(e.target.checked)} className="accent-[#DC2626]" />이미 있는 달도 덮어쓰기
+        </label>
+        <button type="button" onClick={start} disabled={busy || running || !wehago.ready} className="ml-auto h-8 rounded-xl bg-[#6D28D9] px-4 text-[12.5px] font-bold text-white hover:bg-[#5B21B6] disabled:opacity-50">
+          {running ? "가져오는 중…" : busy ? "여는 중…" : "가져오기"}
+        </button>
+      </div>
+      {picked.includes("business") && <div className="mt-2 text-[11.5px] text-[#8B95A1]">사업소득은 입력하는 동안 위하고 창이 잠깐 앞으로 떴다 사라져요. 그동안 키보드 입력은 쉬어 주세요.</div>}
+      {!wehago.ready && <div className="mt-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#DC2626]">아직 쓸 수 없어요: {wehago.reason}</div>}
+      {err && <div className="mt-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#DC2626]">{err}</div>}
+      {myRun && (
+        <div className="mt-3">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#191F28]/[.06]"><div className="h-full bg-[#6D28D9] transition-all duration-500" style={{ width: `${pctDone}%` }} /></div>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-[#4E5968] tabular-nums">
+            <span>{myRun.done} / {myRun.total}페이지</span>
+            <span>저장 <b className="text-[#6D28D9]">{myRun.saved}</b>개월</span>
+            <span>이미 있어 건너뜀 {myRun.skipped}개월</span>
+            {myRun.failed.length > 0 && <span className="text-[#DC2626]">실패 {myRun.failed.length}</span>}
+            {myRun.finishedAt && <span className="font-bold text-[#15803D]">완료 — 아래 표에 반영됐어요</span>}
+          </div>
+          {myRun.failed.length > 0 && (
+            <ul className="mt-1.5 space-y-0.5 text-[11.5px] text-[#DC2626]">
+              {myRun.failed.map((f, i) => <li key={i}>{f.year}년: {f.error}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ───────── 본체 ───────── */
 
 export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose, preload }: {
@@ -647,6 +772,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
   const [selected, setSelected] = useState<string | null>(initialMonth ?? null);
   const [showCollect, setShowCollect] = useState(false);
   const [showWehago, setShowWehago] = useState(false);
+  const [showYear, setShowYear] = useState(false);
 
   useEffect(() => {
     if (preload) return;
@@ -696,10 +822,13 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => { setShowWehago(v => !v); setShowCollect(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showWehago ? "border-[#0F9D77] bg-[#0F9D77] text-white" : "border-[#0F9D77] bg-white/80 text-[#0B7A5C] hover:bg-[#ECFDF5]"}`}>
+              <button type="button" onClick={() => { setShowYear(v => !v); setShowWehago(false); setShowCollect(false); }} title="위하고 연간 조회로 이 거래처의 1년치 인건비를 한 번에 채웁니다" className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showYear ? "border-[#6D28D9] bg-[#6D28D9] text-white" : "border-[#C4B5FD] bg-white/80 text-[#6D28D9] hover:bg-[#F5F3FF]"}`}>
+                위하고 1년치
+              </button>
+              <button type="button" onClick={() => { setShowWehago(v => !v); setShowCollect(false); setShowYear(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showWehago ? "border-[#0F9D77] bg-[#0F9D77] text-white" : "border-[#0F9D77] bg-white/80 text-[#0B7A5C] hover:bg-[#ECFDF5]"}`}>
                 지난 달 일괄 처리
               </button>
-              <button type="button" onClick={() => { setShowCollect(v => !v); setShowWehago(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showCollect ? "border-[#191F28] bg-[#191F28] text-white" : "border-[#E5E8EB] bg-white/80 text-[#4E5968] hover:bg-[#F2F4F6]"}`}>
+              <button type="button" onClick={() => { setShowCollect(v => !v); setShowWehago(false); setShowYear(false); }} className={`h-8 rounded-xl border px-3 text-[12.5px] font-bold transition-colors ${showCollect ? "border-[#191F28] bg-[#191F28] text-white" : "border-[#E5E8EB] bg-white/80 text-[#4E5968] hover:bg-[#F2F4F6]"}`}>
                 드라이브에서 가져오기
               </button>
               <button onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg leading-none text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#333D4B]" aria-label="닫기">✕</button>
@@ -710,6 +839,7 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
 
         {/* 본문 */}
         <div className="flex-1 space-y-7 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
+          {showYear && data && <YearCollectPanel clientId={clientId} clientName={data.client.name} wehago={data.wehago} types={data.client.types} thisYear={parseInt(thisMonth.slice(0, 4), 10)} onRefresh={refresh} />}
           {showWehago && data && <WmBatchPanel clientId={clientId} clientName={data.client.name} wehago={data.wehago} types={data.client.types} thisMonth={thisMonth} onRefresh={refresh} />}
           {showCollect && data && <CollectPanel clientId={clientId} thisMonth={thisMonth} onDone={onCollected} />}
           {error ? (
@@ -719,8 +849,8 @@ export function ClientPayrollModal({ clientId, clientName, initialMonth, onClose
           ) : months.length === 0 || !m || !sel ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <div className="text-[15px] font-bold text-[#4E5968]">아직 저장된 급여 자료가 없어요</div>
-              <div className="text-[12.5px] text-[#8B95A1]">매달 원천세 페이지에서 위멤버스 버튼을 돌리면 자동으로 쌓여요. 지난 달들은 ‘지난 달 일괄 처리’로 같은 루틴을 연달아 돌리면 돼요</div>
-              {!showWehago && !showCollect && <button type="button" onClick={() => setShowWehago(true)} className="mt-2 h-9 rounded-xl px-4 text-[13px] font-bold text-white" style={{ background: GREEN }}>지난 달 일괄 처리</button>}
+              <div className="text-[12.5px] text-[#8B95A1]">매달 원천세 페이지에서 위멤버스 버튼을 돌리면 자동으로 쌓여요. 지난 달들은 ‘위하고 1년치’로 한 번에 채우면 돼요</div>
+              {!showWehago && !showCollect && !showYear && <button type="button" onClick={() => setShowYear(true)} className="mt-2 h-9 rounded-xl bg-[#6D28D9] px-4 text-[13px] font-bold text-white hover:bg-[#5B21B6]">위하고 1년치 가져오기</button>}
             </div>
           ) : (
             <>
