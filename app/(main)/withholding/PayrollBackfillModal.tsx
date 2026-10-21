@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PayrollBackfillRun } from "@/lib/payroll-types";
 
 /**
@@ -142,7 +143,9 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
   const pct = run && run.total > 0 ? Math.min(100, Math.round((run.done / run.total) * 100)) : 0;
   const estMin = Math.ceil((targets.length * years.length * 12) / 60);
 
-  return (
+  // 원천세 표 도구줄 안(transform 있는 조상)에서 열리므로 body 로 포털 — 아니면 fixed 가 그 조상 기준이 되어 위가 잘린다
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="fixed inset-0 bg-[#191F28]/25 backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="glass-strong rounded-[28px] shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[#F2F4F6]">
@@ -245,7 +248,8 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
