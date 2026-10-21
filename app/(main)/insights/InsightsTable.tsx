@@ -42,7 +42,7 @@ function level(r: InsightRow): Filter {
 // 헤더 정렬 — 클릭: 기본 방향 → 반대 방향 → 해제(위험순). null은 방향과 무관하게 맨 아래
 type SortKey = "biz" | "group" | "ytd" | "proj" | "annual" | "pace" | "prev" | "margin" | "fee";
 type SortDir = "asc" | "desc";
-type Column = { key: string; label: string; align: "left" | "right"; sort?: SortKey; defaultDir?: SortDir; title?: string };
+type Column = { key: string; label: string; align: "left" | "right" | "center"; sort?: SortKey; defaultDir?: SortDir; title?: string };
 const GROUP_ORDER: Record<string, number> = { A: 0, B: 1, C: 2 };
 function sortValue(r: InsightRow & { fee: number | null }, key: SortKey): number | string | null {
   switch (key) {
@@ -53,7 +53,7 @@ function sortValue(r: InsightRow & { fee: number | null }, key: SortKey): number
     case "annual": return r.annualRate;
     case "pace": return r.paceRate;
     case "prev": return r.saleDeltaPct;
-    case "margin": return r.marginPct;
+    case "margin": return r.hasLedger ? r.profit : null;
     case "fee": return r.fee;
   }
 }
@@ -150,16 +150,16 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
   const through = `${parseInt(data.throughMonth.slice(5, 7))}월`;
   const columns: Column[] = [
     { key: "name", label: "거래처", align: "left" },
-    { key: "biz", label: "업종", align: "left", sort: "biz", defaultDir: "asc" },
-    { key: "group", label: "그룹 · 기준", align: "left", sort: "group", defaultDir: "asc", title: "A → B → C 순으로 묶어 보기" },
+    { key: "biz", label: "업종", align: "center", sort: "biz", defaultDir: "asc" },
+    { key: "group", label: "그룹 · 기준", align: "center", sort: "group", defaultDir: "asc", title: "A → B → C 순으로 묶어 보기" },
     { key: "ytd", label: `1~${through} 누적 매출`, align: "right", sort: "ytd" },
     { key: "proj", label: "월평균 · 연말 추정", align: "right", sort: "proj" },
-    { key: "annual", label: "연간 달성률", align: "left", sort: "annual" },
-    { key: "pace", label: "월 달성률", align: "left", sort: "pace" },
+    { key: "annual", label: "연간 달성률", align: "center", sort: "annual" },
+    { key: "pace", label: "월 달성률", align: "center", sort: "pace" },
     { key: "prev", label: "전년 동기", align: "right", sort: "prev" },
-    { key: "margin", label: "손익 · 이익률", align: "right", sort: "margin", title: "이익률 기준 정렬" },
+    { key: "margin", label: "손익 · 이익률", align: "right", sort: "margin", title: "손익 금액 기준 정렬" },
     { key: "fee", label: "예상 조정료", align: "right", sort: "fee", title: "연말 추정 매출을 조정 보수표(개인·법인)에 적용한 금액 · 공급가액" },
-    { key: "docs", label: "자료", align: "left" },
+    { key: "docs", label: "자료", align: "center" },
   ];
 
   return (
@@ -211,7 +211,7 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
                 {columns.map(col => {
                   const active = !!col.sort && sort?.key === col.sort;
                   return (
-                    <th key={col.key} className={`px-3 py-2.5 text-[11px] font-bold whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"} ${active ? "text-[#191F28]" : "text-[#8B95A1]"}`}>
+                    <th key={col.key} className={`px-3 py-2.5 text-[11px] font-bold whitespace-nowrap ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${active ? "text-[#191F28]" : "text-[#8B95A1]"}`}>
                       {col.sort ? (
                         <button type="button" onClick={() => clickSort(col)} title={col.title ?? "클릭: 정렬 · 다시 클릭: 반대 방향 · 한 번 더: 해제"}
                           className={`inline-flex items-center gap-1 rounded-md px-1 -mx-1 transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] ${col.align === "right" ? "flex-row-reverse" : ""}`}>
