@@ -52,13 +52,13 @@ function fmtTime(iso: string | null | undefined) {
 }
 
 /** 확장 최소 버전 — 사업소득 기간 입력이 포커스된 창에서만 되는 문제 수정본 */
-export const PAYROLL_BACKFILL_MIN_EXT = 4.65;
+export const PAYROLL_BACKFILL_MIN_EXT = 4.66;
 
 /** 위하고 연간 조회 화면 주소 (확장 content-wehago-payroll-year.js 가 stPayrollYear=1 을 보고 동작) */
 export function payrollYearUrl(
   c: { id: number; name: string; wehagoCno: string | null; wehagoCdCom: string | null; colors: Record<string, string>; openDate?: string | null },
   year: number,
-  type: "salary" | "business",
+  type: "salary" | "business" | "daily",
   opt: { companyId: string; taxNum: string; overwrite: boolean },
 ): string {
   const color = c.colors[String(year)] || "#D0BA00";
@@ -67,7 +67,7 @@ export function payrollYearUrl(
     `color=${encodeURIComponent(color)}`, `companyName=${encodeURIComponent(c.name)}`, `companyID=${opt.companyId}`, `taxNum=${opt.taxNum}`, "yn_private=1", "wehagoT",
     "stPayrollYear=1", `incomeType=${type}`, `clientId=${c.id}`, `origin=${encodeURIComponent(window.location.origin)}`, `overwrite=${opt.overwrite ? 1 : 0}`,
   ].join("&");
-  return `${WEHAGO_BASE}/${type === "business" ? "SWBU0103" : "SWSA0105"}?${q}`;
+  return `${WEHAGO_BASE}/${type === "business" ? "SWBU0103" : type === "daily" ? "SWSA0120" : "SWSA0105"}?${q}`;
 }
 
 /** 다른 수집이 돌고 있는지 (끝 표시가 없고 시작한 지 2시간 안) */
@@ -96,7 +96,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
   const thisYear = new Date().getFullYear();
   const [years, setYears] = useState<number[]>([thisYear - 1, thisYear]);
   const [onlySalary, setOnlySalary] = useState(true);
-  const [types, setTypes] = useState<("salary" | "business")[]>(["salary"]);
+  const [types, setTypes] = useState<("salary" | "business" | "daily")[]>(["salary"]);
   const [overwrite, setOverwrite] = useState(false);
   const [limit, setLimit] = useState<number | null>(null); // 시험 실행: 앞에서 N곳만
   const [run, setRun] = useState<PayrollBackfillRun | null>(null);
@@ -106,9 +106,9 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
 
   // 소득유형별 대상: 위하고 연동정보가 있고, (옵션) 인건비 유형에 해당 소득이 있는 거래처
   const targetsByType = useMemo(() => {
-    const label = { salary: "근로소득", business: "사업소득" } as const;
-    const out: Record<"salary" | "business", ClientLite[]> = { salary: [], business: [] };
-    for (const t of ["salary", "business"] as const) {
+    const label = { salary: "근로소득", business: "사업소득", daily: "일용직" } as const;
+    const out: Record<"salary" | "business" | "daily", ClientLite[]> = { salary: [], business: [], daily: [] };
+    for (const t of ["salary", "business", "daily"] as const) {
       const list = clients.filter(c => c.wehagoCno && c.wehagoCdCom && (!onlySalary || (c.laborTypes ?? "").includes(label[t])));
       out[t] = limit ? list.slice(0, limit) : list;
     }
@@ -140,7 +140,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
     return () => { stopped = true; if (timer.current) clearTimeout(timer.current); };
   }, [inProgress, load]);
 
-  function buildUrl(c: ClientLite, year: number, type: "salary" | "business") {
+  function buildUrl(c: ClientLite, year: number, type: "salary" | "business" | "daily") {
     let colors: Record<string, string> = {};
     try { colors = JSON.parse(c.wehagoColors || "{}"); } catch { /* 기본색 */ }
     return payrollYearUrl({ ...c, colors }, year, type, { companyId: wehagoCompanyId, taxNum: wehagoTaxNum, overwrite });
@@ -202,7 +202,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
             <div className="text-[13px] text-[#4E5968] leading-relaxed">
               위하고 화면을 거래처마다 최소화 창으로 열어 1년치를 한 번에 조회합니다. 근로소득은 <b>월별급상여수당지급현황</b>(직원별 월 지급액·공제액),
               사업소득은 <b>사업소득조회</b>(지급 건별 지급액·소득세·지방세)에서 받아 인건비에 채웁니다. 거래처 한 곳의 1년치가 10초 안팎이고,
-              끝날 때까지 크롬을 켜 두면 됩니다. 사업소득은 입력하는 동안 위하고 창이 잠깐 앞으로 떴다 사라지니, 그동안은 키보드 입력을 쉬어 주세요. 이미 있는 달은 기본으로 건너뜁니다.
+              끝날 때까지 크롬을 켜 두면 됩니다. 사업·일용은 입력하는 동안 위하고 창이 잠깐 앞으로 떴다 사라지니, 그동안은 키보드·마우스 입력을 쉬어 주세요. 이미 있는 달은 기본으로 건너뜁니다.
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -218,7 +218,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
                 );
               })}
               <span className="text-[12px] font-bold text-[#6B7684] ml-3 mr-1">소득</span>
-              {([["salary", "근로"], ["business", "사업"]] as const).map(([k, l]) => {
+              {([["salary", "근로"], ["business", "사업"], ["daily", "일용"]] as const).map(([k, l]) => {
                 const on = types.includes(k);
                 return (
                   <button key={k} type="button" disabled={inProgress}
@@ -239,7 +239,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
             <div className="mt-3 flex flex-wrap items-center gap-4 text-[12px] text-[#4E5968]">
               <label className="inline-flex items-center gap-1.5 cursor-pointer">
                 <input type="checkbox" checked={onlySalary} disabled={inProgress} onChange={e => setOnlySalary(e.target.checked)} className="accent-[#6D28D9]" />
-                인건비 유형에 해당 소득(근로·사업)이 있는 거래처만
+                인건비 유형에 해당 소득(근로·사업·일용)이 있는 거래처만
               </label>
               <label className="inline-flex items-center gap-1.5 cursor-pointer" title="켜면 이미 저장된 달도 위하고 값으로 덮어씁니다 (엑셀로 받은 지급 항목 내역은 사라짐)">
                 <input type="checkbox" checked={overwrite} disabled={inProgress} onChange={e => setOverwrite(e.target.checked)} className="accent-[#DC2626]" />
@@ -248,7 +248,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="text-[12px] text-[#6B7684]">
-                {types.map(t => `${t === "salary" ? "근로" : "사업"} ${targetsByType[t].length}곳`).join(" · ") || "소득유형 없음"} × {years.length}년 = <b className="text-[#191F28]">{pageCount}페이지</b> · 약 {estMin}분
+                {types.map(t => `${t === "salary" ? "근로" : t === "business" ? "사업" : "일용"} ${targetsByType[t].length}곳`).join(" · ") || "소득유형 없음"} × {years.length}년 = <b className="text-[#191F28]">{pageCount}페이지</b> · 약 {estMin}분
                 {noWehago > 0 && <span className="ml-2 text-[#B45309]">위하고 연동정보 없음 {noWehago}곳 제외</span>}
                 {noOpenDate > 0 && <span className="ml-2 text-[#B45309]" title="개업일이 없으면 위하고 기수를 1로 넣어 열어요 — 사업소득 조회가 실패할 수 있으니 거래처 개업일을 채워주세요">개업일 없음 {noOpenDate}곳</span>}
               </div>

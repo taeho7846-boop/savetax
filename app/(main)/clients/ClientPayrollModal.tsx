@@ -641,9 +641,9 @@ function FilingCard({ f }: { f: PayrollFilingMonth | null }) {
 function YearCollectPanel({ clientId, clientName, wehago, types, thisYear, onRefresh }: {
   clientId: number; clientName: string; wehago: PayrollWehago; types: PayrollType[]; thisYear: number; onRefresh: () => Promise<void>;
 }) {
-  const avail = (["salary", "business"] as const).filter(t => types.length === 0 || types.includes(t));
+  const avail = (["salary", "business", "daily"] as const).filter(t => types.length === 0 || types.includes(t));
   const [years, setYears] = useState<number[]>([thisYear - 1, thisYear]);
-  const [picked, setPicked] = useState<("salary" | "business")[]>(avail.length ? [...avail] : ["salary"]);
+  const [picked, setPicked] = useState<("salary" | "business" | "daily")[]>(avail.length ? (types.length === 0 ? ["salary", "business"] : [...avail]) : ["salary"]);
   const [overwrite, setOverwrite] = useState(false);
   const [run, setRun] = useState<PayrollBackfillRun | null>(null);
   const [mine, setMine] = useState<string | null>(null); // 내가 시작한 수집의 startedAt
@@ -723,9 +723,9 @@ function YearCollectPanel({ clientId, clientName, wehago, types, thisYear, onRef
           return <button key={y} type="button" disabled={running} className={chip(on)} onClick={() => setYears(p => on ? p.filter(v => v !== y) : [...p, y].sort())}>{y}년</button>;
         })}
         <span className="ml-2 text-[12px] font-bold text-[#6B7684]">소득</span>
-        {(["salary", "business"] as const).map(t => {
+        {(["salary", "business", "daily"] as const).map(t => {
           const on = picked.includes(t);
-          return <button key={t} type="button" disabled={running} className={chip(on)} onClick={() => setPicked(p => on ? p.filter(v => v !== t) : [...p, t])}>{t === "salary" ? "근로" : "사업"}</button>;
+          return <button key={t} type="button" disabled={running} className={chip(on)} onClick={() => setPicked(p => on ? p.filter(v => v !== t) : [...p, t])}>{t === "salary" ? "근로" : t === "business" ? "사업" : "일용"}</button>;
         })}
         <label className="ml-2 inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-[#4E5968]" title="켜면 이미 저장된 달도 위하고 값으로 덮어씁니다">
           <input type="checkbox" checked={overwrite} disabled={running} onChange={e => setOverwrite(e.target.checked)} className="accent-[#DC2626]" />이미 있는 달도 덮어쓰기
@@ -734,7 +734,7 @@ function YearCollectPanel({ clientId, clientName, wehago, types, thisYear, onRef
           {running ? "가져오는 중…" : busy ? "여는 중…" : "가져오기"}
         </button>
       </div>
-      {picked.includes("business") && <div className="mt-2 text-[11.5px] text-[#8B95A1]">사업소득은 입력하는 동안 위하고 창이 잠깐 앞으로 떴다 사라져요. 그동안 키보드 입력은 쉬어 주세요.</div>}
+      {(picked.includes("business") || picked.includes("daily")) && <div className="mt-2 text-[11.5px] text-[#8B95A1]">사업·일용은 입력하는 동안 위하고 창이 잠깐 앞으로 떴다 사라져요. 그동안 키보드·마우스 입력은 쉬어 주세요.</div>}
       {!wehago.ready && <div className="mt-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#DC2626]">아직 쓸 수 없어요: {wehago.reason}</div>}
       {err && <div className="mt-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#DC2626]">{err}</div>}
       {myRun && (

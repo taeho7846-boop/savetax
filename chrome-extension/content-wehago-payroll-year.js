@@ -2,6 +2,9 @@
 // 앱이 거래처·연도·소득유형별로 화면을 하나씩 연다 (주소 해시에 stPayrollYear=1&incomeType=salary|business):
 //   근로: #/smarta/humanresource/SWSA0105?sao&cno=..&cd_com=..&yminsa=2025&...&stPayrollYear=1&incomeType=salary&clientId=123&origin=...&overwrite=0
 //        → [조회] 클릭 → 위하고가 /smarta/swsa0105/total/ 호출 → 직원×월 지급액(mon_XX_ji)·공제액(mon_XX_gong)
+//   일용: #/smarta/humanresource/SWSA0120?sao&... &incomeType=daily  (일용직근로소득조회 '기간별' 탭)
+//        → [조회] → /swsa0120/period/list_01/ (사람별 연간 합계) → 왼쪽 표의 사람 행을 차례로 눌러 /swsa0120/period/detail_01/ (그 사람의 월별)
+//        표는 canvas라 행 좌표(첫 행 중심 29px, 행 높이 28px)를 직접 누르고, 응답 합계가 목록 합계와 같은지로 사람을 확인한다.
 //   사업: #/smarta/humanresource/SWBU0103?sao&... &incomeType=business
 //        → 귀속년월 01~12 입력 후 Enter → 위하고가 /smarta/swbu0103/tab1/ 호출 → 지급 건별(tab1_up: nm_krname, ym_rvrs, am_pay, am_income, am_inhabit, custom_am_total)
 // API는 요청마다 1회용 서명이라 직접 호출은 불가 → wehago-main-hook.js(MAIN world)가 그 응답을 postMessage 로 넘겨주고,
@@ -15,7 +18,7 @@
   const year = params.get("yminsa") || String(new Date().getFullYear());
   const origin = params.get("origin") || "";
   const overwrite = params.get("overwrite") === "1";
-  const incomeType = params.get("incomeType") === "business" ? "business" : "salary";
+  const incomeType = params.get("incomeType") === "business" ? "business" : params.get("incomeType") === "daily" ? "daily" : "salary";
   const clientName = params.get("companyName") || ""; // URLSearchParams 가 이미 해독
 
   const log = (...a) => console.log("[SaveTax 인건비수집]", ...a);
@@ -27,12 +30,19 @@
   const api = (body) => bg({ type: "semo-api", base: origin, path: "/api/payroll/backfill", method: "POST", body });
 
   let received = null; // { data, ymInsa, raw }
+  let dailyList = null;    // 일용직: 사람별 연간 합계
+  let dailyDetail = null;  // 일용직: 마지막으로 받은 한 사람의 월별
   window.addEventListener("message", (ev) => {
     const d = ev.data;
     if (ev.source !== window || !d || d.source !== "savetax-payroll-year") return;
-    if (d.kind && d.kind !== incomeType) return;
     let data = null;
     try { data = JSON.parse(d.body); } catch { data = null; }
+    if (incomeType === "daily") {
+      if (d.kind === "daily_list") dailyList = Array.isArray(data) ? data : [];
+      else if (d.kind === "daily_detail") dailyDetail = data;
+      return;
+    }
+    if (d.kind && d.kind !== incomeType) return;
     received = { data, ymInsa: d.ym_insa, raw: data == null ? String(d.body || "").slice(0, 200) : "" };
   });
 
@@ -93,6 +103,72 @@
     }
     return false;
   }
+  // ── 일용직: 기간별 탭 → 조회 → 사람 행을 하나씩 눌러 월별 받기 ──
+  function clickCanvas(canvas, x, y) {
+    const rect = canvas.getBoundingClientRect();
+    for (const type of ["mousedown", "mouseup", "click"]) {
+      canvas.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: rect.left + x, clientY: rect.top + y, button: 0 }));
+    }
+  }
+  const leftGrid = () => {
+    const box = document.getElementById("Tab3_grid1");
+    return box ? box.querySelector("canvas") : null;
+  };
+  const sameTotal = (detail, person) => {
+    try { return Number(detail.grp2.am_duty) === Number(person.am_duty) && Number(detail.grp2.am_incomtax) === Number(person.am_incomtax); }
+    catch { return false; }
+  };
+  async function collectDaily() {
+    const tab = findButton("기간별");
+    if (!tab) return { error: "일용직근로소득조회 화면에서 '기간별' 탭을 찾지 못했습니다" };
+    tab.click(); await sleep(2000);
+    const period = [...document.querySelectorAll(".fake_inputbox")].filter(f => f.getBoundingClientRect().width > 0).slice(0, 2).map(f => f.textContent.trim().slice(0, 7));
+    if (period[0] !== `${year}.01` || period[1] !== `${year}.12`) return { error: `기간이 ${year}.01~${year}.12가 아닙니다 (${period.join("~")})` };
+    dailyList = null; dailyDetail = null;
+    const q = findButton("조회"); if (!q) return { error: "조회 버튼 없음" };
+    pressEscape(); q.click();
+    for (let i = 0; i < 30 && dailyList == null; i++) await sleep(1000);
+    if (dailyList == null) return { error: "일용직 목록 응답이 30초 안에 오지 않았습니다" };
+    if (dailyList.length === 0) return { rows: [] };
+    for (let i = 0; i < 15 && dailyDetail == null; i++) await sleep(500); // 첫 사람은 조회와 함께 자동으로 옴
+
+    const canvas = leftGrid();
+    const visibleRows = canvas ? Math.floor((canvas.getBoundingClientRect().height - 15) / 28) : 0;
+    const rows = [];
+    const missed = [];
+    for (let i = 0; i < dailyList.length; i++) {
+      const person = dailyList[i];
+      let detail = i === 0 && dailyDetail && sameTotal(dailyDetail, person) ? dailyDetail : null;
+      for (let attempt = 0; attempt < 2 && !detail; attempt++) {
+        if (!canvas || i >= visibleRows) break;
+        // 이미 선택된 행은 다시 눌러도 요청이 안 나간다 → 재시도 때는 다른 행을 먼저 눌렀다가 돌아온다
+        if (attempt === 1 && dailyList.length > 1) {
+          const other = i + 1 < Math.min(dailyList.length, visibleRows) ? i + 1 : i - 1;
+          clickCanvas(canvas, 100, 29 + 28 * other); await sleep(1500);
+        }
+        dailyDetail = null;
+        clickCanvas(canvas, 100, 29 + 28 * i);
+        for (let w = 0; w < 12 && dailyDetail == null; w++) await sleep(500);
+        if (dailyDetail && sameTotal(dailyDetail, person)) detail = dailyDetail;
+      }
+      if (!detail) { missed.push(String(person.nm_emp || "")); continue; }
+      for (const m of (detail.grp1 || [])) {
+        const ym = String(m.ym_rvrs || "");
+        if (!/^\d{6}$/.test(ym)) continue; // 분기 소계 행 제외
+        rows.push({
+          name: String(person.nm_emp || "").trim(),
+          yearMonth: `${ym.slice(0, 4)}-${ym.slice(4, 6)}`,
+          gross: Number(m.am_duty || 0),
+          incomeTax: Number(m.am_incomtax || 0),
+          localTax: Number(m.am_resitax || 0),
+          insurance: Number(m.am_natinsur || 0) + Number(m.am_hethinsur || 0) + Number(m.am_mediinsur || 0) + Number(m.am_unempinsur || 0),
+          days: Number(m.count_day || 0),
+        });
+      }
+    }
+    return { rows, missed, people: dailyList.length };
+  }
+
   const screenReady = () => incomeType === "business" ? document.querySelectorAll(".fake_inputbox").length > 0 : !!findButton("조회");
   const query = () => incomeType === "business" ? queryBusiness() : querySalary();
 
@@ -107,8 +183,19 @@
     await sleep(2500);
     // 사업소득조회의 기간 칸(마스크 입력)은 최소화된 창에서는 글자를 받지 않는다(2026-10-22 실측: 보이는 탭에선 정상).
     // → 입력하는 동안만 창을 화면에 보이게 한다(포커스는 뺏지 않음). 끝나면 efile-done 이 창을 닫는다.
-    // 포커스 없는 창에선 입력칸이 키를 받지 않아 잠깐 앞으로 가져온다(원천세 자동신고와 같은 방식).
-    if (incomeType === "business") { await bg({ type: "efile-show-window", focus: true }); await sleep(1500); }
+    // 포커스 없는 창에선 입력칸이 키를 받지 않아 잠깐 앞으로 가져온다(원천세 자동신고와 같은 방식). 일용직 표 클릭도 같은 이유.
+    if (incomeType === "business" || incomeType === "daily") { await bg({ type: "efile-show-window", focus: true }); await sleep(1500); }
+
+    if (incomeType === "daily") {
+      const r = await collectDaily();
+      if (r.error) { await report({ error: r.error }); return finish(); }
+      if (r.missed && r.missed.length) log(`월별을 못 받은 사람 ${r.missed.length}명: ${r.missed.join(", ")}`);
+      log(`일용직 ${r.people || 0}명 · 월별 ${r.rows.length}건 → 앱으로 전송`);
+      const res = await report({ rows: r.rows, partial: r.missed && r.missed.length ? `월별을 못 받은 사람 ${r.missed.length}명: ${r.missed.slice(0, 5).join(", ")}${r.missed.length > 5 ? " 외" : ""}` : null });
+      if (!res || !res.ok) log("전송 실패:", res && res.error);
+      else log(`저장 ${res.saved}개월, 건너뜀 ${res.skipped}개월`);
+      return finish();
+    }
     const ok = await query();
     log(ok ? "조회 실행" : "조회 조건 입력 실패");
     if (!ok && incomeType === "business") { await report({ error: `귀속년월 기간을 입력하지 못했습니다 (화면값 ${lastPeriod.join("~") || "없음"})` }); return finish(); }

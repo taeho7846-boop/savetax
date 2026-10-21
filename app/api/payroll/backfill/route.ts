@@ -4,6 +4,8 @@
 //  POST { phase: "batch", clientId, year, incomeType, overwrite, rows }     — 거래처 한 곳의 1년치
 //        근로(salary):   rows: [{ name, code, m01_gross, m01_ded, ... m12_ded }]           (월별급상여수당지급현황)
 //        사업(business): rows: [{ name, yearMonth, payDate, gross, incomeTax, localTax, net }] (사업소득조회 지급 건별)
+//        일용(daily):    rows: [{ name, yearMonth, gross, incomeTax, localTax, insurance, days }] (일용직근로소득조회 기간별 · 사람×월)
+//        partial: "월별을 못 받은 사람 N명 …" — 저장은 하되 실패 목록에도 남긴다
 //  POST { phase: "batch", clientId, year, error }                           — 실패 보고 (다음 거래처로 넘어감)
 //  POST { phase: "finish" }                                                 — 강제 종료(화면의 '중단')
 //  GET                                                                      — 진행 상태
@@ -16,7 +18,7 @@ import { getClientScopeWhere } from "@/lib/client-scope";
 import { savePayrollMonth } from "@/lib/payroll";
 import { PAYROLL_BACKFILL_RUN_KEY as RUN_KEY, type PayrollBackfillRun, type PayrollEmployee, type PayrollType } from "@/lib/payroll-types";
 
-const SOURCE: Record<string, string> = { salary: "위하고 월별급상여수당지급현황", business: "위하고 사업소득조회", daily: "위하고" };
+const SOURCE: Record<string, string> = { salary: "위하고 월별급상여수당지급현황", business: "위하고 사업소득조회", daily: "위하고 일용직근로소득조회" };
 
 type IncomingRow = { name?: string; code?: string } & Record<string, unknown>;
 
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   if (session.role === "readonly") return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
 
-  let body: { phase?: string; total?: number; years?: string[]; clientId?: number; year?: string; incomeType?: string; overwrite?: boolean; rows?: IncomingRow[]; error?: string };
+  let body: { phase?: string; total?: number; years?: string[]; clientId?: number; year?: string; incomeType?: string; overwrite?: boolean; rows?: IncomingRow[]; error?: string; partial?: string | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "잘못된 요청" }, { status: 400 }); }
 
   if (body.phase === "start") {
@@ -96,12 +98,23 @@ export async function POST(req: NextRequest) {
   const put = (yearMonth: string, name: string, add: PayrollEmployee) => {
     if (!byMonth.has(yearMonth)) byMonth.set(yearMonth, new Map());
     const m = byMonth.get(yearMonth)!;
-    const e = m.get(name) ?? { name, gross: 0, deductions: 0, net: 0, ...(incomeType === "business" ? { incomeTax: 0, localTax: 0 } : {}) };
+    const withTax = incomeType !== "salary";
+    const e = m.get(name) ?? { name, gross: 0, deductions: 0, net: 0, ...(withTax ? { incomeTax: 0, localTax: 0 } : {}) };
     e.gross += add.gross; e.deductions += add.deductions; e.net += add.net;
-    if (incomeType === "business") { e.incomeTax = (e.incomeTax ?? 0) + (add.incomeTax ?? 0); e.localTax = (e.localTax ?? 0) + (add.localTax ?? 0); }
+    if (withTax) { e.incomeTax = (e.incomeTax ?? 0) + (add.incomeTax ?? 0); e.localTax = (e.localTax ?? 0) + (add.localTax ?? 0); }
     m.set(name, e);
   };
-  if (incomeType === "business") {
+  if (incomeType === "daily") {
+    for (const r of body.rows) {
+      const name = String(r.name ?? "").trim();
+      const yearMonth = String(r.yearMonth ?? "");
+      if (!name || !/^\d{4}-\d{2}$/.test(yearMonth) || !yearMonth.startsWith(`${year}-`)) continue;
+      const gross = num(r.gross), incomeTax = num(r.incomeTax), localTax = num(r.localTax), insurance = num(r.insurance);
+      if (gross === 0) continue;
+      const deductions = incomeTax + localTax + insurance;
+      put(yearMonth, name, { name, gross, deductions, net: gross - deductions, incomeTax, localTax });
+    }
+  } else if (incomeType === "business") {
     for (const r of body.rows) {
       const name = String(r.name ?? "").trim();
       const yearMonth = String(r.yearMonth ?? "");
@@ -139,6 +152,7 @@ export async function POST(req: NextRequest) {
 
   if (run) {
     run.done += 1; run.saved += saved; run.skipped += skipped;
+    if (body.partial) run.failed.push({ clientId, name: client.name, year, error: String(body.partial) });
     if (run.done >= run.total) run.finishedAt = new Date().toISOString();
     await writeRun(run);
   }

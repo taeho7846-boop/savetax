@@ -31,7 +31,11 @@
       }
       // 과거 인건비 일괄 수집(stPayrollYear): 월별급상여수당지급현황(SWSA0105) 조회 응답(직원×월 지급액·공제액)을 넘긴다
       //   근로: SWSA0105 /smarta/swsa0105/total/ (직원×월 지급액·공제액) · 사업: SWBU0103 /smarta/swbu0103/tab1/ (지급 건별 — tab1_up)
-      const payrollKind = /\/smarta\/swsa0105\/total\//.test(url) ? "salary" : /\/smarta\/swbu0103\/tab1\//.test(url) ? "business" : null;
+      //   일용: SWSA0120 기간별 — /swsa0120/period/list_01/ (사람별 연간 합계) · /swsa0120/period/detail_01/ (선택한 사람의 월별)
+      const payrollKind = /\/smarta\/swsa0105\/total\//.test(url) ? "salary"
+        : /\/smarta\/swbu0103\/tab1\//.test(url) ? "business"
+        : /\/smarta\/swsa0120\/period\/list_01\//.test(url) ? "daily_list"
+        : /\/smarta\/swsa0120\/period\/detail_01\//.test(url) ? "daily_detail" : null;
       if (payrollKind && /stPayrollYear=1/.test(location.hash || "")) {
         const U = new URL(url, location.href);
         res.clone().text().then((text) => {
