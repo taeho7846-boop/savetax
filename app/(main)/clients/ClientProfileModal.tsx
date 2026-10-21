@@ -724,6 +724,25 @@ export function ClientProfileModal({ clientId, editTab, onClose, preload }: {
                 <LedgerChart rows={data.ledger} today={data.today} onSelectMonth={ym => setLedgerOpen({ month: ym })} />
               </section>
 
+              {/* 원천세 해당 없음(D) — 지금은 직원이 없어도 예전 인건비는 보거나 위하고에서 가져올 수 있게 (예: 직원 정리 후 1인사업자로 바뀐 거래처) */}
+              {c && c.withholdingType === "D" && (
+                <section id="sec-wh" data-section className="glass rounded-2xl p-4 scroll-mt-3">
+                  <SectionTitle
+                    eyebrow="Withholding · Payroll"
+                    title="원천세 · 인건비"
+                    right={<button type="button" onClick={() => setPayrollOpen({})} className="h-8 rounded-xl bg-[#191F28] px-3.5 text-[12.5px] font-bold text-white hover:bg-[#333D4B]">상세 보기</button>}
+                  />
+                  <div className="text-[12.5px] text-[#6B7684]">
+                    원천세 <b className="text-[#191F28]">해당 없음</b>(유형 D)인 거래처예요. 예전에 직원이 있었다면 상세 보기 &gt; <b className="text-[#6D28D9]">위하고 1년치</b>로 과거 인건비를 가져올 수 있어요.
+                  </div>
+                  {data.payroll.length > 0 && (
+                    <div className="mt-3 rounded-2xl border border-[#E5E8EB] bg-white/60 px-4 py-3">
+                      <PayrollSummary rows={data.payroll} today={data.today} onOpen={ym => setPayrollOpen({ month: ym })} />
+                    </div>
+                  )}
+                </section>
+              )}
+
               {/* 원천세 · 인건비 (원천세가 메인, 급여 데이터는 그 안에) */}
               {c && c.withholdingType !== "D" && (() => {
                 const payByYm = new Map(data.payroll.map(p => [p.yearMonth, p]));
