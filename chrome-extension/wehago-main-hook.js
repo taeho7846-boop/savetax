@@ -29,6 +29,18 @@
           }, "*");
         }).catch(() => {});
       }
+      // 과거 인건비 일괄 수집(stPayrollYear): 월별급상여수당지급현황(SWSA0105) 조회 응답(직원×월 지급액·공제액)을 넘긴다
+      if (/\/smarta\/swsa0105\/total\//.test(url) && /stPayrollYear=1/.test(location.hash || "")) {
+        const U = new URL(url, location.href);
+        res.clone().text().then((text) => {
+          window.postMessage({
+            source: "savetax-payroll-year",
+            ccode: U.searchParams.get("ccode"),
+            ym_insa: U.searchParams.get("ym_insa"),
+            body: text,
+          }, "*");
+        }).catch(() => {});
+      }
     } catch (e) { /* 무시 */ }
     return res;
   };

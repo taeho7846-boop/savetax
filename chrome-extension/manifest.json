@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SaveTax 홈택스 자동 로그인",
-  "version": "4.59",
+  "version": "4.60",
   "description": "세무 업무 관리 시스템 - 홈택스 자동 로그인",
   "permissions": [
     "contentSettings",
@@ -95,7 +95,8 @@
         "content-wehago-payslip.js",
         "content-wehago-business.js",
         "content-wehago-daily.js",
-        "content-wehago-efile.js"
+        "content-wehago-efile.js",
+        "content-wehago-payroll-year.js"
       ],
       "run_at": "document_idle"
     },

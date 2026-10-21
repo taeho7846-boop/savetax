@@ -70,3 +70,17 @@ export type PayrollWehago = {
   taxNum: string;
   colors: Record<string, string>;
 };
+
+/** 과거 인건비 일괄 수집(위하고 월별급상여수당지급현황) 진행 상태 — AppConfig(payrollBackfill:run) */
+export const PAYROLL_BACKFILL_RUN_KEY = "payrollBackfill:run";
+export type PayrollBackfillRun = {
+  startedAt: string;
+  finishedAt: string | null;
+  years: string[];
+  total: number;      // 거래처 × 연도 페이지 수
+  done: number;       // 처리한 페이지 수
+  saved: number;      // 저장한 월 수
+  skipped: number;    // 이미 있어 건너뛴 월 수
+  failed: { clientId: number; name: string; year: string; error: string }[];
+  byUserId: number;
+};

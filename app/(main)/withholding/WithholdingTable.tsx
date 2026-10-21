@@ -7,6 +7,7 @@ import { toggleWithholdingTask, markWithholdingDone, setLaborOverride, setWithho
 import { PinIcon } from "@/components/icons";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
 import { openClientProfile } from "@/app/(main)/clients/ClientLink";
+import { PayrollBackfillButton } from "./PayrollBackfillModal";
 import { notify, askConfirm } from "@/components/ui/Dialog";
 // 프로세스 단계도 withholdingRecords 테이블을 사용
 
@@ -995,6 +996,8 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
           {closeCheck?.error && (
             <span className="text-[11px] text-[#DC2626]">{closeCheck.error}</span>
           )}
+          {/* 과거 인건비 일괄 수집 (위하고 월별급상여수당지급현황 → PayrollMonth) */}
+          <PayrollBackfillButton clients={clients} wehagoCompanyId={wehagoCompanyId} wehagoTaxNum={wehagoTaxNum} />
           {/* 원천세 자동신고 3·4단계: 제작된 파일을 홈택스·위택스에서 검증하고 제출 */}
           <button
             onClick={() => startSubmit()}
