@@ -67,6 +67,7 @@ type Client = {
   withholdingNote: string | null;
   skipDailyWorkReport: boolean;
   driveFolderId: string | null;
+  openDate?: string | null;
   wehagoCno: string | null;
   wehagoCdCom: string | null;
   wehagoColors: string | null; // JSON: {"2025":"#92B81E","2026":"#D0BA00"}

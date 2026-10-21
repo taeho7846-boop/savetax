@@ -59,6 +59,7 @@ export default async function WithholdingPage({
       withholdingNote: true,
       skipDailyWorkReport: true,
       driveFolderId: true,
+      openDate: true, // 과거 인건비 일괄 수집: 위하고 기수(gisu) 계산용
       assignedUser: { select: { name: true } },
       withholdingRecords: {
         where: { yearMonth },

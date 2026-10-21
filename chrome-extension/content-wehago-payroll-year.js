@@ -60,18 +60,29 @@
     return true;
   }
   // 사업소득조회: 귀속년월 칸 클릭 → Tab → 시작월 01 → 종료월 12 → Enter×3 (content-wehago-business.js 와 같은 조작)
+  // ※ 주소의 기수(gisu)가 틀리면 기간 칸이 입력을 안 받는다 — 앱이 개업일로 기수를 계산해 넘긴다.
+  const visibleFakes = () => [...document.querySelectorAll(".fake_inputbox")].filter(f => f.getBoundingClientRect().width > 0);
+  const periodText = () => visibleFakes().slice(1, 3).map(f => f.textContent.trim().slice(0, 7));
   async function queryBusiness() {
-    const fake = document.querySelectorAll(".fake_inputbox");
-    if (!fake.length) return false;
-    pressEscape();
-    fake[0].click(); await sleep(300);
-    sendKeyToActive("Tab"); await sleep(200);
-    for (const ch of "01") { sendKeyToActive(ch); await sleep(150); }
-    await sleep(300);
-    for (const ch of "12") { sendKeyToActive(ch); await sleep(150); }
-    await sleep(200);
-    for (let i = 0; i < 3; i++) { sendKeyToActive("Enter"); await sleep(200); }
-    return true;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const fake = visibleFakes();
+      if (!fake.length) return false;
+      pressEscape();
+      fake[0].click(); await sleep(400);
+      sendKeyToActive("Tab"); await sleep(300);
+      for (const ch of "01") { sendKeyToActive(ch); await sleep(200); }
+      await sleep(400);
+      for (const ch of "12") { sendKeyToActive(ch); await sleep(200); }
+      await sleep(300);
+      const t = periodText();
+      if (t[0] === `${year}.01` && t[1] === `${year}.12`) {
+        for (let i = 0; i < 3; i++) { sendKeyToActive("Enter"); await sleep(300); }
+        return true;
+      }
+      log(`기간 입력 확인 실패(${t.join("~")}) — 다시 시도`);
+      await sleep(1000);
+    }
+    return false;
   }
   const screenReady = () => incomeType === "business" ? document.querySelectorAll(".fake_inputbox").length > 0 : !!findButton("조회");
   const query = () => incomeType === "business" ? queryBusiness() : querySalary();
@@ -84,9 +95,10 @@
     let ready = false;
     for (let i = 0; i < 40 && !ready; i++) { await sleep(1000); ready = screenReady(); }
     if (!ready) { await report({ error: "위하고 화면이 뜨지 않았습니다 (로그인 만료?)" }); return finish(); }
-    await sleep(1500);
-    await query();
-    log("조회 실행");
+    await sleep(2500);
+    const ok = await query();
+    log(ok ? "조회 실행" : "조회 조건 입력 실패");
+    if (!ok && incomeType === "business") { await report({ error: "귀속년월 기간을 입력하지 못했습니다 (개업일로 계산한 기수 확인)" }); return finish(); }
 
     // 응답 대기 (20초에 한 번 더 시도, 최대 50초)
     for (let i = 0; i < 50 && !received; i++) {

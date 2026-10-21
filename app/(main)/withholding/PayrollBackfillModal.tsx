@@ -17,7 +17,15 @@ type ClientLite = {
   wehagoCno: string | null;
   wehagoCdCom: string | null;
   wehagoColors: string | null;
+  openDate?: string | null; // 개업일 → 위하고 기수(gisu) = 연도 - 개업연도 + 1
 };
+
+/** 위하고 기수. 기수가 틀리면 사업소득조회 화면의 기간 칸이 입력을 안 받는다(2026-10-22 실측) */
+function wehagoGisu(openDate: string | null | undefined, year: number): number {
+  const m = String(openDate ?? "").match(/(\d{4})/);
+  if (!m) return 1;
+  return Math.max(1, year - parseInt(m[1], 10) + 1);
+}
 
 const WEHAGO_BASE = "https://smarta.wehago.com/#/smarta/humanresource";
 
@@ -83,6 +91,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
   }, [clients, onlySalary, limit]);
   const pageCount = types.reduce((n, t) => n + targetsByType[t].length * years.length, 0);
   const noWehago = useMemo(() => clients.filter(c => !c.wehagoCno || !c.wehagoCdCom).length, [clients]);
+  const noOpenDate = useMemo(() => clients.filter(c => c.wehagoCno && c.wehagoCdCom && !/\d{4}/.test(String(c.openDate ?? ""))).length, [clients]);
 
   const load = useCallback(async () => {
     try {
@@ -109,7 +118,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
   function buildUrl(c: ClientLite, year: number, type: "salary" | "business") {
     const color = (() => { try { const m = JSON.parse(c.wehagoColors || "{}"); return m[String(year)] || "#D0BA00"; } catch { return "#D0BA00"; } })();
     const q = [
-      "sao", `cno=${c.wehagoCno}`, `cd_com=${c.wehagoCdCom}`, "gisu=1", `yminsa=${year}`, `searchData=${year}0101${year}1231`,
+      "sao", `cno=${c.wehagoCno}`, `cd_com=${c.wehagoCdCom}`, `gisu=${wehagoGisu(c.openDate, year)}`, `yminsa=${year}`, `searchData=${year}0101${year}1231`,
       `color=${color}`, `companyName=${encodeURIComponent(c.name)}`, `companyID=${wehagoCompanyId}`, `taxNum=${wehagoTaxNum}`, "yn_private=1", "wehagoT",
       "stPayrollYear=1", `incomeType=${type}`, `clientId=${c.id}`, `origin=${encodeURIComponent(window.location.origin)}`, `overwrite=${overwrite ? 1 : 0}`,
     ].join("&");
@@ -127,7 +136,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
       const ping = await extCall<{ ok: boolean; version?: string }>("ping", {}, 1500);
       if (!ping?.ok) { setError("SaveTax 크롬 확장 프로그램이 필요합니다. 확장을 4.60 이상으로 업데이트한 뒤 다시 시도하세요."); return; }
       const v = parseFloat(ping.version || "0");
-      if (v < 4.61) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 4.61 이상으로 올려주세요.`); return; }
+      if (v < 4.62) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 4.62 이상으로 올려주세요.`); return; }
 
       const urls: string[] = [];
       for (const t of types) for (const c of targetsByType[t]) for (const y of [...years].sort()) urls.push(buildUrl(c, y, t));
@@ -218,6 +227,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
               <div className="text-[12px] text-[#6B7684]">
                 {types.map(t => `${t === "salary" ? "근로" : "사업"} ${targetsByType[t].length}곳`).join(" · ") || "소득유형 없음"} × {years.length}년 = <b className="text-[#191F28]">{pageCount}페이지</b> · 약 {estMin}분
                 {noWehago > 0 && <span className="ml-2 text-[#B45309]">위하고 연동정보 없음 {noWehago}곳 제외</span>}
+                {noOpenDate > 0 && <span className="ml-2 text-[#B45309]" title="개업일이 없으면 위하고 기수를 1로 넣어 열어요 — 사업소득 조회가 실패할 수 있으니 거래처 개업일을 채워주세요">개업일 없음 {noOpenDate}곳</span>}
               </div>
               {inProgress ? (
                 <button type="button" onClick={stop} className="text-[12.5px] font-bold px-4 py-2 rounded-xl border border-[#FECACA] text-[#DC2626] bg-[#FEF2F2] hover:bg-[#FEE2E2]">
