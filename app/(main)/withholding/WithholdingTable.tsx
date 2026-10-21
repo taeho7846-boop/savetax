@@ -6,6 +6,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import { toggleWithholdingTask, markWithholdingDone, setLaborOverride, setWithholdingMemo } from "@/app/actions/withholding";
 import { PinIcon } from "@/components/icons";
 import { ClientEditModal } from "@/app/(main)/clients/ClientEditModal";
+import { openClientProfile } from "@/app/(main)/clients/ClientLink";
 import { notify, askConfirm } from "@/components/ui/Dialog";
 // 프로세스 단계도 withholdingRecords 테이블을 사용
 
@@ -1316,7 +1317,15 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                             className="accent-[#3182F6] w-3.5 h-3.5 cursor-pointer"
                           />
                         </td>
-                        <td className="px-4 py-2 text-[#191F28] font-medium">
+                        <td
+                          className="px-4 py-2 text-[#191F28] font-medium cursor-pointer"
+                          title="빈 곳 클릭: 거래처 정보 수정"
+                          onClick={(e) => {
+                            // 이름·폴더·위하고 등 버튼 위는 각자 동작, 칸의 빈 곳만 수정 모달
+                            if ((e.target as HTMLElement).closest("button, a, img")) return;
+                            setSelectedClientTab(undefined); setSelectedClientId(client.id);
+                          }}
+                        >
                           <div className="flex items-center gap-1 truncate">
                             {/* 거래처 드라이브의 1. 원천세/해당월 폴더 바로가기 (거래처 전달용) */}
                             {client.driveFolderId && (
@@ -1336,9 +1345,9 @@ export function WithholdingTable({ clients, yearMonth, showAssignedUser = false,
                               </button>
                             )}
                             <button
-                              onClick={() => { setSelectedClientTab(undefined); setSelectedClientId(client.id); }}
+                              onClick={(e) => { e.stopPropagation(); openClientProfile(client.id); }}
                               className="hover:text-[#3182F6] hover:underline cursor-pointer text-left truncate"
-                              title="거래처 정보 수정"
+                              title="거래처 프로필 보기"
                             >
                               {client.name}
                             </button>
