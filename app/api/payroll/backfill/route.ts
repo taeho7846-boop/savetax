@@ -1,7 +1,9 @@
 // 과거 인건비 일괄 수집 — 크롬 확장(content-wehago-payroll-year.js)이 위하고 '월별급상여수당지급현황' 응답을 거래처·연도별로 보낸다.
 //
 //  POST { phase: "start", total, years }                                   — 수집 시작(진행 상태 초기화)
-//  POST { phase: "batch", clientId, year, incomeType, overwrite, rows }     — 거래처 한 곳의 1년치 (rows: [{ name, code, m01_gross, m01_ded, ... }])
+//  POST { phase: "batch", clientId, year, incomeType, overwrite, rows }     — 거래처 한 곳의 1년치
+//        근로(salary):   rows: [{ name, code, m01_gross, m01_ded, ... m12_ded }]           (월별급상여수당지급현황)
+//        사업(business): rows: [{ name, yearMonth, payDate, gross, incomeTax, localTax, net }] (사업소득조회 지급 건별)
 //  POST { phase: "batch", clientId, year, error }                           — 실패 보고 (다음 거래처로 넘어감)
 //  POST { phase: "finish" }                                                 — 강제 종료(화면의 '중단')
 //  GET                                                                      — 진행 상태
@@ -14,7 +16,7 @@ import { getClientScopeWhere } from "@/lib/client-scope";
 import { savePayrollMonth } from "@/lib/payroll";
 import { PAYROLL_BACKFILL_RUN_KEY as RUN_KEY, type PayrollBackfillRun, type PayrollEmployee, type PayrollType } from "@/lib/payroll-types";
 
-const SOURCE = "위하고 월별급상여수당지급현황";
+const SOURCE: Record<string, string> = { salary: "위하고 월별급상여수당지급현황", business: "위하고 사업소득조회", daily: "위하고" };
 
 type IncomingRow = { name?: string; code?: string } & Record<string, unknown>;
 
@@ -89,29 +91,49 @@ export async function POST(req: NextRequest) {
   if (body.error) return fail(String(body.error));
   if (!Array.isArray(body.rows)) return fail("rows 가 없습니다");
 
-  // 월별로 직원 목록 구성 (같은 이름이 두 줄이면 — 퇴사 후 재입사 등 — 합산)
+  // 월별 직원 목록 구성 (같은 이름이 여러 줄이면 — 퇴사 후 재입사, 월 2회 지급 등 — 합산)
+  const byMonth = new Map<string, Map<string, PayrollEmployee>>();
+  const put = (yearMonth: string, name: string, add: PayrollEmployee) => {
+    if (!byMonth.has(yearMonth)) byMonth.set(yearMonth, new Map());
+    const m = byMonth.get(yearMonth)!;
+    const e = m.get(name) ?? { name, gross: 0, deductions: 0, net: 0, ...(incomeType === "business" ? { incomeTax: 0, localTax: 0 } : {}) };
+    e.gross += add.gross; e.deductions += add.deductions; e.net += add.net;
+    if (incomeType === "business") { e.incomeTax = (e.incomeTax ?? 0) + (add.incomeTax ?? 0); e.localTax = (e.localTax ?? 0) + (add.localTax ?? 0); }
+    m.set(name, e);
+  };
+  if (incomeType === "business") {
+    for (const r of body.rows) {
+      const name = String(r.name ?? "").trim();
+      const yearMonth = String(r.yearMonth ?? "");
+      if (!name || !/^\d{4}-\d{2}$/.test(yearMonth) || !yearMonth.startsWith(`${year}-`)) continue;
+      const gross = num(r.gross), incomeTax = num(r.incomeTax), localTax = num(r.localTax);
+      const net = r.net != null ? num(r.net) : gross - incomeTax - localTax;
+      if (gross === 0 && net === 0) continue;
+      put(yearMonth, name, { name, gross, deductions: incomeTax + localTax, net, incomeTax, localTax });
+    }
+  } else {
+    for (let m = 1; m <= 12; m++) {
+      const k = String(m).padStart(2, "0");
+      for (const r of body.rows) {
+        const name = String(r.name ?? "").trim();
+        const gross = num(r[`m${k}_gross`]);
+        const ded = num(r[`m${k}_ded`]);
+        if (!name || (gross === 0 && ded === 0)) continue;
+        put(`${year}-${k}`, name, { name, gross, deductions: ded, net: gross - ded });
+      }
+    }
+  }
+
   const existing = new Set(
     (await prisma.payrollMonth.findMany({ where: { clientId, incomeType, yearMonth: { startsWith: `${year}-` } }, select: { yearMonth: true } }))
       .map(r => r.yearMonth),
   );
   let saved = 0, skipped = 0;
-  for (let m = 1; m <= 12; m++) {
-    const k = String(m).padStart(2, "0");
-    const yearMonth = `${year}-${k}`;
-    const byName = new Map<string, PayrollEmployee>();
-    for (const r of body.rows) {
-      const name = String(r.name ?? "").trim();
-      const gross = num(r[`m${k}_gross`]);
-      const ded = num(r[`m${k}_ded`]);
-      if (!name || (gross === 0 && ded === 0)) continue;
-      const e = byName.get(name) ?? { name, gross: 0, deductions: 0, net: 0 };
-      e.gross += gross; e.deductions += ded; e.net = e.gross - e.deductions;
-      byName.set(name, e);
-    }
-    const employees = [...byName.values()];
+  for (const [yearMonth, m] of [...byMonth.entries()].sort()) {
+    const employees = [...m.values()];
     if (employees.length === 0) continue;                 // 지급 없는 달은 건드리지 않음
     if (existing.has(yearMonth) && !body.overwrite) { skipped++; continue; } // 이미 있는 달(엑셀 수집분 등)은 유지
-    await savePayrollMonth(clientId, yearMonth, incomeType, employees, SOURCE);
+    await savePayrollMonth(clientId, yearMonth, incomeType, employees, SOURCE[incomeType]);
     saved++;
   }
 
