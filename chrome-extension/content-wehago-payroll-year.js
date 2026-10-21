@@ -67,13 +67,15 @@
     for (let attempt = 0; attempt < 2; attempt++) {
       const fake = visibleFakes();
       if (!fake.length) return false;
+      // 최소화 창에서는 setTimeout 이 1초 단위로 늦춰져서 글자 사이에 await 를 두면 마스크 입력칸이 초기화된다(2026-10-22 실측: "2025-0_"에서 멈춤)
+      // → 월 두 자리는 await 없이 연달아 넣는다.
       pressEscape();
       fake[0].click(); await sleep(400);
       sendKeyToActive("Tab"); await sleep(300);
-      for (const ch of "01") { sendKeyToActive(ch); await sleep(200); }
+      for (const ch of "01") sendKeyToActive(ch);
+      await sleep(500);
+      for (const ch of "12") sendKeyToActive(ch);
       await sleep(400);
-      for (const ch of "12") { sendKeyToActive(ch); await sleep(200); }
-      await sleep(300);
       const t = periodText();
       if (t[0] === `${year}.01` && t[1] === `${year}.12`) {
         for (let i = 0; i < 3; i++) { sendKeyToActive("Enter"); await sleep(300); }

@@ -136,7 +136,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
       const ping = await extCall<{ ok: boolean; version?: string }>("ping", {}, 1500);
       if (!ping?.ok) { setError("SaveTax 크롬 확장 프로그램이 필요합니다. 확장을 4.60 이상으로 업데이트한 뒤 다시 시도하세요."); return; }
       const v = parseFloat(ping.version || "0");
-      if (v < 4.62) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 4.62 이상으로 올려주세요.`); return; }
+      if (v < 4.63) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 4.63 이상으로 올려주세요.`); return; }
 
       const urls: string[] = [];
       for (const t of types) for (const c of targetsByType[t]) for (const y of [...years].sort()) urls.push(buildUrl(c, y, t));
