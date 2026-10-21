@@ -65,10 +65,10 @@ function RateBar({ pct, color }: { pct: number | null; color: string }) {
   const w = Math.min(100, Math.max(0, pct));
   return (
     <div className="flex items-center gap-2">
-      <div className="h-2 w-[88px] overflow-hidden rounded-full bg-[#F2F4F6]">
+      <div className="h-2 w-[64px] overflow-hidden rounded-full bg-[#F2F4F6]">
         <div className="h-full rounded-full" style={{ width: `${w}%`, background: color }} />
       </div>
-      <b className="w-[52px] text-right tabular-nums text-[12.5px]" style={{ color }}>{pct.toFixed(1)}%</b>
+      <b className="w-[46px] text-right tabular-nums text-[12px]" style={{ color }}>{pct.toFixed(1)}%</b>
     </div>
   );
 }
@@ -125,6 +125,8 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
       return (va - vb) * m;
     });
   }, [rows, filter, q, onlyIndiv, sort]);
+
+  const feeTotal = useMemo(() => visible.reduce((acc, r) => (r.fee != null ? { sum: acc.sum + r.fee, n: acc.n + 1 } : acc), { sum: 0, n: 0 }), [visible]);
 
   function clickSort(col: Column) {
     if (!col.sort) return;
@@ -193,6 +195,10 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
           <label className="ml-2 inline-flex items-center gap-1.5 text-[12px] text-[#4E5968]">
             <input type="checkbox" checked={onlyIndiv} onChange={e => setOnlyIndiv(e.target.checked)} className="accent-[#3182F6]" />개인사업자만
           </label>
+          <div className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-full bg-[#F5E8FF] px-3 text-[12px] text-[#6B21A8]" title="지금 표시 중인 거래처의 예상 조정료 합계 (필터·검색 반영, 공급가액)">
+            예상 조정료 합계 <b className="tabular-nums text-[#7C3AED]">{won(feeTotal.sum)}원</b>
+            <span className="text-[#A78BFA]">· {feeTotal.n}곳</span>
+          </div>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="거래처·담당 검색" className="ml-auto h-8 w-[200px] rounded-lg border border-[#E5E8EB] bg-white/80 px-3 text-[12.5px] outline-none focus:border-[#3182F6]" />
         </div>
       </section>
@@ -235,7 +241,7 @@ export function InsightsTable({ data, canEdit }: { data: InsightsData; canEdit: 
                       </div>
                       <div className="text-[11px] text-[#8B95A1]">{r.assignedUser ?? "-"}</div>
                     </td>
-                    <td className="max-w-[220px] truncate px-3 py-2.5 border-t border-[#F2F4F6] text-[12px] text-[#4E5968]" title={[r.bizCategory, r.bizItem].filter(Boolean).join(" / ")}>
+                    <td className="max-w-[170px] truncate px-3 py-2.5 border-t border-[#F2F4F6] text-[12px] text-[#4E5968]" title={[r.bizCategory, r.bizItem].filter(Boolean).join(" / ")}>
                       {[r.bizCategory, r.bizItem].filter(Boolean).join(" / ") || <span className="text-[#B0B8C1]">업태·종목 미입력</span>}
                       {r.bizType && <span className="ml-1 text-[10.5px] text-[#8B95A1]">({r.bizType})</span>}
                     </td>

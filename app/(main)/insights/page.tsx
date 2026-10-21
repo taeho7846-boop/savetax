@@ -13,7 +13,7 @@ export default async function InsightsPage() {
   if (!session) redirect("/login");
   const data = await getClientInsights(session, kstToday());
   return (
-    <div className="mx-auto max-w-[1500px] py-5">
+    <div className="mx-auto max-w-[1900px] py-5">
       <InsightsTable data={data} canEdit={session.role !== "readonly"} />
     </div>
   );
