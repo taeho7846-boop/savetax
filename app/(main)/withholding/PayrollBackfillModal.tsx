@@ -136,7 +136,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
       const ping = await extCall<{ ok: boolean; version?: string }>("ping", {}, 1500);
       if (!ping?.ok) { setError("SaveTax 크롬 확장 프로그램이 필요합니다. 확장을 4.60 이상으로 업데이트한 뒤 다시 시도하세요."); return; }
       const v = parseFloat(ping.version || "0");
-      if (v < 4.64) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 4.64 이상으로 올려주세요.`); return; }
+      if (v < 4.65) { setError(`확장 프로그램 버전이 낮습니다 (${ping.version}). chrome://extensions 에서 새로고침해 4.65 이상으로 올려주세요.`); return; }
 
       const urls: string[] = [];
       for (const t of types) for (const c of targetsByType[t]) for (const y of [...years].sort()) urls.push(buildUrl(c, y, t));
@@ -179,7 +179,7 @@ function PayrollBackfillModal({ clients, wehagoCompanyId, wehagoTaxNum, onClose 
             <div className="text-[13px] text-[#4E5968] leading-relaxed">
               위하고 화면을 거래처마다 최소화 창으로 열어 1년치를 한 번에 조회합니다. 근로소득은 <b>월별급상여수당지급현황</b>(직원별 월 지급액·공제액),
               사업소득은 <b>사업소득조회</b>(지급 건별 지급액·소득세·지방세)에서 받아 인건비에 채웁니다. 거래처 한 곳의 1년치가 10초 안팎이고,
-              끝날 때까지 크롬을 켜 두면 됩니다. 사업소득은 입력하는 동안 위하고 창이 잠깐 화면에 떴다 사라집니다. 이미 있는 달은 기본으로 건너뜁니다.
+              끝날 때까지 크롬을 켜 두면 됩니다. 사업소득은 입력하는 동안 위하고 창이 잠깐 앞으로 떴다 사라지니, 그동안은 키보드 입력을 쉬어 주세요. 이미 있는 달은 기본으로 건너뜁니다.
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">

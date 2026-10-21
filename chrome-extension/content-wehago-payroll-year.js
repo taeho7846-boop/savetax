@@ -63,25 +63,32 @@
   // ※ 주소의 기수(gisu)가 틀리면 기간 칸이 입력을 안 받는다 — 앱이 개업일로 기수를 계산해 넘긴다.
   const visibleFakes = () => [...document.querySelectorAll(".fake_inputbox")].filter(f => f.getBoundingClientRect().width > 0);
   const periodText = () => visibleFakes().slice(1, 3).map(f => f.textContent.trim().slice(0, 7));
+  let lastPeriod = [];
   async function queryBusiness() {
     for (let attempt = 0; attempt < 2; attempt++) {
       const fake = visibleFakes();
       if (!fake.length) return false;
-      // 최소화 창에서는 setTimeout 이 1초 단위로 늦춰져서 글자 사이에 await 를 두면 마스크 입력칸이 초기화된다(2026-10-22 실측: "2025-0_"에서 멈춤)
-      // → 월 두 자리는 await 없이 연달아 넣는다.
       pressEscape();
       fake[0].click(); await sleep(400);
       sendKeyToActive("Tab"); await sleep(300);
-      for (const ch of "01") sendKeyToActive(ch);
-      await sleep(500);
-      for (const ch of "12") sendKeyToActive(ch);
+      if (attempt === 0) {
+        // 1차: 합성 키 입력 (월 두 자리는 await 없이 연달아 — 숨긴 창은 타이머가 1초 단위라 중간에 초기화됨)
+        for (const ch of "01") sendKeyToActive(ch);
+        await sleep(500);
+        for (const ch of "12") sendKeyToActive(ch);
+      } else {
+        // 2차: 디버거로 실제 키 입력 (합성 이벤트를 무시하는 경우)
+        await bg({ type: "efile-type-keys", text: "01" }); await sleep(500);
+        await bg({ type: "efile-type-keys", text: "12" });
+      }
       await sleep(400);
       const t = periodText();
+      lastPeriod = t;
       if (t[0] === `${year}.01` && t[1] === `${year}.12`) {
         for (let i = 0; i < 3; i++) { sendKeyToActive("Enter"); await sleep(300); }
         return true;
       }
-      log(`기간 입력 확인 실패(${t.join("~")}) — 다시 시도`);
+      log(`기간 입력 확인 실패(${attempt + 1}차: ${t.join("~")}) — 다시 시도`);
       await sleep(1000);
     }
     return false;
@@ -100,10 +107,11 @@
     await sleep(2500);
     // 사업소득조회의 기간 칸(마스크 입력)은 최소화된 창에서는 글자를 받지 않는다(2026-10-22 실측: 보이는 탭에선 정상).
     // → 입력하는 동안만 창을 화면에 보이게 한다(포커스는 뺏지 않음). 끝나면 efile-done 이 창을 닫는다.
-    if (incomeType === "business") { await bg({ type: "efile-show-window", focus: false }); await sleep(1500); }
+    // 포커스 없는 창에선 입력칸이 키를 받지 않아 잠깐 앞으로 가져온다(원천세 자동신고와 같은 방식).
+    if (incomeType === "business") { await bg({ type: "efile-show-window", focus: true }); await sleep(1500); }
     const ok = await query();
     log(ok ? "조회 실행" : "조회 조건 입력 실패");
-    if (!ok && incomeType === "business") { await report({ error: "귀속년월 기간을 입력하지 못했습니다 (개업일로 계산한 기수 확인)" }); return finish(); }
+    if (!ok && incomeType === "business") { await report({ error: `귀속년월 기간을 입력하지 못했습니다 (화면값 ${lastPeriod.join("~") || "없음"})` }); return finish(); }
 
     // 응답 대기 (20초에 한 번 더 시도, 최대 50초)
     for (let i = 0; i < 50 && !received; i++) {
