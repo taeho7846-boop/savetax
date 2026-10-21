@@ -98,6 +98,9 @@
     for (let i = 0; i < 40 && !ready; i++) { await sleep(1000); ready = screenReady(); }
     if (!ready) { await report({ error: "위하고 화면이 뜨지 않았습니다 (로그인 만료?)" }); return finish(); }
     await sleep(2500);
+    // 사업소득조회의 기간 칸(마스크 입력)은 최소화된 창에서는 글자를 받지 않는다(2026-10-22 실측: 보이는 탭에선 정상).
+    // → 입력하는 동안만 창을 화면에 보이게 한다(포커스는 뺏지 않음). 끝나면 efile-done 이 창을 닫는다.
+    if (incomeType === "business") { await bg({ type: "efile-show-window", focus: false }); await sleep(1500); }
     const ok = await query();
     log(ok ? "조회 실행" : "조회 조건 입력 실패");
     if (!ok && incomeType === "business") { await report({ error: "귀속년월 기간을 입력하지 못했습니다 (개업일로 계산한 기수 확인)" }); return finish(); }
