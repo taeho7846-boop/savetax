@@ -52,7 +52,7 @@ function fmtTime(iso: string | null | undefined) {
 }
 
 /** 확장 최소 버전 — 사업소득 기간 입력이 포커스된 창에서만 되는 문제 수정본 */
-export const PAYROLL_BACKFILL_MIN_EXT = 4.66;
+export const PAYROLL_BACKFILL_MIN_EXT = 4.67;
 
 /** 위하고 연간 조회 화면 주소 (확장 content-wehago-payroll-year.js 가 stPayrollYear=1 을 보고 동작) */
 export function payrollYearUrl(

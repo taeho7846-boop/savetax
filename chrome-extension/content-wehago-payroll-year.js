@@ -3,8 +3,8 @@
 //   근로: #/smarta/humanresource/SWSA0105?sao&cno=..&cd_com=..&yminsa=2025&...&stPayrollYear=1&incomeType=salary&clientId=123&origin=...&overwrite=0
 //        → [조회] 클릭 → 위하고가 /smarta/swsa0105/total/ 호출 → 직원×월 지급액(mon_XX_ji)·공제액(mon_XX_gong)
 //   일용: #/smarta/humanresource/SWSA0120?sao&... &incomeType=daily  (일용직근로소득조회 '기간별' 탭)
-//        → [조회] → /swsa0120/period/list_01/ (사람별 연간 합계) → 왼쪽 표의 사람 행을 차례로 눌러 /swsa0120/period/detail_01/ (그 사람의 월별)
-//        표는 canvas라 행 좌표(첫 행 중심 29px, 행 높이 28px)를 직접 누르고, 응답 합계가 목록 합계와 같은지로 사람을 확인한다.
+//        → [조회] → /swsa0120/period/list_01/ (사람별 연간 합계) → 첫 행을 누른 뒤 ↓ 키로 한 사람씩 넘기며 /swsa0120/period/detail_01/ (그 사람의 월별)
+//        응답 합계가 목록 합계와 같은지로 사람을 확인한다. 인원 제한 없음(도움컴퍼니 414명 실측 사람당 0.2초).
 //   사업: #/smarta/humanresource/SWBU0103?sao&... &incomeType=business
 //        → 귀속년월 01~12 입력 후 Enter → 위하고가 /smarta/swbu0103/tab1/ 호출 → 지급 건별(tab1_up: nm_krname, ym_rvrs, am_pay, am_income, am_inhabit, custom_am_total)
 // API는 요청마다 1회용 서명이라 직접 호출은 불가 → wehago-main-hook.js(MAIN world)가 그 응답을 postMessage 로 넘겨주고,
@@ -132,26 +132,41 @@
     if (dailyList.length === 0) return { rows: [] };
     for (let i = 0; i < 15 && dailyDetail == null; i++) await sleep(500); // 첫 사람은 조회와 함께 자동으로 옴
 
+    // 첫 사람: 조회와 함께 자동으로 온 내역을 쓰고, 안 맞으면 둘째 줄을 눌렀다가 첫 줄을 다시 누른다
     const canvas = leftGrid();
-    const visibleRows = canvas ? Math.floor((canvas.getBoundingClientRect().height - 15) / 28) : 0;
+    if (!canvas) return { error: "일용직 사람 목록 표를 찾지 못했습니다" };
+    const waitDetail = async (ms) => { for (let w = 0; w < ms / 100 && dailyDetail == null; w++) await sleep(100); return dailyDetail; };
+    let first = dailyDetail && sameTotal(dailyDetail, dailyList[0]) ? dailyDetail : null;
+    if (!first) {
+      if (dailyList.length > 1) { clickCanvas(canvas, 100, 29 + 28); await sleep(1200); }
+      dailyDetail = null;
+      clickCanvas(canvas, 100, 29);
+      const d = await waitDetail(5000);
+      first = d && sameTotal(d, dailyList[0]) ? d : null;
+    } else {
+      clickCanvas(canvas, 100, 29); // 표에 포커스 (이미 선택된 행이라 요청은 안 나감)
+      await sleep(300);
+    }
+    // 둘째 사람부터: 표의 숨은 입력칸에 ↓ 키 → 다음 행이 선택되며 그 사람 내역 요청 (표가 알아서 스크롤 — 인원 제한 없음, 사람당 0.2초 안팎)
+    const gridInput = document.activeElement;
+    const details = new Array(dailyList.length).fill(null);
+    details[0] = first;
+    for (let i = 1; i < dailyList.length; i++) {
+      dailyDetail = null;
+      for (const t of ["keydown", "keyup"]) gridInput.dispatchEvent(new KeyboardEvent(t, { key: "ArrowDown", code: "ArrowDown", keyCode: 40, which: 40, bubbles: true }));
+      const d = await waitDetail(5000);
+      if (!d) continue;
+      if (sameTotal(d, dailyList[i])) { details[i] = d; continue; }
+      // 어긋났으면(키가 두 번 먹는 등) 앞뒤 두 칸 안에서 맞는 사람으로 맞춘다
+      for (const j of [i + 1, i + 2]) {
+        if (j < dailyList.length && sameTotal(d, dailyList[j])) { details[j] = d; i = j; break; }
+      }
+    }
     const rows = [];
     const missed = [];
-    for (let i = 0; i < dailyList.length; i++) {
-      const person = dailyList[i];
-      let detail = i === 0 && dailyDetail && sameTotal(dailyDetail, person) ? dailyDetail : null;
-      for (let attempt = 0; attempt < 2 && !detail; attempt++) {
-        if (!canvas || i >= visibleRows) break;
-        // 이미 선택된 행은 다시 눌러도 요청이 안 나간다 → 재시도 때는 다른 행을 먼저 눌렀다가 돌아온다
-        if (attempt === 1 && dailyList.length > 1) {
-          const other = i + 1 < Math.min(dailyList.length, visibleRows) ? i + 1 : i - 1;
-          clickCanvas(canvas, 100, 29 + 28 * other); await sleep(1500);
-        }
-        dailyDetail = null;
-        clickCanvas(canvas, 100, 29 + 28 * i);
-        for (let w = 0; w < 12 && dailyDetail == null; w++) await sleep(500);
-        if (dailyDetail && sameTotal(dailyDetail, person)) detail = dailyDetail;
-      }
-      if (!detail) { missed.push(String(person.nm_emp || "")); continue; }
+    dailyList.forEach((person, i) => {
+      const detail = details[i];
+      if (!detail) { missed.push(String(person.nm_emp || "")); return; }
       for (const m of (detail.grp1 || [])) {
         const ym = String(m.ym_rvrs || "");
         if (!/^\d{6}$/.test(ym)) continue; // 분기 소계 행 제외
@@ -165,7 +180,7 @@
           days: Number(m.count_day || 0),
         });
       }
-    }
+    });
     return { rows, missed, people: dailyList.length };
   }
 
