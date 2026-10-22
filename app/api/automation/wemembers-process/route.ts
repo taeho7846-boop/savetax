@@ -69,7 +69,9 @@ export async function POST(req: NextRequest) {
         const buf = await downloadFile(driveFile.id);
         const tmpDir = path.join(os.tmpdir(), "savetax-wemembers");
         await mkdir(tmpDir, { recursive: true });
-        const tmpPath = path.join(tmpDir, fileName);
+        // 거래처명에 '/' 등이 있으면(예: 신성유통F/S) 서버에서 폴더 구분자로 읽혀 저장 실패 → 임시 파일 이름에서만 치환
+        const safeName = fileName.replace(/[\/:*?"<>|]/g, "_");
+        const tmpPath = path.join(tmpDir, safeName);
         await writeFile(tmpPath, buf);
         u.filePath = tmpPath;
       }
