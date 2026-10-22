@@ -104,7 +104,9 @@ export async function uploadMultiToWemembers(
     step = { kind: "searchClient" };
     await frame.locator('#SEARCH_NM').click();
     await frame.locator('#SEARCH_NM').fill('');
-    await page.keyboard.type(input.clientName);
+    // 전체 이름("주식회사 위커밋(WECOMMIT Co., Ltd.)")으로는 위멤버스 검색이 0건이 나와서
+    // 핵심 이름("위커밋")만 검색하고, 클릭할 때 전체 이름으로 정확히 고른다
+    await page.keyboard.type(wemembersSearchKeyword(input.clientName));
     await page.waitForTimeout(500);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(3000);
@@ -293,4 +295,21 @@ function friendlyError(step: Step, clientName: string, error: any): string {
     case "save":
       return `${step.label} 파일은 올렸지만 '저장'을 누르지 못했어요. 위멤버스에 이미 같은 달 급여대장이 있는지, 파일 내용에 문제가 없는지 확인해 주세요.`;
   }
+}
+
+// ── 위멤버스 검색어 ──
+// 위멤버스 신고리스트 검색은 '주식회사'·괄호 영문명이 붙은 전체 이름으로 넣으면 0건이 나온다.
+// 법인 형태 표기를 빼고, 남은 조각 중 한글이 들어간 가장 긴 조각을 검색어로 쓴다.
+//   "주식회사 위커밋(WECOMMIT Co., Ltd.)" → "위커밋"
+//   "주식회사 더클래시코" → "더클래시코"
+//   "오엠(OM)우레탄" → "우레탄"   /   "신성유통F/S" → "신성유통F/S"
+export function wemembersSearchKeyword(name: string): string {
+  const stripped = name
+    .replace(/농업회사법인|영농조합법인|유한책임회사|유한회사|주식회사|합자회사|합명회사|사단법인|재단법인|\(주\)|\(유\)|㈜/g, " ")
+    .trim();
+  const parts = stripped.split(/[\s()]+/).filter(Boolean);
+  const hangul = parts.filter((p) => /[가-힣]/.test(p));
+  const pool = hangul.length > 0 ? hangul : parts;
+  if (pool.length === 0) return name.trim();
+  return pool.reduce((a, b) => (b.length > a.length ? b : a));
 }
