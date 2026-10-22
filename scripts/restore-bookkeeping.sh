@@ -19,8 +19,13 @@ DB_URL="$(grep -E '^DATABASE_URL=' "$APP_DIR/.env" | head -1 | cut -d= -f2- | tr
 FILE="$(ls -1 "$BACKUP_DIR"/savetax_*.sql.gz | sort | tail -1)"
 echo "백업 파일: $FILE"
 
+echo "서버 시각: $(date '+%F %T %Z')  (백업 파일 시각은 서버 시간대 기준)"
+
 TSV="/tmp/bk_backup.tsv"
+# grep -m1 이 일찍 끝나면 gunzip 이 SIGPIPE 로 끝나 pipefail 에 걸리므로 이 구간만 끈다
+set +o pipefail
 COLS="$(gunzip -c "$FILE" | grep -m1 -E '^COPY public\."BookkeepingMonth" ' | sed -E 's/^COPY public\."BookkeepingMonth" \((.*)\) FROM stdin;$/\1/')"
+set -o pipefail
 if [ -z "$COLS" ]; then echo "백업에서 BookkeepingMonth 표를 찾지 못했습니다"; exit 1; fi
 gunzip -c "$FILE" | awk '/^COPY public\."BookkeepingMonth" /{f=1;next} f && /^\\\.$/{f=0} f' > "$TSV"
 echo "백업의 월기장 행 수: $(wc -l < "$TSV")"
