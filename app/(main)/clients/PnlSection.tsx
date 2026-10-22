@@ -194,7 +194,7 @@ function ProfitTrend({ pnl }: { pnl: PnlData }) {
             <div className="absolute inset-0 flex" style={{ paddingLeft: PADL, paddingRight: PADR, gap: GAP }}>
               {cur.map((_, i) => (
                 <div key={i} className="relative flex-1 cursor-crosshair" onMouseEnter={() => setHl(i)}>
-                  {hl === i && <Tip i={i} title={`${i + 1}월`} rows={[{ label: "작년", color: GREY, value: prev[i] }, { label: "올해", color: BLUE, value: cur[i] }]} />}
+                  {hl === i && <Tip i={i} title={`${i + 1}월`} rows={[{ label: "올해", color: BLUE, value: cur[i] }, { label: "작년", color: GREY, value: prev[i] }]} />}
                 </div>
               ))}
             </div>
@@ -226,7 +226,7 @@ function ProfitTrend({ pnl }: { pnl: PnlData }) {
             <div className="absolute inset-0 flex" style={{ paddingLeft: PADL, paddingRight: PADR, gap: GAP }}>
               {cumCur.map((_, i) => (
                 <div key={i} className="relative flex-1 cursor-crosshair" onMouseEnter={() => setHr(i)}>
-                  {hr === i && <Tip i={i} title={`1월 ~ ${i + 1}월 누적`} rows={[{ label: "작년", color: GREY, value: cumPrev[i] }, { label: cumCur[i] == null ? "올해(예상)" : "올해", color: BLUE, value: cumCur[i] ?? proj[i] }]} />}
+                  {hr === i && <Tip i={i} title={`1월 ~ ${i + 1}월 누적`} rows={[{ label: cumCur[i] == null ? "올해(예상)" : "올해", color: BLUE, value: cumCur[i] ?? proj[i] }, { label: "작년", color: GREY, value: cumPrev[i] }]} />}
                 </div>
               ))}
             </div>
