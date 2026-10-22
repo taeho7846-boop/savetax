@@ -53,6 +53,9 @@ export async function uploadMultiToWemembers(
   await mkdir(screenshotDir, { recursive: true });
   let stepNum = 0;
 
+  // 지금 진행 중인 단계 — 실패 시 사람이 알아볼 수 있는 안내문을 만들 때 사용
+  let step: Step = { kind: "launch" };
+
   async function screenshot(name: string) {
     if (!page) return;
     try {
@@ -78,6 +81,7 @@ export async function uploadMultiToWemembers(
     page = await context.newPage();
 
     // ── 1. 위멤버스 로그인 ──
+    step = { kind: "login" };
     await page.goto("https://www.wemembers.net/login_0001_01.act", { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(1000);
     await page.locator('#USER_ID').waitFor({ state: "visible", timeout: 5000 });
@@ -88,6 +92,7 @@ export async function uploadMultiToWemembers(
     await screenshot("login");
 
     // ── 2. 급여관리 페이지로 이동 ──
+    step = { kind: "salaryPage" };
     await page.goto("https://tax.appplay.co.kr/salm_0000_01.act", { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(2000);
     await screenshot("salary_list");
@@ -96,6 +101,7 @@ export async function uploadMultiToWemembers(
     const frame = page.frameLocator('iframe[name="ifrm_page"]');
     await frame.locator('#SEARCH_NM').waitFor({ state: "visible", timeout: 10000 });
     await page.waitForTimeout(1000);
+    step = { kind: "searchClient" };
     await frame.locator('#SEARCH_NM').click();
     await frame.locator('#SEARCH_NM').fill('');
     await page.keyboard.type(input.clientName);
@@ -105,6 +111,7 @@ export async function uploadMultiToWemembers(
     await screenshot("search_client");
 
     // 검색 결과에서 거래처명 클릭 — 완전 일치 우선, 실패 시 공백 차이 허용
+    step = { kind: "pickClient" };
     // (예: 우리 "오엠(OM)우레탄" vs 위멤버스 "오엠(OM) 우레탄")
     try {
       await frame.getByText(input.clientName, { exact: true }).first().click({ timeout: 8000 });
@@ -120,11 +127,13 @@ export async function uploadMultiToWemembers(
     await screenshot("client_detail");
 
     // ── 4. 급여대장 탭 클릭 ──
+    step = { kind: "payrollTab" };
     await frame.getByText("급여대장").first().click();
     await page.waitForTimeout(1500);
     await screenshot("payroll_tab");
 
     // ── 5. 급여대장 등록 버튼 클릭 ──
+    step = { kind: "register" };
     try {
       await frame.getByText("급여대장 등록", { exact: false }).first().click();
     } catch {
@@ -137,10 +146,11 @@ export async function uploadMultiToWemembers(
     const popupFrame = page.frameLocator('iframe[class*="cboxIframe"]');
 
     // 6. 급여 귀속월 변경
+    const monthNum = parseInt(input.month);
+    step = { kind: "month", month: monthNum };
     const payStdInput = popupFrame.locator('#payStd');
     await payStdInput.click();
     await page.waitForTimeout(500);
-    const monthNum = parseInt(input.month);
     await popupFrame.getByText(String(monthNum), { exact: true }).first().click();
     await page.waitForTimeout(300);
     await popupFrame.getByText("확인", { exact: true }).first().click();
@@ -152,10 +162,12 @@ export async function uploadMultiToWemembers(
       const upload = input.uploads[i];
       const label = upload.incomeType === "salary" ? "근로소득" : "사업소득";
       const isFirst = i === 0;
+      const typeLabel = upload.incomeType === "salary" ? "근로소득" : upload.incomeType === "daily" ? "일용직" : "사업소득";
 
       // 첫 번째가 아니면 다시 급여대장 등록 → 월 선택
       if (!isFirst) {
         // 급여대장 등록 버튼 다시 클릭
+        step = { kind: "register" };
         try {
           await frame.getByText("급여대장 등록", { exact: false }).first().click();
         } catch {
@@ -167,6 +179,7 @@ export async function uploadMultiToWemembers(
         const popupFrame2 = page.frameLocator('iframe[class*="cboxIframe"]');
 
         // 귀속월 선택
+        step = { kind: "month", month: monthNum };
         await popupFrame2.locator('#payStd').click();
         await page.waitForTimeout(500);
         await popupFrame2.getByText(String(monthNum), { exact: true }).first().click();
@@ -179,6 +192,7 @@ export async function uploadMultiToWemembers(
       const currentPopup = page.frameLocator('iframe[class*="cboxIframe"]');
 
       // 급여대장 불러오기 드롭다운 클릭
+      step = { kind: "importMenu", label: typeLabel };
       await currentPopup.getByText("급여대장 불러오기").click();
       await page.waitForTimeout(500);
       await screenshot(`import_dropdown_${label}`);
@@ -195,6 +209,7 @@ export async function uploadMultiToWemembers(
       }
 
       // 파일 선택
+      step = { kind: "file", label: typeLabel };
       const fileChooser = await fileChooserPromise;
       await fileChooser.setFiles(upload.filePath);
       console.log(`[Wemembers] ${label} 파일 선택 완료:`, upload.filePath);
@@ -202,6 +217,7 @@ export async function uploadMultiToWemembers(
       await screenshot(`file_uploaded_${label}`);
 
       // 저장
+      step = { kind: "save", label: typeLabel };
       await currentPopup.getByText("저장", { exact: true }).first().click();
       await page.waitForTimeout(2000);
       await screenshot(`saved_${label}`);
@@ -222,6 +238,57 @@ export async function uploadMultiToWemembers(
     await screenshot("error_final");
     if (browser) await browser.close();
     console.error("[Wemembers] 오류:", error);
-    return { success: false, message: `위멤버스 업로드 오류: ${error.message}` };
+    return { success: false, message: friendlyError(step, input.clientName, error) };
+  }
+}
+
+// ── 오류 안내문 ──
+// Playwright 원문 오류(locator.click: Timeout ... Call log ...)는 서버 로그에만 남기고,
+// 화면에는 "어느 단계에서, 왜, 무엇을 확인하면 되는지"만 보여준다.
+type Step =
+  | { kind: "launch" }
+  | { kind: "login" }
+  | { kind: "salaryPage" }
+  | { kind: "searchClient" }
+  | { kind: "pickClient" }
+  | { kind: "payrollTab" }
+  | { kind: "register" }
+  | { kind: "month"; month: number }
+  | { kind: "importMenu"; label: string }
+  | { kind: "file"; label: string }
+  | { kind: "save"; label: string };
+
+function friendlyError(step: Step, clientName: string, error: any): string {
+  const raw = String(error?.message ?? error ?? "");
+  const isTimeout = /timeout|timed out/i.test(raw);
+  const isNetwork = /net::|ERR_|ECONN|ENOTFOUND|EAI_AGAIN/i.test(raw);
+
+  if (isNetwork) {
+    return "위멤버스 사이트에 접속하지 못했어요. 인터넷 연결이나 위멤버스 사이트 상태를 확인한 뒤 다시 시도해 주세요.";
+  }
+
+  switch (step.kind) {
+    case "launch":
+      return "자동화용 브라우저를 실행하지 못했어요. 잠시 후 다시 시도하고, 계속되면 관리자에게 알려 주세요.";
+    case "login":
+      return "위멤버스 로그인 화면이 열리지 않았어요. 위멤버스 사이트 상태를 확인한 뒤 다시 시도해 주세요.";
+    case "salaryPage":
+      return "위멤버스 급여관리 화면이 열리지 않았어요. 대부분 로그인 실패예요. 설정에 저장된 위멤버스 아이디·비밀번호가 맞는지 확인해 주세요.";
+    case "searchClient":
+      return "위멤버스 급여관리 화면에서 거래처 검색창을 쓰지 못했어요. 잠시 후 다시 시도해 주세요.";
+    case "pickClient":
+      return `위멤버스 급여관리 > 신고리스트 관리에서 '${clientName}' 거래처를 찾지 못했어요. 위멤버스에 이 거래처가 등록돼 있는지, 거래처 이름이 우리 쪽과 똑같은지 확인해 주세요.`;
+    case "payrollTab":
+      return `위멤버스에서 '${clientName}'를 열었지만 '급여대장' 탭이 보이지 않았어요. 위멤버스에서 이 거래처의 급여관리 화면을 직접 확인해 주세요.`;
+    case "register":
+      return `위멤버스 '${clientName}' 급여대장 화면에서 '급여대장 등록' 버튼을 찾지 못했어요. 위멤버스 화면을 직접 확인해 주세요.`;
+    case "month":
+      return `급여대장 등록 창에서 귀속월(${step.month}월)을 고르지 못했어요. 위멤버스에서 해당 월을 선택할 수 있는지 확인해 주세요.`;
+    case "importMenu":
+      return `급여대장 등록 창에서 ${step.label} '급여대장 불러오기' 메뉴를 찾지 못했어요. 위멤버스 화면을 직접 확인해 주세요.`;
+    case "file":
+      return `위멤버스에 ${step.label} 엑셀 파일을 올리지 못했어요.${isTimeout ? " 파일 선택 창이 열리지 않았어요." : ""} 잠시 후 다시 시도해 주세요.`;
+    case "save":
+      return `${step.label} 파일은 올렸지만 '저장'을 누르지 못했어요. 위멤버스에 이미 같은 달 급여대장이 있는지, 파일 내용에 문제가 없는지 확인해 주세요.`;
   }
 }
