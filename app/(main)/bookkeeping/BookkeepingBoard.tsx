@@ -163,12 +163,17 @@ export function BookkeepingBoard({
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeThrough, setCloseThrough] = useState(focus);
   const [closing, setClosing] = useState(false);
+  // 체크한 거래처가 있으면 그 거래처만, 없으면 지금 표시된(필터 적용) 거래처 전체.
+  // 2026-10-22: 체크를 무시하고 표시된 전체에 적용돼 진행 중이던 달까지 덮인 사고 이후 변경
+  const closeTargets = selected.size > 0 ? base.filter(c => selected.has(c.id)) : base;
   async function applyCloseThrough() {
-    const ids = base.map(c => c.id);
+    const ids = closeTargets.map(c => c.id);
     if (ids.length === 0) return;
     const fromYM = `${closeThrough.slice(0, 4)}-01`;
-    const label = `${closeThrough.slice(0, 4)}년 1월분 ~ ${mLabel(closeThrough)}분`;
-    if (!await askConfirm(`표시된 ${ids.length}곳의 ${label}을 모두 '세모리포트 완료'로 처리할까요?\n(되돌리려면 칸을 눌러 단계를 바꾸면 됩니다)`)) return;
+    const nMonths = parseInt(closeThrough.slice(5, 7), 10);
+    const label = `${closeThrough.slice(0, 4)}년 1월분 ~ ${mLabel(closeThrough)}분 (${nMonths}개월)`;
+    const who = selected.size > 0 ? `체크한 ${ids.length}곳` : `체크한 거래처가 없어 화면에 표시된 ${ids.length}곳 전체`;
+    if (!await askConfirm(`${who}의 ${label}을 모두 '세모리포트 완료'로 덮어씁니다.\n진행 중이던 단계도 완료로 바뀝니다. 계속할까요?`)) return;
     setClosing(true);
     try {
       const r = await bulkCloseThrough(ids, fromYM, closeThrough);
@@ -289,12 +294,17 @@ export function BookkeepingBoard({
             {closeOpen && (
               <div className="absolute right-0 top-12 z-40 w-[280px] glass-strong rounded-2xl shadow-xl border border-[#E5E8EB] p-4">
                 <div className="text-[13px] font-bold text-[#191F28] mb-1">기간 일괄 완료</div>
-                <div className="text-[11px] text-[#6B7684] mb-3">표시된 <b className="text-[#191F28]">{base.length}곳</b>의 1월분부터 아래 달까지 전부 '세모리포트 완료'로 바꿉니다. 담당자·소속 필터를 걸면 그 거래처만 적용됩니다.</div>
+                <div className="text-[11px] text-[#6B7684] mb-3">
+                  {selected.size > 0
+                    ? <><b className="text-[#3182F6]">체크한 {closeTargets.length}곳</b>만</>
+                    : <><b className="text-[#DC2626]">체크한 거래처가 없어 표시된 {closeTargets.length}곳 전체</b>를</>}
+                  {" "}1월분부터 아래 달까지 전부 &apos;세모리포트 완료&apos;로 덮어씁니다. 진행 중이던 단계도 완료로 바뀌어요.
+                </div>
                 <select value={closeThrough} onChange={e => setCloseThrough(e.target.value)} className="w-full h-9 mb-3 rounded-xl border border-[#E5E8EB] bg-[#F9FAFB] px-2 text-[12.5px] font-bold text-[#191F28] outline-none">
                   {months.map(m => <option key={m} value={m}>{m.slice(0, 4)}년 {mLabel(m)}분까지</option>)}
                 </select>
                 <div className="flex gap-2">
-                  <button onClick={applyCloseThrough} disabled={closing || base.length === 0} className="flex-1 h-9 rounded-xl bg-[#16A865] text-white text-[12.5px] font-bold hover:bg-[#15803D] disabled:opacity-40">{closing ? "처리 중..." : "완료 처리"}</button>
+                  <button onClick={applyCloseThrough} disabled={closing || closeTargets.length === 0} className="flex-1 h-9 rounded-xl bg-[#16A865] text-white text-[12.5px] font-bold hover:bg-[#15803D] disabled:opacity-40">{closing ? "처리 중..." : "완료 처리"}</button>
                   <button onClick={() => setCloseOpen(false)} className="h-9 px-3 rounded-xl bg-[#F2F4F6] text-[#4E5968] text-[12.5px] font-bold">취소</button>
                 </div>
               </div>
