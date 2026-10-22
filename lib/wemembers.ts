@@ -113,6 +113,8 @@ export async function uploadMultiToWemembers(
     // 검색 결과에서 거래처명 클릭 — 완전 일치 우선, 실패 시 공백 차이 허용
     step = { kind: "pickClient" };
     // (예: 우리 "오엠(OM)우레탄" vs 위멤버스 "오엠(OM) 우레탄")
+    // 위멤버스 이름 뒤에 괄호 영문명이 붙은 경우도 허용
+    // (예: 우리 "주식회사 더클래시코" vs 위멤버스 "주식회사 더클래시코 (THE CLASSIKO CO.,Ltd)")
     try {
       await frame.getByText(input.clientName, { exact: true }).first().click({ timeout: 8000 });
     } catch {
@@ -121,7 +123,7 @@ export async function uploadMultiToWemembers(
         .split("")
         .map((ch: string) => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
         .join("\\s*");
-      await frame.getByText(new RegExp(`^\\s*${esc}\\s*$`)).first().click({ timeout: 15000 });
+      await frame.getByText(new RegExp(`^\\s*${esc}\\s*(\\([^()]*\\))?\\s*$`)).first().click({ timeout: 15000 });
     }
     await page.waitForTimeout(3000);
     await screenshot("client_detail");
