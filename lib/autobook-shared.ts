@@ -43,4 +43,4 @@ export function periodFromFor(yearMonth: string): string {
 }
 
 // 실행기가 몇 분 안에 신호를 보냈으면 '연결됨'
-export const AGENT_ONLINE_MS = 5 * 60 * 1000;
+export const AGENT_ONLINE_MS = 60 * 1000; // 실행기는 15초마다 신호 → 1분 넘게 없으면 꺼짐(5분이면 꺼진 뒤에도 한참 '켜짐'으로 보였음)
