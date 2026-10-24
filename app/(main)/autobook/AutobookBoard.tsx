@@ -100,12 +100,14 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
   const allChecked = selectable.length > 0 && selectable.every(c => selected.has(c.id));
   const open = clients.find(c => c.id === openId) ?? null;
 
-  function run(mode: "schedule" | "now") {
+  // 확인 창은 startTransition 밖에서 먼저 묻는다: 비동기 transition 안의 화면 갱신은 끝날 때까지 보류돼
+  // 확인 창이 안 뜨고 멈춘다(2026-10-24 [다시 연결]이 안 눌린 원인)
+  async function run(mode: "schedule" | "now") {
     const ids = [...selected];
     if (!ids.length) return;
+    if (!agent?.connected && !(await askConfirm({ title: "실행기가 아직 연결되지 않았어요", message: "예약은 되지만, 내 컴퓨터에 자동기장 실행기를 연결해야 실제로 처리됩니다. 예약할까요?" }))) return;
+    if (mode === "now" && !(await askConfirm(`지금 바로 ${ids.length}곳을 실행할까요?\n근무시간에는 같은 위하고 아이디로 쓰던 화면이 끊길 수 있어요 (시험용).`))) return;
     startTransition(async () => {
-      if (!agent?.connected && !(await askConfirm({ title: "실행기가 아직 연결되지 않았어요", message: "예약은 되지만, 내 컴퓨터에 자동기장 실행기를 연결해야 실제로 처리됩니다. 예약할까요?" }))) return;
-      if (mode === "now" && !(await askConfirm(`지금 바로 ${ids.length}곳을 실행할까요?\n근무시간에는 같은 위하고 아이디로 쓰던 화면이 끊길 수 있어요 (시험용).`))) return;
       try {
         const r = await enqueueAutobook(ids, mode);
         notify(`${r.queued}곳 예약${r.skippedBusy ? ` · 이미 예약된 ${r.skippedBusy}곳 제외` : ""}${r.skippedNoCno ? ` · 위하고 미연동 ${r.skippedNoCno}곳 제외` : ""}`, { type: "success" });
@@ -133,10 +135,10 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
           <p className="text-[12.5px] text-[#4E5968] mt-0.5">체크한 거래처를 <b>내 컴퓨터의 자동기장 실행기</b>가 위하고에서 처리합니다 · 수집 → 세금계산서 → 계산서 → 카드 → 현금영수증 → 보고서</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <AgentBadge agent={agent} onConnect={() => startTransition(async () => {
+          <AgentBadge agent={agent} onConnect={async () => {
             if (agent?.connected && !(await askConfirm("실행기 연결 코드를 새로 만들까요? 이전 코드는 더 이상 쓸 수 없습니다."))) return;
             try { const r = await issueAgentToken(); setTokenShown(r.token); router.refresh(); } catch { notify("연결 코드를 만들지 못했습니다", { type: "error" }); }
-          })} readonly={readonly} />
+          }} readonly={readonly} />
           <div className="flex items-center gap-1 glass-strong rounded-2xl px-1 h-10">
             <button onClick={() => router.push(`/autobook?focus=${addMonths(focus, -1)}`)} className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm">◀</button>
             <span className="text-[13px] font-bold text-[#191F28] min-w-[100px] text-center">{focus.slice(0, 4)}.{focus.slice(5)} 처리분</span>
@@ -244,7 +246,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
         </div>
 
         {open && <SidePanel c={open} job={cur(open)} alerts={alertsOf.get(open.id) ?? []} readonly={readonly} onClose={() => setOpenId(null)}
-          onCancel={id => startTransition(async () => { if (await askConfirm("이 예약을 취소할까요? 진행 중이면 지금 단계가 끝나는 대로 멈춥니다.")) { await cancelAutobookJob(id); router.refresh(); } })}
+          onCancel={async id => { if (await askConfirm("이 예약을 취소할까요? 진행 중이면 지금 단계가 끝나는 대로 멈춥니다.")) startTransition(async () => { await cancelAutobookJob(id); router.refresh(); }); }}
           onResolve={id => startTransition(async () => { await resolveAutobookAlert(id); router.refresh(); })}
           onSave={(input) => startTransition(async () => { try { await saveAutobookSetting(open.id, input); notify("설정을 저장했습니다", { type: "success" }); router.refresh(); } catch { notify("저장하지 못했습니다", { type: "error" }); } })} />}
       </div>
