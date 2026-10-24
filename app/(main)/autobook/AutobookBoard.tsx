@@ -45,8 +45,8 @@ const ago = (iso: string | null) => {
   return m < 1 ? "방금" : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`;
 };
 
-export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonly, agent }: {
-  clients: AbClient[]; jobs: AbJob[]; alerts: AbAlert[]; focus: string; currentYM: string; readonly: boolean; agent: Agent;
+export function AutobookBoard({ clients, jobs, alerts, focus, defaultFocus, readonly, agent }: {
+  clients: AbClient[]; jobs: AbJob[]; alerts: AbAlert[]; focus: string; defaultFocus: string; readonly: boolean; agent: Agent;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -109,7 +109,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
     if (mode === "now" && !(await askConfirm(`지금 바로 ${ids.length}곳을 실행할까요?\n근무시간에는 같은 위하고 아이디로 쓰던 화면이 끊길 수 있어요 (시험용).`))) return;
     startTransition(async () => {
       try {
-        const r = await enqueueAutobook(ids, mode);
+        const r = await enqueueAutobook(ids, mode, focus); // 화면에서 고른 N월분으로 예약
         notify(`${r.queued}곳 예약${r.skippedBusy ? ` · 이미 예약된 ${r.skippedBusy}곳 제외` : ""}${r.skippedNoCno ? ` · 위하고 미연동 ${r.skippedNoCno}곳 제외` : ""}`, { type: "success" });
         setSelected(new Set());
         router.refresh();
@@ -120,7 +120,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
   const kpis = [
     { key: "all", label: "대상 거래처", value: counts.total, sub: counts.noCno ? `위하고 미연동 ${counts.noCno}` : "위하고 연동 전부", color: "#191F28" },
     { key: "active", label: "예약 · 진행 중", value: counts.active, sub: counts.running[0] ? `${counts.running[0].name} 진행 중` : "시간표대로 처리", color: "#3182F6" },
-    { key: "done", label: "완료", value: counts.done, sub: `${mLabel(focus)} 처리분`, color: "#16A865" },
+    { key: "done", label: "완료", value: counts.done, sub: `${mLabel(focus)}분`, color: "#16A865" },
     { key: "stopped", label: "멈춤", value: counts.stopped, sub: "사유 확인 후 다시 예약", color: "#DC2626" },
     { key: "alerts", label: "대표님 확인 필요", value: counts.alerts, sub: "중복전표 · 고정자산 · 100만원↑", color: "#B45309" },
     { key: "none", label: "아직 안 돌림", value: counts.none, sub: "체크해서 예약", color: "#8B95A1" },
@@ -141,9 +141,9 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
           }} readonly={readonly} />
           <div className="flex items-center gap-1 glass-strong rounded-2xl px-1 h-10">
             <button onClick={() => router.push(`/autobook?focus=${addMonths(focus, -1)}`)} className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm">◀</button>
-            <span className="text-[13px] font-bold text-[#191F28] min-w-[100px] text-center">{focus.slice(0, 4)}.{focus.slice(5)} 처리분</span>
+            <span className="text-[13px] font-bold text-[#191F28] min-w-[100px] text-center">{focus.slice(0, 4)}.{focus.slice(5)}분</span>
             <button onClick={() => router.push(`/autobook?focus=${addMonths(focus, 1)}`)} className="w-8 h-8 rounded-xl text-[#6B7684] hover:text-[#191F28] hover:bg-white/60 text-sm">▶</button>
-            {focus !== currentYM && <button onClick={() => router.push(`/autobook`)} className="ml-1 text-[11px] font-bold text-[#3182F6] px-2 h-7 rounded-lg hover:bg-white/60">이번 달</button>}
+            {focus !== defaultFocus && <button onClick={() => router.push(`/autobook`)} className="ml-1 text-[11px] font-bold text-[#3182F6] px-2 h-7 rounded-lg hover:bg-white/60">전월분</button>}
           </div>
         </div>
       </div>
@@ -167,7 +167,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
 
       {/* 탭 + 검색 */}
       <div className="glass rounded-3xl p-2 mb-3 flex items-center gap-2 flex-wrap">
-        {([["month", `${mLabel(focus)} 처리`], ["matrix", "월별 현황"], ["alerts", `확인 필요 ${alerts.length}`]] as const).map(([k, l]) => (
+        {([["month", `${mLabel(focus)}분 처리`], ["matrix", "월별 현황"], ["alerts", `확인 필요 ${alerts.length}`]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={`h-9 px-4 rounded-2xl text-[12.5px] font-bold ${tab === k ? "bg-[#191F28] text-white" : "text-[#6B7684] hover:text-[#191F28]"}`}>{l}</button>
         ))}
         <div className="flex-1 min-w-[180px] bg-white/80 rounded-2xl flex items-center gap-2 px-4 h-9 ml-auto max-w-[320px]">
@@ -379,7 +379,7 @@ function SidePanel({ c, job, alerts, readonly, onClose, onCancel, onResolve, onS
       ))}
 
       <div className="mt-5 text-[12.5px] font-bold text-[#4E5968] mb-1.5">실행 기록</div>
-      {!job && <div className="text-[12px] text-[#8B95A1]">이번 달 실행 없음</div>}
+      {!job && <div className="text-[12px] text-[#8B95A1]">이 달 실행 없음</div>}
       {job && (
         <div className="text-[11.5px] text-[#4E5968] leading-relaxed">
           {job.log.slice().reverse().slice(0, 30).map((l, i) => <div key={i}><span className="text-[#8B95A1] tabular-nums mr-1.5">{md(l.at)} {hm(l.at)}</span>{l.text}</div>)}

@@ -42,11 +42,12 @@ export async function saveAutobookSetting(clientId: number, input: AutobookSetti
 }
 
 /** 체크한 거래처를 내 PC 실행기에 예약. 이미 대기·진행 중인 거래처와 위하고 미연동 거래처는 건너뜀 */
-export async function enqueueAutobook(clientIds: number[], mode: "schedule" | "now" = "schedule") {
+// yearMonth = 화면에서 고른 N월분(기장 대상 월). 수집·처리는 과세기간 시작 ~ 실행하는 날까지
+export async function enqueueAutobook(clientIds: number[], mode: "schedule" | "now", yearMonth: string) {
   const session = await writer();
   if (clientIds.length === 0 || clientIds.length > 200) throw new Error("BAD_INPUT");
   await assertInScope(session, clientIds);
-  const yearMonth = kstToday().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(yearMonth) || yearMonth > kstToday().slice(0, 7)) throw new Error("BAD_INPUT");
   const [clients, active] = await Promise.all([
     prisma.client.findMany({ where: { id: { in: clientIds } }, select: { id: true, wehagoCno: true } }),
     prisma.autobookJob.findMany({ where: { clientId: { in: clientIds }, status: { in: ACTIVE_STATUS } }, select: { clientId: true } }),

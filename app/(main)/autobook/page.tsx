@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getClientScopeWhere } from "@/lib/client-scope";
-import { kstToday } from "@/lib/bookkeeping";
+import { kstToday, addMonths } from "@/lib/bookkeeping";
 import { staffMonthsMap, parseSchedule, periodFromFor, AGENT_ONLINE_MS } from "@/lib/autobook";
 import { AutobookBoard, type AbClient, type AbJob, type AbAlert } from "./AutobookBoard";
 
@@ -16,7 +16,9 @@ export default async function AutobookPage({ searchParams }: { searchParams: Pro
 
   const params = await searchParams;
   const currentYM = kstToday().slice(0, 7);
-  const focus = params.focus && /^\d{4}-\d{2}$/.test(params.focus) ? params.focus : currentYM;
+  // 기준 = N월분(기장 대상 월). 기본은 전월분: 9월 매입자료는 10월 중순 이후 열리므로 10월엔 9월분을 처리 (월기장 보드와 같음)
+  const defaultFocus = addMonths(currentYM, -1);
+  const focus = params.focus && /^\d{4}-\d{2}$/.test(params.focus) ? params.focus : defaultFocus;
   const year = focus.slice(0, 4);
 
   const scope = await getClientScopeWhere(session);
@@ -68,7 +70,7 @@ export default async function AutobookPage({ searchParams }: { searchParams: Pro
         jobs={jobs}
         alerts={alerts}
         focus={focus}
-        currentYM={currentYM}
+        defaultFocus={defaultFocus}
         readonly={session.role === "readonly"}
         agent={agent ? {
           connected: true,
