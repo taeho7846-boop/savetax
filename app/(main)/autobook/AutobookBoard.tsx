@@ -235,7 +235,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
           {selected.size > 0 && !readonly && (
             <div className="flex items-center gap-3 px-4 h-12 bg-[#191F28] text-white text-[12.5px] shrink-0">
               <span className="font-bold">선택 {selected.size}곳</span>
-              <span className="text-white/60 hidden md:inline">수집을 먼저 한 번에 끝내고 거래처별로 처리 · 한 곳이 멈춰도 다음으로 넘어감</span>
+              <span className="text-white/60 hidden md:inline">거래처 하나씩 수집 → 전표처리 → 다음 거래처 · 한 곳이 멈춰도 다음으로 넘어감</span>
               <button disabled={pending} onClick={() => run("schedule")} className="ml-auto h-8 px-4 rounded-lg bg-[#3182F6] font-bold hover:bg-[#1B64DA] disabled:opacity-50">🌙 자동 실행 예약</button>
               <button disabled={pending} onClick={() => run("now")} className="h-8 px-3 rounded-lg bg-white/10 font-bold hover:bg-white/20 disabled:opacity-50" title="근무시간엔 같은 위하고 아이디 화면이 끊길 수 있어 시험용">지금 실행(시험)</button>
               <button onClick={() => setSelected(new Set())} className="text-white/60 hover:text-white">해제</button>
@@ -447,7 +447,7 @@ function ScheduleCard({ agent, readonly, onSave }: { agent: Agent; readonly: boo
   return (
     <div className="glass rounded-3xl p-4 mt-3 shrink-0">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[13px] font-extrabold text-[#191F28]">자동 실행 시간표 <span className="text-[11px] font-normal text-[#8B95A1]">내 컴퓨터 기준 · 홈택스 자료수집은 00:00~06:00 불가 → 그 시간엔 수집이 끝난 거래처만 처리</span></div>
+        <div className="text-[13px] font-extrabold text-[#191F28]">자동 실행 시간표 <span className="text-[11px] font-normal text-[#8B95A1]">내 컴퓨터 기준 · 거래처 하나씩 수집 → 전표처리 · 홈택스 자료수집은 00:00~06:00 불가 → 그 시간·수집 마감 뒤엔 새 거래처를 시작하지 않고 진행 중인 거래처만 마저 처리</span></div>
         {!readonly && agent && (edit
           ? <div className="flex items-center gap-1.5 text-[12px]">근무 <input type="time" value={s.workFrom} onChange={e => setS({ ...s, workFrom: e.target.value })} className="h-7 rounded-lg border border-[#E5E8EB] px-1" />~<input type="time" value={s.workTo} onChange={e => setS({ ...s, workTo: e.target.value })} className="h-7 rounded-lg border border-[#E5E8EB] px-1" /> 수집 마감 <input type="time" value={s.collectStop} onChange={e => setS({ ...s, collectStop: e.target.value })} className="h-7 rounded-lg border border-[#E5E8EB] px-1" />
               <button onClick={() => { onSave(s); setEdit(false); }} className="h-7 px-2.5 rounded-lg bg-[#3182F6] text-white font-bold">저장</button><button onClick={() => setEdit(false)} className="h-7 px-2 text-[#8B95A1]">취소</button></div>
@@ -459,7 +459,7 @@ function ScheduleCard({ agent, readonly, onSave }: { agent: Agent; readonly: boo
           [6, "bg-[#EDE9FE] text-[#6D28D9]", "00~06 처리만"],
           [h(s.workFrom) - 6, "bg-[#DCFCE7] text-[#15803D]", `06~${s.workFrom} 수집+처리`],
           [h(s.workTo) - h(s.workFrom), "bg-[#F2F4F6] text-[#8B95A1]", `${s.workFrom}~${s.workTo} 근무시간 · 안 돌림`],
-          [h(s.collectStop) - h(s.workTo), "bg-[#DCFCE7] text-[#15803D]", `${s.workTo}~${s.collectStop} 수집 먼저 → 처리`],
+          [h(s.collectStop) - h(s.workTo), "bg-[#DCFCE7] text-[#15803D]", `${s.workTo}~${s.collectStop} 수집+처리`],
           [24 - h(s.collectStop), "bg-[#EDE9FE] text-[#6D28D9]", "처리만"],
         ])}
         <b>주말·공휴일</b>
