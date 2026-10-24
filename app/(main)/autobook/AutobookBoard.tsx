@@ -107,6 +107,9 @@ export function AutobookBoard({ clients, jobs, alerts, focus, defaultFocus, read
     if (!ids.length) return;
     if (!agent?.connected && !(await askConfirm({ title: "실행기가 아직 연결되지 않았어요", message: "예약은 되지만, 내 컴퓨터에 자동기장 실행기를 연결해야 실제로 처리됩니다. 예약할까요?" }))) return;
     if (mode === "now" && !(await askConfirm(`지금 바로 ${ids.length}곳을 실행할까요?\n근무시간에는 같은 위하고 아이디로 쓰던 화면이 끊길 수 있어요 (시험용).`))) return;
+    // 이 PC의 실행기를 켠다(실행기 연결 때 등록한 wehago-autobook:// 링크). 브라우저는 버튼을 누른 직후에만 프로그램 열기를 허락해서
+    // 예약 저장보다 먼저 부른다 — 실행기는 켜진 뒤 1분 동안 예약을 기다리고, 할 일을 다 하면 스스로 꺼진다
+    if (agent?.connected) window.location.href = "wehago-autobook://start";
     startTransition(async () => {
       try {
         const r = await enqueueAutobook(ids, mode, focus); // 화면에서 고른 N월분으로 예약
@@ -257,9 +260,10 @@ export function AutobookBoard({ clients, jobs, alerts, focus, defaultFocus, read
 }
 
 function AgentBadge({ agent, onConnect, readonly }: { agent: Agent; onConnect: () => void; readonly: boolean }) {
-  const color = !agent ? "#C4CCD4" : agent.online ? (agent.wehagoLoggedIn ? "#16A865" : "#F59E0B") : "#DC2626";
-  const title = !agent ? "내 컴퓨터 실행기 연결 안 됨" : agent.online ? (agent.wehagoLoggedIn ? "내 컴퓨터 실행기 연결됨" : "실행기 켜짐 · 위하고 로그인 필요") : "실행기 꺼짐";
-  const sub = !agent ? "연결하면 체크한 거래처를 이 컴퓨터가 처리합니다" : `${agent.machine ?? "PC"} · 마지막 신호 ${ago(agent.lastSeenAt)}${agent.online && !agent.wehagoLoggedIn ? " · 퇴근 전 전용 Chrome에서 위하고 로그인" : ""}${!agent.online ? " · 밤에 PC를 켜 두세요" : ""}`;
+  // 실행기는 [지금 실행]·[자동 실행 예약]을 누르면 켜지고 할 일이 끝나면 꺼진다 → 꺼져 있는 건 정상(대기)
+  const color = !agent ? "#C4CCD4" : agent.online ? (agent.wehagoLoggedIn ? "#16A865" : "#F59E0B") : "#8B95A1";
+  const title = !agent ? "내 컴퓨터 실행기 연결 안 됨" : agent.online ? (agent.wehagoLoggedIn ? "실행기 작업 중" : "실행기 켜짐 · 위하고 로그인 필요") : "실행기 대기";
+  const sub = !agent ? "연결하면 체크한 거래처를 이 컴퓨터가 처리합니다" : `${agent.machine ?? "PC"} · 마지막 신호 ${ago(agent.lastSeenAt)}${agent.online && !agent.wehagoLoggedIn ? " · 전용 Chrome에서 위하고 로그인" : ""}${!agent.online ? " · 실행을 누르면 켜집니다 · 밤 예약은 PC를 켜 두세요" : ""}`;
   return (
     <div className="glass-strong rounded-2xl px-3.5 h-12 flex items-center gap-2.5">
       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
@@ -281,8 +285,8 @@ function TokenModal({ token, onClose }: { token: string; onClose: () => void }) 
         </div>
         <ol className="mt-4 text-[12px] text-[#4E5968] list-decimal pl-5 space-y-1">
           <li>자동기장 실행기 설치 파일을 실행하고 이 코드를 붙여넣습니다.</li>
-          <li>뜨는 자동기장 전용 Chrome에서 위하고에 로그인합니다 (퇴근 전 한 번).</li>
-          <li>PC 절전 모드를 끄고 켜 둡니다. 이 화면 오른쪽 위가 초록 점이면 준비 끝.</li>
+          <li>거래처를 체크하고 [지금 실행] 또는 [🌙 자동 실행 예약]을 누르면 실행기가 켜집니다. 처음 한 번 Chrome이 묻으면 &lsquo;항상 허용&rsquo;에 체크하고 [열기].</li>
+          <li>뜨는 자동기장 전용 Chrome에서 위하고에 로그인합니다. 밤 예약이면 PC 절전 모드를 끄고 켜 둡니다.</li>
         </ol>
         <button onClick={onClose} className="mt-5 w-full h-10 rounded-xl bg-[#F2F4F6] text-[#4E5968] font-bold text-[13px]">닫기</button>
       </div>
