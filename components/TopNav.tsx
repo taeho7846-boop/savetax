@@ -68,6 +68,7 @@ const CATEGORIES: Category[] = [
     icon: <ClipboardListIcon width={14} height={14} />,
     subs: [
       { href: "/bookkeeping", label: "월기장 보드" },
+      { href: "/autobook", label: "AI자동기장" },
     ],
   },
   {

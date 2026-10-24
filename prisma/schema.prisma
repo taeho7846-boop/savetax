@@ -136,6 +136,8 @@ model Client {
   semoLedgerMonths          SemoLedgerMonth[]
   payrollMonths             PayrollMonth[]
   ntsAlerts                 NtsAlert[]
+  autobookSetting           AutobookSetting?
+  autobookJobs              AutobookJob[]
 }
 
 // 국세청 사업자등록 상태조회(공공데이터포털 API) 결과가 우리 거래처 등록값과 다를 때 쌓이는 변동 알림.
@@ -1030,4 +1032,84 @@ model PayrollMonth {
 
   @@unique([clientId, yearMonth, incomeType])
   @@index([yearMonth])
+}
+
+// ── AI자동기장 (관리 > AI자동기장) ──
+// 홈페이지 = 거래처 선택·예약·진행 상태·보고서 보관. 실제 위하고 처리는 직원 각자 PC의 자동기장 실행기(wehago-autobookkeeping)가
+// 그 직원 위하고 로그인으로 한다. 실행기는 AutobookAgent 토큰으로 /api/autobook/agent/* 를 호출한다.
+
+// 거래처별 자동기장 판단 설정 (계정 판단 엔진이 읽음)
+model AutobookSetting {
+  id              Int      @id @default(autoincrement())
+  clientId        Int      @unique
+  staff           String   @default("auto") // 직원 유무: auto(인건비 자료로 판단) | yes | no → 음식·카페 811/812
+  vehicleDeduct   Boolean  @default(false) // 차량 부가세 공제 (주유·차량 카과, 세금계산서 54→51)
+  deemedPurchase  Boolean  @default(false) // 의제매입 대상(음식점 면세 식자재 146 + 카면/현면 + 적요 06)
+  foodAccount     String   @default("146") // 마트·식자재 계정: 146 상품 | 830 소모품비
+  industry        String? // 업종 표시(비우면 거래처 종목)
+  memo            String?
+  updatedByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  client          Client   @relation(fields: [clientId], references: [id])
+}
+
+// 실행 예약 1건 = 거래처 1곳 × 처리분 1달. userId 직원의 PC 실행기가 가져가 처리
+model AutobookJob {
+  id           Int             @id @default(autoincrement())
+  clientId     Int
+  userId       Int // 실행할 직원(예약한 사람)
+  yearMonth    String // 처리분 "YYYY-MM" (실행하는 달)
+  periodFrom   String // 과세기간 시작 "YYYY-MM-DD" (1기 01-01 / 2기 07-01)
+  mode         String          @default("schedule") // schedule(시간표대로) | now(바로, 시험용)
+  status       String          @default("queued") // queued | collected(수집 끝, 처리 대기) | running | done | stopped | canceled
+  step         String? // 지금 단계: collect | taxSale | taxBuy | invoiceBuy | card | cashBuy | report
+  steps        String          @default("{}") // JSON {collect:"ok"|"run"|"stop"|"skip", ...}
+  summary      String? // JSON 처리 요약(자료별 건수·금액)
+  message      String? // 멈춘 사유 등
+  log          String          @default("[]") // JSON [{at, text}]
+  reportFileId String? // 구글드라이브 보고서 파일
+  reportName   String?
+  reportLink   String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  client       Client          @relation(fields: [clientId], references: [id])
+  alerts       AutobookAlert[]
+
+  @@index([userId, status])
+  @@index([clientId, yearMonth])
+}
+
+// 대표님 확인 필요 항목(보고서 빨간 박스): 중복전표·고정자산 후보·불분명 100만원 이상·카드 등록 필요 등
+model AutobookAlert {
+  id               Int         @id @default(autoincrement())
+  jobId            Int
+  clientId         Int
+  kind             String // duplicate | fixedAsset | unclearBig | cardRegister | other
+  date             String? // 거래일 "MM-DD"
+  trade            String?
+  amount           Int?
+  note             String
+  resolvedAt       DateTime?
+  resolvedByUserId Int?
+  createdAt        DateTime    @default(now())
+  job              AutobookJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+// 직원 PC 실행기 (직원 1명당 1개). token은 해시만 저장, 원문은 발급할 때 한 번만 보여줌
+model AutobookAgent {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  tokenHash      String    @unique
+  machine        String?
+  version        String?
+  wehagoLoggedIn Boolean   @default(false)
+  lastSeenAt     DateTime?
+  schedule       String    @default("{}") // JSON 실행 시간표 {weekday:{workFrom:"08:30",workTo:"18:30"}} (홈택스 수집 불가 00~06은 고정)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }

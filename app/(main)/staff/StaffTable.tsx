@@ -35,6 +35,7 @@ const ALL_MENUS = [
   { key: "receivables", label: "채권 관리" },
   { key: "insights", label: "거래처 인사이트" },
   { key: "bookkeeping", label: "월기장 보드" },
+  { key: "autobook", label: "AI자동기장" },
   { key: "data-collect", label: "자료수집" },
   { key: "distribution", label: "Savetax 배분" },
   { key: "settlement", label: "Savetax 정산" },
