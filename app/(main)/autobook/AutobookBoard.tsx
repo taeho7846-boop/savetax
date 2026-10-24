@@ -183,7 +183,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
                       {!readonly && <input type="checkbox" checked={allChecked} onChange={() => setSelected(allChecked ? new Set() : new Set(selectable.map(c => c.id)))} className="w-4 h-4 accent-[#3182F6]" />}
                     </th>
                     <th className="text-left px-2 py-2.5 border-b border-[#E5E8EB]">거래처 <span className="font-normal">{rows.length}곳</span></th>
-                    <th className="text-left px-2 py-2.5 border-b border-[#E5E8EB]">설정</th>
+                    {SETTING_COLS.map(h => <th key={h} className="text-left px-2 py-2.5 border-b border-[#E5E8EB] bg-[#F9FAFB] whitespace-nowrap" title="거래처를 누르면 오른쪽에서 바꿀 수 있습니다">{h}</th>)}
                     <th className="text-left px-2 py-2.5 border-b border-[#E5E8EB]">진행 ({STEPS.map(s => s.label).join("·")})</th>
                     <th className="text-right px-2 py-2.5 border-b border-[#E5E8EB]">전송</th>
                     <th className="text-left px-2 py-2.5 border-b border-[#E5E8EB]">확인 필요</th>
@@ -203,7 +203,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
                           <div className="font-bold text-[#191F28]">{c.name}</div>
                           <div className="text-[11px] text-[#8B95A1]">{c.assignedUserName ?? "미지정"} · {c.corporate ? "법인" : "개인"}</div>
                         </td>
-                        <td className="px-2 py-2.5 border-b border-[#F2F4F6]"><SettingChips c={c} /></td>
+                        <SettingCells c={c} />
                         <td className="px-2 py-2.5 border-b border-[#F2F4F6]"><Steps j={j} /></td>
                         <td className="px-2 py-2.5 border-b border-[#F2F4F6] text-right tabular-nums whitespace-nowrap">
                           {j?.summary?.sent != null ? <>{won(j.summary.sent)}건<div className="text-[11px] text-[#8B95A1]">{won(j.summary.amount)}</div></> : <span className="text-[#C4CCD4]">-</span>}
@@ -219,7 +219,7 @@ export function AutobookBoard({ clients, jobs, alerts, focus, currentYM, readonl
                       </tr>
                     );
                   })}
-                  {rows.length === 0 && <tr><td colSpan={7} className="text-center py-16 text-[#8B95A1]">해당하는 거래처가 없습니다</td></tr>}
+                  {rows.length === 0 && <tr><td colSpan={6 + SETTING_COLS.length} className="text-center py-16 text-[#8B95A1]">해당하는 거래처가 없습니다</td></tr>}
                 </tbody>
               </table>
             )}
@@ -286,20 +286,35 @@ function TokenModal({ token, onClose }: { token: string; onClose: () => void }) 
   );
 }
 
-function SettingChips({ c }: { c: AbClient }) {
-  if (!c.hasCno) return <span className="text-[11px] font-bold text-[#DC2626] bg-[#FEF2F2] rounded-md px-1.5 py-0.5">위하고 미연동 · 원천세 탭 [연동 수집]</span>;
+// 설정 열(업종·직원·차량 부가세·의제매입·마트·식자재) — 항목마다 칸을 나눠 한눈에 비교. 아직 저장 안 한 거래처는 기본값을 흐리게 보여준다
+const SETTING_COLS = ["업종", "직원", "차량 부가세", "의제매입", "마트·식자재"] as const;
+const settingTd = "px-2 py-2.5 border-b border-[#F2F4F6] bg-[#F9FAFB]/60 whitespace-nowrap";
+
+function SettingCells({ c }: { c: AbClient }) {
+  if (!c.hasCno) return (
+    <td colSpan={SETTING_COLS.length} className={settingTd}>
+      <span className="text-[11px] font-bold text-[#DC2626] bg-[#FEF2F2] rounded-md px-1.5 py-0.5">위하고 미연동 · 원천세 탭 [연동 수집] 후 사용 가능</span>
+    </td>
+  );
   const s = c.setting;
   const staff = s.staff === "auto" ? s.staffAuto : s.staff === "yes";
-  const chip = "inline-flex items-center text-[11px] font-bold rounded-md px-1.5 py-0.5 mr-1 mb-0.5 whitespace-nowrap";
+  const dim = s.configured ? "" : "opacity-60";
+  const pill = (on: boolean, onText: string, offText: string, onCls: string) =>
+    <span className={`inline-block text-[11px] font-bold rounded-md px-1.5 py-0.5 ${on ? onCls : "bg-[#F2F4F6] text-[#8B95A1]"}`}>{on ? onText : offText}</span>;
   return (
-    <div className="max-w-[340px]">
-      {c.industry && <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>{c.industry.slice(0, 12)}</span>}
-      <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>직원 {staff ? "있음" : "없음"}{s.staff === "auto" && <span className="ml-1 text-[#3182F6]">인건비</span>}</span>
-      {s.vehicleDeduct && <span className={`${chip} bg-[#E8F3FF] text-[#1B64DA]`}>차량공제</span>}
-      {s.deemedPurchase && <span className={`${chip} bg-[#F5F3FF] text-[#6D28D9]`}>의제매입</span>}
-      <span className={`${chip} bg-[#F2F4F6] text-[#4E5968]`}>마트→{s.foodAccount}</span>
-      {!s.configured && <span className={`${chip} bg-[#FFFBEB] text-[#B45309]`}>설정 확인</span>}
-    </div>
+    <>
+      <td className={settingTd}>
+        <span className={`text-[12px] text-[#333D4B] ${dim}`} title={c.industry}>{c.industry ? (c.industry.length > 10 ? c.industry.slice(0, 10) + "…" : c.industry) : <span className="text-[#C4CCD4]">-</span>}</span>
+        {!s.configured && <div className="text-[10px] font-bold text-[#B45309]">설정 전 · 기본값</div>}
+      </td>
+      <td className={settingTd}>
+        <span className={dim}>{pill(staff, "있음", "없음", "bg-[#E7F7EE] text-[#15803D]")}</span>
+        <span className="ml-1 text-[10px] text-[#8B95A1]">{s.staff === "auto" ? "인건비 자동" : "직접"}</span>
+      </td>
+      <td className={settingTd}><span className={dim}>{pill(s.vehicleDeduct, "공제", "불공제", "bg-[#E8F3FF] text-[#1B64DA]")}</span></td>
+      <td className={settingTd}><span className={dim}>{pill(s.deemedPurchase, "대상", "아님", "bg-[#F5F3FF] text-[#6D28D9]")}</span></td>
+      <td className={settingTd}><span className={`text-[12px] font-bold text-[#333D4B] ${dim}`}>{s.foodAccount === "146" ? "146 상품" : "830 소모품비"}</span></td>
+    </>
   );
 }
 
