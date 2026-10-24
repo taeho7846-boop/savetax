@@ -10,7 +10,9 @@ import {
   type AutobookSettingInput,
 } from "@/app/actions/autobook";
 
-export type AbSetting = AutobookSettingInput & { staffAuto: boolean; configured: boolean; industry: string; memo: string };
+// staffMonths: 과세기간 중 급여(근로소득)가 있는 달 "YYYY-MM" — 거래한 달이 여기 있으면 직원 있음(811), 없으면 812
+export type AbSetting = AutobookSettingInput & { staffMonths: string[]; configured: boolean; industry: string; memo: string };
+const monthsText = (ms: string[]) => ms.map(m => parseInt(m.slice(5, 7))).join("·") + "월";
 export type AbClient = {
   id: number; name: string; corporate: boolean; industry: string; assignedUserName: string | null;
   hasCno: boolean; hasDrive: boolean; setting: AbSetting;
@@ -297,7 +299,6 @@ function SettingCells({ c }: { c: AbClient }) {
     </td>
   );
   const s = c.setting;
-  const staff = s.staff === "auto" ? s.staffAuto : s.staff === "yes";
   const dim = s.configured ? "" : "opacity-60";
   const pill = (on: boolean, onText: string, offText: string, onCls: string) =>
     <span className={`inline-block text-[11px] font-bold rounded-md px-1.5 py-0.5 ${on ? onCls : "bg-[#F2F4F6] text-[#8B95A1]"}`}>{on ? onText : offText}</span>;
@@ -308,8 +309,9 @@ function SettingCells({ c }: { c: AbClient }) {
         {!s.configured && <div className="text-[10px] font-bold text-[#B45309]">설정 전 · 기본값</div>}
       </td>
       <td className={settingTd}>
-        <span className={dim}>{pill(staff, "있음", "없음", "bg-[#E7F7EE] text-[#15803D]")}</span>
-        <span className="ml-1 text-[10px] text-[#8B95A1]">{s.staff === "auto" ? "인건비 자동" : "직접"}</span>
+        {s.staffMonths.length
+          ? <span className="inline-block text-[11px] font-bold rounded-md px-1.5 py-0.5 bg-[#E7F7EE] text-[#15803D]" title="이 달에 거래한 건은 직원 있음(811 복리후생비), 나머지 달은 812 여비교통비">{monthsText(s.staffMonths)} 있음</span>
+          : <span className="inline-block text-[11px] font-bold rounded-md px-1.5 py-0.5 bg-[#F2F4F6] text-[#8B95A1]" title="이번 과세기간 급여 자료 없음 → 음식·카페 812 여비교통비">없음</span>}
       </td>
       <td className={settingTd}><span className={dim}>{pill(s.vehicleDeduct, "공제", "불공제", "bg-[#E8F3FF] text-[#1B64DA]")}</span></td>
       <td className={settingTd}><span className={dim}>{pill(s.deemedPurchase, "대상", "아님", "bg-[#F5F3FF] text-[#6D28D9]")}</span></td>
@@ -338,7 +340,7 @@ function SidePanel({ c, job, alerts, readonly, onClose, onCancel, onResolve, onS
   c: AbClient; job?: AbJob; alerts: AbAlert[]; readonly: boolean; onClose: () => void;
   onCancel: (id: number) => void; onResolve: (id: number) => void; onSave: (s: AutobookSettingInput) => void;
 }) {
-  const [s, setS] = useState<AutobookSettingInput>({ staff: c.setting.staff, vehicleDeduct: c.setting.vehicleDeduct, deemedPurchase: c.setting.deemedPurchase, foodAccount: c.setting.foodAccount, industry: c.setting.industry, memo: c.setting.memo });
+  const [s, setS] = useState<AutobookSettingInput>({ vehicleDeduct: c.setting.vehicleDeduct, deemedPurchase: c.setting.deemedPurchase, foodAccount: c.setting.foodAccount, industry: c.setting.industry, memo: c.setting.memo });
   const Tog = <T extends string | boolean>({ value, opts, on }: { value: T; opts: [T, string][]; on: (v: T) => void }) => (
     <span className="inline-flex bg-[#F2F4F6] rounded-lg p-0.5">{opts.map(([v, l]) => <button key={String(v)} disabled={readonly} onClick={() => on(v)} className={`px-2.5 h-6 rounded-md text-[11.5px] font-bold ${value === v ? "bg-white text-[#191F28] shadow-sm" : "text-[#8B95A1]"}`}>{l}</button>)}</span>
   );
@@ -356,8 +358,8 @@ function SidePanel({ c, job, alerts, readonly, onClose, onCancel, onResolve, onS
 
       <div className="mt-4 text-[12.5px] font-bold text-[#4E5968] mb-1">자동기장 설정</div>
       <div className={row}>업종 <input disabled={readonly} value={s.industry ?? ""} onChange={e => setS({ ...s, industry: e.target.value })} placeholder={c.industry || "종목"} className="w-[170px] h-7 rounded-lg border border-[#E5E8EB] px-2 text-[12px] text-right outline-none" /></div>
-      <div className={row}>직원 <Tog value={s.staff} opts={[["auto", `자동(${c.setting.staffAuto ? "있음" : "없음"})`], ["yes", "있음"], ["no", "없음"]]} on={v => setS({ ...s, staff: v })} /></div>
-      <div className="text-[10.5px] text-[#8B95A1] -mt-1 mb-1">자동 = 최근 6개월 급여(근로소득) 인원으로 판단 · 음식·카페 있음 811 / 없음 812</div>
+      <div className={row}>직원 <span className="text-[12px] font-bold text-[#333D4B]">{c.setting.staffMonths.length ? `${monthsText(c.setting.staffMonths)} 급여 있음` : "급여 자료 없음"}</span></div>
+      <div className="text-[10.5px] text-[#8B95A1] -mt-1 mb-1">거래한 달마다 그 달 근로소득 급여가 있으면 음식·카페 811 복리후생비, 없으면 812 여비교통비 (자동, 바꿀 수 없음)</div>
       <div className={row}>차량 부가세 <Tog value={s.vehicleDeduct} opts={[[true, "공제"], [false, "불공제"]]} on={v => setS({ ...s, vehicleDeduct: v })} /></div>
       <div className={row}>의제매입 <Tog value={s.deemedPurchase} opts={[[true, "대상"], [false, "아님"]]} on={v => setS({ ...s, deemedPurchase: v })} /></div>
       <div className={row}>마트·식자재 <Tog value={s.foodAccount} opts={[["146", "146 상품"], ["830", "830 소모품비"]]} on={v => setS({ ...s, foodAccount: v })} /></div>

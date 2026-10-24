@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getClientScopeWhere } from "@/lib/client-scope";
 import { kstToday } from "@/lib/bookkeeping";
-import { staffAutoMap, parseSchedule, AGENT_ONLINE_MS } from "@/lib/autobook";
+import { staffMonthsMap, parseSchedule, periodFromFor, AGENT_ONLINE_MS } from "@/lib/autobook";
 import { AutobookBoard, type AbClient, type AbJob, type AbAlert } from "./AutobookBoard";
 
 /**
@@ -30,8 +30,8 @@ export default async function AutobookPage({ searchParams }: { searchParams: Pro
     orderBy: { name: "asc" },
   });
   const ids = clientsRaw.map(c => c.id);
-  const [staffAuto, jobsRaw, alertsRaw, agent] = await Promise.all([
-    staffAutoMap(ids, focus),
+  const [staffMonths, jobsRaw, alertsRaw, agent] = await Promise.all([
+    staffMonthsMap(ids, periodFromFor(focus).slice(0, 7), focus), // 과세기간 시작 달 ~ 기준 달, 급여가 있는 달
     prisma.autobookJob.findMany({
       where: { clientId: { in: ids }, yearMonth: { startsWith: year } },
       orderBy: { id: "asc" },
@@ -46,7 +46,7 @@ export default async function AutobookPage({ searchParams }: { searchParams: Pro
       id: c.id, name: c.name, corporate: c.clientType === "corporate", industry: s?.industry || c.bizItem || c.bizCategory || "",
       assignedUserName: c.assignedUser?.name ?? null, hasCno: !!c.wehagoCno, hasDrive: !!c.driveFolderId,
       setting: {
-        staff: (s?.staff as "auto" | "yes" | "no") ?? "auto", staffAuto: staffAuto.get(c.id) ?? false,
+        staffMonths: staffMonths.get(c.id) ?? [],
         vehicleDeduct: s?.vehicleDeduct ?? false, deemedPurchase: s?.deemedPurchase ?? false,
         foodAccount: (s?.foodAccount as "146" | "830") ?? "146", industry: s?.industry ?? "", memo: s?.memo ?? "",
         configured: !!s,

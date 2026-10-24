@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { agentFromRequest, ACTIVE_STATUS, staffAutoMap, parseSchedule } from "@/lib/autobook";
+import { agentFromRequest, ACTIVE_STATUS, staffMonthsMap, parseSchedule } from "@/lib/autobook";
 
 // GET /api/autobook/agent/jobs  (Authorization: Bearer <실행기 토큰>)
 // 이 직원이 예약한 할 일(대기·수집 끝·진행 중)과 거래처 정보·판단 설정을 돌려준다.
@@ -21,14 +21,17 @@ export async function GET(req: NextRequest) {
       },
     },
   });
-  const staffAuto = await staffAutoMap([...new Set(jobs.map(j => j.clientId))], jobs[0]?.yearMonth ?? new Date().toISOString().slice(0, 7));
+  // 과세기간 시작 달 ~ 처리분 달까지 급여가 있는 달 (예약마다 기간이 같으므로 가장 넓게 한 번에 조회)
+  const fromYM = jobs.reduce((a, j) => (j.periodFrom.slice(0, 7) < a ? j.periodFrom.slice(0, 7) : a), "9999-12");
+  const toYM = jobs.reduce((a, j) => (j.yearMonth > a ? j.yearMonth : a), "0000-01");
+  const staffMonths = jobs.length ? await staffMonthsMap([...new Set(jobs.map(j => j.clientId))], fromYM, toYM) : new Map<number, string[]>();
 
   return NextResponse.json({
     ok: true,
     schedule: parseSchedule(auth.agent.schedule),
     jobs: jobs.map(j => {
       const s = j.client.autobookSetting;
-      const staff = !s || s.staff === "auto" ? staffAuto.get(j.clientId) ?? false : s.staff === "yes";
+      const months = (staffMonths.get(j.clientId) ?? []).filter(m => m >= j.periodFrom.slice(0, 7) && m <= j.yearMonth);
       return {
         id: j.id, status: j.status, mode: j.mode, yearMonth: j.yearMonth, periodFrom: j.periodFrom, steps: JSON.parse(j.steps || "{}"),
         client: {
@@ -39,7 +42,8 @@ export async function GET(req: NextRequest) {
         setting: {
           개인사업자: j.client.clientType !== "corporate",
           업종: s?.industry || j.client.bizItem || j.client.bizCategory || "",
-          직원: staff, 직원판단: !s || s.staff === "auto" ? "인건비" : "직접",
+          // 직원: 거래한 달이 직원월에 있으면 있음(811), 없으면 없음(812). 직원(전체)은 보고서 머리말용
+          직원월: months, 직원: months.length > 0,
           차량공제: s?.vehicleDeduct ?? false,
           의제매입: s?.deemedPurchase ?? false,
           식자재계정: s?.foodAccount ?? "146",

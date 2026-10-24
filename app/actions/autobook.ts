@@ -18,8 +18,8 @@ const writer = async () => {
   return s;
 };
 
+// 직원 유무는 설정하지 않는다: 거래한 달마다 그 달 급여(근로소득) 자료로 자동 판단 (DB staff 칸은 항상 auto)
 export type AutobookSettingInput = {
-  staff: "auto" | "yes" | "no";
   vehicleDeduct: boolean;
   deemedPurchase: boolean;
   foodAccount: "146" | "830";
@@ -31,9 +31,9 @@ export type AutobookSettingInput = {
 export async function saveAutobookSetting(clientId: number, input: AutobookSettingInput) {
   const session = await writer();
   await assertInScope(session, [clientId]);
-  if (!["auto", "yes", "no"].includes(input.staff) || !["146", "830"].includes(input.foodAccount)) throw new Error("BAD_INPUT");
+  if (!["146", "830"].includes(input.foodAccount)) throw new Error("BAD_INPUT");
   const data = {
-    staff: input.staff, vehicleDeduct: !!input.vehicleDeduct, deemedPurchase: !!input.deemedPurchase, foodAccount: input.foodAccount,
+    staff: "auto", vehicleDeduct: !!input.vehicleDeduct, deemedPurchase: !!input.deemedPurchase, foodAccount: input.foodAccount,
     industry: input.industry?.trim() || null, memo: input.memo?.trim() || null, updatedByUserId: session.id,
   };
   await prisma.autobookSetting.upsert({ where: { clientId }, update: data, create: { clientId, ...data } });
